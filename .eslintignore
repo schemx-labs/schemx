@@ -10,9 +10,9 @@ coverage/*
 *.min.js
 
 # 忽略特定的测试文件
-**/__tests__/**
-**/*.test.*
-**/*.spec.*
+# **/__tests__/**
+# **/*.test.*
+# **/*.spec.*
 
 # 忽略指定文件
 scripts/fix.js

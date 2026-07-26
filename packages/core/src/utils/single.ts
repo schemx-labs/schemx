@@ -29,6 +29,7 @@ export function createStrictSingleton<T, Args extends any[] = []>(
   factory: (...args: Args) => T
 ) {
   let instance: T | undefined
+
   let initialized = false
 
   /**

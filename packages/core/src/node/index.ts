@@ -13,10 +13,7 @@ export {
   createRootRuntimeNode,
 } from "./runtimeNode"
 
-export {
-  createRuntimeResources,
-  deleteNodeResources,
-} from "./resources"
+export { createRuntimeResources, deleteNodeResources } from "./resources"
 
 export type {
   ContainerRuntimeNode,
@@ -50,10 +47,7 @@ export type {
 
 export { createRuntimeNodeManager } from "./runtimeNodeManager"
 
-export {
-  createRuntimeLifecycle,
-  type RuntimeLifecycle,
-} from "./runtimeLifecycle"
+export { createRuntimeLifecycle, type RuntimeLifecycle } from "./runtimeLifecycle"
 
 export {
   createRuntimeDispose,

@@ -236,6 +236,7 @@ export function createField<
    */
   const setInitialValue = (value: FieldValue<TValues, TName>): void => {
     const result = {} as Partial<TValues>
+
     setByPath<TValues, TName, FieldValue<TValues, TName>>(result, name, value)
     form.setInitialValues(result)
   }

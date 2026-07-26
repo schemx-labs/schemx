@@ -8,12 +8,7 @@
 
 import { describe, expect, it } from "vitest"
 
-import {
-  batchUpdates,
-  createSignalEffect,
-  createSignal,
-  createSignalMap,
-} from "../index"
+import { batchUpdates, createSignalEffect, createSignal, createSignalMap } from "../index"
 
 // ReactiveMap 的基础读写、迭代、延迟追踪、批量更新和删除通知
 describe("ReactiveMap", () => {

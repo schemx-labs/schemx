@@ -60,7 +60,9 @@ function createFieldHook<TValues extends Values = Values>(
   const field = createField<TValues>(form, name)
 
   const fieldValue = shallowRef(field.getValue())
+
   const fieldErrors = shallowRef(field.getErrors())
+
   const fieldPending = shallowRef(field.isPending())
 
   const dispose = field.effect(() => {

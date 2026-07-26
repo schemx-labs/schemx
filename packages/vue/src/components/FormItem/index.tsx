@@ -85,7 +85,9 @@ const FieldFormItem = defineComponent({
 
   setup(props, { slots }) {
     const schemaRef = toRef(props, "schema")
+
     const form = useFormContext<Values>()
+
     const formContext = useFormConfigContext()
 
     const schema = () => schemaRef.value
@@ -185,7 +187,9 @@ const FieldFormItem = defineComponent({
       }
 
       const labelAlign = schema().labelAlign || formContext.labelAlign
+
       const labelWidth = schema().labelWidth || formContext.labelWidth
+
       const colon = schema().colon ?? formContext.colon
 
       return (
@@ -222,9 +226,11 @@ const FieldFormItem = defineComponent({
 
       // 提取子渲染器插槽（fieldName:slotName 格式）
       const childSlots = extractChildSlots(normalizeNameKey(schema().name), slots)
+
       const columnElement = h(component, componentProps.value, childSlots)
 
       const contentSlot = resolveSlot(slots, `${schema().name}Content`)
+
       if (contentSlot) {
         return contentSlot({
           ...schema(),

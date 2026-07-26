@@ -114,6 +114,7 @@ function recreateContainerEffect<TValues extends Values>(
   }
 
   const effectDispose = node.dispose.child()
+
   node.containerEffectDispose = effectDispose
 
   createContainerDependenciesEffect({
@@ -135,6 +136,7 @@ function hasSameDynamicProps<TValues extends Values>(
   nextDescriptor: StatefulContainerDescriptor<TValues>
 ): boolean {
   const previous = previousDescriptor?.dynamicProps
+
   const next = nextDescriptor.dynamicProps
 
   if (!previous || !next) {

@@ -46,6 +46,7 @@ export function createCompile<TValues extends Values = Values>(
   } = {}
 ): Compile<TValues> {
   const defaultProps = options.defaultProps ?? {}
+
   const compileOptions: CompileOptions<TValues> = {
     // createForm 传入的是与 context 共享的已解析对象，必须保留其引用；独立调用
     // createCompile 时才在此补齐内置默认值。
@@ -55,6 +56,7 @@ export function createCompile<TValues extends Values = Values>(
     defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
   }
+
   const compileCache = createCompileCache<TValues>()
 
   /**
@@ -100,7 +102,9 @@ export function createCompile<TValues extends Values = Values>(
 
       // 命中缓存且版本未过期时直接复用之前的 descriptor
       const locationKey = createCompileLocationKey(parentKey, i)
+
       const locationEntries = compileCache.entries.get(schema)
+
       const cached = locationEntries?.get(locationKey)
 
       if (cached && cached.version === compileCache.version) {

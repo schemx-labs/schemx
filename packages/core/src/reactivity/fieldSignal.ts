@@ -201,11 +201,15 @@ export function createFieldSignal<TValue>(
   const valueSignal = createSignal<TValue | undefined>(
     value === undefined ? undefined : cloneDeep(value)
   )
+
   const initialSignal = createSignal<TValue | undefined>(
     initialValue === undefined ? undefined : cloneDeep(initialValue)
   )
+
   const touchedSignal = createSignal(touched ?? false)
+
   const pendingSignal = createSignal(pending ?? false)
+
   const pendingMessageSignal = createSignal<string[]>([])
 
   /**

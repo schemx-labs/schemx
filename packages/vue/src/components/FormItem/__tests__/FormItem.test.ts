@@ -543,6 +543,7 @@ describe("FormItem 集成测试", () => {
     expect(wrapper.find(".schemx-item__required").exists()).toBe(false)
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
+
     await input.setValue("")
     await input.trigger("blur")
 
@@ -586,6 +587,7 @@ describe("FormItem 集成测试", () => {
     expect(wrapper.find(".schemx-item__required").exists()).toBe(true)
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
+
     await input.setValue("")
     await input.trigger("blur")
 

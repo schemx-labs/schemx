@@ -92,6 +92,7 @@ class StoreImpl<TValues extends Values = Values> {
    */
   constructor(options: StoreOptions<TValues> = {}) {
     const initialValues = (options.initialValues ?? {}) as Partial<TValues>
+
     this.initialValues = cloneDeep(initialValues)
 
     // 为初始值的每个叶子路径创建 reactive value
@@ -125,8 +126,7 @@ class StoreImpl<TValues extends Values = Values> {
     const initialValue = getByPath<TValues, TName>(this.initialValues, path)
 
     let signal = this.fieldSignals.peek(path) as
-      | FieldSignal<FieldValue<TValues, TName>>
-      | undefined
+      FieldSignal<FieldValue<TValues, TName>> | undefined
 
     if (!signal) {
       signal = createFieldSignal<FieldValue<TValues, TName>>({
@@ -157,8 +157,7 @@ class StoreImpl<TValues extends Values = Values> {
     path: TName
   ): FieldValue<TValues, TName> | undefined {
     const signal = this.fieldSignals.get(path) as
-      | FieldSignal<FieldValue<TValues, TName>>
-      | undefined
+      FieldSignal<FieldValue<TValues, TName>> | undefined
 
     return signal?.value.value
   }
@@ -256,8 +255,7 @@ class StoreImpl<TValues extends Values = Values> {
     path: TName
   ): FieldValue<TValues, TName> | undefined {
     const signal = this.fieldSignals.peek(path) as
-      | FieldSignal<FieldValue<TValues, TName>>
-      | undefined
+      FieldSignal<FieldValue<TValues, TName>> | undefined
 
     return signal?.value.peek()
   }
@@ -309,8 +307,7 @@ class StoreImpl<TValues extends Values = Values> {
     path: TName
   ): FieldValue<TValues, TName> | undefined {
     const signal = this.fieldSignals.peek(path) as
-      | FieldSignal<FieldValue<TValues, TName>>
-      | undefined
+      FieldSignal<FieldValue<TValues, TName>> | undefined
 
     if (signal) {
       return signal.initialValue.peek()
@@ -383,14 +380,17 @@ class StoreImpl<TValues extends Values = Values> {
    */
   setInitialValues(values: Partial<TValues>): void {
     const paths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(values)
+
     if (!paths.length) return
 
     batchUpdates(() => {
       for (const path of paths) {
         const next = getByPath<TValues, typeof path>(values, path)
+
         setByPath(this.initialValues, path, next)
 
         const signal = this.getOrCreateFieldSignal(path)
+
         signal.setInitialValue(next)
         signal.setTouched(!isEqual(signal.value.peek(), signal.initialValue.peek()))
       }
@@ -664,6 +664,7 @@ class StoreImpl<TValues extends Values = Values> {
     const resetValues = cloneDeep(values ?? this.initialValues)
 
     const nextPaths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(resetValues)
+
     const nextPathSet = new Set(nextPaths)
 
     batchUpdates(() => {

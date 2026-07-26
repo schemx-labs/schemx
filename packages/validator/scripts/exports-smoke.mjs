@@ -9,7 +9,6 @@ import { strict as assert } from "node:assert"
 
 // [子路径入口, 期望导出的函数名]；与 package.json exports 的运行时入口保持一致。
 const entries = [
-  ["@schemx/validator/zod", "createZodAdapter"],
   ["@schemx/validator/async-validator", "createAsyncValidatorAdapter"],
   ["@schemx/validator/preset", "createValidationAdapterPreset"],
 ]

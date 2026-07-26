@@ -109,10 +109,7 @@ describe("Validator", () => {
       valid: false,
       errors: [
         {
-          issues: [
-            { message: "原始规则" },
-            { message: "原始消息", code: "external" },
-          ],
+          issues: [{ message: "原始规则" }, { message: "原始消息", code: "external" }],
         },
       ],
     })

@@ -79,6 +79,7 @@
 
   const numberProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,

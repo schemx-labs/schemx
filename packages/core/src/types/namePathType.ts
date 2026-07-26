@@ -52,9 +52,9 @@ export type DeepNamePathArray<
         : never
     : Store extends any[] // 判断 Store 是否为数组
       ? // 数组路径：如 { a: { b: string }[] }
-          // 推导出：[a] | [a, number] | [a, number, b]
-          | [...ParentNamePath, number]
-          | DeepNamePathArray<Store[number], [...ParentNamePath, number]>
+        // 推导出：[a] | [a, number] | [a, number, b]
+        | [...ParentNamePath, number]
+        | DeepNamePathArray<Store[number], [...ParentNamePath, number]>
       : keyof Store extends never // unknown 类型兜底
         ? Store
         : {
@@ -62,13 +62,12 @@ export type DeepNamePathArray<
             // eslint-disable-next-line @typescript-eslint/ban-types
             [FieldKey in keyof Store]: Store[FieldKey] extends Function
               ? never // 排除函数类型属性
-              :
-                  | (ParentNamePath["length"] extends 0 ? FieldKey : never) // 顶层允许单独使用 key
-                  | [...ParentNamePath, FieldKey] // 拼接父级路径
-                  | DeepNamePathArray<
-                      Required<Store>[FieldKey],
-                      [...ParentNamePath, FieldKey]
-                    > // 递归子属性
+              : | (ParentNamePath["length"] extends 0 ? FieldKey : never) // 顶层允许单独使用 key
+                | [...ParentNamePath, FieldKey] // 拼接父级路径
+                | DeepNamePathArray<
+                    Required<Store>[FieldKey],
+                    [...ParentNamePath, FieldKey]
+                  > // 递归子属性
           }[keyof Store]
 
 /**
@@ -109,25 +108,25 @@ export type DeepNamePath<
   ? never
   : Store extends any[]
     ? // 数组路径：拼接数字索引并递归元素类型
-        | (Prefix extends "" ? `${number}` : `${Prefix}.${number}`)
-        | DeepNamePath<
-            Store[number],
-            Prefix extends "" ? `${number}` : `${Prefix}.${number}`,
-            [...Depth, 1]
-          >
+      | (Prefix extends "" ? `${number}` : `${Prefix}.${number}`)
+      | DeepNamePath<
+          Store[number],
+          Prefix extends "" ? `${number}` : `${Prefix}.${number}`,
+          [...Depth, 1]
+        >
     : Store extends object
       ? {
           // eslint-disable-next-line @typescript-eslint/ban-types
           [K in keyof Store & string]: Store[K] extends Function
             ? never // 排除函数类型属性
             : // 当前 key 路径
-                | (Prefix extends "" ? K : `${Prefix}.${K}`)
-                // 递归子属性
-                | DeepNamePath<
-                    Required<Store>[K],
-                    Prefix extends "" ? K : `${Prefix}.${K}`,
-                    [...Depth, 1]
-                  >
+              | (Prefix extends "" ? K : `${Prefix}.${K}`)
+              // 递归子属性
+              | DeepNamePath<
+                  Required<Store>[K],
+                  Prefix extends "" ? K : `${Prefix}.${K}`,
+                  [...Depth, 1]
+                >
         }[keyof Store & string]
       : never
 
@@ -186,8 +185,7 @@ type ArrayPathValueInner<T, P extends (string | number)[]> = P extends [
  * ```
  */
 export type PathValueByString<T, P extends string> =
-  | StringPathValueInner<T, P>
-  | undefined
+  StringPathValueInner<T, P> | undefined
 
 /**
  * 按数组路径从对象类型中提取值类型。
@@ -210,8 +208,7 @@ export type PathValueByString<T, P extends string> =
  * ```
  */
 export type PathValueByArray<T, P extends (string | number)[]> =
-  | ArrayPathValueInner<T, P>
-  | undefined
+  ArrayPathValueInner<T, P> | undefined
 
 /**
  * 按路径从对象类型中提取值类型。

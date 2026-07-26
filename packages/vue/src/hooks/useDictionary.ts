@@ -104,7 +104,9 @@ export const useDictionary = <
   const instance = useFormContext<TValues>()
 
   const list = ref<any[]>([])
+
   const loading = ref<boolean>(false)
+
   const error = ref<Error | undefined>(undefined)
 
   // 竞态控制：仅最新请求写入状态
@@ -126,7 +128,9 @@ export const useDictionary = <
    */
   const executeWithRetry = async (formValues: TValues): Promise<any> => {
     const maxRetries = options.retryCount ?? 0
+
     const retryDelay = options.retryInterval ?? 1000
+
     let lastError: Error = new Error("Unknown error")
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {

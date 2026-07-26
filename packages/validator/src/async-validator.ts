@@ -1,10 +1,6 @@
 import Schema from "async-validator"
 
-import { createRuleIdentity } from "./internal/identity"
-
 import type {
-  AdapterRule,
-  DefinedFieldValue,
   NamePath,
   ValidationAdapter,
   ValidationRule,
@@ -22,39 +18,50 @@ import type { Rule, RuleItem } from "async-validator"
  */
 export type AsyncValidatorDescriptor = RuleItem | readonly RuleItem[]
 
+const asyncValidatorDescriptorKeys = [
+  "type",
+  "required",
+  "pattern",
+  "min",
+  "max",
+  "len",
+  "enum",
+  "whitespace",
+  "fields",
+  "options",
+  "defaultField",
+  "transform",
+  "message",
+  "asyncValidator",
+  "validator",
+] as const
+
 /**
  * async-validator 校验规则适配器。
  *
- * `rule()` 创建的规则仅能被创建它的 adapter 实例识别。
+ * async-validator descriptor 是自描述规则：注册 adapter 后可直接放入字段 `rules`。
  */
-export interface AsyncValidatorValidationAdapter {
+export interface AsyncValidatorValidationAdapter extends ValidationAdapter<AsyncValidatorDescriptor> {
   /**
    * 供 Form 配置识别此 adapter 的固定标识。
    */
   readonly id: "async-validator"
   /**
-   * 将 descriptor 包装为当前 adapter 实例私有品牌的规则。
-   *
-   * @param input - 单字段 async-validator descriptor。
-   * @returns 只能由当前 adapter 实例识别的规则包装对象。
-   */
-  rule(input: AsyncValidatorDescriptor): AdapterRule
-  /**
-   * 判断值是否由当前 adapter 实例的 `rule()` 创建。
+   * 判断值是否为合法的 async-validator 单字段 descriptor。
    *
    * @param value - 待识别的规则值。
-   * @returns 值是否带有当前实例的私有品牌。
+   * @returns 值是否为 descriptor 对象或仅含 descriptor 对象的数组。
    */
-  isRule(value: unknown): value is AdapterRule
+  isRule(value: unknown): value is AsyncValidatorDescriptor
   /**
-   * 把 async-validator 品牌规则解析为原生校验规则。
+   * 把 async-validator descriptor 解析为原生校验规则。
    *
    * 直接复用 Core `ValidationAdapter<AsyncValidatorDescriptor>` 的 `resolve` 签名，
    * 与 Core 契约完全一致。
    *
    * @typeParam TValues - 表单值类型。
    * @typeParam TName - 当前字段路径。
-   * @param rule - 由当前 adapter `rule()` 创建的品牌规则。
+   * @param rule - 已通过 `isRule()` 识别的 descriptor。
    * @param context - 当前字段的校验配置。
    * @returns 单条原生校验规则，由 Validator 执行 descriptor 并映射错误。
    */
@@ -69,28 +76,26 @@ export interface AsyncValidatorValidationAdapter {
  * @example
  * ```ts
  * const asyncValidator = createAsyncValidatorAdapter()
- * const emailRule = asyncValidator.rule({ type: "email", message: "邮箱格式错误" })
+ * const emailRule = { type: "email", message: "邮箱格式错误" }
  * ```
  *
  */
 export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
-  const identity = createRuleIdentity<AsyncValidatorDescriptor>("async-validator")
-
-  const rule = (input: AsyncValidatorDescriptor): AdapterRule => identity.create(input)
-  const isRule = identity.isRule
-
   const resolve: AsyncValidatorValidationAdapter["resolve"] = <
+    TValue,
     TValues extends Values,
     TName extends NamePath<TValues>,
   >(
-    input: AdapterRule | AsyncValidatorDescriptor
-  ) => [
-    createAsyncValidatorValidationRule<TValues, TName>(
-      identity.extract(input, assertDescriptor)
-    ),
-  ]
+    input: unknown
+  ) => {
+    if (!isAsyncValidatorDescriptor(input)) {
+      throw new TypeError("async-validator descriptor 必须为对象或对象数组")
+    }
 
-  return { id: "async-validator", rule, isRule, resolve }
+    return [createAsyncValidatorValidationRule<TValue, TValues, TName>(input)]
+  }
+
+  return { id: "async-validator", isRule: isAsyncValidatorDescriptor, resolve }
 }
 
 /**
@@ -105,11 +110,10 @@ export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
  * @returns 供 Validator 执行的原生校验规则。
  */
 function createAsyncValidatorValidationRule<
+  TValue,
   TValues extends Values,
   TName extends NamePath<TValues>,
->(
-  descriptor: AsyncValidatorDescriptor
-): ValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName> {
+>(descriptor: AsyncValidatorDescriptor): ValidationRule<TValue, TValues, TName> {
   return {
     async validate(value, context) {
       return validateDescriptor(descriptor, value, context)
@@ -133,8 +137,10 @@ async function validateDescriptor(
 
   // async-validator 以字符串 key 注册 descriptor，需将字段路径转为字符串。
   const name = String(context.name)
+
   // 保留其他字段，供 async-validator 的自定义 validator 读取完整表单上下文。
   const source = { ...context.values, [name]: value }
+
   const schema = new Schema({ [name]: descriptor as Rule })
 
   try {
@@ -155,15 +161,16 @@ async function validateDescriptor(
  *
  * descriptor 可为单条对象或对象数组；数组中的每个元素也必须为对象。
  */
-function assertDescriptor(value: unknown): asserts value is AsyncValidatorDescriptor {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    (Array.isArray(value) &&
-      value.some((item) => typeof item !== "object" || item === null))
-  ) {
-    throw new TypeError("async-validator descriptor 必须为对象或对象数组")
+function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDescriptor {
+  if (value === null || typeof value !== "object") {
+    return false
   }
+
+  const rules = Array.isArray(value) ? value : [value]
+
+  return rules.every((item) =>
+    Object.keys(item).some((i) => asyncValidatorDescriptorKeys.includes(i as any))
+  )
 }
 
 /**
@@ -174,6 +181,7 @@ function assertDescriptor(value: unknown): asserts value is AsyncValidatorDescri
  */
 function toValidationResult(error: unknown): ValidationRuleResult {
   const errors = getValidationErrors(error)
+
   // 以 async-validator 报告的字段路径作为 issue 的 code，便于调用方定位失败来源。
   const issues = errors.map<ValidationRuleIssue>((item) => ({
     message: item.message ?? "校验失败",
@@ -181,7 +189,7 @@ function toValidationResult(error: unknown): ValidationRuleResult {
     cause: item,
   }))
 
-  if (issues.length > 0) return { valid: false, issues }
+  if (issues.length > 0) return { valid: false, issues: [issues[0], ...issues.slice(1)] }
 
   // error 不含可识别的 async-validator 校验失败，视为非预期异常重新抛出。
   throw error

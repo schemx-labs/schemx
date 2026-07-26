@@ -86,10 +86,12 @@
   const placeholder = computed(() => props.placeholder || "请选择")
 
   const fieldNames = computed<CascaderFieldNames>(() => props.fieldNames)
+
   const title = computed(() => props.title ?? placeholder.value)
 
   const cascaderProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -201,7 +203,9 @@
     if (props.readonly || props.disabled) return
 
     const valueKey = fieldNames.value.value || "value"
+
     const valuePath = data.selectedOptions.map((i) => i[valueKey])
+
     const value = props.emitPath ? valuePath : [data.value]
 
     cascaderModel.value = value

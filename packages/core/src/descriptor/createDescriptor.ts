@@ -62,6 +62,7 @@ export function createDescriptor<TValues extends Values = Values>(
   context: DescriptorContext<TValues>
 ): FormDescriptor<TValues> {
   const key = createDescriptorKey(schema, index, parentKey)
+
   // 根据 schema 类型分发到不同的 descriptor 构建函数
   if (isGroupSchema(schema)) {
     // 分组：递归处理所有子节点
@@ -130,6 +131,7 @@ function createGroupDescriptor<TValues extends Values = Values>(
     disabled: _disabled,
     ...schemaWithoutChildren
   } = schema
+
   const staticState = buildNormalizedContainerState(schema, context)
 
   return {
@@ -278,14 +280,19 @@ function buildNormalizedFieldSchema<TValues extends Values>(
 
   // defaultProps 已在 createForm 装配阶段合并内置、全局与 Form 实例配置。
   const mergedVisible = visible ?? defaultProps.visible
+
   const mergedReadonly = readonly ?? defaultProps.readonly
+
   const mergedDisabled = disabled ?? defaultProps.disabled
+
   const mergedContentAlign = contentAlign ?? defaultProps.contentAlign
+
   const mergedAlign = mergedReadonly ? "right" : (cp?.align ?? mergedContentAlign)
 
   const mergedValidationTrigger = validationTrigger ?? defaultProps.validationTrigger
 
   const mergedPlaceholder = getPlaceholder(schema)
+
   const mergedRequired = required ?? defaultProps.required
 
   const mergedReadonlyPlaceholder = cp?.readonlyPlaceholder ?? readonlyPlaceholder

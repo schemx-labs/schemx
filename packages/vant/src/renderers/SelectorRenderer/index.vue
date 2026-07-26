@@ -65,6 +65,7 @@
   const selectorValue = defineModel<SelectValue>("value")
 
   const labelName = computed(() => props.fieldNames?.label || "label")
+
   const valueName = computed(() => props.fieldNames?.value || "value")
 
   const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
@@ -75,6 +76,7 @@
 
   const selectorProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -88,6 +90,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       style: _attrsStyle,
       value: _attrsValue,

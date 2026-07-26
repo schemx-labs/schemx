@@ -149,6 +149,7 @@ export function findTreeItem(
   } = {}
 ): FindTreeItemResult {
   const { labelKey = "label", valueKey = "value", childrenKey = "children" } = options
+
   const result: FindTreeItemResult = { node: null, labels: [], values: [] }
 
   if (!Array.isArray(tree) || targetValue === undefined || targetValue === null) {
@@ -162,6 +163,7 @@ export function findTreeItem(
   ): FindTreeItemResult | null => {
     for (const node of nodes) {
       const currentLabels = [...labels, node[labelKey]]
+
       const currentValues = [...values, node[valueKey]]
 
       if (node[valueKey] === targetValue) {
@@ -203,7 +205,9 @@ export function getFileName(url: string | undefined | null): string {
 
   try {
     const cleanUrl = url.split("?")[0].split("#")[0]
+
     const parts = cleanUrl.split("/")
+
     const fileName = parts[parts.length - 1]
 
     return fileName || String(Date.now())

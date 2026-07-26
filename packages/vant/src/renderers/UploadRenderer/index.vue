@@ -76,6 +76,7 @@
   })
 
   const attrs = useAttrs()
+
   const uploadAttrs = attrs as Record<string, any>
 
   const uploadValue = defineModel<UploadValue>("value")
@@ -149,22 +150,28 @@
   )
 
   const readonlyComputed = computed(() => props.readonly)
+
   const disabledComputed = computed(() => props.disabled)
+
   const multiple = computed(() => {
     const rendererProps = props as typeof props & { multiple?: boolean }
 
     return rendererProps.multiple ?? uploadAttrs.multiple ?? true
   })
+
   const deletableComputed = computed(() =>
     readonlyComputed.value ? false : props.deletable
   )
+
   const showUploadComputed = computed(() =>
     readonlyComputed.value || props.disableUpload ? false : props.showUpload
   )
+
   const uploaderReadonlyComputed = computed(() => readonlyComputed.value)
 
   const uploadProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -184,6 +191,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

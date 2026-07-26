@@ -137,6 +137,7 @@ export function createAbortableTaskRunner<TValue = void>(
 
   // 单调递增版本号，每次 run() 递增，用于判断任务是否已过期
   let version = 0
+
   // 当前正在执行的任务的 AbortController
   let controller: AbortController | null = null
 
@@ -153,9 +154,7 @@ export function createAbortableTaskRunner<TValue = void>(
     currentController: AbortController
   ): boolean => {
     return (
-      ownScope.disposed ||
-      currentController.signal.aborted ||
-      currentVersion !== version
+      ownScope.disposed || currentController.signal.aborted || currentVersion !== version
     )
   }
 
@@ -214,6 +213,7 @@ export function createAbortableTaskRunner<TValue = void>(
     }
 
     const currentVersion = ++version
+
     controller?.abort()
     controller = new AbortController()
     options.onStart?.(controller)

@@ -212,6 +212,7 @@ export function createSchemas<TValues extends Values = Values>(
    */
   const subscribe = (listener: SchemxSchemasListener<TValues>): (() => void) => {
     let isInitialNotify = true
+
     const unsubscribe = source.subscribe((value) => {
       if (isInitialNotify) {
         isInitialNotify = false

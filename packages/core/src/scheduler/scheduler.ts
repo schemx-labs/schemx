@@ -306,6 +306,7 @@ export function createScheduler(): Scheduler {
     }
 
     const resolvers = Array.from(idleResolvers)
+
     idleResolvers.clear()
     resolvers.forEach((resolve) => resolve(true))
   }

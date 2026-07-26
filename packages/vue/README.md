@@ -59,7 +59,7 @@ import "@schemx/vue/style.css"
 </template>
 ```
 
-这里同时传入 `initialValues` 是有意为之：当前版本会在字段变化后发出 `update:modelValue`，但不会用传入的 `modelValue` 初始化内部表单，也不会监听外部 `modelValue` 的后续变化。详见下一节的受控行为说明。
+这里同时传入 `initialValues` 是为了在 `modelValue` 为空时提供初始值。非空的 `modelValue` 会优先作为内部表单的初始快照；之后外部替换 `modelValue` 也会同步到内部表单。详见下一节的受控行为说明。
 
 ## Schemx 组件
 
@@ -80,11 +80,11 @@ console.log(Schemx === schemxForm) // true
 | Prop                     | 类型                                             | 默认值                        | 说明                                                                                                                        |
 | ------------------------ | ------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `schemas`                | `SchemxField<T>[]`                               | `[]`                          | 表单 Schema。类型层要求传入，运行时缺省为空数组                                                                             |
-| `modelValue`             | `T`                                              | `{}`                          | `v-model` 的输入端；当前实现不使用它初始化或反向同步内部实例，见下文                                                        |
+| `modelValue`             | `T`                                              | `{}`                          | `v-model` 的输入端；非空值参与初始快照，后续替换会同步到内部表单，字段变化会通过 `update:modelValue` 输出                 |
 | `initialValues`          | `T`                                              | `{}`                          | 创建内部表单时的初始值，也是 `reset()` 的还原基准                                                                           |
-| `form`                   | `SchemxInstance<T>`                              | `undefined`                   | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件 Props 回调和 `v-model` 输出不会接入该实例 |
+| `form`                   | `SchemxInstance<T>`                              | `undefined`                   | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件级回调不会写入该实例，`v-model` 仍监听实例变化 |
 | `rendererRegistry`       | `RendererRegistry`                               | 全局 `rendererRegistry`       | 当前表单使用的 Renderer Registry                                                                                            |
-| `defaultRendererType`    | `string`                                         | `undefined`                   | 类型上用于设置默认 Renderer；当前 Vue 创建路径总会传入 Registry，因此该 Prop 实际不会设置 Registry 的默认类型，见下文       |
+| `defaultRendererType`    | `SchemxRendererKey`                              | `undefined`                   | 创建内部表单且未传 `rendererRegistry` 时的默认 Renderer 类型；Vue 全局 Registry 存在时由该 Registry 的 fallback 决定       |
 | `validationRuleRegistry` | `ValidationRuleRegistry`                         | 全局 `validationRuleRegistry` | 当前表单使用的校验规则 Registry                                                                                             |
 | `required`               | `boolean \| RequiredOptions`                     | `undefined`                   | 独立声明必填语义；普通 `rules` 不会推导必填或显示星号                                                                       |
 | `readonly`               | `boolean`                                        | `undefined`                   | 表单级只读默认值；字段自身配置优先                                                                                          |
@@ -102,20 +102,20 @@ console.log(Schemx === schemxForm) // true
 | `onValuesChange`         | `(changedValues, latestSnapshot) => void`        | `undefined`                   | 字段值变化后的回调 Prop                                                                                                     |
 | `onFieldsChange`         | `(changedFields, allFields) => void`             | `undefined`                   | 字段路径变化后的回调 Prop                                                                                                   |
 | `class`                  | `string`                                         | `""`                          | 添加到根 `.schemx` 元素的类名                                                                                               |
-| `style`                  | `CSS.Properties`                                 | `{}`                          | 类型已声明，但当前根元素没有绑定该值；不要依赖它产生内联样式                                                                |
+| `style`                  | `StyleValue`                                     | `{}`                          | 绑定到根 `.schemx` 元素                                                                                                      |
 
 上述默认配置都会参与 core 的字段规范化，通常按字段配置 → 表单 Prop → core 固定默认值合并。必填只能通过 `required: true` 或 `RequiredOptions` 表达；普通 `rules` 只负责执行校验，不会显示必填星号。传入 `form` 时，`initialValues`、Registry 和所有表单回调都由外部实例的创建者配置；组件不会用同名 Props 重建或包装外部实例。
 
-当前 `useForm()` 总会把显式传入的 `rendererRegistry` 或 Vue 包的全局 `rendererRegistry` 传给 core。core 只有在没有 Registry 时才用 `defaultRendererType` 创建新 Registry，因此 `<Schemx :default-renderer-type="...">` 和 Vue `useForm({ defaultRendererType: ... })` 中的该值当前实际被忽略。需要默认回退类型时，请创建已经设置默认类型的独立 Registry，例如 `createRendererRegistry("input")`，再通过 `rendererRegistry` 传入；外部 `form` 则应在创建实例时完成配置。
+当未显式传入 `rendererRegistry` 时，Vue `useForm()` 会使用全局 Registry；该 Registry 默认以 `input` 作为 fallback。因此若要让 `<Schemx :default-renderer-type="...">` 生效，应传入独立 Registry，或直接对 Vue 导出的全局 Registry 调用 `setFallback()`。传入外部 `form` 时，Renderer 配置由该实例决定。
 
 ### `v-model`、`initialValues` 与事件
 
-`initialValues` 是内部 Store 的初始快照和 `reset()` 基准。`modelValue` 按 Vue 约定对应 `v-model`，但当前组件实现是单向输出而非完整受控模式：
+`initialValues` 是内部 Store 的初始快照和 `reset()` 基准。`modelValue` 按 Vue 约定作为输入和输出：
 
-- 创建内部实例时只传递 `initialValues`，不会把 `modelValue` 合并进去。
-- 外部替换 `modelValue` 后，组件不会调用 `setFieldsValue()`。
-- 组件创建内部实例时，字段变化会发出 `update:modelValue`，值为最新表单快照。
-- 传入外部 `form` 时不会安装组件内部的 `onValuesChange` 包装；字段变化不会发出 `update:modelValue`，所以 `v-model` 输出也不生效。外部实例的 `onValuesChange` 等回调必须由创建者配置。
+- 创建内部实例时，非空 `modelValue` 会覆盖同名 `initialValues` 字段，作为初始快照。
+- 外部替换 `modelValue` 后，组件会调用 `setFieldsValue()` 同步内部表单。
+- 内部或外部 `form` 的字段变化都会发出 `update:modelValue`，值为最新表单快照；同步来自 `modelValue` 的变化不会重复发出该事件。
+- 传入外部 `form` 时，组件级 `onFinish`、`onFinishFailed`、`onValuesChange` 和 `onFieldsChange` 不会重新配置该实例；这些回调应在创建外部实例时配置。
 - `onFinish`、`onFinishFailed`、`onValuesChange` 和 `onFieldsChange` 是声明过的回调 Props，不在 `defineEmits` 的事件列表中。模板中的 `@finish` 等写法会按 Vue listener Prop 规则映射到这些 Props，但 TypeScript 用户更适合显式传回调。
 
 内部表单模式还存在一个 `onFinish` 等待边界：组件传给 core 的包装函数会调用 `props.onFinish(values)`，但没有 `return` 或 `await` 其返回值。因此 `submit()` 只等待这层立即完成的包装 Promise，不等待业务 `onFinish` 返回的异步任务；该任务后续 reject 也不会沿 `submit()` 传播。业务回调若在返回 Promise 前同步抛错，包装函数会转为 rejected Promise，core 的 `submit()` 仍会收到该拒绝。传入外部 `form` 时组件不会安装这层包装，等待和错误传播完全取决于外部实例创建者配置的回调；core `createForm()` 本身会 `await` 直接传给它的 `onFinish`。
@@ -126,7 +126,7 @@ console.log(Schemx === schemxForm) // true
 | ------------------- | ------------ | ------------------------------------ |
 | `update:modelValue` | `(value: T)` | 内部表单的 `onValuesChange` 被调用后 |
 
-如需真正的外部受控同步，当前应持有 `ref` 或外部 `form`，并显式调用 `setFieldsValue()`。
+如需程序化更新外部表单，可持有 `ref` 或外部 `form` 并显式调用 `setFieldsValue()`；普通 `v-model` 已负责值的双向同步。
 
 ### Slots
 
@@ -217,7 +217,7 @@ createApp(App).use(Schemx).mount("#app")
 
 `app.use(Schemx)` 只注册全局组件名 `SchemxForm`。`SchemxInstallOptions` 当前是空接口，传入的 options 不会产生运行时效果。可安装组件还挂载了静态属性 `Schemx.FormItem`；`FormGroup` 仅作为根入口命名导出，不是静态属性。
 
-`SchemxFormProps` 和 Vue 层 `FieldInstance` 存在于内部类型目录，但当前没有从根入口导出。不要推荐或依赖深层导入；组件 Props 请以默认组件推导和根入口公开的 `SchemxProps` 为准。
+`SchemxFormProps` 和 Vue 层 `FieldInstance` 也会从 `@schemx/vue` 根入口导出；业务代码通常仍可直接从组件、`SchemxProps` 或 Hook 调用处推导类型，不需要依赖深层路径。
 
 ## Schema 写法
 
@@ -1020,7 +1020,7 @@ const form = useForm({ rendererRegistry: renderers, validationRuleRegistry: vali
 
 ## 类型参考
 
-Vue 根入口自有 5 个公开类型：
+Vue 根入口自有 7 个公开类型：
 
 | 类型                               | 定义与用途                                                                                                          |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -1029,16 +1029,18 @@ Vue 根入口自有 5 个公开类型：
 | `SchemxInstallOptions`             | 空接口。`app.use(Schemx, options)` 接受它，但当前没有配置项，运行时忽略 options。                                   |
 | `SchemxWithDictionary<A, TValues>` | `A & { dict?: SchemxDictionary<TValues> }`，只增加可选 `dict`。见 [WithRemoteOptions](#withremoteoptions)。         |
 | `UseDictionaryReturn`              | `{ list, loading, error, loadDict, refresh, mutate }`，各成员类型见 [`useDictionary`](#usedictionary)。             |
+| `SchemxFormProps<TValues>`         | `Schemx` 组件 Props 类型，继承 Core `SchemxProps` 并增加 `class` 与 `style`。                                  |
+| `FieldInstance<TValues>`           | Vue Ref / Computed 桥接后的字段控制器类型，由 `useField()` 返回。                                                |
 
-`packages/vue/src/types/index.ts` 内部还导出 `FieldInstance` 和 `SchemxFormProps`，但它们未从 `@schemx/vue` 根入口公开。不要从 `@schemx/vue/src/*` 或 `@schemx/vue/dist/*` 深层导入；应让 TypeScript 从 Hook 和组件推导。
+除上述类型外，不要从 `@schemx/vue/src/*` 或 `@schemx/vue/dist/*` 深层导入。
 
 ## Core API
 
-`@schemx/vue` 通过 `export * from "@schemx/core"` 完整传递 Core 的 82 个命名导出（20 个运行时值 + 62 个类型）。它们仍是 Core API，不是 Vue 自有 Composition API。签名与语义见 [Core README](../core)，导出基线见 [Core 完整导出清单](../core#完整导出清单)。下节仍逐项列出名称，以便机械核对 Vue 根入口。
+`@schemx/vue` 通过 `export * from "@schemx/core"` 传递 Core 根入口的公开导出。它们仍是 Core API，不是 Vue 自有 Composition API；具体名称与签名以 [Core README](../core) 和包根入口为准。
 
 ## 完整导出清单
 
-当前根入口共有 110 项导出：109 个命名导出和 `default`。命名导出由 42 个运行时值与 67 个类型组成；若工具把 `default` 归入值，则显示为 43 个值 + 67 个类型。按来源是 Vue 自有 22 个命名运行时值 + 5 个类型 + `default`，以及 Core 传递的 82 个命名导出。
+根入口包含默认表单组件、Vue 适配层 API，以及 Core 根入口的传递导出。这里不固定列出导出总数，避免新增公开 API 后文档中的统计数字失效。
 
 ### Vue 自有导出
 
@@ -1075,7 +1077,7 @@ Vue 根入口自有 5 个公开类型：
 
 根入口没有名为 `SchemxForm` 的命名导出。
 
-### Core 传递运行时值（20 个）
+### Core 传递运行时值
 
 | 分类          | 导出                           | 用途                          |
 | ------------- | ------------------------------ | ----------------------------- |
@@ -1100,7 +1102,7 @@ Vue 根入口自有 5 个公开类型：
 | 路径          | `setByPath`                    | 写入嵌套路径。                |
 | 路径          | `collectObjectPathsByLeaf`     | 收集叶子路径。                |
 
-### Core 传递类型（62 个）
+### Core 传递类型
 
 | 分类               | 导出                            | 用途                                    |
 | ------------------ | ------------------------------- | --------------------------------------- |

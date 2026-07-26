@@ -70,6 +70,7 @@
   const showCalendar = ref(false)
 
   const minSelectableDate = new Date(1970, 0, 1)
+
   const maxSelectableDate = dayjs().add(10, "year").toDate()
 
   const placeholder = computed(() => props?.placeholder || "请选择")
@@ -79,11 +80,13 @@
   )
 
   const title = computed(() => props.title || placeholder.value)
+
   const isReadonly = computed(() => props.readonly)
 
   // 剔除 Schemx 契约字段，避免内部事件和表单元信息透传给 Vant 组件。
   const calendarProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -104,6 +107,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

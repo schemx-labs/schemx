@@ -8,18 +8,19 @@ import type {
   SchemxDefaultProps,
   SchemxRendererKey,
 } from "../types"
-import type { ValidationAdapter } from "../validator/types"
+import type { ValidationAdapterOption } from "../validator/types"
 
 /**
  * 全局校验默认配置。
  */
 export interface SchemxValidationConfig {
   /**
-   * 后续 Form 默认注册的校验 adapters。
+   * 后续 Form 默认注册的校验 adapter。
    *
-   * Standard Schema 与原生校验规则由内置 adapter 始终支持，无需在此注册。
+   * Standard Schema 由唯一内置 adapter 支持；原生 `ValidationRule` 是 Core 基础规则，
+   * 二者均无需在此注册。
    */
-  readonly adapters?: readonly ValidationAdapter[]
+  readonly validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
 /**
@@ -27,7 +28,7 @@ export interface SchemxValidationConfig {
  *
  * 表单级呈现默认值（{@link SchemxDefaultProps}）平铺在顶层，
  * 由后续 `createForm` 调用继承；表单显式传入的同名字段覆盖全局值。
- * `validation` 因 `adapters` 的特殊合并语义而单独成组。
+ * `validation` 因 `validatorAdapters` 的特殊合并语义而单独成组。
  *
  * 实例级数据（schemas / initialValues / modelValue）、实例级回调
  * （onFinish 等）、`lifecycleHooks` 与 `onRuleError` 不纳入全局配置。
@@ -60,7 +61,7 @@ interface SchemxConfigSnapshot {
   /** 平铺的全局呈现默认值，供 `createForm` 作为 defaultProps 基座。 */
   readonly defaultProps: Partial<SchemxDefaultProps>
   readonly validation: {
-    readonly adapters: readonly ValidationAdapter[]
+    readonly validatorAdapters: readonly ValidationAdapterOption[]
   }
   readonly defaultRendererType?: SchemxRendererKey
   readonly rendererRegistry?: RendererRegistry
@@ -137,7 +138,7 @@ function snapshot(source: SchemxConfig): SchemxConfigSnapshot {
     // 从平铺的 SchemxConfig 中抽出 defaultProps 部分（仅 defaultConfigKey 范围）。
     defaultProps: Object.freeze({ ...pick(source, defaultConfigKey) }),
     validation: Object.freeze({
-      adapters: Object.freeze([...(source.validation?.adapters ?? [])]),
+      validatorAdapters: Object.freeze([...(source.validation?.validatorAdapters ?? [])]),
     }),
     defaultRendererType: source.defaultRendererType,
     // 注册表为可变实例，仅冻结外层容器，不深冻实例本身。

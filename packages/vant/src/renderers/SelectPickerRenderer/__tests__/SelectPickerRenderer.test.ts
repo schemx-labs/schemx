@@ -6,7 +6,9 @@ import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
 let checkboxAttrs: Record<string, unknown> = {}
+
 let popupAttrs: Record<string, unknown> = {}
+
 let radioAttrs: Record<string, unknown> = {}
 
 vi.mock("vant", () => {
@@ -84,6 +86,7 @@ describe("SelectPickerRenderer", () => {
     await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
 
     const options = wrapper.get(".schemx-select-picker-options")
+
     const footer = options.element.nextElementSibling
 
     expect(footer?.classList.contains("schemx-select-picker-footer")).toBe(true)
@@ -99,7 +102,9 @@ describe("SelectPickerRenderer", () => {
 
   it("确认选择后桥接 Schemx 的 value 更新契约", async () => {
     const onChange = vi.fn()
+
     const onConfirm = vi.fn()
+
     const wrapper = mount(SelectPickerRenderer, {
       props: {
         value: [],

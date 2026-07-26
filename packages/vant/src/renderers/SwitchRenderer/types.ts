@@ -16,8 +16,8 @@ export type SwitchValue = boolean | string | number
  * 定义开关组件的所有可配置属性。
  */
 export interface SwitchRendererProps
+  /* @vue-ignore */
   extends
-    /* @vue-ignore */
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<

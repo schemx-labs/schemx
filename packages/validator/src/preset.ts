@@ -1,8 +1,6 @@
 import { createAsyncValidatorAdapter } from "./async-validator"
-import { createZodAdapter } from "./zod"
 
 import type { AsyncValidatorValidationAdapter } from "./async-validator"
-import type { ZodValidationAdapter } from "./zod"
 
 /**
  * 可交给 Schemx Form 或全局配置的校验 adapter 预设。
@@ -11,11 +9,11 @@ export interface ValidationAdapterPreset {
   /**
    * 预设中按注册顺序提供的校验器适配器。
    */
-  readonly adapters: readonly [ZodValidationAdapter, AsyncValidatorValidationAdapter]
+  readonly validatorAdapters: readonly [AsyncValidatorValidationAdapter]
 }
 
 /**
- * 创建包含 Zod 与 async-validator 的校验 adapter 预设。
+ * 创建包含 async-validator 的校验 adapter 预设。
  *
  * @returns 新建的 adapter 实例。
  *
@@ -29,6 +27,6 @@ export interface ValidationAdapterPreset {
  */
 export function createValidationAdapterPreset(): ValidationAdapterPreset {
   return {
-    adapters: [createZodAdapter(), createAsyncValidatorAdapter()],
+    validatorAdapters: [createAsyncValidatorAdapter()],
   }
 }

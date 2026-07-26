@@ -9,7 +9,6 @@
 
 import { describe, expect, it } from "vitest"
 
-
 import {
   createTestDependencyRuntimeNode,
   createTestFieldRuntimeNode,
@@ -73,10 +72,9 @@ describe("node child helpers", () => {
     expect(field.descriptor).toBeNull()
     expect(field.descriptor ?? undefined).toBeUndefined()
     expect(() => {
-      if (!field.descriptor) throw new Error('[schemx] descriptor is required for node "name"')
-    }).toThrow(
-      '[schemx] descriptor is required for node "name"'
-    )
+      if (!field.descriptor)
+        throw new Error('[schemx] descriptor is required for node "name"')
+    }).toThrow('[schemx] descriptor is required for node "name"')
     expect(field.fieldState).toBeNull()
     expect(field.viewState).toBeNull()
     expect(field.effectDispose).toBeNull()

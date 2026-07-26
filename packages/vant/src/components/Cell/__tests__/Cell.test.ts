@@ -67,6 +67,7 @@ describe("SchemxCell", () => {
 
   it("editable 状态展示可点击态并触发 click", async () => {
     const onClick = vi.fn()
+
     const wrapper = mount(SchemxCell, {
       props: {
         value: "请选择",
@@ -107,8 +108,8 @@ describe("SchemxCell", () => {
         suffix: "prop-suffix",
       },
       slots: {
-        prefix: "<span data-test=\"prefix-slot\">slot-prefix</span>",
-        suffix: "<span data-test=\"suffix-slot\">slot-suffix</span>",
+        prefix: '<span data-test="prefix-slot">slot-prefix</span>',
+        suffix: '<span data-test="suffix-slot">slot-suffix</span>',
       },
     })
 
@@ -119,10 +120,7 @@ describe("SchemxCell", () => {
   })
 
   it("组件源码不依赖 Vant Cell", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../index.vue"),
-      "utf-8"
-    )
+    const source = readFileSync(resolve(__dirname, "../index.vue"), "utf-8")
 
     expect(source).not.toContain('from "vant"')
     expect(source).not.toMatch(/<Cell[\s>]/)

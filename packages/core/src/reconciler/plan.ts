@@ -40,10 +40,15 @@ export function createReconcilePlan<TValues extends Values = Values>(
 ): ReconcilePlan<TValues> {
   // 以 key 为索引建立快速查找表
   const currentByKey = indexNodesByKey(currentChildren)
+
   const nextByKey = indexDescriptorsByKey(nextDescriptors)
+
   const creates: ReconcileCreateOperation<TValues>[] = []
+
   const updates: ReconcileUpdateOperation<TValues>[] = []
+
   const removes: ReconcileRemoveOperation<TValues>[] = []
+
   const nextChildrenOrder: ReconcileChildOrderEntry<TValues>[] = []
 
   // 第一遍：遍历目标 descriptors，确定创建和更新

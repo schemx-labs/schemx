@@ -42,8 +42,8 @@ export interface UploadFile {
  * 定义上传组件的所有可配置属性。
  */
 export interface UploadRendererProps
+  /* @vue-ignore */
   extends
-    /* @vue-ignore */
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<UploaderProps, "modelValue" | "onUpdate:modelValue" | "imageFit">> {

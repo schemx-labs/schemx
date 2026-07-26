@@ -53,6 +53,7 @@
   const slots = useSlots()
 
   const isDisabled = computed(() => props.disabled)
+
   const isReadonly = computed(() => props.readonly)
 
   const isEditable = computed(() => !props.readonly && !props.disabled)
@@ -89,6 +90,7 @@
   const hasPrefix = computed(
     () => Boolean(slots.prefix) || !isEmptyDisplayValue(props.prefix)
   )
+
   const hasSuffix = computed(
     () => Boolean(slots.suffix) || !isEmptyDisplayValue(props.suffix)
   )

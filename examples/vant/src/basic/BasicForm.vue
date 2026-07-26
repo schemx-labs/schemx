@@ -129,6 +129,12 @@
             maxlength: 100,
             showWordLimit: true,
           },
+          dependencies: {
+            triggerFields: ["username"],
+            disabled: (values) => {
+              return !values.username
+            },
+          },
         },
         {
           name: "phone",

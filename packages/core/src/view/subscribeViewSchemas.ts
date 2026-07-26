@@ -34,6 +34,7 @@ export function subscribeViewSchemas<TValues extends Values = Values>(
 
   // 在 root 的 dispose scope 中注册销毁标记回调
   const rootScope = root.dispose
+
   const disposeHandle = rootScope.add(() => {
     rootDisposed = true
   })

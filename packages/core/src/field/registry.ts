@@ -29,7 +29,6 @@ export interface FieldRegistryEntry<
    * @typeParam TValues - 表单值类型。
    */
   readonly node: FieldRuntimeNode<TValues>
-
 }
 
 /**
@@ -48,6 +47,7 @@ class RuntimeFieldRegistry<
    */
   register(entry: FieldRegistryEntry<TValues>): void {
     const key = createFieldKey(entry.name)
+
     this.fields.set(key, {
       name: entry.name,
       node: entry.node,
@@ -65,6 +65,7 @@ class RuntimeFieldRegistry<
    */
   unregister(name: TName, node?: FieldRuntimeNode<TValues>): void {
     const key = createFieldKey(name)
+
     const current = this.fields.get(key)
 
     if (node && current?.node !== node) {

@@ -68,7 +68,9 @@ export async function waitAll<T>(
   }
 
   const results: T[] = []
+
   let completed = 0
+
   const total = promises.length
 
   await Promise.race([

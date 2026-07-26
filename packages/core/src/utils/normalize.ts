@@ -40,10 +40,12 @@ export function normalizeSchemas<T extends Values = Values>(
     }
 
     const result: SchemxField<T>[] = []
+
     let changed = false
 
     for (let index = 0; index < items.length; index++) {
       const itemPath = `${path}[${index}]`
+
       const item = items[index]
 
       if (item === null || typeof item !== "object" || Array.isArray(item)) {
@@ -51,6 +53,7 @@ export function normalizeSchemas<T extends Values = Values>(
       }
 
       const schema = item as Record<string, unknown>
+
       const kind = getSchemaKind(schema as unknown as SchemxField<T>)
 
       if (kind === "group" && schema.componentType === "group") {
@@ -105,6 +108,7 @@ export function normalizeSchemas<T extends Values = Values>(
         }
 
         const children = normalize(schema.children, `${itemPath}.children`)
+
         if (children !== schema.children) {
           normalized = { ...schema, children } as SchemxField<T>
         }

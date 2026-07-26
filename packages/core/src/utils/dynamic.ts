@@ -33,8 +33,7 @@ import type { Values } from "../types"
  * ```
  */
 export type DynamicProp<T, V extends Values = Values> =
-  | ((values: V) => T | Promise<T>)
-  | T
+  ((values: V) => T | Promise<T>) | T
 
 /**
  * 批量解析的单个属性条目
@@ -200,13 +199,16 @@ export function resolveDynamicPropBatch<
     formValues: TValues
     callback: (results: M) => void
   } | null = null
+
   let version = 0
 
   const flush = debounce(async () => {
     if (!pending) return
 
     const currentVersion = version
+
     const { entries, formValues, callback } = pending
+
     pending = null
 
     const results = await resolveDynamicProps(entries, formValues)

@@ -8,13 +8,13 @@ import type { ValidationRuleIssue } from "./types"
  * 单个字段按来源保存的错误状态。
  */
 interface FieldErrorRecord<TValues extends Values> {
-  /** 用于向公开结果还原的原始字段路径。 */
+  // 用于向公开结果还原的原始字段路径。
   readonly name: NamePath<TValues>
-  /** 由当前可执行规则生成的错误。 */
+  // 由当前可执行规则生成的错误。
   readonly validation: readonly ValidationRuleIssue[]
-  /** 由规则配置解析失败生成的错误。 */
+  // 由规则配置解析失败生成的错误。
   readonly configuration: readonly ValidationRuleIssue[]
-  /** 由服务端或调用方显式写入的错误。 */
+  // 由服务端或调用方显式写入的错误。
   readonly external: readonly ValidationRuleIssue[]
 }
 
@@ -24,7 +24,7 @@ interface FieldErrorRecord<TValues extends Values> {
  * @typeParam TValues - 所属表单的值类型。
  */
 export class FieldErrorStore<TValues extends Values> {
-  /** 按稳定字段身份保存的响应式错误记录。 */
+  // 按稳定字段身份保存的响应式错误记录。
   private readonly records = createSignalMap<string, FieldErrorRecord<TValues>>()
 
   /**
@@ -34,9 +34,12 @@ export class FieldErrorStore<TValues extends Values> {
    * @returns configuration、validation、external 顺序合并的只读快照。
    */
   public getIssues(name: NamePath<TValues>): readonly ValidationRuleIssue[] {
+    // 当前字段按稳定身份保存的错误记录。
     const record = this.records.get(createFieldKey(name))
 
-    return record ? [...record.configuration, ...record.validation, ...record.external] : []
+    return record
+      ? [...record.configuration, ...record.validation, ...record.external]
+      : []
   }
 
   /**
@@ -150,12 +153,15 @@ export class FieldErrorStore<TValues extends Values> {
   ): void {
     // 用稳定身份读取已有来源，避免数组路径按引用丢失记录。
     const key = createFieldKey(name)
+
     // 当前字段的三类错误快照。
     const current = this.records.peek(key)
+
     // 用新来源和保留来源合成下一条记录。
     const next: FieldErrorRecord<TValues> = {
       name: current?.name ?? name,
-      validation: validation === undefined ? (current?.validation ?? []) : [...validation],
+      validation:
+        validation === undefined ? (current?.validation ?? []) : [...validation],
       configuration:
         configuration === undefined ? (current?.configuration ?? []) : [...configuration],
       external: external === undefined ? (current?.external ?? []) : [...external],

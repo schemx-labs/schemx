@@ -23,6 +23,7 @@ import SwitchRenderer from "../index.vue"
 describe("SwitchRenderer", () => {
   it("readonly 状态使用 Cell 展示开关文本且不渲染 Switch", async () => {
     const onChange = vi.fn()
+
     const wrapper = mount(SwitchRenderer, {
       props: {
         readonly: true,

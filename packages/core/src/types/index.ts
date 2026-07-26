@@ -68,3 +68,5 @@ export type {
 } from "./dependencies"
 
 export type { StandardSchemaV1 } from "./standardSchema"
+
+export type { ValidationAdapterV1 } from "./validationAdapter"

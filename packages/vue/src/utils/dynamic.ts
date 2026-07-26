@@ -152,9 +152,11 @@ export function batchResolveDependencie<M extends Record<string, unknown>>(
     if (!pending) return
 
     const { entries, formValues, callback } = pending
+
     pending = null
 
     const keys = Object.keys(entries) as (keyof M & string)[]
+
     const promises = keys.map((key) =>
       resolveDependencie(entries[key].value, formValues, entries[key].defaultValue)
     )
@@ -162,6 +164,7 @@ export function batchResolveDependencie<M extends Record<string, unknown>>(
     const values = await Promise.all(promises)
 
     const results = {} as M
+
     keys.forEach((key, i) => {
       ;(results as any)[key] = values[i]
     })

@@ -5,7 +5,12 @@ import { createValidationRuleRegistry } from "../../registry"
 import { createValidator } from "../validator"
 import { createValidationController } from "../validationController"
 
-import type { AdapterRule, ValidationAdapter, ValidationRule } from "../types"
+import type {
+  AdapterRule,
+  ValidationAdapter,
+  ValidationAdapterID,
+  ValidationRule,
+} from "../types"
 
 interface FormValues {
   email: string
@@ -16,7 +21,7 @@ const nativeRule: ValidationRule = {
 }
 
 function createTestAdapter<TInput>(
-  id: string,
+  id: ValidationAdapterID,
   resolve: (rule: AdapterRule | TInput) => readonly ValidationRule[]
 ): ValidationAdapter<TInput> {
   const rules = new WeakSet<object>()
@@ -80,13 +85,20 @@ describe("ValidationController", () => {
       registry,
     })
 
-    controller.syncField({ name: "email", label: "邮箱", required: false, rules: ["missing"] })
+    controller.syncField({
+      name: "email",
+      label: "邮箱",
+      required: false,
+      rules: ["missing"],
+    })
 
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn).toHaveBeenCalledWith('[schemx] 未找到名为 "missing" 的校验规则')
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ code: "validation_config" }] }],
-    })
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ code: "validation_config" }] }],
+      }
+    )
     registry.register("missing", { validate: () => ({ valid: true }) })
     await expect(validator.validateField("email", { email: "x" })).resolves.toEqual({
       valid: true,
@@ -103,7 +115,12 @@ describe("ValidationController", () => {
       registry: createValidationRuleRegistry(),
     })
 
-    controller.syncField({ name: "email", label: "邮箱", required: true, rules: undefined })
+    controller.syncField({
+      name: "email",
+      label: "邮箱",
+      required: true,
+      rules: undefined,
+    })
     validator.setFieldErrors("email", ["旧错误"])
     controller.removeField("email")
 
@@ -123,14 +140,16 @@ describe("ValidationController", () => {
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
-      adapters: [adapter],
+      validatorAdapters: [adapter],
     })
 
     controller.syncField({ ...fieldConfig, rules: adapter.rule("invalid") })
 
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ message: "无效" }] }],
-    })
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ message: "无效" }] }],
+      }
+    )
   })
 
   it("不将手写同形对象识别为品牌 adapter 规则并警告跳过", () => {
@@ -139,7 +158,7 @@ describe("ValidationController", () => {
     const controller = createValidationController({
       validator: createValidator<FormValues>(),
       registry: createValidationRuleRegistry(),
-      adapters: [adapter],
+      validatorAdapters: [adapter],
     })
 
     controller.syncField({
@@ -147,7 +166,9 @@ describe("ValidationController", () => {
       rules: { adapterId: "test", payload: "value" } as never,
     })
 
-    expect(warn).toHaveBeenCalledWith('[schemx] 字段 "email" 存在无法识别的校验规则，已跳过')
+    expect(warn).toHaveBeenCalledWith(
+      '[schemx] 字段 "email" 存在无法识别的校验规则，配置失败'
+    )
     warn.mockRestore()
   })
 
@@ -156,12 +177,14 @@ describe("ValidationController", () => {
     const controller = createValidationController({
       validator: createValidator<FormValues>(),
       registry: createValidationRuleRegistry(),
-      adapters: [],
+      validatorAdapters: [],
     })
 
     controller.syncField({ ...fieldConfig, rules: { required: true } as never })
 
-    expect(warn).toHaveBeenCalledWith('[schemx] 字段 "email" 存在无法识别的校验规则，已跳过')
+    expect(warn).toHaveBeenCalledWith(
+      '[schemx] 字段 "email" 存在无法识别的校验规则，配置失败'
+    )
     warn.mockRestore()
   })
 
@@ -181,9 +204,29 @@ describe("ValidationController", () => {
 
     controller.syncField({ ...fieldConfig, rules: [schema] as never })
 
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ message: "ss 失败" }] }],
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ message: "ss 失败" }] }],
+      }
+    )
+  })
+
+  it("原生 ValidationRule 不经 adapter 仍可执行", async () => {
+    const validate = vi.fn(() => ({ valid: true as const }))
+    const validator = createValidator<FormValues>()
+    const controller = createValidationController({
+      validator,
+      registry: createValidationRuleRegistry(),
     })
+
+    controller.syncField({ ...fieldConfig, rules: { validate } })
+
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        valid: true,
+      }
+    )
+    expect(validate).toHaveBeenCalledTimes(1)
   })
 
   it("未识别对象规则写入配置错误，不执行部分规则", async () => {
@@ -203,9 +246,11 @@ describe("ValidationController", () => {
       rules: [{ validate: extra }, { foo: "bar" }] as never,
     })
 
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ code: "validation_config" }] }],
-    })
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ code: "validation_config" }] }],
+      }
+    )
     expect(extra).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalledTimes(1)
     warn.mockRestore()
@@ -231,13 +276,17 @@ describe("ValidationController", () => {
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
-      adapters: [badAdapter],
+      validatorAdapters: [badAdapter],
     })
 
-    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule(null) })).toBe(false)
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ code: "validation_config" }] }],
-    })
+    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule(null) })).toBe(
+      false
+    )
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ code: "validation_config" }] }],
+      }
+    )
   })
 
   it("拒绝重复 adapter id", () => {
@@ -245,7 +294,7 @@ describe("ValidationController", () => {
       createValidationController({
         validator: createValidator<FormValues>(),
         registry: createValidationRuleRegistry(),
-        adapters: [
+        validatorAdapters: [
           createTestAdapter("same", () => [nativeRule]),
           createTestAdapter("same", () => [nativeRule]),
         ],
@@ -265,13 +314,17 @@ describe("ValidationController", () => {
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
-      adapters: [alwaysMatches(first), alwaysMatches(second)],
+      validatorAdapters: [alwaysMatches(first), alwaysMatches(second)],
     })
 
-    expect(controller.syncField({ ...fieldConfig, rules: sharedRule as never })).toBe(false)
-    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
-      errors: [{ issues: [{ code: "validation_config" }] }],
-    })
+    expect(controller.syncField({ ...fieldConfig, rules: sharedRule as never })).toBe(
+      false
+    )
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
+      {
+        errors: [{ issues: [{ code: "validation_config" }] }],
+      }
+    )
     controller.destroy()
   })
 
@@ -280,7 +333,7 @@ describe("ValidationController", () => {
       createValidationController({
         validator: createValidator<FormValues>(),
         registry: createValidationRuleRegistry(),
-        adapters: [
+        validatorAdapters: [
           {
             id,
             rule: () => ({ adapterId: "test", payload: null }),
@@ -289,17 +342,48 @@ describe("ValidationController", () => {
           } as never,
         ],
       })
-    ).toThrow("校验 adapter id 必须为非空字符串")
+    ).toThrow("校验 adapter id 必须为非空字符串或 symbol")
   })
 
-  it("保留 adapter id 与内置 adapter 冲突时抛错", () => {
+  it("字符串 standard-schema 不与内置 symbol ID 冲突", () => {
     const adapter = createTestAdapter("standard-schema", () => [nativeRule])
     expect(() =>
       createValidationController({
         validator: createValidator<FormValues>(),
         registry: createValidationRuleRegistry(),
-        adapters: [adapter],
+        validatorAdapters: [adapter],
       })
-    ).toThrow('重复的校验 adapter id "standard-schema"')
+    ).not.toThrow()
+  })
+
+  it("native-rule 不再是内置 adapter 保留 id", () => {
+    expect(() =>
+      createValidationController({
+        validator: createValidator<FormValues>(),
+        registry: createValidationRuleRegistry(),
+        validatorAdapters: [createTestAdapter("native-rule", () => [nativeRule])],
+      })
+    ).not.toThrow()
+  })
+
+  it("支持 symbol adapter ID，并可显式覆盖", () => {
+    const id = Symbol("custom")
+    const first = createTestAdapter(id, () => [nativeRule])
+    const second = createTestAdapter(id, () => [nativeRule])
+
+    expect(() =>
+      createValidationController({
+        validator: createValidator<FormValues>(),
+        registry: createValidationRuleRegistry(),
+        validatorAdapters: [first, second],
+      })
+    ).toThrow('重复的校验 adapter id "Symbol(custom)"')
+    expect(() =>
+      createValidationController({
+        validator: createValidator<FormValues>(),
+        registry: createValidationRuleRegistry(),
+        validatorAdapters: [first, { adapter: second, override: true }],
+      })
+    ).not.toThrow()
   })
 })

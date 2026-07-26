@@ -104,6 +104,7 @@ export function createValidationEffect<TValues extends Values = Values>(
   const taskScheduler = context.scheduler
 
   const registered = createSignal(false)
+
   let registrationVersion = 0
 
   /**
@@ -138,7 +139,8 @@ export function createValidationEffect<TValues extends Values = Values>(
       return
     }
 
-    registered.value = context.validation.syncField({ name, label, required, rules }) !== false
+    registered.value =
+      context.validation.syncField({ name, label, required, rules }) !== false
   }
 
   /**

@@ -17,12 +17,10 @@ import {
 describe("resolveDynamicProp", () => {
   it("解析静态值、函数值和空值默认值", async () => {
     await expect(resolveDynamicProp("hello", {}, "")).resolves.toBe("hello")
-    await expect(resolveDynamicProp((values) => values.name, { name: "j" }, "")).resolves.toBe(
-      "j"
-    )
-    await expect(resolveDynamicProp(undefined, {}, "fallback")).resolves.toBe(
-      "fallback"
-    )
+    await expect(
+      resolveDynamicProp((values) => values.name, { name: "j" }, "")
+    ).resolves.toBe("j")
+    await expect(resolveDynamicProp(undefined, {}, "fallback")).resolves.toBe("fallback")
   })
 })
 

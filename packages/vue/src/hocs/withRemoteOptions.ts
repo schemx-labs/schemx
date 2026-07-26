@@ -17,7 +17,6 @@ import { useDictionary } from "../hooks/useDictionary"
 
 import type { NamePath } from "@schemx/core"
 
-
 /**
  * WithRemoteOptions 注入给被包装组件的额外 Props
  */
@@ -82,6 +81,7 @@ export function WithRemoteOptions(WrappedComponent: Component) {
       // 保留给脱离 FormItem 的独立使用场景。
       const fieldName =
         props.fieldName ?? (props.dict ? useFieldContext().name : undefined)
+
       const dictResult = props.dict ? useDictionary(props.dict, fieldName) : null
 
       const childrenProps = computed(() => {

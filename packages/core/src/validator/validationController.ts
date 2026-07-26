@@ -1,17 +1,30 @@
 import { createFieldKey } from "../utils"
 
-import { builtInAdapters, isValidationRule } from "./builtInAdapters"
+import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 import { createRequiredValidationRule } from "./rules"
 
-import type { ValidationAdapter, ValidationRule, Validator } from "./types"
+import type {
+  ValidationAdapter,
+  ValidationAdapterID,
+  ValidationAdapterOption,
+  ValidationRule,
+  Validator,
+} from "./types"
 import type {
   ValidationRuleRegistry,
   ValidationRuleRegistryChange,
 } from "../registry/validationRuleRegistry"
 import type { NamePath, Values } from "../types/form"
-import type { DefinedFieldValue, FieldRule, FieldRules, RequiredRule } from "../types/rule"
+import type {
+  DefinedFieldValue,
+  FieldRule,
+  FieldRules,
+  RequiredRule,
+} from "../types/rule"
 
-/** 解析后的单条原生校验规则（按字段路径推导值类型）。 */
+/**
+ * 解析后的单条原生校验规则，按字段路径推导值类型。
+ */
 type ResolvedValidationRule<
   TValues extends Values,
   TName extends NamePath<TValues>,
@@ -50,8 +63,8 @@ export interface FieldValidationConfig<
 /**
  * 将 Schema 字段配置归一化为 Validator 可执行规则的协调器。
  *
- * 内部持有 adapter 映射（内置 Standard Schema / 原生规则 adapter + 用户 adapter），
- * 统一解析命名规则、品牌 adapter 规则、Standard Schema 与原生规则。解析失败会写入
+ * 内部持有 adapter 映射（内置 Standard Schema adapter + 用户 adapter），统一解析
+ * 命名规则、品牌 adapter 规则、Standard Schema 与原生规则。解析失败会写入
  * `validation_config` 问题，避免字段在配置错误时被静默视为通过。
  *
  * @typeParam TValues - 表单值类型。
@@ -107,13 +120,17 @@ export interface CreateValidationControllerOptions<TValues extends Values> {
    */
   readonly registry: ValidationRuleRegistry
   /**
-   * 当前 Form 固定使用的校验 adapters。
+   * 当前 Form 固定使用的校验 adapter 注册项。
    *
-   * Standard Schema 与原生校验规则由内置 adapter 始终支持，无需在此注册。
+   * Standard Schema 由唯一内置 adapter 始终支持；原生 `ValidationRule` 是 Core
+   * 基础规则类型，二者均无需在此注册。
    */
-  readonly adapters?: readonly ValidationAdapter[]
+  readonly validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
+/**
+ * 保存字段配置并协调 Registry、adapter 与 Validator 的内部实现。
+ */
 class ValidationControllerImpl<
   TValues extends Values,
 > implements ValidationController<TValues> {
@@ -122,20 +139,27 @@ class ValidationControllerImpl<
   // 已警告的无法识别字段，按稳定字段身份去重。
   private readonly warnedUnrecognizedFields = new Set<string>()
   // 内置与用户 adapter 按唯一 id 建立的只读路由表。
-  private readonly adapters: ReadonlyMap<string, ValidationAdapter>
+  private readonly adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>
   // 供动态 Registry 变更重新解析的原始字段配置。
-  private readonly configs = new Map<string, FieldValidationConfig<TValues, NamePath<TValues>>>()
-  // 每个字段引用的命名规则列表。
-  private readonly ruleNamesByField = new Map<string, readonly string[]>()
+  private readonly configs = new Map<
+    string,
+    FieldValidationConfig<TValues, NamePath<TValues>>
+  >()
   // 从命名规则反查受影响字段的索引。
   private readonly fieldsByRuleName = new Map<string, Set<string>>()
   // 销毁时释放 Registry 订阅的函数。
   private readonly unsubscribeRegistry: () => void
 
+  /**
+   * 创建控制器并订阅命名规则注册表的变更。
+   *
+   * @param options - Validator、Registry 和 adapter 注册配置。
+   */
   public constructor(
     private readonly options: CreateValidationControllerOptions<TValues>
   ) {
-    this.adapters = buildAdapterMap([...builtInAdapters, ...(options.adapters ?? [])])
+    this.adapters = createValidationAdapterMap(options.validatorAdapters ?? [])
+
     this.unsubscribeRegistry = options.registry.subscribe((change) => {
       this.syncAffectedFields(change)
     })
@@ -152,19 +176,14 @@ class ValidationControllerImpl<
   ): boolean {
     // 擦除窄路径类型后保存，用于后续动态重同步。
     const storedConfig = config as FieldValidationConfig<TValues, NamePath<TValues>>
+
     this.trackConfig(storedConfig)
 
     try {
       // 在替换 Validator 规则前完成全量解析，避免部分规则泄漏。
       const rules = this.normalizeRules(config)
+
       this.options.validator.clearFieldConfigurationIssues(config.name)
-
-      if (rules.length === 0) {
-        this.options.validator.setFieldRules(config.name, [])
-
-        return true
-      }
-
       this.options.validator.setFieldRules(config.name, rules)
 
       return true
@@ -198,10 +217,15 @@ class ValidationControllerImpl<
   public destroy(): void {
     this.unsubscribeRegistry()
     this.configs.clear()
-    this.ruleNamesByField.clear()
     this.fieldsByRuleName.clear()
   }
 
+  /**
+   * 将 required 与字段额外规则合并为可执行规则列表。
+   *
+   * @param config - 待归一化的字段配置。
+   * @returns 按声明顺序排列的原生规则列表。
+   */
   private normalizeRules<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
   ): readonly ResolvedValidationRule<TValues, TName>[] {
@@ -210,11 +234,7 @@ class ValidationControllerImpl<
 
     if (config.required) {
       normalized.push(
-        createRequiredValidationRule<
-          DefinedFieldValue<TValues, TName>,
-          TValues,
-          TName
-        >({
+        createRequiredValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName>({
           required: config.required,
           label: config.label,
         })
@@ -222,89 +242,118 @@ class ValidationControllerImpl<
     }
 
     for (const rule of toRuleArray(config.rules)) {
-      const resolved = this.resolveRule(rule, config)
-      if (resolved) normalized.push(...resolved)
+      normalized.push(...this.resolveRule(rule, config))
     }
 
     return normalized
   }
 
+  /**
+   * 将单条字段规则分派到命名规则或对象规则解析流程。
+   *
+   * @param rule - 待解析的字段规则。
+   * @param config - 当前字段配置。
+   * @returns 解析后的原生规则列表。
+   */
   private resolveRule<TName extends NamePath<TValues>>(
     rule: FieldRule<TValues, TName>,
     config: FieldValidationConfig<TValues, TName>
-  ): readonly ResolvedValidationRule<TValues, TName>[] | undefined {
+  ): readonly ResolvedValidationRule<TValues, TName>[] {
     if (typeof rule === "string") return this.resolveNamedRule(rule, config)
 
     return this.resolveObjectRule(rule, config)
   }
 
+  /**
+   * 通过 Registry 解析命名规则，并继续解析其返回值。
+   *
+   * @param name - Registry 中的规则名称。
+   * @param config - 当前字段配置。
+   * @returns 解析后的原生规则列表。
+   * @throws 当 Registry 中不存在该名称时抛出错误。
+   */
   private resolveNamedRule<TName extends NamePath<TValues>>(
     name: string,
     config: FieldValidationConfig<TValues, TName>
-  ): readonly ResolvedValidationRule<TValues, TName>[] | undefined {
+  ): readonly ResolvedValidationRule<TValues, TName>[] {
     // 使用字段元数据延迟解析命名规则工厂。
     const rule = this.options.registry.resolve(name, {
       name: config.name,
       label: config.label,
       required: Boolean(config.required),
     })
+
     if (!rule) {
       this.warnUnknownRule(name)
       throw new Error(`未找到名为 "${name}" 的校验规则`)
     }
 
-    // 注册表解析结果可能是 Standard Schema 或原生规则，统一交由内置 adapter 识别。
+    // 注册表解析结果可能是 Standard Schema 或原生规则，统一交由规则解析逻辑识别。
     return this.resolveObjectRule(rule, config)
   }
 
+  /**
+   * 识别原生规则或路由到唯一匹配的 adapter。
+   *
+   * @param rule - 待解析的对象规则。
+   * @param config - 当前字段配置。
+   * @returns 解析后的原生规则列表。
+   * @throws 当规则无法识别或命中多个 adapter 时抛出错误。
+   */
   private resolveObjectRule<TName extends NamePath<TValues>>(
     rule: object,
     config: FieldValidationConfig<TValues, TName>
-  ): readonly ResolvedValidationRule<TValues, TName>[] | undefined {
+  ): readonly ResolvedValidationRule<TValues, TName>[] {
+    // 原生规则是 Validator 的基础输入，不参与 adapter 路由。
+    if (isValidationRule(rule)) return [rule]
+
     // 每条对象规则必须恰好命中一个 adapter。
-    const adapter = this.findAdapterForRule(rule)
+    const adapter = findValidationAdapter(this.adapters, rule)
+
     if (adapter) return this.resolveAdapterRule(adapter, rule, config)
 
     this.warnUnrecognizedObjectRule(config.name)
     throw new Error(`字段 "${String(config.name)}" 存在无法识别的校验规则`)
   }
 
-  private findAdapterForRule(rule: unknown): ValidationAdapter | undefined {
-    // 收集全部命中的 adapter，以便拒绝歧义匹配。
-    const matched: ValidationAdapter[] = []
-    for (const adapter of this.adapters.values()) {
-      if (adapter.isRule(rule)) matched.push(adapter)
-    }
-
-    if (matched.length > 1) {
-      throw new Error(
-        `校验规则同时匹配多个 adapter: ${matched.map((adapter) => adapter.id).join(", ")}`
-      )
-    }
-
-    return matched[0]
-  }
-
+  /**
+   * 执行 adapter 解析，并校验其返回的原生规则契约。
+   *
+   * @param adapter - 命中的规则 adapter。
+   * @param rule - adapter 接收的原始规则。
+   * @param config - 当前字段配置。
+   * @returns adapter 生成的原生规则列表。
+   * @throws 当 adapter 返回非法规则列表时抛出错误。
+   */
   private resolveAdapterRule<TName extends NamePath<TValues>>(
     adapter: ValidationAdapter,
     rule: unknown,
     config: FieldValidationConfig<TValues, TName>
   ): readonly ResolvedValidationRule<TValues, TName>[] {
     // adapter 输出仍需做运行时形状校验，不能信任第三方实现。
-    const resolved = adapter.resolve(rule as never, config)
+    const resolved = adapter.resolve<DefinedFieldValue<TValues, TName>>(
+      rule as never,
+      config
+    )
+
     if (
       !Array.isArray(resolved) ||
       resolved.length === 0 ||
       resolved.some((item) => !isValidationRule(item))
     ) {
       throw new Error(
-        `字段 "${String(config.name)}" 的 adapter "${adapter.id}" 返回了非法原生校验规则`
+        `字段 "${String(config.name)}" 的 adapter "${String(adapter.id)}" 返回了非法原生校验规则`
       )
     }
 
     return resolved as readonly ResolvedValidationRule<TValues, TName>[]
   }
 
+  /**
+   * 对未注册命名规则发出一次开发期警告。
+   *
+   * @param name - 未找到的规则名称。
+   */
   private warnUnknownRule(name: string): void {
     if (this.warnedUnknownRules.has(name)) return
 
@@ -312,13 +361,19 @@ class ValidationControllerImpl<
     console.warn(`[schemx] 未找到名为 "${name}" 的校验规则`)
   }
 
+  /**
+   * 对无法识别的对象规则按字段发出一次开发期警告。
+   *
+   * @param name - 无法识别规则的字段路径。
+   */
   private warnUnrecognizedObjectRule(name: NamePath<TValues>): void {
     // 仅用于警告去重的展示路径。
-    const key = String(name)
+    const key = createFieldKey(name)
+
     if (this.warnedUnrecognizedFields.has(key)) return
 
     this.warnedUnrecognizedFields.add(key)
-    console.warn(`[schemx] 字段 "${key}" 存在无法识别的校验规则，已跳过`)
+    console.warn(`[schemx] 字段 "${String(name)}" 存在无法识别的校验规则，配置失败`)
   }
 
   /**
@@ -329,17 +384,16 @@ class ValidationControllerImpl<
 
     // 反向索引使用与 Validator 一致的稳定字段身份。
     const key = createFieldKey(config.name)
+
     // 只有字符串规则名会受 Registry 事件影响。
-    const ruleNames = toRuleArray(config.rules).filter(
-      (rule): rule is string => typeof rule === "string"
-    )
+    const ruleNames = getRuleNames(config.rules)
 
     this.configs.set(key, config)
-    this.ruleNamesByField.set(key, ruleNames)
 
     for (const ruleName of ruleNames) {
       // 同名规则可被多个字段引用。
       const fields = this.fieldsByRuleName.get(ruleName) ?? new Set<string>()
+
       fields.add(key)
       this.fieldsByRuleName.set(ruleName, fields)
     }
@@ -349,20 +403,20 @@ class ValidationControllerImpl<
    * 移除字段配置及其所有命名规则反向索引。
    */
   private untrackConfig(name: NamePath<TValues>): void {
-    // 根据稳定身份找到字段此前注册的规则名。
+    // 根据稳定身份找到字段此前注册的配置，并重新提取命名规则。
     const key = createFieldKey(name)
-    // 删除所有指向该字段的反向索引。
-    const ruleNames = this.ruleNamesByField.get(key) ?? []
+
+    const ruleNames = getRuleNames(this.configs.get(key)?.rules)
 
     for (const ruleName of ruleNames) {
       // 规则名对应的受影响字段集合。
       const fields = this.fieldsByRuleName.get(ruleName)
+
       if (!fields) continue
       fields.delete(key)
       if (fields.size === 0) this.fieldsByRuleName.delete(ruleName)
     }
 
-    this.ruleNamesByField.delete(key)
     this.configs.delete(key)
   }
 
@@ -372,6 +426,7 @@ class ValidationControllerImpl<
   private syncAffectedFields(change: ValidationRuleRegistryChange): void {
     // 由变更规则名收集的去重字段集合。
     const affected = new Set<string>()
+
     for (const name of change.names) {
       for (const key of this.fieldsByRuleName.get(name) ?? []) affected.add(key)
     }
@@ -379,6 +434,7 @@ class ValidationControllerImpl<
     for (const key of affected) {
       // 字段仍存在时才基于最新 Registry 重新解析。
       const config = this.configs.get(key)
+
       if (config) this.syncField(config)
     }
   }
@@ -396,46 +452,42 @@ function toRuleArray<TValues extends Values, TName extends NamePath<TValues>>(
 }
 
 /**
- * 按唯一 id 建立 adapter 路由表。
+ * 从字段规则中提取会受 Registry 变更影响的命名规则。
+ *
+ * @param rules - 待扫描的字段规则声明。
+ * @returns 按原始顺序收集的命名规则列表。
  */
-function buildAdapterMap(
-  adapters: readonly ValidationAdapter[]
-): ReadonlyMap<string, ValidationAdapter> {
-  // 最终供规则匹配使用的 adapter 映射。
-  const map = new Map<string, ValidationAdapter>()
-
-  for (const adapter of adapters) {
-    // adapter id 同时是唯一性约束和诊断名称。
-    const id = getAdapterId(adapter)
-    if (map.has(id)) throw new Error(`重复的校验 adapter id "${id}"`)
-    map.set(id, adapter)
-  }
-
-  return map
+function getRuleNames<TValues extends Values, TName extends NamePath<TValues>>(
+  rules: FieldRules<TValues, TName> | undefined
+): readonly string[] {
+  return toRuleArray(rules).filter(
+    (rule): rule is Extract<typeof rule, string> => typeof rule === "string"
+  )
 }
 
 /**
- * 验证并返回 adapter 的可用标识。
+ * 判断值是否为可执行的原生校验规则（含 `validate` 函数）。
+ *
+ * @param value - 待检查的未知值。
+ * @returns 值是否符合原生校验规则的最小运行时形状。
  */
-function getAdapterId(adapter: ValidationAdapter): string {
-  // 容错读取第三方 adapter 的 id，随后统一验证。
-  const id = (adapter as { id?: unknown } | null)?.id
-  if (typeof id !== "string" || !id.trim()) {
-    throw new Error("校验 adapter id 必须为非空字符串")
-  }
-
-  return id
+function isValidationRule(value: unknown): value is ValidationRule {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as ValidationRule).validate === "function"
+  )
 }
 
 /**
  * 创建字段校验配置控制器。
  *
  * 控制器将 `required`、命名规则、原生规则、Standard Schema 和 adapter 规则统一为
- * Validator 的原生规则；内置 adapter 始终处理 Standard Schema 与原生规则，用户 adapter
- * 在创建时与内置 adapter 一起去重固化。
+ * Validator 的原生规则；唯一内置 adapter 处理 Standard Schema，用户 adapter 在创建时
+ * 与它一起去重固化。
  *
  * @typeParam TValues - 表单值类型。
- * @param options - Validator、命名规则注册中心与用户 adapters。
+ * @param options - Validator、命名规则注册中心与用户 adapter 注册项。
  * @returns 用于同步或移除字段校验配置的控制器。
  *
  * @example

@@ -103,6 +103,7 @@ describe("UploadRenderer", () => {
 
   it("propsHttp 可以覆盖上传响应字段映射", async () => {
     const onChange = vi.fn()
+
     const wrapper = mount(UploadRenderer, {
       props: {
         onChange,
@@ -114,6 +115,7 @@ describe("UploadRenderer", () => {
     })
 
     const uploader = wrapper.findComponent({ name: "Uploader" })
+
     const file = new File(["image"], "source.png", { type: "image/png" })
 
     await uploader.props("afterRead")(

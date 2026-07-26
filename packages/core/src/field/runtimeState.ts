@@ -130,7 +130,9 @@ export function createFieldRuntimeState<TValues extends Values>(
   options: CreateFieldRuntimeStateOptions<TValues>
 ): FieldRuntimeState<TValues> {
   const { key, descriptor } = options
+
   const schema = descriptor.staticSchema
+
   const inheritedState = options.inheritedState
 
   const staticSchema = createSignal<SchemxResolvedBaseField<TValues>>(schema, {
@@ -153,13 +155,21 @@ export function createFieldRuntimeState<TValues extends Values>(
 
   const effectiveSchema = createComputed<FieldEffectiveSchema<TValues>>(() => {
     const base = staticSchema.value
+
     const overrides = dynamicOverrides.value
+
     const readonlyPlaceholder = overrides.readonlyPlaceholder ?? base.readonlyPlaceholder
+
     const inherited = inheritedState?.value ?? DEFAULT_CONTAINER_STATE
+
     const ownVisible = overrides.visible ?? base.visible ?? true
+
     const ownDisabled = overrides.disabled ?? base.disabled ?? false
+
     const ownReadonly = overrides.readonly ?? base.readonly ?? false
+
     const required = overrides.required ?? base.required ?? false
+
     const showRequiredMark =
       overrides.showRequiredMark ?? base.showRequiredMark ?? Boolean(required)
 
@@ -240,6 +250,7 @@ export function setFieldStaticSchema<TValues extends Values>(
   state.name.value = descriptor.name
 
   const prev = state.diagnostics.peek()
+
   state.diagnostics.value = {
     ...prev,
     lastUpdatedBy: "static-schema",
@@ -280,6 +291,7 @@ export function setFieldDynamicOverrides<TValues extends Values>(
   state.dynamicOverrides.value = overrides
 
   const prev = state.diagnostics.peek()
+
   state.diagnostics.value = {
     ...prev,
     lastUpdatedBy: "dependencies",
@@ -305,6 +317,7 @@ export function resetFieldDynamicOverrides<TValues extends Values>(
   state.dynamicOverrides.value = {}
 
   const prev = state.diagnostics.peek()
+
   state.diagnostics.value = {
     ...prev,
     lastUpdatedBy: reason ?? "reset",

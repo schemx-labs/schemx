@@ -143,6 +143,7 @@ export function createRuntimeViewState<TValues extends Values = Values>(
     const viewState: FieldNodeViewState<TValues> = {
       view: createComputed(() => {
         const schema = runtimeState.viewSchema.value
+
         const diagnostics = runtimeState.diagnostics.value
 
         return {

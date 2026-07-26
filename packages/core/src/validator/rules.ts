@@ -36,8 +36,10 @@ export function createRequiredValidationRule<
 }): ValidationRule<TValue, TValues, TName> {
   // 将布尔声明统一为可读取的配置对象。
   const config = options.required === true ? {} : options.required
+
   // 调用方自定义判定优先于默认判定。
   const isEmpty = config.isEmpty ?? defaultIsEmpty
+
   // 未自定义时使用字段标签生成可展示消息。
   const message =
     config.message ?? (options.label ? `${options.label}为必填项` : "此项为必填项")
@@ -76,6 +78,7 @@ export function createStandardSchemaValidationRule<
     async validate(value) {
       // Standard Schema 的输出值不参与表单写入，仅消费问题列表。
       const result = await schema["~standard"].validate(value)
+
       // 将协议问题收敛到 Core 的公开 issue 形状。
       const issues = result.issues?.map((issue) => ({ message: issue.message })) ?? []
 

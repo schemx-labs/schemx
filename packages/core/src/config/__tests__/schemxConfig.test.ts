@@ -51,7 +51,7 @@ describe("configureSchemx", () => {
       { validate: () => ({ valid: false as const, issues: [{ message: "表单" }] }) },
     ])
 
-    configureSchemx({ validation: { adapters: [globalAdapter] } })
+    configureSchemx({ validation: { validatorAdapters: [globalAdapter] } })
     const globalForm = createForm<{ email: string }>({
       schemas: [
         {
@@ -63,7 +63,7 @@ describe("configureSchemx", () => {
       ],
     })
     const form = createForm<{ email: string }>({
-      adapters: [formAdapter],
+      validatorAdapters: [{ adapter: formAdapter, override: true }],
       schemas: [
         {
           name: "email",
@@ -73,7 +73,7 @@ describe("configureSchemx", () => {
         },
       ],
     })
-    configureSchemx({ validation: { adapters: [] } })
+    configureSchemx({ validation: { validatorAdapters: [] } })
 
     await expect(
       globalForm.validateField("email", { email: "x" })
@@ -86,9 +86,21 @@ describe("configureSchemx", () => {
   })
 
   it.each([null, 1, {}, "   "])("创建 Form 时拒绝非法 adapter id %j", (id) => {
-    expect(() => createForm({ adapters: [{ id } as never] })).toThrow(
-      "校验 adapter id 必须为非空字符串"
+    expect(() => createForm({ validatorAdapters: [{ id } as never] })).toThrow(
+      "校验 adapter id 必须为非空字符串或 symbol"
     )
+  })
+
+  it("仅显式 override 才允许覆盖同 ID adapter", () => {
+    const first = createTestAdapter("same", () => [])
+    const second = createTestAdapter("same", () => [])
+
+    expect(() => createForm({ validatorAdapters: [first, second] })).toThrow(
+      '重复的校验 adapter id "same"'
+    )
+    expect(() =>
+      createForm({ validatorAdapters: [first, { adapter: second, override: true }] })
+    ).not.toThrow()
   })
 
   it("全局 defaultProps 作为后续 Form 的字段默认值", async () => {

@@ -99,6 +99,7 @@ class FieldSignalMapImpl<K, V> {
    */
   public set(key: K, value: FieldSignal<V>): this {
     const normalizedKey = this.getKey(key)
+
     const exists = this.records.has(normalizedKey)
 
     this.records.set(normalizedKey, { key, value })
@@ -128,6 +129,7 @@ class FieldSignalMapImpl<K, V> {
    */
   public delete(key: K): boolean {
     const normalizedKey = this.getKey(key)
+
     const record = this.records.get(normalizedKey)
 
     if (!record) return false

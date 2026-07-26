@@ -96,6 +96,7 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
   context: SchemxContext<TValues>
 ): RuntimeLifecycle<TValues> {
   const resources = context.nodeResources
+
   const bus = context.lifecycleBus
 
   return {

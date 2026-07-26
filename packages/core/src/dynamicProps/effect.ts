@@ -49,6 +49,7 @@ export function createDynamicPropsEffect<
   }
 
   const { formApi, scheduler } = context
+
   const taskRunner = createAbortableTaskRunner<TResolved>({
     scope,
     scheduler,
@@ -73,6 +74,7 @@ async function resolveDynamicProps<TValues extends Values, TResolved extends obj
   formApi: SchemxFormApi<TValues>
 ): Promise<TResolved> {
   const values = formApi.getValues() as TValues
+
   const dependencyRecord = dependencies as DynamicPropsDependencies<TValues> &
     Record<string, unknown>
 

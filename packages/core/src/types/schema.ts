@@ -354,21 +354,20 @@ export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
  *
  * @typeParam  TValues - 表单值类型
  */
-type SchemxBaseFieldByName<TValues extends Values, TName extends NamePath<TValues>> = [
+type SchemxBaseFieldByComponent<TValues extends Values> = [
   Extract<keyof SchemxRendererDefinition<TValues>, string>,
 ] extends [never]
-  ? SchemxBase<TValues, TName, string>
+  ? SchemxBase<TValues>
   : {
       [TKey in Extract<keyof SchemxRendererDefinition<TValues>, string>]: SchemxBase<
         TValues,
-        TName,
+        NamePath<TValues>,
         TKey
       >
     }[Extract<keyof SchemxRendererDefinition<TValues>, string>]
 
-export type SchemxBaseField<TValues extends Values = Values> = {
-  [TName in NamePath<TValues>]: SchemxBaseFieldByName<TValues, TName>
-}[NamePath<TValues>]
+export type SchemxBaseField<TValues extends Values = Values> =
+  SchemxBaseFieldByComponent<TValues>
 
 /**
  * 自定义 Group Schema 基础字段扩展接口

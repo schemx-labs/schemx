@@ -146,7 +146,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 | `slider`         | `SliderRenderer`         | `SliderValue`         | —                                     | 不支持                                                         | `Slider`、`Cell`                                |
 | `stepper`        | `StepperRenderer`        | `StepperValue`        | —                                     | 不支持                                                         | `Stepper`、`Cell`                               |
 | `upload`         | `UploadRenderer`         | `UploadValue`         | `UploadFile`（文件项）                | 不支持                                                         | `Uploader`                                      |
-| `cascader`       | `CascaderRenderer`       | `CascaderValue`       | Vant `CascaderOption`（未从本包导出） | 仅支持 Cell 展示映射；弹窗 options 未接线，Schema 类型也未同步 | `Cascader`、`Popup`、`Cell`                     |
+| `cascader`       | `CascaderRenderer`       | `CascaderValue`       | Vant `CascaderOption`（未从本包导出） | 完整支持                                                       | `Cascader`、`Popup`、`Cell`                     |
 
 全部 Renderer 都接受 Schemx 字段上下文提供的基础契约。下文只列继承来源、排除或重写字段，以及本包显式增加的字段；Vant 的完整通用 Props 请查阅 Vant 文档。
 
@@ -154,11 +154,9 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 
 ### 支持范围与优先级
 
-`radio`、`checkbox`、`picker`、`selectPicker`、`selector` 在类型与运行时都支持 `dict`。`WithRemoteOptions` 在存在 `dict` 时调用 `useDictionary`，把结果注入为 `options`，并注入 `loading`；此时远程结果替代静态 `options`。没有 `dict` 时直接使用传入的静态 `options`。
+`radio`、`checkbox`、`picker`、`selectPicker`、`selector`、`cascader` 在类型与运行时都支持 `dict`。`WithRemoteOptions` 在存在 `dict` 时调用 `useDictionary`，把结果注入为 `options`，并注入 `loading`；此时远程结果替代静态 `options`。没有 `dict` 时直接使用传入的静态 `options`。
 
-`cascader` 的根导出当前存在 `WithRemoteOptions` 包装，HOC 能加载远程 `options`，静态 `options` 也能进入 Renderer；但 `index.vue` 只用这些选项做 Cell 标签路径映射，同时从传给 Vant `<Cascader>` 的 Props / attrs 中剔除了 `options`。因此无论静态选项还是 Dictionary 选项，交互弹窗都拿不到选项，当前只能用于只读 / Cell 展示映射，不能视为可用的级联选择能力。
-
-此外，`SchemxRendererDefinition` 的 `cascader` 仍声明为裸 `CascaderRendererProps`，没有注入 `SchemxWithDictionary`；严格类型的 `SchemxField` 会拒绝 `cascader.componentProps.dict`。这里同时存在弹窗运行时未接线和 Schema 类型未同步两个限制，业务代码不应通过 `as any` 把它当成完整 Dictionary Renderer。
+`cascader` 的根导出通过 `WithRemoteOptions` 包装，静态 `options` 和 Dictionary 产生的远程选项都会传给 Vant `<Cascader>`，也会用于 Cell 标签路径映射。其 Schema 类型同样注入了 `SchemxWithDictionary`，因此可以像其他支持 Dictionary 的选择 Renderer 一样配置 `dict`。
 
 ### `SchemxDictionary` 字段
 
@@ -178,7 +176,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 
 请求计数只在通过 `shouldFetch` 检查、真正开始请求时递增，并且只在 API 成功返回与异步 `formatter` 完成后检查是否过期。因此，它能阻止旧的成功响应或旧的 formatter 结果覆盖更新请求，但不是完整的竞态隔离：`shouldFetch` 返回 `false` 时不会递增计数，先前在途的成功结果仍可能随后写回；错误分支也不检查请求计数，旧请求的错误仍可能覆盖较新的状态、清空选项并触发 `onError`。错误本身会被规范化为 `Error`。
 
-`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。Vant 内建的 5 个 Dictionary Renderer 经 `WithRemoteOptions` 包装后，会在 `FormItem` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `FormItem` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
+`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。Vant 内建的 6 个 Dictionary Renderer 经 `WithRemoteOptions` 包装后，会在 `FormItem` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `FormItem` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
 
 ### 可复制的依赖联动示例
 
@@ -707,8 +705,8 @@ const uploadField: SchemxField<{ photos: { url?: string }[] }>[] = [
 
 - **值与选项：** `CascaderValue = Array<NonNullable<CascaderProps["modelValue"]>>`，始终以数组承载路径或末级值；选项使用 Vant Cascader options。
 - **Props：** 同时继承 Schemx 基础契约与 `Partial<Omit<CascaderProps, "modelValue" | "onUpdate:modelValue">>`。
-- **Dictionary：** HOC 可以加载并注入选项，但选项只用于 Cell 标签映射，没有传入 Vant Cascader；Schema `componentProps` 类型也尚未注入 `dict`。当前不具备可用的 Dictionary 交互能力。
-- **行为：** `options` 可把已有值映射为 Cell 标签路径；可编辑状态虽然能打开 Popup，但 `<Cascader>` 收不到静态或 Dictionary 选项，当前无法完成正常级联选择。事件处理代码会在收到 finish 时按 `emitPath` 生成路径、调用 `onConfirm` / `onChange`，关闭触发 `onBlur`；无内置清空；只读 / 禁用不挂载 Popup。
+- **Dictionary：** HOC 可以加载并注入选项；Schema `componentProps` 类型也支持 `dict`，远程选项会传给 Vant Cascader。
+- **行为：** `options` 可把已有值映射为 Cell 标签路径，也会作为级联弹窗数据源。事件处理代码会在收到 finish 时按 `emitPath` 生成路径、调用 `onConfirm` / `onChange`，关闭触发 `onBlur`；无内置清空；只读 / 禁用不挂载 Popup。
 
 | 包内重写 / 新增字段                             | 类型 / 说明                                                                  |
 | ----------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -720,13 +718,13 @@ const uploadField: SchemxField<{ photos: { url?: string }[] }>[] = [
 | `emitPath`                                      | 是否返回完整路径，默认 `true`。                                              |
 | `fieldNames`                                    | `CascaderFieldNames`。                                                       |
 | `separator`                                     | 标签路径分隔符，默认 `" - "`。                                               |
-| `options`                                       | `CascaderProps["options"]`；当前只用于 Cell 标签映射，未传入 Vant Cascader。 |
+| `options`                                       | `CascaderProps["options"]`；同时用于 Cell 标签映射和级联弹窗。             |
 | `title`                                         | Cascader 标题。                                                              |
 | `contentAlign`                                  | Cell 内容对齐。                                                              |
 | `popupProps`                                    | `Partial<Omit<PopupProps, "show">>`，运行时剔除 `show`。                     |
 | `readonly` / `readonlyPlaceholder` / `disabled` | 状态与占位。                                                                 |
 
-> **当前限制：** 下例仅演示 `readonly` Cell 的标签路径映射，不代表级联弹窗可用。可编辑弹窗当前收不到 `options`。由于 Schema 类型也未注入 `dict`，示例不使用 Dictionary。
+> 下例使用 `readonly` 展示 Cell 的标签路径映射；将 `readonly` 改为 `false` 即可打开带有 `options` 的级联弹窗。
 
 ```ts
 import type { CascaderRendererProps, SchemxField } from "@schemx/vant"
@@ -760,7 +758,7 @@ const regionField: SchemxField<typeof initialValues>[] = [
 ]
 ```
 
-将 `initialValues` 传给表单后，Cell 可显示“浙江 - 杭州”；该示例刻意使用 `readonly: true`，不尝试打开当前尚未接线的交互弹窗。
+将 `initialValues` 传给表单后，Cell 可显示“浙江 - 杭州”；示例使用 `readonly: true` 先展示标签路径，编辑态同样会使用这些 `options` 打开级联弹窗。
 
 ## 公共组件与工具
 
@@ -832,7 +830,7 @@ rendererRegistry.register("input", CustomInputRenderer)
 
 `register()` 默认也允许覆盖；需要保护已有项时可传 `{ override: false }`。此 Registry 是 Vue 包的模块级共享实例，后续同名注册会影响使用该实例的表单。若只导入 `@schemx/vue`，不会触发 Vant 的默认注册；深层导入源码既不保证副作用，也不属于发布出口。
 
-`DEFAULT_RENDERER_TYPES` 是按上述顺序排列的只读字面量元组，适合能力枚举、文档生成和类型推导。当前注册模块仍显式维护组件映射，并不是遍历该元组完成注册；该常量也不代表 Renderer 一定处于可编辑模式。实际交互仍由字段的 `readonly` / `disabled`、各 Renderer 实现及 `resolveRendererMode()` 共同决定，`cascader` 还受前述 options 未接线限制。
+`DEFAULT_RENDERER_TYPES` 是按上述顺序排列的只读字面量元组，适合能力枚举、文档生成和类型推导。当前注册模块仍显式维护组件映射，并不是遍历该元组完成注册；该常量也不代表 Renderer 一定处于可编辑模式。实际交互仍由字段的 `readonly` / `disabled`、各 Renderer 实现及 `resolveRendererMode()` 共同决定。
 
 ## 类型参考
 
@@ -891,7 +889,7 @@ rendererRegistry.register("input", CustomInputRenderer)
 
 ## Vue 与 Core API
 
-Vant 根入口的 `default` 与命名 `SchemxForm` 都直接引用 `@schemx/vue` 的默认表单组件；此外，`export * from "@schemx/vue"` 原样传递 Vue 的全部 108 个命名导出。Vue 自有的 27 个命名导出包括组件、Hooks、Context、Dictionary、Registry 和类型；Vue 又传递 Core 的 81 个命名导出。它们的所有权仍分别属于 Vue / Core，不应被描述成 Vant 自有 API。
+Vant 根入口的 `default` 与命名 `SchemxForm` 都直接引用 `@schemx/vue` 的默认表单组件；此外，`export * from "@schemx/vue"` 原样传递 Vue 和 Core 的公开导出。它们的所有权仍分别属于 Vant、Vue 和 Core，不应被描述成 Vant 自有 API。
 
 注意命名差异：Vue 根入口的组件别名是小写开头的 `schemxForm`，没有命名 `SchemxForm`；Vant 才额外增加命名别名 `SchemxForm`。在 Vant 根入口中，`default === SchemxForm`，并且二者也与传递进来的 `schemxForm` 指向同一组件。
 
@@ -923,13 +921,11 @@ const schemas = [
 
 通过组件 `ref` 可调用 `SchemxInstance`。它包含值、快照、初始值、touched、pending、校验、提交与重置、响应式 effect、Schema 更新、默认配置、view、Renderer / Validator 注册和 `destroy` 等完整实例能力；实例契约以 `@schemx/core` 的 `SchemxInstance` 类型为准。
 
-## 完整导出清单
+## 导出清单
 
-当前根入口共有 185 项导出：184 个命名导出和 `default`。命名导出由 70 个运行时值与 114 个类型组成；若统计工具把 `default` 归入值，则显示为 71 个值 + 114 个类型。
+下列列表按来源说明当前公开 API。导出总数不在文档中固定统计；新增 Renderer、Hook 或 Core 类型后，请以包根入口和 `package.json` 的 `exports` 为准。
 
-按来源划分：Vant 相对 Vue 新增 76 个命名导出，即 18 个 Renderer 值、46 个 Renderer 类型、10 个其他值和 2 个其他类型；另有从 Vue 原样传递的 108 个命名导出。`default` 来自 Vue，但单独计入总项，不属于 184 个命名导出。
-
-### Vant 自有运行时值（28 个命名值 + `default`）
+### Vant 自有运行时值（含 `default`）
 
 | 分类            | 导出                      | 用途                                                    |
 | --------------- | ------------------------- | ------------------------------------------------------- |
@@ -963,16 +959,16 @@ const schemas = [
 | 工具            | `findTreeItem`            | 查找树节点并返回 label / value 路径。                   |
 | 工具            | `getFileName`             | 从 URL 或路径提取文件名。                               |
 
-### Vant 自有类型（48 个）
+### Vant 自有类型
 
-其中 46 个 Renderer 类型的逐项用途见 [类型参考](#类型参考)，2 个工具类型的结构见 [工具函数](#工具函数)。完整名称基线如下：
+Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型的结构见 [工具函数](#工具函数)。
 
 | 分类          | 导出                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Renderer 类型 | `InputRendererProps`、`InputValue`、`TextRendererProps`、`TextValue`、`TextAreaRendererProps`、`TextAreaAutosize`、`TextAreaValue`、`CheckboxRendererProps`、`CheckboxOption`、`CheckboxValue`、`DateRendererProps`、`DateValue`、`CalendarRendererProps`、`CalendarValue`、`NumberRendererProps`、`NumberValue`、`PickerRendererProps`、`PickerFieldNames`、`PickerValue`、`RadioRendererProps`、`RadioOption`、`RadioValue`、`RateRendererProps`、`RateValue`、`SliderRendererProps`、`SliderValue`、`StepperRendererProps`、`StepperValue`、`SwitchRendererProps`、`SwitchValue`、`UploadRendererProps`、`UploadFile`、`UploadValue`、`CascaderRendererProps`、`CascaderFieldNames`、`CascaderValue`、`SelectorRendererProps`、`SelectorOption`、`SelectorProps`、`SelectValue`、`SelectPickerFieldNames`、`SelectPickerOption`、`SelectPickerRendererProps`、`SelectPickerValue`、`SensitiveInputRendererProps`、`SensitiveInputValue` |
 | 工具类型      | `RendererMode`、`FindTreeItemResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
-### Vue 自有传递运行时值（22 个）
+### Vue 自有传递运行时值
 
 | 分类       | 导出                      | 用途                                                    |
 | ---------- | ------------------------- | ------------------------------------------------------- |
@@ -999,7 +995,7 @@ const schemas = [
 | Vue 响应式 | `useStableRef`            | 建立浅比较稳定 Ref。                                    |
 | ViewSchema | `useViewSchemas`          | 桥接 ViewSchemas 为 Ref。                               |
 
-### Vue 自有传递类型（5 个）
+### Vue 自有传递类型
 
 | 分类            | 导出                   | 用途                                       |
 | --------------- | ---------------------- | ------------------------------------------ |
@@ -1008,10 +1004,12 @@ const schemas = [
 | 插件类型        | `SchemxInstallOptions` | 当前为空的安装选项。                       |
 | Dictionary 类型 | `SchemxWithDictionary` | 为 Renderer Props 增加可选 `dict`。        |
 | Dictionary 类型 | `UseDictionaryReturn`  | `useDictionary()` 的响应式状态与控制方法。 |
+| 表单类型        | `SchemxFormProps`      | Vue 表单组件 Props 类型。                  |
+| 字段类型        | `FieldInstance`        | Vue Ref / Computed 桥接后的字段控制器类型。 |
 
 这些 Vue API 的完整契约与边界见 [Vue README](../vue)。
 
-### 经 Vue 传递的 Core 运行时值（20 个）
+### 经 Vue 传递的 Core 运行时值
 
 | 分类          | 导出                           | 用途                          |
 | ------------- | ------------------------------ | ----------------------------- |
@@ -1020,6 +1018,7 @@ const schemas = [
 | Schema source | `createSchemas`                | 创建可更新 Schema source。    |
 | Schema source | `isSchemxSchemas`              | 判断 Schema source。          |
 | Effect        | `createEffect`                 | 创建 Core effect。            |
+| 配置          | `configureSchemx`              | 设置后续 Form 使用的全局默认配置。 |
 | Watch         | `createWatch`                  | 分发 Core Watch。             |
 | Watch         | `createWatchField`             | 单字段 Core Watch。           |
 | Watch         | `createWatchFields`            | 多字段 Core Watch。           |
@@ -1036,7 +1035,7 @@ const schemas = [
 | 路径          | `setByPath`                    | 写入嵌套路径。                |
 | 路径          | `collectObjectPathsByLeaf`     | 收集叶子路径。                |
 
-### 经 Vue 传递的 Core 类型（61 个）
+### 经 Vue 传递的 Core 类型
 
 | 分类               | 导出                            | 用途                                    |
 | ------------------ | ------------------------------- | --------------------------------------- |
@@ -1081,6 +1080,8 @@ const schemas = [
 | ViewSchema         | `SchemxViewFieldSchema`         | 字段渲染投影。                          |
 | ViewSchema         | `SchemxViewGroupSchema`         | Group 渲染投影。                        |
 | ViewSchema         | `SchemxViewSchema`              | 字段 / Group 投影联合。                 |
+| 配置               | `SchemxConfig`                  | Core 全局默认配置。                     |
+| 配置               | `SchemxValidationConfig`        | Core 全局校验 adapter 配置。            |
 | Renderer           | `SchemxRendererKey`             | Renderer key 类型。                     |
 | Renderer           | `SchemxRendererDefinition`      | Renderer Props 声明合并接口。           |
 | Renderer Registry  | `RendererRegistry`              | Renderer Registry 实例类型。            |
@@ -1088,8 +1089,17 @@ const schemas = [
 | Renderer Registry  | `RendererMap`                   | Renderer 批量映射。                     |
 | Validator          | `Validator`                     | 底层 Validator 实例类型。               |
 | Validator          | `ValidationResult`              | 校验成功 / 失败联合。                   |
+| Validator          | `ValidationSuccess`             | 校验成功结果。                          |
+| Validator          | `ValidationFailure`             | 普通校验失败结果。                      |
+| Validator          | `ValidationCancelled`           | 被更新校验或销毁操作中止的结果。        |
 | Validator          | `ValidationError`               | 校验失败详情。                          |
 | Validator          | `FieldValidationError`          | 单字段错误。                            |
+| Validator          | `FormValidationError`           | 表单级错误。                            |
+| Validator          | `ValidationRuleContext`         | 原生规则执行上下文。                    |
+| Validator          | `ValidationRuleIssue`           | 单条校验问题。                          |
+| Validator          | `ValidationRuleResult`          | 单条规则执行结果。                      |
+| Validator          | `AdapterRule`                   | 第三方 adapter 创建的品牌规则。        |
+| Validator          | `ValidationAdapter`             | 第三方校验 adapter 契约。               |
 | Validator          | `ValidationTrigger`             | 校验触发时机。                          |
 | Validator          | `StandardSchemaV1`              | Standard Schema v1 协议。               |
 | Rule               | `ValidationRuleDefinition`      | 自定义规则声明合并接口。                |

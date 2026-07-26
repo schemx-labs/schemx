@@ -3,7 +3,7 @@ import { defineConfig } from "vite"
 import dts from "vite-plugin-dts"
 
 // 作为 peer dependency 的包，构建时保持外部引用，不打入产物。
-const externalPackages = ["@schemx/core", "zod", "async-validator"]
+const externalPackages = ["@schemx/core", "async-validator"]
 
 // 判断模块 id 是否属于外部包（含子路径导入），供 Rollup 不将其打包进产物。
 function isExternal(id: string) {
@@ -23,10 +23,9 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      // 每个子路径入口单独构建，使 zod / async-validator 等可选 peer 仅在使用方按需导入时加载。
+      // 每个子路径入口单独构建，使 async-validator 等可选 peer 仅在使用方按需导入时加载。
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        zod: resolve(__dirname, "src/zod.ts"),
         "async-validator": resolve(__dirname, "src/async-validator.ts"),
         preset: resolve(__dirname, "src/preset.ts"),
       },

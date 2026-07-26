@@ -28,7 +28,9 @@ export interface SchemxGroupProps<T extends Values = Values> {
 const FormGroup = defineComponent(
   <T extends Values = Values>(props: SchemxGroupProps<T>, { slots }: SetupContext) => {
     const internalCollapsed = ref(Boolean(props.schema.defaultCollapsed))
+
     const collapsed = computed(() => props.schema.collapsed ?? internalCollapsed.value)
+
     const componentId = getCurrentInstance()?.uid ?? 0
 
     watch(
@@ -64,12 +66,19 @@ const FormGroup = defineComponent(
       }
 
       const collapsible = Boolean(schema.collapsible)
+
       const isCollapsed = collapsed.value
+
       const destroyOnCollapse = schema.destroyOnCollapse ?? true
+
       const uniqueId = schema.debug?.runtimeNodeId ?? `local-${componentId}`
+
       const idBase = `schemx-group-${uniqueId}-${normalizeId(schema.key)}`
+
       const headerId = `${idBase}-header`
+
       const bodyId = `${idBase}-body`
+
       const body = (
         <div
           id={bodyId}

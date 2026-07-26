@@ -19,7 +19,6 @@ import {
 
 import type { Values } from "../types"
 
-
 /**
  * 判断 RuntimeNode 是否为 root 节点。
  *

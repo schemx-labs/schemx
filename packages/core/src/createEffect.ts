@@ -73,6 +73,7 @@ export type CreateEffectReturn = () => void
  */
 export function createEffect(callback: EffectCallback): CreateEffectReturn {
   let cleanup: CleanupFn | undefined
+
   let disposed = false
 
   /**
@@ -83,6 +84,7 @@ export function createEffect(callback: EffectCallback): CreateEffectReturn {
     cleanup = undefined
 
     const result = callback()
+
     if (typeof result === "function") {
       cleanup = result
     }

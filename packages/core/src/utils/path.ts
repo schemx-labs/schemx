@@ -162,11 +162,13 @@ export function collectObjectPathsByLeaf<
 
   for (const key of Object.keys(obj)) {
     const path = prefix ? `${prefix}.${key}` : key
+
     const value = obj[key]
 
     if (Array.isArray(value)) {
       value.forEach((item: unknown, index: number) => {
         const itemPath = `${path}[${index}]` as TName
+
         if (item !== null && typeof item === "object") {
           paths.push(...(collectObjectPathsByLeaf(item, itemPath as string) as TName[]))
         } else {

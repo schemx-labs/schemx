@@ -16,19 +16,23 @@ import type {
 import type { NamePath, Values } from "../types/form"
 import type { DefinedFieldValue } from "../types/rule"
 
-/** 正在执行的单字段校验运行。 */
+/**
+ * 正在执行的单字段校验运行。
+ */
 interface ValidationRun {
-  /** 递增版本，用于拒绝陈旧运行的状态提交。 */
+  // 递增版本，用于拒绝陈旧运行的状态提交。
   readonly version: number
-  /** 供异步规则主动停止工作的信号。 */
+  // 供异步规则主动停止工作的信号。
   readonly controller: AbortController
 }
 
-/** 已注册字段的原始路径与规则快照。 */
+/**
+ * 已注册字段的原始路径与规则快照。
+ */
 interface FieldRuleRecord<TValues extends Values> {
-  /** 用于读取值和构造公开结果的原始路径。 */
+  // 用于读取值和构造公开结果的原始路径。
   readonly name: NamePath<TValues>
-  /** 运行时执行的防御性规则数组。 */
+  // 运行时执行的防御性规则数组。
   readonly rules: readonly ValidationRule[]
 }
 
@@ -41,15 +45,15 @@ const EMPTY_MESSAGES: readonly string[] = Object.freeze([])
  * 执行原生规则、协调字段取消并维护错误来源的 Validator 实现。
  */
 class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
-  /** 按稳定字段身份保存的可执行规则。 */
+  // 按稳定字段身份保存的可执行规则。
   private readonly rules = new Map<string, FieldRuleRecord<TValues>>()
-  /** 字段 configuration/validation/external 错误的响应式仓库。 */
+  // 字段 configuration/validation/external 错误的响应式仓库。
   private readonly errors = new FieldErrorStore<TValues>()
-  /** 当前仍可能提交状态的单字段运行。 */
+  // 当前仍可能提交状态的单字段运行。
   private readonly runs = new Map<string, ValidationRun>()
-  /** 用于生成单调递增运行版本的计数器。 */
+  // 用于生成单调递增运行版本的计数器。
   private nextVersion = 0
-  /** 销毁后阻止新的运行与状态写入。 */
+  // 销毁后阻止新的运行与状态写入。
   private destroyed = false
 
   /**
@@ -74,6 +78,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     // 规则和运行状态共享的稳定字段身份。
     const key = createFieldKey(name)
+
     this.abortRun(key)
     this.rules.set(key, { name, rules: [...rules] })
     this.errors.clearValidation(name)
@@ -87,6 +92,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   public removeFieldRules(name: NamePath<TValues>): void {
     // 待移除字段的稳定身份。
     const key = createFieldKey(name)
+
     this.rules.delete(key)
     this.abortRun(key)
     this.errors.clearField(name)
@@ -175,20 +181,26 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     // 当前字段的稳定运行身份。
     const key = createFieldKey(name)
+
     // 唯一允许提交本次状态的运行令牌。
     const run = this.startRun(key)
+
     // 在运行开始时取得规则快照。
     const record = this.rules.get(key)
+
     // 未配置规则的字段仍需参与 external/configuration 错误聚合。
     const rules = record?.rules ?? []
+
     // 按当前路径从本次表单快照读取字段值。
     const value = getByPath(values, name) as DefinedFieldValue<TValues, TName> | undefined
+
     // 传给每条规则的不可写执行上下文。
     const context: ValidationRuleContext<TValues, TName> = {
       name,
       values,
       signal: run.controller.signal,
     }
+
     // 本次规则执行产生的问题；undefined 表示已中止。
     const issues = await this.executeRules(rules, value, context)
 
@@ -217,6 +229,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     // 复制规则记录，避免校验期间注册表变化影响本轮范围。
     const records = [...this.rules.values()]
+
     // 各字段独立运行，以避免慢规则阻塞无关字段。
     const results = await Promise.all(
       records.map((record) => this.validateField(record.name, values))
@@ -228,6 +241,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     // 最终公开结果中的字段与表单错误。
     const errors: ValidationError<NamePath<TValues>>[] = []
+
     // 已由本轮规则运行覆盖的字段身份。
     const validatedKeys = new Set(records.map((record) => createFieldKey(record.name)))
 
@@ -238,13 +252,16 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     for (const entry of this.errors.entries()) {
       if (validatedKeys.has(createFieldKey(entry.name))) continue
       const fieldError = this.createFieldError(entry.name, entry.issues)
+
       if (fieldError) errors.push(fieldError)
     }
 
     return errors.length === 0 ? this.success(values) : { valid: false, values, errors }
   }
 
-  /** 中止全部运行并释放规则与错误状态。 */
+  /**
+   * 中止全部运行并释放规则与错误状态。
+   */
   public destroy(): void {
     if (this.destroyed) return
 
@@ -255,29 +272,37 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.errors.clear()
   }
 
-  /** 启动字段新运行，并使同字段旧运行进入取消状态。 */
+  /**
+   * 启动字段新运行，并使同字段旧运行进入取消状态。
+   */
   private startRun(key: string): ValidationRun {
     this.abortRun(key)
     const run = {
       version: ++this.nextVersion,
       controller: new AbortController(),
     }
+
     this.runs.set(key, run)
 
     return run
   }
 
-  /** 中止一个字段当前仍在执行的运行。 */
+  /**
+   * 中止一个字段当前仍在执行的运行。
+   */
   private abortRun(key: string): void {
     // 仍可取消的当前字段运行。
     const run = this.runs.get(key)
+
     if (!run) return
 
     run.controller.abort()
     this.runs.delete(key)
   }
 
-  /** 顺序执行字段规则；任何中止都会立即停止后续规则。 */
+  /**
+   * 顺序执行字段规则；任何中止都会立即停止后续规则。
+   */
   private async executeRules<TValue, TName extends NamePath<TValues>>(
     rules: readonly ValidationRule<TValue, TValues, TName>[],
     value: TValue | undefined,
@@ -292,6 +317,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
       try {
         // 等待单条规则完成，随后再次确认运行未被中止。
         const result = await rule.validate(value, context)
+
         if (context.signal.aborted) return undefined
 
         if (!isValidationRuleResult(result)) {
@@ -311,7 +337,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     return issues
   }
 
-  /** 将规则异常或规则契约错误映射为稳定 issue。 */
+  /**
+   * 将规则异常或规则契约错误映射为稳定 issue。
+   */
   private getRuleErrorIssue<TName extends NamePath<TValues>>(
     error: unknown,
     context: ValidationRuleContext<TValues, TName>
@@ -330,7 +358,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     }
   }
 
-  /** 由当前错误仓库创建一个字段级公开错误。 */
+  /**
+   * 由当前错误仓库创建一个字段级公开错误。
+   */
   private fieldResult<TName extends NamePath<TValues>>(
     name: TName,
     values: TValues
@@ -338,10 +368,14 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 将当前合并错误仓库转换为公开字段错误。
     const fieldError = this.createFieldError(name, this.errors.getIssues(name))
 
-    return fieldError ? { valid: false, values, errors: [fieldError] } : this.success(values)
+    return fieldError
+      ? { valid: false, values, errors: [fieldError] }
+      : this.success(values)
   }
 
-  /** 将非空 issue 列表包装为字段错误，空数组返回 undefined。 */
+  /**
+   * 将非空 issue 列表包装为字段错误，空数组返回 `undefined`。
+   */
   private createFieldError<TName extends NamePath<TValues>>(
     name: TName,
     issues: readonly ValidationRuleIssue[]
@@ -377,11 +411,13 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 /**
  * 判断未知返回值是否满足运行时规则结果契约。
  */
-function isValidationRuleResult(value: unknown): value is { readonly valid: true } | {
-  readonly valid: false
-  readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
-  readonly bail?: boolean
-} {
+function isValidationRuleResult(value: unknown): value is
+  | { readonly valid: true }
+  | {
+      readonly valid: false
+      readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
+      readonly bail?: boolean
+    } {
   if (typeof value !== "object" || value === null || !("valid" in value)) return false
   if ((value as { valid?: unknown }).valid === true) return true
   if ((value as { valid?: unknown }).valid !== false) return false

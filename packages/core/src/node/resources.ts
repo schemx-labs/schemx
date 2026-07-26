@@ -119,11 +119,14 @@ function createRuntimeFieldIndex<TValues extends Values>(): RuntimeFieldIndex<TV
  * @typeParam TValues - 表单值类型
  * @returns dependency 索引实例
  */
-function createRuntimeDependencyIndex<TValues extends Values>(): RuntimeDependencyIndex<TValues> {
+function createRuntimeDependencyIndex<
+  TValues extends Values,
+>(): RuntimeDependencyIndex<TValues> {
   const triggerFieldsByNode = new Map<
     DependencyRuntimeNode<TValues>,
     readonly NamePath<TValues>[]
   >()
+
   const nodesByTriggerField = new Map<string, DependencyRuntimeNode<TValues>[]>()
 
   /**
@@ -134,6 +137,7 @@ function createRuntimeDependencyIndex<TValues extends Values>(): RuntimeDependen
 
     for (const triggerField of triggerFields) {
       const key = createFieldKey(triggerField)
+
       const nodes = nodesByTriggerField.get(key)
 
       if (!nodes) {
@@ -171,6 +175,7 @@ function createRuntimeDependencyIndex<TValues extends Values>(): RuntimeDependen
 
       for (const triggerField of descriptor.triggerFields) {
         const key = createFieldKey(triggerField)
+
         const nodes = nodesByTriggerField.get(key) ?? []
 
         if (!nodes.includes(node)) {

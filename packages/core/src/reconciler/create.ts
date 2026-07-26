@@ -41,6 +41,7 @@ export function createReconciler<TValues extends Values = Values>(
 ): Reconciler<TValues> {
   // 初始化运行时基础设施
   const nodeManager = createRuntimeNodeManager<TValues>(context)
+
   const lifecycle = createRuntimeLifecycle<TValues>(context)
 
   /**

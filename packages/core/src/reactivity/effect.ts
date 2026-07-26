@@ -48,6 +48,7 @@ export function createSignalEffect(
   }
 
   const disposeRef: { current?: SignalEffectDispose } = {}
+
   disposeRef.current = effect(() => {
     fn()
     disposeRef.current?.()

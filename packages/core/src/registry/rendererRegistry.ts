@@ -233,6 +233,7 @@ export class RendererRegistry<
    */
   unregister(type: T): boolean {
     const isFallback = type === this.fallbackType
+
     const deleted = this.renderers.delete(type)
 
     if (isFallback && deleted) {

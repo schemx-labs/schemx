@@ -103,10 +103,13 @@
   }>()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
+
   const innerRevealed = ref(props.defaultRevealed)
 
   const rawValue = computed(() => String(props.value ?? ""))
+
   const isRevealed = computed(() => props.revealed ?? innerRevealed.value)
+
   const canReveal = computed(() => {
     if (!props.revealable || props.disabled) return false
     if (props.readonly && !props.revealWhenReadonly) return false
@@ -137,6 +140,7 @@
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -163,6 +167,7 @@
   })
 
   const showAriaLabel = computed(() => props.revealText || "显示完整内容")
+
   const hideAriaLabel = computed(() => props.hideText || "隐藏完整内容")
 
   const setRevealed = (next: boolean) => {
@@ -179,6 +184,7 @@
     if (!canReveal.value) return
 
     const next = !isRevealed.value
+
     setRevealed(next)
 
     if (next && props.focusOnReveal && !props.readonly) {

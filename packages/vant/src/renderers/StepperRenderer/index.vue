@@ -63,6 +63,7 @@
 
   const stepperProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -74,6 +75,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

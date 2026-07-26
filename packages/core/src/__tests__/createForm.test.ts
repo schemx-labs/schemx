@@ -200,7 +200,9 @@ describe("表单提交", () => {
       errors: [
         {
           scope: "form",
-          issues: [{ message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" }],
+          issues: [
+            { message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" },
+          ],
         },
       ],
     })

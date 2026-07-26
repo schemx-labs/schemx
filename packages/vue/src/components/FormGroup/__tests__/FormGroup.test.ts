@@ -24,6 +24,7 @@ describe("FormGroup", () => {
 
   it("非受控模式使用 defaultCollapsed 初始化并触发变更回调", async () => {
     const onCollapsedChange = vi.fn()
+
     const wrapper = mount(FormGroup, {
       props: {
         schema: createSchema({
@@ -44,6 +45,7 @@ describe("FormGroup", () => {
 
   it("受控模式由 collapsed 驱动且不会自行修改状态", async () => {
     const onCollapsedChange = vi.fn()
+
     const wrapper = mount(FormGroup, {
       props: {
         schema: createSchema({
@@ -97,6 +99,7 @@ describe("FormGroup", () => {
 
   it("disabled 时禁止鼠标和键盘折叠交互", async () => {
     const onCollapsedChange = vi.fn()
+
     const wrapper = mount(FormGroup, {
       props: {
         schema: createSchema({
@@ -106,6 +109,7 @@ describe("FormGroup", () => {
         }),
       },
     })
+
     const header = wrapper.find(".schemx-group__header")
 
     await header.trigger("click")
@@ -120,6 +124,7 @@ describe("FormGroup", () => {
 
   it("readonly 仅约束后代字段，不阻止 Group 折叠", async () => {
     const onCollapsedChange = vi.fn()
+
     const wrapper = mount(FormGroup, {
       props: {
         schema: createSchema({
@@ -164,6 +169,7 @@ describe("FormGroup", () => {
         }),
       },
     })
+
     const body = wrapper.find(".schemx-group__body")
 
     expect(body.exists()).toBe(true)
@@ -186,7 +192,9 @@ describe("FormGroup", () => {
         }),
       },
     })
+
     const header = wrapper.find(".schemx-group__header")
+
     const body = wrapper.find(".schemx-group__body")
 
     expect(header.attributes("id")).toBe("schemx-group-42-profile-basic-header")
@@ -201,6 +209,7 @@ describe("FormGroup", () => {
     const first = mount(FormGroup, {
       props: { schema: createSchema({ key: "profile/basic", collapsible: true }) },
     })
+
     const second = mount(FormGroup, {
       props: { schema: createSchema({ key: "profile-basic", collapsible: true }) },
     })

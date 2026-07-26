@@ -23,10 +23,7 @@ export { useWatch, useWatchField, useWatchFields, useWatchAll } from "./useWatch
 export { useEffect } from "./useEffect"
 
 /** useDictionary - 字典选项加载 */
-export {
-  useDictionary,
-  type UseDictionaryReturn,
-} from "./useDictionary"
+export { useDictionary, type UseDictionaryReturn } from "./useDictionary"
 
 /** useFormConfigContext - 表单上下文注入与消费 */
 export {

@@ -30,6 +30,7 @@
 | 包                                | 职责                         | 适用场景                                     |
 | --------------------------------- | ---------------------------- | -------------------------------------------- |
 | [`@schemx/core`](./packages/core) | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas |
+| [`@schemx/validator`](./packages/validator) | 第三方校验器适配包 | 接入 async-validator 等非 Standard Schema 校验器 |
 | [`@schemx/vue`](./packages/vue)   | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树             |
 | [`@schemx/vant`](./packages/vant) | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单           |
 
@@ -40,6 +41,12 @@
 ```bash
 # 仅使用框架无关的表单运行时
 pnpm add @schemx/core
+
+# 运行下方 Zod Standard Schema 示例
+pnpm add @schemx/core zod
+
+# 在 Core 中接入 async-validator
+pnpm add @schemx/core @schemx/validator async-validator
 
 # 接入自定义 Vue Renderer
 pnpm add @schemx/vue @schemx/core vue

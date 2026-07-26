@@ -68,6 +68,24 @@ module.exports = {
     "**/vitest.config.ts",
   ],
   rules: {
+    // 与 .prettierrc 保持一致；这些规则放在 prettier 扩展之后重新启用。
+    semi: ["error", "never"],
+    quotes: ["error", "double", { avoidEscape: true, allowTemplateLiterals: true }],
+    // ESLint 的 indent 对 TypeScript 类型语法兼容性有限，继续交给 Prettier 处理。
+    "comma-dangle": [
+      "error",
+      {
+        arrays: "always-multiline",
+        objects: "always-multiline",
+        imports: "always-multiline",
+        exports: "always-multiline",
+        functions: "never",
+      },
+    ],
+    "object-curly-spacing": ["error", "always"],
+    "array-bracket-spacing": ["error", "never"],
+    "arrow-parens": ["error", "always"],
+
     // 导入排序
     "sort-imports": [
       "warn",
@@ -143,6 +161,7 @@ module.exports = {
     // 函数/模块之间空行
     "padding-line-between-statements": [
       "warn",
+      { blankLine: "always", prev: ["const", "let", "var"], next: "*" },
       { blankLine: "always", prev: "*", next: "function" },
       { blankLine: "always", prev: "function", next: "*" },
       { blankLine: "always", prev: "*", next: "export" },

@@ -34,7 +34,9 @@ import type {
  */
 export function createScope(): Scope {
   let disposed = false
+
   const cleanupRecords: ScopeCleanupRecord[] = []
+
   const childScopes: Scope[] = []
 
   /**
@@ -59,6 +61,7 @@ export function createScope(): Scope {
       cleanup,
       disposed: false,
     }
+
     cleanupRecords.push(record)
 
     /**
@@ -92,6 +95,7 @@ export function createScope(): Scope {
    */
   const child = (): Scope => {
     const childScope = createScope()
+
     childScopes.push(childScope)
 
     // 子 scope 可能被调用方提前释放；提前释放后从父 scope 中摘除，
@@ -188,6 +192,7 @@ const noop = (): void => {}
  */
 const removeItem = <T>(items: T[], item: T): void => {
   const index = items.indexOf(item)
+
   if (index >= 0) {
     items.splice(index, 1)
   }

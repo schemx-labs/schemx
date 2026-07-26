@@ -101,7 +101,9 @@ export interface ValidationRuleRegistryChange {
 }
 
 /** 订阅注册表变化的监听函数。 */
-export type ValidationRuleRegistryListener = (change: ValidationRuleRegistryChange) => void
+export type ValidationRuleRegistryListener = (
+  change: ValidationRuleRegistryChange
+) => void
 
 /**
  * 命名校验规则注册中心。
@@ -217,6 +219,7 @@ export class ValidationRuleRegistry {
    */
   unregister(name: string): boolean {
     const deleted = this.rules.delete(name)
+
     if (deleted) this.emit({ type: "delete", names: [name] })
 
     return deleted
@@ -236,6 +239,7 @@ export class ValidationRuleRegistry {
    */
   clear(): void {
     const names = [...this.rules.keys()]
+
     this.rules.clear()
     if (names.length > 0) this.emit({ type: "clear", names })
   }

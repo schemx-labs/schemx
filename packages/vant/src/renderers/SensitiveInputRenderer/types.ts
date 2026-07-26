@@ -62,6 +62,7 @@ export interface SensitiveInputRendererProps extends Omit<
  */
 export function defaultMaskFormatter(value: string): string {
   const chars = [...value]
+
   const length = chars.length
 
   if (length <= 0) return ""

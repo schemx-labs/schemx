@@ -47,6 +47,7 @@ class SignalMapImpl<K, V> {
    */
   get(key: K): V | undefined {
     const s = this.signals.get(key)
+
     if (s) return s.value
 
     void this.version.value
@@ -63,6 +64,7 @@ class SignalMapImpl<K, V> {
    */
   set(key: K, value: V): this {
     const s = this.signals.get(key)
+
     if (s) {
       s.value = value
     } else {
@@ -101,6 +103,7 @@ class SignalMapImpl<K, V> {
    */
   delete(key: K): boolean {
     const s = this.signals.get(key)
+
     if (!s) return false
 
     this.signals.delete(key)
@@ -120,6 +123,7 @@ class SignalMapImpl<K, V> {
     if (this.signals.size === 0) return
 
     const oldSignals = [...this.signals.values()]
+
     this.signals.clear()
 
     batchUpdates(() => {

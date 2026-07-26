@@ -5,7 +5,7 @@ import {
   createAsyncValidatorAdapter,
 } from "../async-validator"
 
-import type { AdapterRule, ValidationRuleContext } from "@schemx/core"
+import type { ValidationRuleContext } from "@schemx/core"
 
 const createContext = <TValues extends Record<string, unknown>>(
   values: TValues,
@@ -21,7 +21,7 @@ const createContext = <TValues extends Record<string, unknown>>(
  */
 async function run(
   adapter: ReturnType<typeof createAsyncValidatorAdapter>,
-  input: AdapterRule | AsyncValidatorDescriptor,
+  input: AsyncValidatorDescriptor,
   value: unknown,
   ctx: ValidationRuleContext
 ) {
@@ -36,42 +36,20 @@ async function run(
 }
 
 describe("createAsyncValidatorAdapter", () => {
-  test("品牌规则仅可由创建它的 adapter 实例识别", () => {
+  test("仅识别合法的 async-validator descriptor", () => {
     const adapter = createAsyncValidatorAdapter()
-    const rule = adapter.rule({ required: true })
 
-    expect(adapter.isRule(rule)).toBe(true)
-    expect(
-      adapter.isRule({ adapterId: "async-validator", payload: { required: true } })
-    ).toBe(false)
-    expect(createAsyncValidatorAdapter().isRule(rule)).toBe(false)
+    expect(adapter.isRule({ required: true })).toBe(true)
+    expect(adapter.isRule([{ required: true }, { type: "email" }])).toBe(true)
+    expect(adapter.isRule([])).toBe(true)
+    expect(adapter.isRule(null)).toBe(false)
+    expect(adapter.isRule("required")).toBe(false)
+    expect(adapter.isRule([{ required: true }, null])).toBe(false)
   })
 
-  test("拒绝其他实例创建的品牌规则", () => {
-    const adapter = createAsyncValidatorAdapter()
-    const foreignRule = createAsyncValidatorAdapter().rule({ required: true })
-
-    expect(() =>
-      adapter.resolve(foreignRule, {
-        name: "email",
-        label: "",
-        required: undefined,
-        rules: undefined,
-      })
-    ).toThrow("仅接受由当前实例创建的规则")
-  })
-
-  test("可直接校验品牌规则和默认对象 adapter 传入的裸 descriptor", async () => {
+  test("可直接校验裸 descriptor", async () => {
     const adapter = createAsyncValidatorAdapter()
 
-    await expect(
-      run(
-        adapter,
-        adapter.rule({ required: true }),
-        "value",
-        createContext({ email: "value" }, "email")
-      )
-    ).resolves.toEqual({ valid: true })
     await expect(
       run(adapter, { required: true }, "", createContext({ email: "" }, "email"))
     ).resolves.toMatchObject({ valid: false, issues: [{ message: "email is required" }] })
@@ -79,6 +57,7 @@ describe("createAsyncValidatorAdapter", () => {
 
   test("成功时返回有效结果", async () => {
     const adapter = createAsyncValidatorAdapter()
+
     await expect(
       run(
         adapter,
@@ -91,12 +70,14 @@ describe("createAsyncValidatorAdapter", () => {
 
   test("按原顺序映射单条和多条 async-validator 错误，并保留原始错误 cause", async () => {
     const adapter = createAsyncValidatorAdapter()
+
     const single = await run(
       adapter,
       { required: true, message: "请输入邮箱" },
       "",
       createContext({ email: "" }, "email")
     )
+
     const multiple = await run(
       adapter,
       [
@@ -126,7 +107,9 @@ describe("createAsyncValidatorAdapter", () => {
 
   test("异步 custom validator 接收完整 values 上下文", async () => {
     const adapter = createAsyncValidatorAdapter()
+
     const sources: unknown[] = []
+
     const descriptor = {
       asyncValidator(_rule, value, _callback, source) {
         sources.push(source)
@@ -166,6 +149,7 @@ describe("createAsyncValidatorAdapter", () => {
 
   test("嵌套对象字段使用 descriptor.fields 校验当前字段值", async () => {
     const adapter = createAsyncValidatorAdapter()
+
     const descriptor = {
       type: "object",
       fields: { email: { type: "email", message: "嵌套邮箱格式错误" } },
@@ -186,7 +170,9 @@ describe("createAsyncValidatorAdapter", () => {
 
   test("在执行前或异步执行期间中止时不返回陈旧错误", async () => {
     const adapter = createAsyncValidatorAdapter()
+
     const before = new AbortController()
+
     before.abort()
     const asyncDescriptor = {
       asyncValidator: () =>
@@ -194,13 +180,16 @@ describe("createAsyncValidatorAdapter", () => {
           setTimeout(() => reject(new Error("过期错误")), 10)
         ),
     }
+
     const during = new AbortController()
+
     const pending = run(
       adapter,
       asyncDescriptor,
       "value",
       createContext({ name: "value" }, "name", during.signal)
     )
+
     during.abort()
 
     await expect(

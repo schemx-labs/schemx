@@ -73,6 +73,7 @@
   })
 
   const inputValue = defineModel<InputValue>("value")
+
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
 
   const modelValue = computed(() => String(inputValue.value ?? props.value ?? ""))
@@ -81,6 +82,7 @@
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       className: _className,

@@ -200,6 +200,7 @@ export const createWatchField = <
 
   const dispose = form.effect(() => {
     const current = form.getFieldValue(name)
+
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -254,10 +255,12 @@ export const createWatchFields = <
   options: CreateWatchOptions
 ): CreateWatchReturn => {
   let prevValues: Partial<TValues> = form.getFieldsSnapshot(names)
+
   let isFirst = true
 
   const dispose = form.effect(() => {
     const currentValues: Partial<TValues> = form.getFieldsValue(names)
+
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -279,6 +282,7 @@ export const createWatchFields = <
     if (options.inequality && isEqual(currentValues, prevValues)) return
 
     const changedValues = diff<Partial<TValues>>(currentValues, prevValues)
+
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })
@@ -318,6 +322,7 @@ export const createWatchAll = <
   options: CreateWatchOptions
 ): CreateWatchReturn => {
   let isFirst = true
+
   let prevValues: TValues = form.getFieldsSnapshot()
 
   const dispose = form.effect(() => {
@@ -342,6 +347,7 @@ export const createWatchAll = <
     if (options.inequality && isEqual(latestSnapshot, prevValues)) return
 
     const changedValues = diff<Partial<TValues>>(latestSnapshot, prevValues)
+
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })

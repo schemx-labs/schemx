@@ -171,6 +171,7 @@ export function findNodeBFS<TNode>(
   const getChildren = options.getChildren ?? defaultGetChildren<TNode>
 
   const queue: TNode[] = Array.isArray(tree) ? [...tree] : [tree]
+
   let index = 0
 
   while (index < queue.length) {

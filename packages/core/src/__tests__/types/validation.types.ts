@@ -6,6 +6,10 @@ import type {
   SchemxDependencies,
   SchemxViewFieldSchema,
   StandardSchemaV1,
+  AdapterRule,
+  ValidationAdapterV1,
+  ValidationAdapter,
+  ValidationAdapterRule,
   ValidationRuleFactory,
   ValidationRuleEntry,
   ValidationError,
@@ -28,6 +32,36 @@ interface FormValues {
   email: string
   age: number
   files: File[]
+}
+
+const externalAdapter: ValidationAdapter<{ readonly message: string }> = {
+  id: "external",
+  rule(input): AdapterRule {
+    return { adapterId: "external", payload: input }
+  },
+  isRule: () => false,
+  resolve(input) {
+    const rule: ValidationAdapterRule<{ readonly message: string }> = input
+    void rule
+    return [{ validate: () => ({ valid: true as const }) }]
+  },
+}
+
+const versionedExternalAdapter: ValidationAdapterV1<{ readonly message: string }> = {
+  id: "external-v1",
+  rule(input) {
+    return { adapterId: "external-v1", payload: input }
+  },
+  isRule: () => false,
+  resolve() {
+    return [{ validate: () => ({ valid: true as const }) }]
+  },
+}
+
+const versionedAdapterId: ValidationAdapterV1.ID = "external-v1"
+const versionedRuleInput: ValidationAdapterV1.RuleInput<{ readonly message: string }> = {
+  adapterId: versionedAdapterId,
+  payload: { message: "校验失败" },
 }
 
 declare const stringSchema: StandardSchemaV1<string, string>
@@ -94,8 +128,7 @@ declare module "../../types/rule" {
 const emailRules: FieldRules<FormValues, "email"> = ["emailRule"]
 // @ts-expect-error email 字段不能使用 number 规则名。
 const invalidEmailRules: FieldRules<FormValues, "email"> = ["positive"]
-// @ts-expect-error 裸对象规则不再属于 FieldRule，须通过对应 adapter 的 rule() 包装。
-const invalidObjectRules: FieldRules<FormValues, "email"> = [{ required: true }]
+const adapterObjectRules: FieldRules<FormValues, "email"> = [{ required: true }]
 
 const registry = createValidationRuleRegistry()
 const registryEmailEntry: ValidationRuleEntry<string> = stringSchema
@@ -183,7 +216,7 @@ if (!result.valid) {
 void fields
 void emailRules
 void invalidEmailRules
-void invalidObjectRules
+void adapterObjectRules
 void stableContextFactory
 void required
 void resolvedRequiredMark
@@ -192,3 +225,6 @@ void invalidDynamicRequiredMark
 void dynamicRequired
 void invalidDynamicRequired
 void inferredFieldResult
+void externalAdapter
+void versionedExternalAdapter
+void versionedRuleInput

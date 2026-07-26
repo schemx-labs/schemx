@@ -85,6 +85,7 @@
 
   const datePickerProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -105,6 +106,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,
@@ -168,6 +170,7 @@
 
   const modelValue = computed(() => {
     const value = getValue(dateValue.value) || new Date().toISOString()
+
     const dateParts = dayjs(value).format("YYYY-MM-DD").split("-")
 
     return dateParts
@@ -175,6 +178,7 @@
 
   const handleConfirm = ({ selectedValues }: { selectedValues: string[] }): void => {
     const formattedValue = getValue(selectedValues)
+
     dateValue.value = formattedValue
     props.onConfirm?.(formattedValue)
     props.onChange?.(formattedValue)

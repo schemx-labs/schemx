@@ -104,7 +104,7 @@ import {
   createValidator,
   type CreateValidatorOptions,
   type FieldValidationConfig,
-  type ValidationAdapter,
+  type ValidationAdapterOption,
   type ValidationController,
   type ValidationFailure,
   type ValidationResult,
@@ -217,11 +217,12 @@ export interface CreateFormOptions<
    */
   validationRuleRegistry?: ValidationRuleRegistry
   /**
-   * 当前 Form 额外注册或覆盖的校验 adapter。
+   * 当前 Form 额外注册的校验 adapter。
    *
-   * Standard Schema 与原生校验规则由内置 adapter 始终支持，无需在此注册。
+   * Standard Schema 由唯一内置 adapter 支持；原生 `ValidationRule` 是 Core 基础规则，
+   * 二者均无需在此注册。
    */
-  adapters?: readonly ValidationAdapter[]
+  validatorAdapters?: readonly ValidationAdapterOption[]
 
   /**
    * 将规则执行异常转换为字段错误消息。
@@ -337,7 +338,7 @@ class CreateForm<
       rendererRegistry,
       defaultRendererType,
       validationRuleRegistry,
-      adapters: formAdapters,
+      validatorAdapters: formValidatorAdapters,
       onRuleError,
       ...restOptions
     } = options
@@ -367,17 +368,15 @@ class CreateForm<
     this.validationRuleRegistry =
       resolvedConfig.validationRuleRegistry ?? createValidationRuleRegistry()
 
-    const adapters = mergeValidationAdapters(
-      resolvedConfig.validation.adapters,
-      formAdapters
-    )
-
     this.validator = createValidator<TValues>({ onRuleError })
 
     this.validationController = createValidationController({
       validator: this.validator,
       registry: this.validationRuleRegistry,
-      adapters,
+      validatorAdapters: [
+        ...resolvedConfig.validation.validatorAdapters,
+        ...(formValidatorAdapters ?? []),
+      ],
     })
 
     // modelValue 优先覆盖 initialValues，用于受控场景的初始快照对齐。
@@ -450,6 +449,7 @@ class CreateForm<
 
       const valuesChangeDisposer = createSignalEffect(() => {
         const latestValues = this.store.getFieldsValue()
+
         const latestSnapshot = this.store.getFieldsSnapshot()
 
         const changedValues = diff(latestSnapshot, prevSnapshot)
@@ -568,7 +568,9 @@ class CreateForm<
     rules: FieldRules<TValues, TName>
   ): void {
     const node = this.nodeResources.fieldIndex.getByName(path)
+
     const effective = node?.fieldState?.effectiveSchema.value
+
     const config: FieldValidationConfig<TValues, TName> = {
       name: path,
       label: effective?.label ?? "",
@@ -623,6 +625,7 @@ class CreateForm<
    */
   private validate = withLock(async (): Promise<ValidationResult<TValues>> => {
     const depsReady = await this.waitForIdle()
+
     if (!depsReady) {
       return {
         valid: false,
@@ -630,7 +633,9 @@ class CreateForm<
         errors: [
           {
             scope: "form",
-            issues: [{ message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" }],
+            issues: [
+              { message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" },
+            ],
           },
         ],
       }
@@ -682,6 +687,7 @@ class CreateForm<
   private submit = withLock(async (): Promise<ValidationResult<TValues>> => {
     // 等待依赖解析完成
     const depsReady = await this.waitForIdle()
+
     if (!depsReady) {
       return {
         valid: false,
@@ -689,13 +695,16 @@ class CreateForm<
         errors: [
           {
             scope: "form",
-            issues: [{ message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" }],
+            issues: [
+              { message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" },
+            ],
           },
         ],
       }
     }
 
     const result = await this.validate()
+
     if (result.valid) {
       await this.callbacks.onFinish?.(result.values)
     } else if (!result.cancelled) {
@@ -714,6 +723,7 @@ class CreateForm<
    */
   private effect(fn: () => void): () => void {
     const dispose = createSignalEffect(fn)
+
     const handle = this.scope.add(dispose)
 
     return () => {
@@ -934,44 +944,6 @@ export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
   return new CreateForm<TValues>(options).getFormInstance()
-}
-
-function mergeValidationAdapters(
-  globalAdapters: readonly ValidationAdapter[],
-  formAdapters: readonly ValidationAdapter[] | undefined
-): readonly ValidationAdapter[] {
-  const ids = new Set<string>()
-  for (const adapter of globalAdapters) {
-    const adapterId = getValidationAdapterId(adapter)
-    if (ids.has(adapterId)) throw new Error(`重复的校验 adapter id "${adapterId}"`)
-    ids.add(adapterId)
-  }
-
-  const merged = [...globalAdapters]
-  for (const adapter of formAdapters ?? []) {
-    const adapterId = getValidationAdapterId(adapter)
-    const index = merged.findIndex((item) => getValidationAdapterId(item) === adapterId)
-    if (index === -1) merged.push(adapter)
-    else merged[index] = adapter
-  }
-
-  const formIds = new Set<string>()
-  for (const adapter of formAdapters ?? []) {
-    const adapterId = getValidationAdapterId(adapter)
-    if (formIds.has(adapterId)) throw new Error(`重复的校验 adapter id "${adapterId}"`)
-    formIds.add(adapterId)
-  }
-
-  return Object.freeze(merged)
-}
-
-function getValidationAdapterId(adapter: ValidationAdapter): string {
-  const adapterId = (adapter as { id?: unknown } | null)?.id
-  if (typeof adapterId !== "string" || !adapterId.trim()) {
-    throw new Error("校验 adapter id 必须为非空字符串")
-  }
-
-  return adapterId
 }
 
 export default createForm

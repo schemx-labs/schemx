@@ -95,6 +95,7 @@
   const slots = useSlots()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
+
   const passwordVisible = ref(false)
 
   /** 判断是否为密码模式 */
@@ -116,6 +117,7 @@
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,

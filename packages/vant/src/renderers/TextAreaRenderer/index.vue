@@ -79,8 +79,7 @@
   /** 兼容 autoSize 和 autosize */
   const computedAutosize = computed<boolean | TextAreaAutosize>(() => {
     return (props.autoSize ?? props.autosize ?? { minRows: 2, maxRows: 6 }) as
-      | boolean
-      | TextAreaAutosize
+      boolean | TextAreaAutosize
   })
 
   /** 计算行数 */
@@ -100,6 +99,7 @@
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,

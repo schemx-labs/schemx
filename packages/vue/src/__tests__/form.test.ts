@@ -48,6 +48,7 @@ const CountRenderer = defineComponent({
 describe("SchemxForm 动态 schemas", () => {
   it("默认使用 Vue 全局 ValidationRuleRegistry", async () => {
     const ruleName = "vue-global-rule-test"
+
     validationRuleRegistry.register(ruleName, {
       validate: () => ({
         valid: false,
@@ -57,6 +58,7 @@ describe("SchemxForm 动态 schemas", () => {
 
     try {
       const rendererRegistry = createRendererRegistry()
+
       rendererRegistry.register("input", markRaw(InputRenderer))
 
       const wrapper = mount(SchemxForm, {
@@ -92,11 +94,13 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("局部 ValidationRuleRegistry 优先于 Vue 全局实例", async () => {
     const ruleName = "vue-local-rule-test"
+
     validationRuleRegistry.register(ruleName, {
       validate: () => ({ valid: true }),
     })
 
     const localRegistry = createValidationRuleRegistry()
+
     localRegistry.register(ruleName, {
       validate: () => ({
         valid: false,
@@ -106,6 +110,7 @@ describe("SchemxForm 动态 schemas", () => {
 
     try {
       const rendererRegistry = createRendererRegistry()
+
       rendererRegistry.register("input", markRaw(InputRenderer))
 
       const wrapper = mount(SchemxForm, {
@@ -136,6 +141,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("group 和 dependency 可以作为普通 Renderer key", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("group", markRaw(InputRenderer))
     rendererRegistry.register("dependency", markRaw(InputRenderer))
 
@@ -173,6 +179,7 @@ describe("SchemxForm 动态 schemas", () => {
     await nextTick()
 
     const emissions = wrapper.emitted("update:modelValue")
+
     expect(emissions?.at(-1)).toEqual([{ name: "Bob" }])
 
     wrapper.unmount()
@@ -180,6 +187,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("外部 schemas prop 更新后同步 ViewSchemas", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("input", markRaw(InputRenderer))
 
     const wrapper = mount(SchemxForm, {
@@ -211,6 +219,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("dependency 切换到嵌套 group 分支后渲染新增 children", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("selector", markRaw(SelectorRenderer))
     rendererRegistry.register("stepper", markRaw(InputRenderer))
     rendererRegistry.register("slider", markRaw(InputRenderer))
@@ -315,6 +324,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("dependencies.componentProps 更新后应同步下发给已挂载 renderer", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("input", markRaw(InputRenderer))
     rendererRegistry.register("rate", markRaw(CountRenderer))
 
@@ -373,6 +383,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("以可见 Group 作为顶层字段区段边界", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("input", markRaw(InputRenderer))
 
     const wrapper = mount(SchemxForm, {
@@ -396,6 +407,7 @@ describe("SchemxForm 动态 schemas", () => {
     await nextTick()
 
     const root = wrapper.get(".schemx").element
+
     const directItemWrappers = Array.from(root.children).filter((element) =>
       element.classList.contains("schemx-item-wrapper")
     )
@@ -415,6 +427,7 @@ describe("SchemxForm 动态 schemas", () => {
     )
 
     const groupItemWrappers = wrapper.findAll(".schemx-group__body .schemx-item-wrapper")
+
     expect(groupItemWrappers).toHaveLength(2)
     for (const itemWrapper of groupItemWrappers) {
       expect(itemWrapper.classes()).not.toContain("schemx-item-wrapper--first")
@@ -426,6 +439,7 @@ describe("SchemxForm 动态 schemas", () => {
 
   it("查找首尾样式类时跳过不可见项，但不跨越可见 Group", async () => {
     const rendererRegistry = createRendererRegistry()
+
     rendererRegistry.register("input", markRaw(InputRenderer))
 
     const wrapper = mount(SchemxForm, {
@@ -465,6 +479,7 @@ describe("SchemxForm 动态 schemas", () => {
     await nextTick()
 
     const root = wrapper.get(".schemx").element
+
     const directItemWrappers = Array.from(root.children).filter((element) =>
       element.classList.contains("schemx-item-wrapper")
     )

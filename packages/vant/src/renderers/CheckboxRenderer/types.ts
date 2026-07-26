@@ -33,8 +33,8 @@ export interface CheckboxOption extends Partial<
  * 定义复选框组件的所有可配置属性。
  */
 export interface CheckboxRendererProps
+  /* @vue-ignore */
   extends
-    /* @vue-ignore */
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<

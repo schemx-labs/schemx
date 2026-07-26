@@ -99,6 +99,7 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
     createOptions: CreateRuntimeNodeOptions<TValues>
   ): DescribedRuntimeNode<TValues> {
     const nodeId = nextId++
+
     const dispose = createOptions.dispose ?? createScope()
 
     const baseOptions = {
@@ -153,6 +154,7 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    */
   function traverse(root: RuntimeNode<TValues>): RuntimeNode<TValues>[] {
     const result: RuntimeNode<TValues>[] = []
+
     const visited = new Set<RuntimeNode<TValues>>()
 
     /**
@@ -235,7 +237,9 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
     assertNodeAvailable(parent)
 
     const previousChildren = parent.childNodes.value
+
     const nextChildren: DescribedRuntimeNode<TValues>[] = []
+
     const nextChildrenSet = new Set<DescribedRuntimeNode<TValues>>()
 
     /*
@@ -427,6 +431,7 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
     child: DescribedRuntimeNode<TValues>
   ): void {
     const visited = new Set<RuntimeNode<TValues>>()
+
     let current: RuntimeNode<TValues> | null = parent
 
     while (current) {

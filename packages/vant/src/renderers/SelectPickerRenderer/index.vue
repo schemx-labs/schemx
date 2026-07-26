@@ -119,15 +119,21 @@
   })
 
   const selectPickerValue = defineModel<SelectPickerValue>("value")
+
   const pendingValue = ref<SelectPickerValue>()
+
   const showPicker = ref(false)
 
   const placeholder = computed(() => props.placeholder || "请选择")
 
   const type = computed(() => props.type || "checkbox")
+
   const labelName = computed(() => props.fieldNames?.label || "label")
+
   const valueName = computed(() => props.fieldNames?.value || "value")
+
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
+
   const isReadonly = computed(() => props.readonly)
 
   const popupProps = computed((): SelectPickerRendererProps["popupProps"] => {
@@ -265,6 +271,7 @@
     if (isReadonly.value || props.disabled) return
 
     const value = activeValue.value
+
     const detail: SelectPickerConfirmEventParams = {
       value,
       selectedItems: selectedItems.value,

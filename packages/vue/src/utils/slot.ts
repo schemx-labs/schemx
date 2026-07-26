@@ -127,7 +127,9 @@ export const extractChildSlots = (
   allSlots: Record<string, any>
 ): Record<string, any> => {
   const result: Record<string, any> = {}
+
   const camelPrefix = normalizeToCamel(String(fieldName)) + ":"
+
   const kebabPrefix = normalizeToKebab(String(fieldName)) + ":"
 
   for (const [key, value] of Object.entries(allSlots)) {

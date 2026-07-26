@@ -70,9 +70,7 @@
   const contentAlign = computed(
     () =>
       getFieldProps(attrs as Record<string, any>, "align", "right") as
-        | "left"
-        | "center"
-        | "right"
+        "left" | "center" | "right"
   )
 
   const fieldValue = computed(() => {
@@ -83,6 +81,7 @@
 
   const switchProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -97,6 +96,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

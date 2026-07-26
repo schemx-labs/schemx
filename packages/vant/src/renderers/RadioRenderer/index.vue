@@ -75,7 +75,9 @@
   const radioValue = defineModel<RadioValue>("value")
 
   const labelName = computed(() => props.fieldNames?.label || "label")
+
   const valueName = computed(() => props.fieldNames?.value || "value")
+
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
 
   const placeholder = computed(() => props.placeholder || "请选择")
@@ -88,6 +90,7 @@
 
   const radioProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -101,6 +104,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       style: attrsStyle,
       options: _attrsOptions,
@@ -112,6 +116,7 @@
       formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
+
     const style = {
       display: "flex",
       flexWrap: "wrap",

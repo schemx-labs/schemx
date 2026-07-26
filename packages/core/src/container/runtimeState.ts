@@ -53,18 +53,25 @@ export function createContainerRuntimeState(
   const staticState = createSignal(options.staticState ?? DEFAULT_CONTAINER_STATE, {
     name: `container:${options.nodeId}:staticState`,
   })
+
   const dynamicOverrides = createSignal<ContainerDynamicOverrides>(
     {},
     {
       name: `container:${options.nodeId}:dynamicOverrides`,
     }
   )
+
   const effectiveState = createComputed<ContainerEffectiveState>(() => {
     const inherited = options.inheritedState.value
+
     const current = staticState.value
+
     const overrides = dynamicOverrides.value
+
     const ownVisible = overrides.visible ?? current.visible
+
     const ownReadonly = overrides.readonly ?? current.readonly
+
     const ownDisabled = overrides.disabled ?? current.disabled
 
     return {
