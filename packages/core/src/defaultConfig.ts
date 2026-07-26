@@ -95,7 +95,9 @@ export const defaultConfig = Object.freeze({
   showRequiredMark: undefined as boolean | undefined,
 } as const)
 
-/** defaultConfig 的键集合，用于类型安全的配置访问。 */
+/**
+ * `defaultConfig` 的键集合，用于类型安全的配置访问。
+ */
 export type DefaultConfigKey = keyof typeof defaultConfig
 
 /**
@@ -129,7 +131,12 @@ export function resolveDefaultConfig(
   return resolved
 }
 
-/** 判断配置对象是否已经包含全部内置默认配置键。 */
+/**
+ * 判断配置对象是否已经包含全部内置默认配置键。
+ *
+ * @param value - 要检查的部分默认配置。
+ * @returns 当配置包含每个内置键时返回 `true`。
+ */
 export function isResolvedDefaultConfig(
   value: Partial<SchemxDefaultProps>
 ): value is ResolvedSchemxDefaultProps {

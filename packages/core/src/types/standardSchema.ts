@@ -43,9 +43,13 @@ export declare namespace StandardSchemaV1 {
    * 描述单个校验失败的详细信息。
    */
   interface Issue {
-    /** 错误提示信息 */
+    /**
+     * 错误提示信息。
+     */
     readonly message: string
-    /** 可选的字段路径，标识问题发生的位置 */
+    /**
+     * 可选的字段路径，标识问题发生的位置。
+     */
     readonly path?: ReadonlyArray<PropertyKey | PathSegment>
   }
 

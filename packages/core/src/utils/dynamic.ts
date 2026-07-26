@@ -41,9 +41,13 @@ export type DynamicProp<T, V extends Values = Values> =
  * @typeParam T - 属性值类型
  */
 export interface DynamicPropEntry<T, TValues extends Values = Values> {
-  /** 动态属性值（函数、静态值、null 或 undefined） */
+  /**
+   * 动态属性值（函数、静态值、null 或 undefined）。
+   */
   value: DynamicProp<T, TValues> | undefined | null
-  /** 默认值，当 value 为空或函数返回 nullish 时使用 */
+  /**
+   * 默认值，当 value 为空或函数返回 nullish 时使用。
+   */
   defaultValue: T
 }
 

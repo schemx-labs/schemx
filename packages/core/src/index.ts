@@ -23,7 +23,7 @@ export {
   type SchemxValidationConfig,
 } from "./config/schemxConfig"
 
-export { type SchemxContext } from "./schemxContext"
+export { type SchemxContext } from "./runtime/context"
 
 export {
   createSchemas,
@@ -38,7 +38,7 @@ export type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./view"
+} from "./runtime/view"
 
 export { createField, type SchemxFieldInstance } from "./createField"
 

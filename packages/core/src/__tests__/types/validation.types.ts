@@ -64,6 +64,9 @@ const versionedRuleInput: ValidationAdapterV1.RuleInput<{ readonly message: stri
   payload: { message: "校验失败" },
 }
 
+// @ts-expect-error Form 不再支持废弃的 adapters 配置，请使用 validatorAdapters。
+createForm({ adapters: [externalAdapter] })
+
 declare const stringSchema: StandardSchemaV1<string, string>
 declare const numberSchema: StandardSchemaV1<number, number>
 declare const filesSchema: StandardSchemaV1<File[], File[]>

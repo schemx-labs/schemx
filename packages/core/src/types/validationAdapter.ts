@@ -10,9 +10,12 @@
 import type { NamePath, Values } from "./form"
 import type { ValidationRule } from "./validation"
 
+// Namespace keeps the versioned adapter protocol and its nested contracts together.
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace ValidationAdapterV1 {
-  /** adapter 的唯一标识。 */
+  /**
+   * adapter 的唯一标识。
+   */
   type ID = string | symbol
 
   /**
@@ -21,9 +24,13 @@ export declare namespace ValidationAdapterV1 {
    * 规则的来源必须由 adapter 实例自行验证；对象形状相同不代表由该实例创建。
    */
   interface Rule {
-    /** 创建规则的 adapter 标识，仅供诊断使用。 */
+    /**
+     * 创建规则的 adapter 标识，仅供诊断使用。
+     */
     readonly adapterId: ID
-    /** 仅由创建该规则的 adapter 解释的输入。 */
+    /**
+     * 仅由创建该规则的 adapter 解释的输入。
+     */
     readonly payload: unknown
   }
 
@@ -34,7 +41,9 @@ export declare namespace ValidationAdapterV1 {
    */
   type RuleInput<Input = unknown> = Rule | Input
 
-  /** adapter 在解析规则时可读取的字段元数据。 */
+  /**
+   * adapter 在解析规则时可读取的字段元数据。
+   */
   interface ResolveContext<
     TValues extends Values = Values,
     TName extends NamePath<TValues> = NamePath<TValues>,
@@ -49,13 +58,21 @@ export declare namespace ValidationAdapterV1 {
    * @typeParam Input - adapter 接收的规则输入类型。
    */
   interface Props<Input = unknown> {
-    /** 在单个 Form 内唯一的 adapter 标识。 */
+    /**
+     * 在单个 Form 内唯一的 adapter 标识。
+     */
     readonly id: ID
-    /** 将输入包装为品牌规则；自描述规则 adapter 可省略此方法。 */
+    /**
+     * 将输入包装为品牌规则；自描述规则 adapter 可省略此方法。
+     */
     rule?(input: Input): Rule
-    /** 判断值是否应由当前 adapter 处理。 */
+    /**
+     * 判断值是否应由当前 adapter 处理。
+     */
     isRule(value: unknown): boolean
-    /** 将规则声明转换为 Core 可执行的原生校验规则。 */
+    /**
+     * 将规则声明转换为 Core 可执行的原生校验规则。
+     */
     resolve<
       TValue = unknown,
       TValues extends Values = Values,

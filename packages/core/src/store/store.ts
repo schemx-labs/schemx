@@ -33,7 +33,9 @@ import type { FieldValue, NamePath, Values } from "../types"
  * @typeParam TValues - 表单值类型
  */
 export interface StoreOptions<TValues extends Partial<Values>> {
-  /** 初始值 */
+  /**
+   * 创建 Store 时写入的初始字段值。
+   */
   initialValues?: TValues
 }
 
@@ -43,9 +45,13 @@ export interface StoreOptions<TValues extends Partial<Values>> {
  * @typeParam TValues - 表单值类型
  */
 export interface StoreState<TValues extends Values> {
-  /** 当前表单值 */
+  /**
+   * 当前字段值快照。
+   */
   values: TValues
-  /** 初始值 */
+  /**
+   * 用于重置字段的初始值快照。
+   */
   initialValues: TValues
 }
 
@@ -58,7 +64,13 @@ export interface StorePending<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > {
+  /**
+   * 正在执行异步操作的字段路径。
+   */
   field: TName
+  /**
+   * 操作进行期间向用户显示的提示消息。
+   */
   message: string[]
 }
 
@@ -76,10 +88,14 @@ export interface StorePending<
  * ```
  */
 class StoreImpl<TValues extends Values = Values> {
-  /** 每个字段路径对应一个 FieldSignal */
+  /**
+   * 每个字段路径对应一个 FieldSignal。
+   */
   private fieldSignals = createFieldSignalMap<NamePath<TValues>, unknown>()
 
-  /** 初始值 */
+  /**
+   * 与当前值隔离存储的初始字段值。
+   */
   private initialValues: Partial<TValues>
 
   /**

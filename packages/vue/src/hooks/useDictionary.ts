@@ -8,7 +8,7 @@
  * @module hooks/useDictionary
  */
 
-import { onMounted, Ref, ref } from "vue"
+import { onMounted, Ref, ref, shallowRef } from "vue"
 
 import type { SchemxDictionary } from "@/types/dictionary"
 
@@ -22,9 +22,9 @@ export type { SchemxDictionary, SchemxWithDictionary } from "@/types/dictionary"
 /**
  * useDictionary 返回值
  */
-export interface UseDictionaryReturn {
+export interface UseDictionaryReturn<TOption = unknown> {
   /** 远程加载的字典选项列表（响应式） */
-  list: Ref<any[]>
+  list: Ref<TOption[]>
   /** 请求加载状态（响应式） */
   loading: Ref<boolean>
   /** 请求错误信息（响应式） */
@@ -34,7 +34,7 @@ export interface UseDictionaryReturn {
   /** 使用当前配置重新执行 api */
   refresh: () => Promise<void>
   /** 直接修改 list 的值，不触发 api 调用 */
-  mutate: (data: any[]) => void
+  mutate: (data: TOption[]) => void
 }
 
 /**
@@ -42,7 +42,7 @@ export interface UseDictionaryReturn {
  *
  * 已弃用，请使用 **UseDictionaryReturn**
  */
-export type UseDictOptionsReturn = UseDictionaryReturn
+export type UseDictOptionsReturn<TOption = unknown> = UseDictionaryReturn<TOption>
 
 /**
  * 将未知抛出值规范化为 `Error` 实例
@@ -97,13 +97,15 @@ export function normalizeError(err: unknown): Error {
 export const useDictionary = <
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
+  TResponse = unknown,
+  TOption = unknown,
 >(
-  options: SchemxDictionary<TValues>,
+  options: SchemxDictionary<TValues, TResponse, TOption>,
   fieldName?: TName
-): UseDictionaryReturn => {
+): UseDictionaryReturn<TOption> => {
   const instance = useFormContext<TValues>()
 
-  const list = ref<any[]>([])
+  const list = shallowRef<TOption[]>([])
 
   const loading = ref<boolean>(false)
 
@@ -115,18 +117,24 @@ export const useDictionary = <
   /**
    * 使用配置的 formatter 格式化原始响应数据
    */
-  const format = async (res: any): Promise<any> => {
+  const format = async (res: Awaited<TResponse>): Promise<TOption[]> => {
     if (typeof options?.formatter === "function") {
       return await options.formatter(res, instance)
     }
 
-    return res
+    if (!Array.isArray(res)) {
+      throw new Error(
+        "[schemx] Dictionary api must return an array when formatter is not provided."
+      )
+    }
+
+    return res as TOption[]
   }
 
   /**
    * 带重试的执行
    */
-  const executeWithRetry = async (formValues: TValues): Promise<any> => {
+  const executeWithRetry = async (formValues: TValues): Promise<Awaited<TResponse>> => {
     const maxRetries = options.retryCount ?? 0
 
     const retryDelay = options.retryInterval ?? 1000
@@ -203,7 +211,7 @@ export const useDictionary = <
 
   const refresh = (): Promise<void> => loadDict()
 
-  const mutate = (data: any[]): void => {
+  const mutate = (data: TOption[]): void => {
     list.value = data
   }
 

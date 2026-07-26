@@ -6,7 +6,9 @@
  * @module types/namePathType
  */
 
-/** 基础路径类型，支持字符串、数字、布尔值及其数组组合 */
+/**
+ * 基础路径类型，支持字符串、数字、布尔值及其数组组合。
+ */
 type BaseNamePath = string | number | boolean | (string | number | boolean)[]
 
 /**

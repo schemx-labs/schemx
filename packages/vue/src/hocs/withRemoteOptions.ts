@@ -22,7 +22,7 @@ import type { NamePath } from "@schemx/core"
  */
 export interface RemoteOptionsInjectedProps {
   /** 加载的选项列表 */
-  options: any[]
+  options: unknown[]
   /** 加载状态 */
   loading: boolean
 }
@@ -62,7 +62,7 @@ export interface RemoteOptionsInjectedProps {
  * }
  * ```
  */
-export function WithRemoteOptions(WrappedComponent: Component) {
+export function WithRemoteOptions(WrappedComponent: Component): Component {
   return defineComponent({
     name: `WithRemoteOptions(${WrappedComponent.name || "Anonymous"})`,
     inheritAttrs: false,

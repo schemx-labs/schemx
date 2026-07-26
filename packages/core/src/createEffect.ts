@@ -72,8 +72,10 @@ export type CreateEffectReturn = () => void
  * ```
  */
 export function createEffect(callback: EffectCallback): CreateEffectReturn {
+  // Cleanup returned by the most recent effect execution.
   let cleanup: CleanupFn | undefined
 
+  // Prevents duplicate disposal and cleanup execution.
   let disposed = false
 
   /**
@@ -83,6 +85,7 @@ export function createEffect(callback: EffectCallback): CreateEffectReturn {
     cleanup?.()
     cleanup = undefined
 
+    // Result returned by the effect callback for the next cleanup cycle.
     const result = callback()
 
     if (typeof result === "function") {

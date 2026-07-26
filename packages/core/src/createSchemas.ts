@@ -101,11 +101,17 @@ export type SchemxSchemasListener<TValues extends Values = Values> = (
  * ```
  */
 export interface SchemxSchemas<TValues extends Values = Values> {
-  /** 当前 schema 列表的只读 signal。 */
+  /**
+   * 当前 schema 列表的只读 signal。
+   */
   readonly signal: ReadonlySignal<readonly SchemxField<TValues>[]>
-  /** 当前 schema 列表。 */
+  /**
+   * 当前 schema 列表。
+   */
   readonly value: readonly SchemxField<TValues>[]
-  /** 无依赖追踪地读取当前 schema 列表。 */
+  /**
+   * 无依赖追踪地读取当前 schema 列表。
+   */
   peek: () => readonly SchemxField<TValues>[]
   /**
    * 替换当前 schema 列表。
@@ -121,7 +127,9 @@ export interface SchemxSchemas<TValues extends Values = Values> {
   update: (
     updater: (schemas: readonly SchemxField<TValues>[]) => readonly SchemxField<TValues>[]
   ) => void
-  /** 订阅 schema 列表变化。 */
+  /**
+   * 订阅 schema 列表变化。
+   */
   subscribe: (listener: SchemxSchemasListener<TValues>) => () => void
 }
 

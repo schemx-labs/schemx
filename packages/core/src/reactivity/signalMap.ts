@@ -28,7 +28,9 @@ import type { Signal } from "./signal"
  * @typeParam V - value 类型
  */
 class SignalMapImpl<K, V> {
-  /** 每个 key 独占一个 signal，保证字段级更新能细粒度触发 */
+  /**
+   * 每个 key 独占一个 signal，保证字段级更新能细粒度触发。
+   */
   private signals = new Map<K, Signal<V>>()
 
   /**

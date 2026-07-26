@@ -94,13 +94,19 @@ export type ValidationRuleMap = [DeclaredValidationRuleName] extends [never]
  * 命名规则注册表的变更事件。
  */
 export interface ValidationRuleRegistryChange {
-  /** 发生变化的操作类型。 */
+  /**
+   * 发生变化的操作类型。
+   */
   readonly type: "set" | "delete" | "clear"
-  /** 受影响的规则名；clear 事件包含清空前的全部名称。 */
+  /**
+   * 受影响的规则名；clear 事件包含清空前的全部名称。
+   */
   readonly names: readonly string[]
 }
 
-/** 订阅注册表变化的监听函数。 */
+/**
+ * 订阅注册表变化的监听函数。
+ */
 export type ValidationRuleRegistryListener = (
   change: ValidationRuleRegistryChange
 ) => void
@@ -270,7 +276,9 @@ export class ValidationRuleRegistry {
     }
   }
 
-  /** 向订阅者广播已完成的注册表变更。 */
+  /**
+   * 向订阅者广播已完成的注册表变更。
+   */
   private emit(change: ValidationRuleRegistryChange): void {
     for (const listener of [...this.listeners]) listener(change)
   }

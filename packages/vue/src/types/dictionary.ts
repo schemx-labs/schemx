@@ -43,7 +43,11 @@ import { NamePath, SchemxInstance, Values } from "@schemx/core"
  * }
  * ```
  */
-export interface SchemxDictionary<T extends Values = Values, R = any> {
+export interface SchemxDictionary<
+  T extends Values = Values,
+  R = unknown,
+  TOption = unknown,
+> {
   /**
    * 数据获取函数
    *
@@ -77,7 +81,7 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * @param form - 当前表单实例。
    * @returns 标准化后的选项数组，支持同步或异步返回。
    */
-  formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => any[] | Promise<any[]>
+  formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => TOption[] | Promise<TOption[]>
 
   /**
    * 依赖的表单字段路径
@@ -131,7 +135,7 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    *
    * 在 formatter 之后、写入 list 之后调用。
    */
-  onSuccess?: (data: any[], form: SchemxInstance<T>) => void
+  onSuccess?: (data: TOption[], form: SchemxInstance<T>) => void
 
   /**
    * 依赖字段变化回调

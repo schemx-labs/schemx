@@ -164,13 +164,21 @@ export interface SchemxDependencies<
  * @typeParam T - 表单值类型。
  */
 export interface SchemxContainerDependencies<T extends Values = Values> {
-  /** 触发容器状态重新计算的字段路径。 */
+  /**
+   * 触发容器状态重新计算的字段路径。
+   */
   triggerFields: NamePath<T>[]
-  /** 动态计算容器及后代是否只读。 */
+  /**
+   * 动态计算容器及后代是否只读。
+   */
   readonly?: SchemxConditionFn<T, boolean>
-  /** 动态计算容器及后代是否禁用。 */
+  /**
+   * 动态计算容器及后代是否禁用。
+   */
   disabled?: SchemxConditionFn<T, boolean>
-  /** 动态计算容器及后代是否可见。 */
+  /**
+   * 动态计算容器及后代是否可见。
+   */
   visible?: SchemxConditionFn<T, boolean>
 }
 

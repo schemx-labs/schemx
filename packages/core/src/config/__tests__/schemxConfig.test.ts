@@ -9,7 +9,7 @@ import type {
   ValidationAdapter,
   ValidationRule,
 } from "../../validator/types"
-import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../view/types"
+import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
 
 function createTestAdapter<TInput>(
   id: string,

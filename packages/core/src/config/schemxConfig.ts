@@ -58,7 +58,9 @@ export interface SchemxConfig extends SchemxDefaultProps {
 }
 
 interface SchemxConfigSnapshot {
-  /** 平铺的全局呈现默认值，供 `createForm` 作为 defaultProps 基座。 */
+  /**
+   * 平铺的全局呈现默认值，供 `createForm` 作为 defaultProps 基座。
+   */
   readonly defaultProps: Partial<SchemxDefaultProps>
   readonly validation: {
     readonly validatorAdapters: readonly ValidationAdapterOption[]
@@ -68,7 +70,9 @@ interface SchemxConfigSnapshot {
   readonly validationRuleRegistry?: ValidationRuleRegistry
 }
 
-/** 单个 Form 可覆盖的全局配置项。 */
+/**
+ * 单个 Form 可覆盖的全局配置项。
+ */
 interface FormConfigOverrides {
   readonly defaultProps?: Partial<SchemxDefaultProps>
   readonly defaultRendererType?: SchemxRendererKey
@@ -76,7 +80,9 @@ interface FormConfigOverrides {
   readonly validationRuleRegistry?: ValidationRuleRegistry
 }
 
-/** createForm 消费的已解析配置。 */
+/**
+ * `createForm` 消费的已解析配置。
+ */
 interface ResolvedFormConfig {
   readonly defaultProps: ResolvedSchemxDefaultProps
   readonly defaultRendererType?: SchemxRendererKey

@@ -186,6 +186,15 @@ module.exports = {
     "jsx-a11y/no-static-element-interactions": "warn",
   },
   overrides: [
+    // 测试文件中的内联测试桩组件不属于生产组件 API。
+    {
+      files: ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+      rules: {
+        "vue/one-component-per-file": "off",
+        "vue/require-default-prop": "off",
+        "vue/require-prop-types": "off",
+      },
+    },
     // Vue 文件
     {
       files: ["**/*.vue"],

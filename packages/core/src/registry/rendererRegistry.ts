@@ -89,10 +89,14 @@ export class RendererRegistry<
   T extends SchemxRendererKey = SchemxRendererKey,
   R = unknown,
 > {
-  /** 渲染器存储 */
+  /**
+   * 渲染器存储。
+   */
   private renderers: Map<T, R>
 
-  /** 回退渲染器类型 */
+  /**
+   * 未找到匹配渲染器时使用的回退类型。
+   */
   private fallbackType?: T
 
   /**

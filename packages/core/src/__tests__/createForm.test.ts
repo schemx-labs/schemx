@@ -10,11 +10,30 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
-import { CompileError } from "../compiler"
+import { CompileError } from "../runtime/compiler"
 import { createSchemas } from "../createSchemas"
 import { createForm } from "../createForm"
 
 describe("字段初始值", () => {
+  it("Schema initialValue 初始化不应触发 onValuesChange", () => {
+    const onValuesChange = vi.fn()
+    const form = createForm({
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          initialValue: "Alice",
+        },
+      ],
+      onValuesChange,
+    })
+
+    expect(onValuesChange).not.toHaveBeenCalled()
+
+    form.destroy()
+  })
+
   it("字段 initialValue 应成为 reset 的初始值基准", () => {
     const form = createForm({
       schemas: [
@@ -410,6 +429,47 @@ import type { StandardSchemaV1 } from "../types"
 
 // 单元测试：验证 createForm 返回对象包含 getRenderer/registerRenderer/hasRenderer 方法
 describe("渲染器注册中心下沉 单元测试", () => {
+  it("所有 Schema 注入路径共享 createForm 返回的同一个实例", () => {
+    const form = createForm({
+      schemas: [
+        {
+          name: "email",
+          label: "邮箱",
+          componentType: "input",
+        },
+      ],
+    })
+
+    expect(form.getViewSchemas()[0]?.componentProps?.formInstance).toBe(form)
+
+    form.destroy()
+  })
+
+  it("销毁 RuntimeNode 时 FormModel 仍然可用", () => {
+    let form!: ReturnType<typeof createForm<{ name: string }>>
+    let valueDuringUnmount: string | undefined
+
+    form = createForm({
+      initialValues: { name: "Alice" },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+        },
+      ],
+      lifecycleHooks: {
+        unmounted() {
+          valueDuringUnmount = form.getFieldValue("name")
+        },
+      },
+    })
+
+    form.destroy()
+
+    expect(valueDuringUnmount).toBe("Alice")
+  })
+
   it("createForm 仅用显式 defaultRendererType 补齐缺失的 field componentType", () => {
     const form = createForm({
       defaultRendererType: "input",
@@ -1136,6 +1196,17 @@ describe("RulesRegistry 快捷方法单元测试", () => {
 
 // 验证 destroy 后 onValuesChange 不再触发、setFieldValue 不报错
 describe("destroy 清理", () => {
+  it("destroy 后断开 Runtime 与 Controller bindings，公开 API 保持安全降级", () => {
+    const form = createForm({
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    form.destroy()
+
+    expect(() => form.setSchemas([])).not.toThrow()
+    expect(form.getViewSchemas()).toEqual([])
+  })
+
   it("destroy 后 onValuesChange 不再被触发", () => {
     const onValuesChange = vi.fn()
     const form = createForm({

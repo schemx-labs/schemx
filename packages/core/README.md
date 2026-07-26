@@ -10,7 +10,7 @@ pnpm add @schemx/core
 
 Core 内置支持原生 `ValidationRule` 和 Standard Schema v1。任何实现 Standard Schema v1
 的校验库都可以直接作为字段规则使用，不需要安装 `@schemx/validator` 或 Schemx 的 Zod
-adapter。下方示例使用 Zod，因此仅需额外安装 `zod` 本身；`async-validator` 等非 Standard
+adapter；下方 Schema 示例仅需额外安装 `zod` 本身。`async-validator` 等非 Standard
 Schema 写法则可通过 [`@schemx/validator`](../validator) 或自行实现 `ValidationAdapterV1` 接入。
 
 ## 快速开始
@@ -55,7 +55,7 @@ if (result.valid) {
 }
 ```
 
-`required` 是字段自身的一等配置，不需要在 Registry 中注册。`showRequiredMark` 只控制必填视觉标记，不改变校验；未配置时会跟随当前有效的 `required`。命名规则由 `ValidationRuleRegistry` 保存，并在字段同步到 Validator 时解析。
+`required` 是字段自身的一等配置，不需要在 Registry 中注册。`showRequiredMark` 只控制必填视觉标记，不改变校验；未配置时会跟随当前有效的 `required`。命名规则由 `ValidationRuleRegistry` 保存，并在字段同步到 Validator 时解析。第三方 adapter 通过 `createForm({ validatorAdapters })` 注册。
 
 ## Schema
 
@@ -87,7 +87,12 @@ Group 使用 `children` 声明静态子树；Dependency 使用 `to` 与 `rendere
 ```ts
 type ValidationResult<TValues> =
   | { valid: true; values: TValues; errors: readonly [] }
-  | { valid: false; cancelled?: false; values: TValues; errors: readonly ValidationError[] }
+  | {
+      valid: false
+      cancelled?: false
+      values: TValues
+      errors: readonly ValidationError[]
+    }
   | { valid: false; cancelled: true; values: TValues; errors: readonly [] }
 ```
 
@@ -174,23 +179,27 @@ declare module "@schemx/core" {
 | ------------------------------------------------------------------- | -------------------------------------------- |
 | `getFieldValue(name)` / `getFieldsValue(names?)`                    | 读取字段值或值快照。                         |
 | `setFieldValue(name, value)` / `setFieldsValue(values)`             | 写入一个或多个字段值。                       |
+| `getFieldSnapshot(name)` / `getFieldsSnapshot(names?)`              | 读取不参与响应式追踪的值快照。               |
+| `getInitialValue(name)` / `getInitialValues(names?)`                | 读取字段或表单初始值。                       |
 | `setInitialValues(values)`                                          | 更新重置使用的初始值。                       |
 | `setFieldTouched(name, touched)` / `isFieldTouched(name)`           | 写入或读取 touched 状态。                    |
+| `getTouchedFields()`                                                | 获取当前已触摸字段路径。                     |
 | `setFieldPending(name, pending, message?)` / `isFieldPending(name)` | 写入或读取异步操作状态。                     |
+| `getPendingFields()`                                                | 获取当前处于 pending 状态的字段。            |
 | `resetFields(names)` / `reset()`                                    | 恢复字段或全表初始状态；规则保留，错误清除。 |
 
 ### 校验
 
-| 成员                             | 返回值或语义                                                         |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `validateField(name)`            | `Promise<ValidationResult<TValues, TName>>`；校验单个字段。          |
-| `validate()`                     | `Promise<ValidationResult<TValues>>`；等待初始化规则同步后校验全表。 |
+| 成员                             | 返回值或语义                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `validateField(name)`            | `Promise<ValidationResult<TValues, TName>>`；校验单个字段。                                       |
+| `validate()`                     | `Promise<ValidationResult<TValues>>`；等待初始化规则同步后校验全表。                              |
 | `submit()`                       | `Promise<ValidationResult<TValues>>`；等待依赖并校验，按结果调用 `onFinish` 或 `onFinishFailed`。 |
-| `getFieldErrors(name)`           | 返回只读错误消息快照；无错误时返回稳定空数组。                       |
-| `setFieldErrors(name, messages)` | 替换字段的全部错误消息。                                             |
-| `clearFieldErrors(name)`         | 清除字段错误消息。                                                   |
-| `setFieldRules(name, rules)`     | 使用字段运行时标签与必填状态替换全部规则。                           |
-| `removeFieldRules(name)`         | 移除字段规则并清除错误。                                             |
+| `getFieldErrors(name)`           | 返回只读错误消息快照；无错误时返回稳定空数组。                                                    |
+| `setFieldErrors(name, messages)` | 替换字段的全部错误消息。                                                                          |
+| `clearFieldErrors(name)`         | 清除字段错误消息。                                                                                |
+| `setFieldRules(name, rules)`     | 使用字段运行时标签与必填状态替换全部规则。                                                        |
+| `removeFieldRules(name)`         | 移除字段规则并清除错误。                                                                          |
 
 ### Schema、订阅与 Registry
 
@@ -221,23 +230,54 @@ declare module "@schemx/core" {
 
 Validator 的校验结果也可能是 `ValidationCancelled`：当同一字段开始新的校验、规则被替换、字段被移除或 Validator 被销毁时，旧校验会以取消结果结束。取消结果不是校验失败，不应触发业务的失败提示。
 
+## 单字段控制器
+
+`createField(form, name)` 将表单实例的操作限定到一个字段，适合供框架适配层或自定义控件使用。控制器不会创建或销毁表单，表单销毁后不应继续调用它的方法。
+
+```ts
+import { createField } from "@schemx/core"
+
+const field = createField(form, "email")
+
+field.setValue("user@example.com")
+const result = await field.validate()
+console.log(field.getValue(), field.getErrors(), result.valid)
+
+const dispose = field.effect(() => {
+  console.log("当前值：", field.getValue())
+})
+dispose()
+```
+
+| 成员                                                  | 说明                                          |
+| ----------------------------------------------------- | --------------------------------------------- |
+| `getValue()` / `setValue(value)`                      | 读取或写入当前字段值。                        |
+| `getInitialValue()` / `setInitialValue(value)`        | 读取或更新当前字段的重置基准。                |
+| `getValues()` / `getSnapshot()`                       | 读取当前表单值或不追踪的表单快照。            |
+| `validate()`                                          | 校验当前字段并返回字段级 `ValidationResult`。 |
+| `getErrors()` / `setErrors(errors)` / `clearErrors()` | 读取、替换或清除字段错误消息。                |
+| `setRules(rules)` / `removeRules()`                   | 替换或移除当前字段的全部校验规则。            |
+| `isTouched()` / `reset()`                             | 读取 touched 状态或恢复字段初始值。           |
+| `setPending(pending, message?)` / `isPending()`       | 设置或读取异步操作状态。                      |
+| `effect(callback)`                                    | 创建响应式副作用并返回取消函数。              |
+
 ## 核心校验类型
 
-| 类型                                                       | 用途                                                |
-| ---------------------------------------------------------- | --------------------------------------------------- |
-| `ValidationRule<TValue, TValues, TName>`                   | 原生规则接口，`validate` 可同步或异步返回规则结果。 |
-| `ValidationResult<TValues, TName>`                         | 以 `valid` 判别成功或失败的联合类型。               |
-| `ValidationFailure<TValues, TName>`                        | `valid: false` 的失败结果及扁平 `errors`。          |
-| `ValidationCancelled<TValues>`                             | 被更新校验或销毁操作中止的结果，`cancelled: true`。 |
-| `ValidationError<TName>`                                   | 字段级与表单级错误联合。                            |
-| `FieldValidationError<TName>`                              | 归属于具体字段的错误。                              |
-| `FormValidationError`                                      | 不归属于具体字段的表单级错误。                      |
-| `ValidationRuleIssue`                                      | 单条规则产生的错误问题，包含 `message`。            |
-| `ValidationRuleRegistry`                                   | 命名规则注册中心实例。                              |
-| `ValidationRuleEntry<TValue>`                              | 原生规则、Standard Schema 或规则工厂。              |
-| `ValidationRuleFactory<TValue>`                            | 根据字段元数据创建规则的工厂。                      |
+| 类型                                                       | 用途                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------- |
+| `ValidationRule<TValue, TValues, TName>`                   | 原生规则接口，`validate` 可同步或异步返回规则结果。  |
+| `ValidationResult<TValues, TName>`                         | 以 `valid` 判别成功或失败的联合类型。                |
+| `ValidationFailure<TValues, TName>`                        | `valid: false` 的失败结果及扁平 `errors`。           |
+| `ValidationCancelled<TValues>`                             | 被更新校验或销毁操作中止的结果，`cancelled: true`。  |
+| `ValidationError<TName>`                                   | 字段级与表单级错误联合。                             |
+| `FieldValidationError<TName>`                              | 归属于具体字段的错误。                               |
+| `FormValidationError`                                      | 不归属于具体字段的表单级错误。                       |
+| `ValidationRuleIssue`                                      | 单条规则产生的错误问题，包含 `message`。             |
+| `ValidationRuleRegistry`                                   | 命名规则注册中心实例。                               |
+| `ValidationRuleEntry<TValue>`                              | 原生规则、Standard Schema 或规则工厂。               |
+| `ValidationRuleFactory<TValue>`                            | 根据字段元数据创建规则的工厂。                       |
 | `ValidationAdapterV1<TInput>`                              | 第三方校验器适配协议；负责识别规则并转换为原生规则。 |
-| `FieldRule<TValues, TName>` / `FieldRules<TValues, TName>` | Schema 字段可接受的单条或多条规则。                 |
+| `FieldRule<TValues, TName>` / `FieldRules<TValues, TName>` | Schema 字段可接受的单条或多条规则。                  |
 
 ## Renderer Registry
 

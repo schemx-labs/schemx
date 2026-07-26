@@ -7,7 +7,7 @@
  * @module utils/normalize
  */
 
-import { CompileError } from "../compiler/types"
+import { CompileError } from "../runtime/compiler/types"
 
 import { getSchemaKind } from "./schema"
 

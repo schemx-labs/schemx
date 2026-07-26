@@ -17,7 +17,9 @@ import type {
   Values,
 } from "../types"
 
-/** Schema 的结构类型。 */
+/**
+ * Schema 的结构类型。
+ */
 export type SchemaKind = "field" | "group" | "dependency"
 
 /**

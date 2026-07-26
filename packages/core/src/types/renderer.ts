@@ -7,6 +7,7 @@
  * @module types/renderer
  */
 
+// Declaration merging intentionally permits renderer-specific extension interfaces.
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
 import { Values } from "./form"

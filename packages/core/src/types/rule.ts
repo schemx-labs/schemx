@@ -112,7 +112,17 @@ export type FieldRule<
   | ValidationAdapterV1.Rule
   | ValidationRule<TValue, TValues, TName>
   | StandardSchemaV1<TValue, unknown>
-  | object
+  | ValidationAdapterObjectRule
+
+/**
+ * 可由 adapter 自行识别的对象规则。
+ *
+ * `object` 会同时匹配规则数组，使 `FieldRules` 的数组分支跳过逐项类型检查；
+ * 这里显式排除带 `length` 的数组/类数组值，保留普通 descriptor 对象的扩展能力。
+ */
+export type ValidationAdapterObjectRule = Record<string, unknown> & {
+  readonly [Symbol.iterator]?: never
+}
 
 /**
  * 字段的校验规则集合，允许单条规则或只读规则数组。

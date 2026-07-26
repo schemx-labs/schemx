@@ -6,6 +6,7 @@
  * @module types/form
  */
 
+// Declaration merging intentionally permits framework-specific empty extension interfaces.
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
 import { DeepNamePath, PathValue } from "./namePathType"
@@ -19,14 +20,14 @@ import type {
   ValidationRuleEntry,
   ValidationRuleRegistry,
 } from "../registry"
+import type { SchemxBaseField, SchemxField } from "./schema"
+import type { SchemxViewSchema } from "../runtime/view"
 import type { StorePending } from "../store"
 import type {
   CreateValidatorOptions,
   ValidationFailure,
   ValidationResult,
 } from "../validator"
-import type { SchemxViewSchema } from "../view"
-import type { SchemxBaseField, SchemxField } from "./schema"
 
 /**
  * 字段值类型。
@@ -101,43 +102,79 @@ export type ResolvedSchemxDefaultProps = Required<SchemxDefaultProps>
  * @typeParam T - 表单值类型
  */
 export interface SchemxProps<T extends Values = Values> {
-  /** 字段未显式设置时是否启用默认必填校验。 */
+  /**
+   * 字段未显式设置时是否启用默认必填校验。
+   */
   required?: boolean
-  /** 是否只读 */
+  /**
+   * 是否只读。
+   */
   readonly?: boolean
-  /** 是否禁用 */
+  /**
+   * 是否禁用。
+   */
   disabled?: boolean
-  /** 是否可见 */
+  /**
+   * 是否可见。
+   */
   visible?: boolean
-  /** 标签图标 */
+  /**
+   * 标签图标。
+   */
   labelIcon?: string
-  /** 标签对齐方式 */
+  /**
+   * 标签对齐方式。
+   */
   labelAlign?: "left" | "center" | "right"
-  /** 标签位置 */
+  /**
+   * 标签位置。
+   */
   labelPosition?: "left" | "top" | "right"
-  /** 标签宽度 */
+  /**
+   * 标签宽度。
+   */
   labelWidth?: string
-  /** 内容区域对齐方式 */
+  /**
+   * 内容区域对齐方式。
+   */
   contentAlign?: "left" | "center" | "right"
-  /** 校验触发时机 */
+  /**
+   * 校验触发时机。
+   */
   validationTrigger?: ValidationTrigger | ValidationTrigger[]
-  /** 是否在标签后显示冒号 */
+  /**
+   * 是否在标签后显示冒号。
+   */
   colon?: boolean
 
-  /** 表单数据（v-model） */
+  /**
+   * 表单数据（v-model）。
+   */
   modelValue?: T
-  /** 初始值 */
+  /**
+   * 初始值。
+   */
   initialValues?: T
-  /** 表单字段配置 */
+  /**
+   * 表单字段配置。
+   */
   schemas: SchemxField<T>[]
-  /** 表单实例 */
+  /**
+   * 表单实例。
+   */
   form?: SchemxInstance<T>
 
-  /** 渲染器注册实例 */
+  /**
+   * 渲染器注册实例。
+   */
   rendererRegistry?: RendererRegistry
-  /** 默认渲染器类型，当字段未指定 `componentType` 时使用。 */
+  /**
+   * 默认渲染器类型，当字段未指定 `componentType` 时使用。
+   */
   defaultRendererType?: SchemxRendererKey
-  /** 规则注册实例 */
+  /**
+   * 规则注册实例。
+   */
   validationRuleRegistry?: ValidationRuleRegistry
 
   /**

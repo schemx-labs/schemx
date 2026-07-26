@@ -86,7 +86,7 @@ console.log(Schemx === schemxForm) // true
 | `rendererRegistry`       | `RendererRegistry`                               | 全局 `rendererRegistry`       | 当前表单使用的 Renderer Registry                                                                                            |
 | `defaultRendererType`    | `SchemxRendererKey`                              | `undefined`                   | 创建内部表单且未传 `rendererRegistry` 时的默认 Renderer 类型；Vue 全局 Registry 存在时由该 Registry 的 fallback 决定       |
 | `validationRuleRegistry` | `ValidationRuleRegistry`                         | 全局 `validationRuleRegistry` | 当前表单使用的校验规则 Registry                                                                                             |
-| `required`               | `boolean \| RequiredOptions`                     | `undefined`                   | 独立声明必填语义；普通 `rules` 不会推导必填或显示星号                                                                       |
+| `required`               | `boolean`                                        | `undefined`                   | 表单级必填默认值；字段自身配置优先，普通 `rules` 不会推导必填或显示星号                                                    |
 | `readonly`               | `boolean`                                        | `undefined`                   | 表单级只读默认值；字段自身配置优先                                                                                          |
 | `disabled`               | `boolean`                                        | `undefined`                   | 表单级禁用默认值；字段自身配置优先                                                                                          |
 | `visible`                | `boolean`                                        | `undefined`                   | 表单级可见性默认值；字段自身配置优先，均未配置时为 `true`                                                                   |
@@ -101,6 +101,7 @@ console.log(Schemx === schemxForm) // true
 | `onFinishFailed`         | `(failure: ValidationFailure<T>) => void`        | `undefined`                   | `submit()` 校验失败后的回调 Prop                                                                                            |
 | `onValuesChange`         | `(changedValues, latestSnapshot) => void`        | `undefined`                   | 字段值变化后的回调 Prop                                                                                                     |
 | `onFieldsChange`         | `(changedFields, allFields) => void`             | `undefined`                   | 字段路径变化后的回调 Prop                                                                                                   |
+| `onRuleError`            | `CreateValidatorOptions<T>["onRuleError"]`     | `undefined`                   | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
 | `class`                  | `string`                                         | `""`                          | 添加到根 `.schemx` 元素的类名                                                                                               |
 | `style`                  | `StyleValue`                                     | `{}`                          | 绑定到根 `.schemx` 元素                                                                                                      |
 
@@ -806,7 +807,7 @@ console.log(nickname.value.value, nickname.errors.value)
 
 ### `FormContextProps` 的当前边界
 
-`FormContextProps<T>` 保留 `schemas`、`initialValues`、字段展示默认值、`class` 和 `style`，排除 `form`、`modelValue`、`rendererRegistry`、`validationRuleRegistry`、`defaultRendererType` 以及 4 个表单回调。`validationRuleRegistry` 和 `defaultRendererType` 只参与表单实例创建，不进入字段展示配置 Context；`<Schemx>` 运行时使用同一组 `formConfigContextOmitKey` 剔除这些属性后再提供 Context。字段展示的实际回退边界见前文 [Props](#props)。
+`FormContextProps<T>` 保留 `schemas`、`initialValues`、字段展示默认值、`class` 和 `style`，排除 `form`、`modelValue`、`rendererRegistry`、`validationRuleRegistry`、`defaultRendererType` 以及 4 个表单回调。`validationRuleRegistry` 和 `defaultRendererType` 只参与表单实例创建，不进入字段展示配置 Context；`<Schemx>` 运行时使用同一组 `formConfigContextOmitKey` 剔除这些属性后再提供 Context。`onRuleError` 虽然仍在类型上下文中，但当前内部实例模式不会把它传给 `useForm()`；字段展示的实际回退边界见前文 [Props](#props)。
 
 ### `useWatch`、`useWatchField`、`useWatchFields` 与 `useWatchAll`
 
@@ -973,7 +974,7 @@ Vue 包自有 2 个模块级单例：
 | `rendererRegistry`       | `RendererRegistry<SchemxRendererKey>` | 空 Registry，默认 renderer key 预设为 `"input"`；未注册 `input` 时仍无法取得组件。 | 未传 `options.rendererRegistry` 时使用该单例。       |
 | `validationRuleRegistry` | `ValidationRuleRegistry`              | 模块初始化时为空，只保存显式注册的命名规则；`required` 不会写入 Registry。         | 未传 `options.validationRuleRegistry` 时使用该单例。 |
 
-Renderer Registry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size`；ValidationRuleRegistry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear` 和 `size`。完整签名见 [Core Registry 与 Validator](../core#registry-与-validator)。
+Renderer Registry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size`；ValidationRuleRegistry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear` 和 `size`。完整签名见 Core 的 [命名规则 Registry](../core#命名规则-registry) 与 [Renderer Registry](../core#renderer-registry) 章节。
 
 ```ts
 import { markRaw } from "vue"
@@ -1020,7 +1021,7 @@ const form = useForm({ rendererRegistry: renderers, validationRuleRegistry: vali
 
 ## 类型参考
 
-Vue 根入口自有 7 个公开类型：
+Vue 根入口自有以下公开类型：
 
 | 类型                               | 定义与用途                                                                                                          |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -1068,7 +1069,7 @@ Vue 根入口自有 7 个公开类型：
 | Effect          | `useEffect`               | 创建并自动清理 Core effect。                   |
 | Vue 响应式      | `useStableRef`            | 建立浅比较稳定 Ref。                           |
 | ViewSchema      | `useViewSchemas`          | 桥接 ViewSchemas 为 Ref。                      |
-| 默认导出        | `default`                 | 与 `schemxForm` 严格相等；不计入 22 个命名值。 |
+| 默认导出        | `default`                 | 与 `schemxForm` 严格相等。                     |
 | Context 类型    | `FormContextProps`        | 表单展示 Context。                             |
 | Dictionary 类型 | `SchemxDictionary`        | 函数式选项源配置。                             |
 | 插件类型        | `SchemxInstallOptions`    | 当前为空的安装选项。                           |

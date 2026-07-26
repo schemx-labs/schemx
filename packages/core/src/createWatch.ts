@@ -58,40 +58,62 @@ import { collectObjectPathsByLeaf, diff } from "./utils"
 
 import type { FieldValue, NamePath, SchemxInstance, Values } from "./types"
 
-/** 单字段订阅回调的载荷 */
+/**
+ * 单字段订阅回调的载荷。
+ */
 type FieldPayload<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > = {
-  /** 变更后的字段值 */
+  /**
+   * 变更后的字段值。
+   */
   value: FieldValue<TValues, TName> | undefined
-  /** 变更前的字段值 */
+  /**
+   * 变更前的字段值。
+   */
   prevValue: FieldValue<TValues, TName> | undefined
 }
 
-/** 多字段订阅回调的载荷 */
+/**
+ * 多字段订阅回调的载荷。
+ */
 type FieldsPayload<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > = {
-  /** 本次变更涉及的所有字段路径 */
+  /**
+   * 本次变更涉及的所有字段路径。
+   */
   changedPaths: TName[]
-  /** 本次变更涉及的字段值（部分表单数据） */
+  /**
+   * 本次变更涉及的字段值（部分表单数据）。
+   */
   changedValues: Partial<TValues>
-  /** 变更前对应字段的旧值（部分表单数据） */
+  /**
+   * 变更前对应字段的旧值（部分表单数据）。
+   */
   prevValues: Partial<TValues>
 }
 
-/** 全局订阅回调的载荷 */
+/**
+ * 全局订阅回调的载荷。
+ */
 type GlobalPayload<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > = {
-  /** 本次变更涉及的所有字段路径 */
+  /**
+   * 本次变更涉及的所有字段路径。
+   */
   changedPaths: TName[]
-  /** 本次变更涉及的字段值（部分表单数据） */
+  /**
+   * 本次变更涉及的字段值（部分表单数据）。
+   */
   changedValues: Partial<TValues>
-  /** 变更前对应字段的旧值（部分表单数据） */
+  /**
+   * 变更前对应字段的旧值（部分表单数据）。
+   */
   prevValues: Partial<TValues>
 }
 
@@ -194,13 +216,20 @@ export const createWatchField = <
   callback: WatchFieldCallback<TValues, TName>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
+  // Field value observed during the previous effect execution.
   let prev = form.getFieldSnapshot(name)
 
+  // Distinguishes dependency collection from subsequent change notifications.
   let isFirst = true
 
+  /**
+   * Disposes the reactive effect that tracks the requested field.
+   */
   const dispose = form.effect(() => {
+    // Latest value read to establish the field dependency.
     const current = form.getFieldValue(name)
 
+    // Full snapshot delivered to the public callback.
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -254,13 +283,20 @@ export const createWatchFields = <
   callback: WatchFieldsCallback<TValues>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
+  // Snapshot of the watched fields from the previous effect execution.
   let prevValues: Partial<TValues> = form.getFieldsSnapshot(names)
 
+  // Distinguishes dependency collection from subsequent change notifications.
   let isFirst = true
 
+  /**
+   * Disposes the reactive effect that tracks all requested fields.
+   */
   const dispose = form.effect(() => {
+    // Current values read to establish dependencies for every requested field.
     const currentValues: Partial<TValues> = form.getFieldsValue(names)
 
+    // Full snapshot delivered to the public callback.
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -281,8 +317,10 @@ export const createWatchFields = <
 
     if (options.inequality && isEqual(currentValues, prevValues)) return
 
+    // Partial snapshot containing only values that changed since the previous run.
     const changedValues = diff<Partial<TValues>>(currentValues, prevValues)
 
+    // Leaf paths represented by the partial change snapshot.
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })
@@ -321,12 +359,19 @@ export const createWatchAll = <
   callback: WatchAllCallback<TValues>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
+  // Distinguishes dependency collection from subsequent change notifications.
   let isFirst = true
 
+  // Full snapshot captured by the previous effect execution.
   let prevValues: TValues = form.getFieldsSnapshot()
 
+  /**
+   * Disposes the reactive effect that tracks the complete form snapshot.
+   */
   const dispose = form.effect(() => {
     form.getFieldsValue()
+
+    // Full snapshot delivered to the public callback.
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -346,8 +391,10 @@ export const createWatchAll = <
 
     if (options.inequality && isEqual(latestSnapshot, prevValues)) return
 
+    // Partial snapshot containing only values that changed since the previous run.
     const changedValues = diff<Partial<TValues>>(latestSnapshot, prevValues)
 
+    // Leaf paths represented by the partial change snapshot.
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })

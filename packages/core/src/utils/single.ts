@@ -28,8 +28,10 @@
 export function createStrictSingleton<T, Args extends any[] = []>(
   factory: (...args: Args) => T
 ) {
+  // Cached singleton instance created by the first successful access.
   let instance: T | undefined
 
+  // Tracks whether the factory has already produced the singleton instance.
   let initialized = false
 
   /**
@@ -54,14 +56,14 @@ export function createStrictSingleton<T, Args extends any[] = []>(
    */
   const reset = (): void => {
     try {
-      // @ts-expect-error Ignore
+      // @ts-expect-error Node's optional process global is unavailable in browser-only type builds.
       if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
         console.warn("[Singleton] reset() 不应在生产环境调用")
 
         return
       }
     } catch {
-      /* 环境不支持时优雅降级 */
+      // Environments without process support reset the singleton without an environment check.
     }
 
     instance = undefined

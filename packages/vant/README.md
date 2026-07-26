@@ -1,6 +1,6 @@
 # @schemx/vant
 
-`@schemx/vant` 是基于 Vue 3、Vant 4 与 Schemx 的移动端 Schema 表单渲染包。导入根入口时会注册 18 个默认 Renderer，并重新导出 `@schemx/vue` 的公开 API。
+`@schemx/vant` 是基于 Vue 3、Vant 4 与 Schemx 的移动端 Schema 表单渲染包。导入根入口时会注册内置 Renderer，并重新导出 `@schemx/vue` 的公开 API。
 
 ## 安装与样式
 
@@ -176,7 +176,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 
 请求计数只在通过 `shouldFetch` 检查、真正开始请求时递增，并且只在 API 成功返回与异步 `formatter` 完成后检查是否过期。因此，它能阻止旧的成功响应或旧的 formatter 结果覆盖更新请求，但不是完整的竞态隔离：`shouldFetch` 返回 `false` 时不会递增计数，先前在途的成功结果仍可能随后写回；错误分支也不检查请求计数，旧请求的错误仍可能覆盖较新的状态、清空选项并触发 `onError`。错误本身会被规范化为 `Error`。
 
-`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。Vant 内建的 6 个 Dictionary Renderer 经 `WithRemoteOptions` 包装后，会在 `FormItem` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `FormItem` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
+`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。支持 Dictionary 的 Vant Renderer 经 `WithRemoteOptions` 包装后，会在 `FormItem` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `FormItem` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
 
 ### 可复制的依赖联动示例
 
@@ -817,7 +817,7 @@ const regionField: SchemxField<typeof initialValues>[] = [
 
 ## 默认注册行为
 
-导入 `@schemx/vant` 根入口会执行 `defaultRenderers` 模块副作用，通过 `@schemx/vue` 的全局 `rendererRegistry.registerAll()` 注册 18 个 Renderer：`input`、`text`、`textarea`、`number`、`switch`、`radio`、`checkbox`、`date`、`calendar`、`picker`、`selectPicker`、`selector`、`sensitiveInput`、`rate`、`slider`、`stepper`、`upload`、`cascader`。
+导入 `@schemx/vant` 根入口会执行 `defaultRenderers` 模块副作用，通过 `@schemx/vue` 的全局 `rendererRegistry.registerAll()` 注册以下 Renderer：`input`、`text`、`textarea`、`number`、`switch`、`radio`、`checkbox`、`date`、`calendar`、`picker`、`selectPicker`、`selector`、`sensitiveInput`、`rate`、`slider`、`stepper`、`upload`、`cascader`。
 
 `registerAll()` 会直接覆盖 Registry 中已有的同名项，因此自定义 Renderer 应在导入 `@schemx/vant` 后注册：
 
@@ -834,7 +834,7 @@ rendererRegistry.register("input", CustomInputRenderer)
 
 ## 类型参考
 
-根入口自有 46 个 Renderer 辅助类型。每个 Props、Value、Option 和 FieldNames 的字段与限制已在对应的 [Renderer API](#renderer-api) 小节说明；这里按导出符号逐项索引，避免把同一契约重复成另一份可能漂移的字段表。
+根入口提供 Renderer 相关的 Props、Value、Option 和 FieldNames 类型。字段与限制已在对应的 [Renderer API](#renderer-api) 小节说明；这里按导出符号逐项索引，避免把同一契约重复成另一份可能漂移的字段表。
 
 | Renderer       | 类型导出                      | 用途                               |
 | -------------- | ----------------------------- | ---------------------------------- |
@@ -950,7 +950,7 @@ const schemas = [
 | Renderer        | `UploadRenderer`          | `upload` 字段 Renderer。                                |
 | Renderer        | `CascaderRenderer`        | `cascader` 字段 Renderer；当前交互限制见对应 API 小节。 |
 | 公共组件        | `Cell`                    | Renderer 共用的状态和值展示组件。                       |
-| Renderer 元数据 | `DEFAULT_RENDERER_TYPES`  | 18 个默认 Renderer key 的只读元组。                     |
+| Renderer 元数据 | `DEFAULT_RENDERER_TYPES`  | 默认 Renderer key 的只读元组。                          |
 | 工具            | `getFieldProps`           | 从 attrs 读取属性并处理 nullish 默认值。                |
 | 工具            | `isEmptyDisplayValue`     | 判断展示层空值。                                        |
 | 工具            | `getReadonlyDisplayValue` | 生成保留有效 falsy 值的只读展示值。                     |

@@ -22,7 +22,7 @@
  * getFieldProps(attrs, "align", "right")
  * getFieldProps(attrs, "rightIcon", "arrow")
  */
-export function getFieldProps<T extends Record<string, any>>(
+export function getFieldProps<T extends Record<string, unknown>>(
   attrs: T,
   key: keyof T,
   defaultValue: T[typeof key] = undefined as T[typeof key]
@@ -105,13 +105,16 @@ export function isRendererInteractive(mode: RendererMode): boolean {
 /**
  * 树形查找结果
  */
-export interface FindTreeItemResult {
+export interface FindTreeItemResult<
+  TNode extends Record<string, unknown> = Record<string, unknown>,
+  TValue = unknown,
+> {
   /** 匹配节点 */
-  node: Record<string, any> | null
+  node: TNode | null
   /** 从根到匹配节点的 label 路径 */
   labels: string[]
   /** 从根到匹配节点的 value 路径 */
-  values: any[]
+  values: TValue[]
 }
 
 /**
@@ -139,39 +142,41 @@ export interface FindTreeItemResult {
  * // labels => ["广东", "广州"]
  * // values => ["guangdong", "guangzhou"]
  */
-export function findTreeItem(
-  tree: any[],
-  targetValue: any,
+export function findTreeItem<TNode extends Record<string, unknown>, TValue>(
+  tree: TNode[],
+  targetValue: TValue,
   options: {
     labelKey?: string
     valueKey?: string
     childrenKey?: string
   } = {}
-): FindTreeItemResult {
+): FindTreeItemResult<TNode, TValue> {
   const { labelKey = "label", valueKey = "value", childrenKey = "children" } = options
 
-  const result: FindTreeItemResult = { node: null, labels: [], values: [] }
+  const result: FindTreeItemResult<TNode, TValue> = { node: null, labels: [], values: [] }
 
   if (!Array.isArray(tree) || targetValue === undefined || targetValue === null) {
     return result
   }
 
   const search = (
-    nodes: any[],
+    nodes: TNode[],
     labels: string[],
-    values: any[]
-  ): FindTreeItemResult | null => {
+    values: TValue[]
+  ): FindTreeItemResult<TNode, TValue> | null => {
     for (const node of nodes) {
-      const currentLabels = [...labels, node[labelKey]]
+      const currentLabels = [...labels, String(node[labelKey])]
 
-      const currentValues = [...values, node[valueKey]]
+      const currentValues = [...values, node[valueKey] as TValue]
 
       if (node[valueKey] === targetValue) {
         return { node, labels: currentLabels, values: currentValues }
       }
 
-      if (Array.isArray(node[childrenKey]) && node[childrenKey].length > 0) {
-        const found = search(node[childrenKey], currentLabels, currentValues)
+      const children = node[childrenKey]
+
+      if (Array.isArray(children) && children.length > 0) {
+        const found = search(children as TNode[], currentLabels, currentValues)
 
         if (found) return found
       }

@@ -18,6 +18,7 @@ import type { Rule, RuleItem } from "async-validator"
  */
 export type AsyncValidatorDescriptor = RuleItem | readonly RuleItem[]
 
+// async-validator descriptor 中允许触发校验的字段名。
 const asyncValidatorDescriptorKeys = [
   "type",
   "required",
@@ -81,6 +82,7 @@ export interface AsyncValidatorValidationAdapter extends ValidationAdapter<Async
  *
  */
 export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
+  // 将外部 descriptor 解析为 Core 原生校验规则的适配函数。
   const resolve: AsyncValidatorValidationAdapter["resolve"] = <
     TValue,
     TValues extends Values,
@@ -141,6 +143,7 @@ async function validateDescriptor(
   // 保留其他字段，供 async-validator 的自定义 validator 读取完整表单上下文。
   const source = { ...context.values, [name]: value }
 
+  // 只为当前字段创建 async-validator descriptor。
   const schema = new Schema({ [name]: descriptor as Rule })
 
   try {
@@ -166,10 +169,15 @@ function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDesc
     return false
   }
 
+  // 将单条 descriptor 统一包装成待检查数组。
   const rules = Array.isArray(value) ? value : [value]
 
-  return rules.every((item) =>
-    Object.keys(item).some((i) => asyncValidatorDescriptorKeys.includes(i as any))
+  return rules.every(
+    (item) =>
+      typeof item === "object" &&
+      item !== null &&
+      !Array.isArray(item) &&
+      Object.keys(item).some((key) => asyncValidatorDescriptorKeys.includes(key as any))
   )
 }
 
@@ -180,6 +188,7 @@ function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDesc
  * 若错误中不含可识别的校验失败，视为非预期异常重新抛出。
  */
 function toValidationResult(error: unknown): ValidationRuleResult {
+  // 提取 async-validator 提供的结构化错误列表。
   const errors = getValidationErrors(error)
 
   // 以 async-validator 报告的字段路径作为 issue 的 code，便于调用方定位失败来源。
@@ -204,6 +213,7 @@ function toValidationResult(error: unknown): ValidationRuleResult {
 function getValidationErrors(error: unknown): readonly AsyncValidatorError[] {
   if (typeof error !== "object" || error === null || !("errors" in error)) return []
 
+  // 读取异常中的 errors 字段，后续再进行数组和元素校验。
   const errors = (error as { errors?: unknown }).errors
 
   return Array.isArray(errors) ? errors.filter(isAsyncValidatorError) : []

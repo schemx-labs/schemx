@@ -8,7 +8,9 @@
 
 import type { NamePath, Values } from "./form"
 
-/** 运行校验规则时提供的只读上下文。 */
+/**
+ * 运行校验规则时提供的只读上下文。
+ */
 export interface ValidationRuleContext<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
@@ -18,14 +20,18 @@ export interface ValidationRuleContext<
   readonly signal: AbortSignal
 }
 
-/** 单条校验失败信息。 */
+/**
+ * 单条校验失败信息。
+ */
 export interface ValidationRuleIssue {
   readonly message: string
   readonly code?: string
   readonly cause?: unknown
 }
 
-/** 校验规则的执行结果。 */
+/**
+ * 校验规则的执行结果。
+ */
 export type ValidationRuleResult =
   | { readonly valid: true }
   | {
@@ -34,7 +40,9 @@ export type ValidationRuleResult =
       readonly bail?: boolean
     }
 
-/** 可被 Validator 执行的原生校验规则。 */
+/**
+ * 可被 Validator 执行的原生校验规则。
+ */
 export interface ValidationRule<
   TValue = unknown,
   TValues extends Values = Values,
