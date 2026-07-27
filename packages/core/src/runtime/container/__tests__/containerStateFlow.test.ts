@@ -108,6 +108,49 @@ describe("容器状态运行时链路", () => {
     expect(context.validation.removeField).toHaveBeenCalledWith("name")
   })
 
+  it("容器 dependencies 的 trigger 应随触发字段变化执行", async () => {
+    const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
+      undefined,
+      { mode: "initial" }
+    )
+    // 记录 Group 依赖副作用的执行参数。
+    const groupTrigger = vi.fn()
+
+    // 记录 Dependency 依赖副作用的执行参数。
+    const dependencyTrigger = vi.fn()
+
+    commitSchemas(root, [
+      {
+        key: "profile",
+        label: "资料",
+        dependencies: {
+          triggerFields: ["mode"],
+          trigger: groupTrigger,
+        },
+        children: [],
+      },
+      {
+        key: "dynamic-fields",
+        to: ["mode"],
+        dependencies: {
+          triggerFields: ["mode"],
+          trigger: dependencyTrigger,
+        },
+        renderer: () => [],
+      },
+    ] as SchemxField[])
+    await flushRuntimeGraph(scheduler)
+
+    expect(groupTrigger).toHaveBeenLastCalledWith({ mode: "initial" }, formApi)
+    expect(dependencyTrigger).toHaveBeenLastCalledWith({ mode: "initial" }, formApi)
+
+    formApi.setValue("mode", "updated")
+    await flushRuntimeGraph(scheduler)
+
+    expect(groupTrigger).toHaveBeenLastCalledWith({ mode: "updated" }, formApi)
+    expect(dependencyTrigger).toHaveBeenLastCalledWith({ mode: "updated" }, formApi)
+  })
+
   it("Dependency 状态更新不应重建结构 effect 或 children", async () => {
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       undefined,

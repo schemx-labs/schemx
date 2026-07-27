@@ -11,7 +11,7 @@ import type {
   NamePath,
   SchemxBaseField,
   SchemxContainerDependencies,
-  SchemxDependencies,
+  SchemxFieldDependencies,
   SchemxDependencyField,
   SchemxField,
   SchemxFormApi,
@@ -143,7 +143,7 @@ export interface FieldDescriptor<
 /**
  * 字段动态属性描述。
  *
- * 这里保持对当前 `SchemxDependencies` API 的引用，不在 descriptor 层
+ * 这里保持对 `SchemxFieldDependencies` API 的引用，不在 descriptor 层
  * 另造一套 `MaybeDynamic` DSL。后续如果引入自动依赖追踪，可以在
  * DynamicProps 领域内部扩展，而不是污染 schema 编译产物。
  *
@@ -165,7 +165,7 @@ export interface FieldDynamicPropsDescriptor<
   /**
    * 原始 dependencies 配置，供 DynamicProps 运行态消费。
    */
-  readonly dependencies: SchemxDependencies<TValues, TName>
+  readonly dependencies: SchemxFieldDependencies<TValues, TName>
 }
 
 /**

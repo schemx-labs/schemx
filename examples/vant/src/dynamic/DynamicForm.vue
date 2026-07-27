@@ -38,10 +38,10 @@
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   /** 表单实例引用，提供 submit、reset 等方法 */
-  const formRef = ref<SchemxInstance>()
+  const formRef = ref<SchemxInstance<DynamicFormValues>>()
 
   /** 表单数据，通过 v-model 双向绑定实时同步联动效果 */
-  const formData = ref<Record<string, any>>({})
+  const formData = ref<DynamicFormValues>({})
 
   /**
    * 表单 Schema 配置
@@ -86,6 +86,7 @@
         visible: (values) => values.showDeliveryDetails !== false,
         readonly: (values) => values.deliveryMethod === "selfPickup",
         disabled: (values) => values.deliveryMethod === "other",
+        trigger: (values) => console.log("配送详情（Group 容器状态） - trigger", values),
       },
       children: [
         {
@@ -131,11 +132,6 @@
 
                 return cityMap[values.province as string] ?? []
               },
-              formatter: (data) => {
-                console.log(" > ~ data:", data)
-
-                return data
-              },
               dependsOn: ["province"],
               // shouldFetch: (values) => !!values.province,
               resetOnDepsChange: true,
@@ -172,6 +168,7 @@
       dependencies: {
         triggerFields: ["deliveryMethod"],
         required: (values) => values.deliveryMethod === "other",
+        trigger: (values) => console.log("备注 - trigger", values),
       },
     },
 
@@ -206,8 +203,8 @@
    * @param latestValues - 变化后的完整表单数据
    */
   const handleValuesChange = (
-    changedValues: Record<string, any>,
-    latestValues: Record<string, any>
+    changedValues: Partial<DynamicFormValues>,
+    latestValues: DynamicFormValues
   ) => {
     formData.value = latestValues
   }

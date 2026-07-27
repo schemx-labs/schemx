@@ -51,10 +51,10 @@
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   /** 表单实例引用，提供 submit、validate、reset 等方法 */
-  const formRef = ref<SchemxInstance>()
+  const formRef = ref<SchemxInstance<BasicFormValues>>()
 
   /** 表单数据，通过 v-model 双向绑定实时同步 */
-  const formData = ref<Record<string, any>>({})
+  const formData = ref<BasicFormValues>({})
 
   /**
    * 表单初始值
@@ -103,7 +103,7 @@
    * text、input、sensitiveInput、textarea、number、switch、radio、checkbox、
    * date、calendar、picker、selectPicker、selector、rate、slider、stepper、upload、cascader
    */
-  const schemas = computed((): SchemxField<BasicFormValues>[] => [
+  const schemas = computed<SchemxField<BasicFormValues>[]>(() => [
     {
       label: "基本信息",
       children: [
@@ -129,13 +129,8 @@
             maxlength: 100,
             showWordLimit: true,
           },
-          dependencies: {
-            triggerFields: ["username"],
-            disabled: (values) => {
-              return !values.username
-            },
-          },
         },
+
         {
           name: "phone",
           label: "手机号",
@@ -177,7 +172,6 @@
         },
       ],
     },
-
     {
       name: "notification",
       label: "通知开关",
@@ -239,7 +233,6 @@
       componentProps: {
         dict: {
           api: getCampusOptions,
-          formatter: (data) => data,
         },
       },
     },
@@ -250,7 +243,6 @@
       componentProps: {
         dict: {
           api: getCampusOptions,
-          formatter: (data) => data,
         },
       },
     },
@@ -398,8 +390,8 @@
    * @param latestValues - 变化后的完整表单数据
    */
   const handleValuesChange = (
-    changedValues: Record<string, any>,
-    latestValues: Record<string, any>
+    changedValues: Partial<BasicFormValues>,
+    latestValues: BasicFormValues
   ) => {
     formData.value = latestValues
     console.log("值变化:", changedValues, latestValues)

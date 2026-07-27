@@ -7,7 +7,7 @@
  * @module core/runtime/dynamicProps/effect
  */
 
-import { createSignalEffect } from "../../reactivity"
+import { createSignalEffect, runUntracked } from "../../reactivity"
 import { createAbortableTaskRunner } from "../scheduler/abortableTaskRunner"
 
 import type { NamePath, SchemxConditionFn, SchemxFormApi, Values } from "../../types"
@@ -66,7 +66,11 @@ export function createDynamicPropsEffect<
 
   const dispose = createSignalEffect(() => {
     void formApi.getValues([...triggerFields])
-    void taskRunner.run()
+
+    // 解析全量快照及执行用户回调不应扩大 triggerFields 的订阅范围。
+    runUntracked(() => {
+      void taskRunner.run()
+    })
   })
 
   scope.add(dispose)

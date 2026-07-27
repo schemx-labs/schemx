@@ -43,10 +43,10 @@
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   /** 表单实例引用，提供 submit、validate、validateField、setFieldErrors 等方法 */
-  const formRef = ref<SchemxInstance>()
+  const formRef = ref<SchemxInstance<ValidationFormValues>>()
 
   /** 表单数据，通过 v-model 双向绑定实时同步 */
-  const formData = ref<Record<string, any>>({})
+  const formData = ref<ValidationFormValues>({})
 
   /**
    * 表单 Schema 配置
@@ -181,8 +181,8 @@
    * @param latestValues - 变化后的完整表单数据
    */
   const handleValuesChange = (
-    _changedValues: Record<string, any>,
-    latestValues: Record<string, any>
+    _changedValues: Partial<ValidationFormValues>,
+    latestValues: ValidationFormValues
   ) => {
     formData.value = latestValues
   }

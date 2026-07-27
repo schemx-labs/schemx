@@ -10,7 +10,11 @@
 // Declaration merging intentionally permits schema-specific extension interfaces.
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
-import type { SchemxContainerDependencies, SchemxDependencies } from "./dependencies"
+import type {
+  SchemxDependencyDependencies,
+  SchemxFieldDependencies,
+  SchemxGroupDependencies,
+} from "./dependencies"
 import type {
   FieldValue,
   NamePath,
@@ -19,21 +23,8 @@ import type {
   ValidationTrigger,
   Values,
 } from "./form"
-import type { SchemxRendererDefinition } from "./renderer"
+import type { SchemxRendererDefinition, SchemxRendererKey } from "./renderer"
 import type { DefinedFieldValue, FieldRules, RequiredRule } from "./rule"
-
-/**
- * 从 SchemxRendererDefinition 中提取组件类型 key。
- *
- * 当 SchemxRendererDefinition 未注册任何渲染器时，回退为 string。
- *
- * @typeParam TValues - 表单值类型
- */
-type SchemxComponentTypeKey<TValues extends Values> = [
-  Extract<keyof SchemxRendererDefinition<TValues>, string>,
-] extends [never]
-  ? string
-  : Extract<keyof SchemxRendererDefinition<TValues>, string>
 
 /**
  * dependency schema renderer 执行上下文。
@@ -116,7 +107,7 @@ export interface SchemxBaseComponentProps<
  */
 export type SchemxComponentProps<
   TValues extends Values = Values,
-  TKey extends string = SchemxComponentTypeKey<TValues>,
+  TKey extends string = SchemxRendererKey<TValues>,
 > = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
   ? SchemxBaseComponentProps<TValues>
   : TKey extends keyof SchemxRendererDefinition<TValues>
@@ -152,7 +143,7 @@ export interface SchemxFieldDefinition {}
 export interface SchemxBase<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
-  TKey extends string = SchemxComponentTypeKey<TValues>,
+  TKey extends string = SchemxRendererKey<TValues>,
 > extends SchemxFieldDefinition {
   /**
    * 唯一标识字段配置的键，供框架层使用，业务方无需设置
@@ -187,10 +178,10 @@ export interface SchemxBase<
   /**
    * 结构化依赖配置对象
    *
-   * 声明 {@link SchemxDependencies.triggerFields | triggerFields} 和各属性的条件函数，
+   * 声明 {@link SchemxFieldDependencies.triggerFields | triggerFields} 和各属性的条件函数，
    * 当任一触发字段变化时执行已配置的条件函数，覆盖对应的静态默认值。
    */
-  dependencies?: SchemxDependencies<TValues, TName>
+  dependencies?: SchemxFieldDependencies<TValues, TName, TKey>
 
   /**
    * 传递给渲染组件的属性（静态默认值）
@@ -345,15 +336,7 @@ export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
 >
 
 /**
- * 基础字段配置的分布式联合类型
- *
- * 将每个 componentType 展开为独立的 SchemxBaseField 变体，
- * 使 schemas 数组中每个元素根据 componentType 获得精确的 componentProps 类型推断。
- *
- * 当 SchemxRendererDefinition 未注册任何渲染器时，回退为宽松的 SchemxBase 类型，
- * 避免因 keyof 为 never 导致整个类型坍塌。
- *
- * @typeParam  TValues - 表单值类型
+ * 基础字段配置的精确分布式联合类型。
  */
 type SchemxBaseFieldByName<TValues extends Values, TName extends NamePath<TValues>> = [
   Extract<keyof SchemxRendererDefinition<TValues>, string>,
@@ -367,9 +350,42 @@ type SchemxBaseFieldByName<TValues extends Values, TName extends NamePath<TValue
       >
     }[Extract<keyof SchemxRendererDefinition<TValues>, string>]
 
-export type SchemxBaseField<TValues extends Values = Values> = {
+/**
+ * 精确基础字段类型。
+ *
+ * 同时关联字段名、字段值与 Renderer Props，适用于单字段配置和类型校验。
+ */
+export type SchemxExactBaseField<TValues extends Values = Values> = {
   [TName in NamePath<TValues>]: SchemxBaseFieldByName<TValues, TName>
 }[NamePath<TValues>]
+
+/**
+ * Core 运行时使用的基础字段类型。
+ *
+ * 不建立 Renderer 判别联合，便于运行时合并和更新字段属性。
+ */
+export type SchemxBaseField<TValues extends Values = Values> = SchemxBase<
+  TValues,
+  NamePath<TValues>,
+  SchemxRendererKey<TValues>
+>
+
+/**
+ * Schema 数组使用的 Renderer 判别联合。
+ *
+ * 仅按 Renderer 展开，避免与字段路径生成规模过大的笛卡尔联合。
+ */
+type SchemxRendererField<TValues extends Values> = [
+  Extract<keyof SchemxRendererDefinition<TValues>, string>,
+] extends [never]
+  ? SchemxBase<TValues, NamePath<TValues>, string>
+  : {
+      [TKey in Extract<keyof SchemxRendererDefinition<TValues>, string>]: SchemxBase<
+        TValues,
+        NamePath<TValues>,
+        TKey
+      >
+    }[Extract<keyof SchemxRendererDefinition<TValues>, string>]
 
 /**
  * 自定义 Group Schema 基础字段扩展接口
@@ -431,7 +447,7 @@ export interface SchemxGroupField<
   /**
    * 根据表单值动态覆盖 Group 的容器状态。
    */
-  dependencies?: SchemxContainerDependencies<TValues>
+  dependencies?: SchemxGroupDependencies<TValues>
   /**
    * 是否可折叠
    */
@@ -500,7 +516,7 @@ export interface SchemxDependencyField<
   /**
    * 根据表单值动态覆盖 Dependency 的容器状态。
    */
-  dependencies?: SchemxContainerDependencies<TValues>
+  dependencies?: SchemxDependencyDependencies<TValues>
 }
 
 /**
@@ -511,7 +527,9 @@ export interface SchemxDependencyField<
  * @typeParam  TValues - 表单值类型
  */
 export type SchemxField<TValues extends Values = Values> =
-  SchemxBaseField<TValues> | SchemxGroupField<TValues> | SchemxDependencyField<TValues>
+  | SchemxRendererField<TValues>
+  | SchemxGroupField<TValues>
+  | SchemxDependencyField<TValues>
 
 /**
  * 编译后的字段静态 schema。

@@ -42,16 +42,20 @@ export interface SchemxRendererDefinition<T extends Values> {}
 /**
  * 渲染器注册 key 类型
  *
- * 由 {@link SchemxRendererDefinition} 的键自动推导，
+ * 由指定表单值类型对应 {@link SchemxRendererDefinition} 的键自动推导，
  * 用户通过声明合并扩展 `SchemxRendererDefinition` 后，此类型会自动包含所有已注册的渲染器类型字符串。
  * 当 SchemxRendererDefinition 为空时，退化为 `string`。
+ *
+ * @typeParam TValues - 用于解析 Renderer 声明合并的表单值类型。
  *
  * @example
  * ```ts
  * // 扩展 SchemxRendererDefinition 后自动可用
- * const type: SchemxRendererKey = 'my-input'
+ * const type: SchemxRendererKey<MyFormValues> = 'my-input'
  * ```
  */
-export type SchemxRendererKey = [keyof SchemxRendererDefinition<Values>] extends [never]
+export type SchemxRendererKey<TValues extends Values = Values> = [
+  Extract<keyof SchemxRendererDefinition<TValues>, string>,
+] extends [never]
   ? string
-  : keyof SchemxRendererDefinition<Values>
+  : Extract<keyof SchemxRendererDefinition<TValues>, string>

@@ -27,6 +27,7 @@ export {
   createSignalEffect,
   createOnceSignalEffect,
   createDebouncedSignalEffect,
+  runUntracked,
   type SignalEffectOptions,
   type DebouncedSignalEffectOptions,
   type SignalEffectDispose,

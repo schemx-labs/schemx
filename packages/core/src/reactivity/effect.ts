@@ -7,7 +7,7 @@
  * @module core/reactivity/effect
  */
 
-import { effect } from "@preact/signals-core"
+import { effect, untracked } from "@preact/signals-core"
 import { debounce } from "es-toolkit"
 
 import type { DebounceOptions } from "es-toolkit"
@@ -55,6 +55,19 @@ export function createSignalEffect(
   })
 
   return () => disposeRef.current?.()
+}
+
+/**
+ * 在不收集 signal 依赖的上下文中执行回调。
+ *
+ * 用于 effect 内需要读取当前快照、但该读取不应成为 effect 重跑条件的场景。
+ *
+ * @typeParam TResult - 回调返回值类型。
+ * @param fn - 不应参与当前依赖收集的回调。
+ * @returns 回调的返回值。
+ */
+export function runUntracked<TResult>(fn: () => TResult): TResult {
+  return untracked(fn)
 }
 
 /**

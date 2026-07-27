@@ -2,8 +2,12 @@ import type {
   FieldRules,
   RequiredOptions,
   RequiredRule,
-  SchemxBaseField,
+  SchemxExactBaseField,
   SchemxDependencies,
+  SchemxDependencyDependencies,
+  SchemxField,
+  SchemxFieldDependencies,
+  SchemxGroupDependencies,
   SchemxViewFieldSchema,
   StandardSchemaV1,
   AdapterRule,
@@ -73,7 +77,7 @@ declare const filesSchema: StandardSchemaV1<File[], File[]>
 declare const viewField: SchemxViewFieldSchema<FormValues>
 const resolvedRequiredMark: boolean = viewField.showRequiredMark
 
-const fields: SchemxBaseField<FormValues>[] = [
+const fields: SchemxExactBaseField<FormValues>[] = [
   {
     name: "email",
     label: "邮箱",
@@ -110,6 +114,33 @@ const fields: SchemxBaseField<FormValues>[] = [
       required: () => ({ isEmpty: (files) => !files?.length }),
       showRequiredMark: (values) => values.email.length > 0,
       rules: () => [filesSchema],
+    },
+  },
+]
+
+const schemas: SchemxField<FormValues>[] = [
+  {
+    name: "email",
+    label: "邮箱",
+    componentType: "input",
+    dependencies: {
+      triggerFields: ["age"],
+      visible: (values) => {
+        const email: string = values.email
+        // @ts-expect-error Schema 依赖回调必须保留 FormValues，不能退化为 any。
+        values.missing
+        return email.length > 0
+      },
+    },
+  },
+  {
+    to: ["age"],
+    renderer: (values) => {
+      const age: number = values.age
+      // @ts-expect-error 动态 Schema renderer 必须保留 FormValues。
+      values.missing
+      void age
+      return []
     },
   },
 ]
@@ -167,8 +198,12 @@ const required: RequiredRule<File[]> = {
   isEmpty: (files) => !files?.length,
 }
 
-const dynamicRequired: SchemxDependencies<FormValues, "files"> = {
+const dynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
   triggerFields: ["email"],
+  trigger: (values) => {
+    const email: string = values.email
+    void email
+  },
   required: (values): RequiredOptions<File[]> => ({
     message: values.email.trim().length > 0 ? "请上传文件" : "文件不能为空",
     isEmpty: (files) => {
@@ -199,6 +234,24 @@ const invalidDynamicRequiredMark: SchemxDependencies<FormValues, "files"> = {
   showRequiredMark: () => "显示",
 }
 
+const groupDependencies: SchemxGroupDependencies<FormValues> = {
+  triggerFields: ["email"],
+  trigger: (values) => {
+    const email: string = values.email
+    void email
+  },
+  readonly: (values) => values.email.length > 0,
+}
+
+const dependencyDependencies: SchemxDependencyDependencies<FormValues> = {
+  triggerFields: ["age"],
+  trigger: (values) => {
+    const age: number = values.age
+    void age
+  },
+  disabled: (values) => values.age < 18,
+}
+
 declare const result: ValidationResult<FormValues, "email">
 const typedForm = createForm<FormValues>()
 const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
@@ -217,6 +270,7 @@ if (!result.valid) {
 }
 
 void fields
+void schemas
 void emailRules
 void invalidEmailRules
 void adapterObjectRules
@@ -226,6 +280,8 @@ void resolvedRequiredMark
 void invalidDynamicRules
 void invalidDynamicRequiredMark
 void dynamicRequired
+void groupDependencies
+void dependencyDependencies
 void invalidDynamicRequired
 void inferredFieldResult
 void externalAdapter

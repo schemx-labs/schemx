@@ -47,10 +47,10 @@
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   /** 表单实例引用，提供 submit、reset 等方法 */
-  const formRef = ref<SchemxInstance>()
+  const formRef = ref<SchemxInstance<DependencyFormValues>>()
 
   /** 表单数据，通过 v-model 双向绑定实时展示动态结构变化 */
-  const formData = ref<Record<string, any>>({
+  const formData = ref<DependencyFormValues>({
     orderType: "standard",
     showOrderConfiguration: true,
     orderAccess: "edit",
@@ -170,6 +170,7 @@
         visible: (values) => values.showOrderConfiguration !== false,
         readonly: (values) => values.orderAccess === "review",
         disabled: (values) => values.orderAccess === "locked",
+        trigger: (values) => console.log("order-configuration - trigger", values),
       },
       renderer: async (values) => {
         console.log("values.orderType", values.orderType)
@@ -669,8 +670,8 @@
    * @param latestValues - 变化后的完整表单数据
    */
   const handleValuesChange = (
-    _changedValues: Record<string, any>,
-    latestValues: Record<string, any>
+    _changedValues: Partial<DependencyFormValues>,
+    latestValues: DependencyFormValues
   ) => {
     formData.value = latestValues
   }

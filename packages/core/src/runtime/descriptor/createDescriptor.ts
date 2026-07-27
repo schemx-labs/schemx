@@ -24,7 +24,7 @@ import type {
 import type {
   NamePath,
   SchemxContainerDependencies,
-  SchemxDependencies,
+  SchemxFieldDependencies,
   SchemxResolvedBaseField,
   ValidationTrigger,
   Values,
@@ -358,7 +358,7 @@ function createFieldDynamicProps<
   TValues extends Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 >(
-  dependencies: SchemxDependencies<TValues, TName> | undefined
+  dependencies: SchemxFieldDependencies<TValues, TName> | undefined
 ): FieldDynamicPropsDescriptor<TValues, TName> | null {
   if (!dependencies) {
     return null
