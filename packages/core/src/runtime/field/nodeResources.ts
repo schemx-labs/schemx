@@ -145,6 +145,7 @@ function recreateFieldEffects<TValues extends Values>(
   })
   createDependenciesEffect({
     context,
+    taskId: `field:${node.id}:dependencies`,
     descriptor,
     runtimeState,
     scope: effectDispose,

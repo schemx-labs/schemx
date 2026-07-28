@@ -11,6 +11,7 @@ import { setFieldDynamicOverrides } from "../../field/runtimeState"
 import { describe, expect, it, vi } from "vitest"
 
 import { createCompile } from "../../compiler"
+import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
 import { createLifecycleBus } from "../../lifecycle"
 import { createReconciler } from "../../reconciler"
 import { type SchemaRuntimeContext } from "../../context"
@@ -67,11 +68,11 @@ function createGraphRuntime(listener: LifecycleListener<RuntimeNode> = {}) {
   }
 
   const context = {
-    defaultProps: {},
+    schemaConfig: mergeSchemaConfig(),
     instance,
     formApi,
     compile: createCompile({
-      defaultProps: {},
+      schemaConfig: mergeSchemaConfig(),
       formInstance: instance as any,
     }),
     scheduler,
@@ -132,11 +133,11 @@ describe("RuntimeReconciler + DefaultRuntimeNodeManager", () => {
     expect(root.childNodes.value).toHaveLength(1)
   })
 
-  it("生命周期事件只由 RuntimeNodeManager 触发一次", () => {
+  it("RuntimeNode 生命周期事件只由 RuntimeNodeManager 触发一次", () => {
     const calls = {
-      mount: vi.fn(),
-      update: vi.fn(),
-      unmount: vi.fn(),
+      mounted: vi.fn(),
+      updated: vi.fn(),
+      unmounted: vi.fn(),
     }
     const { commitChildren, root } = createGraphRuntime(calls)
 
@@ -144,9 +145,9 @@ describe("RuntimeReconciler + DefaultRuntimeNodeManager", () => {
     commitChildren(root, [createFieldDescriptor("name", "name")])
     commitChildren(root, [])
 
-    expect(calls.mount).toHaveBeenCalledTimes(1)
-    expect(calls.update).toHaveBeenCalledTimes(1)
-    expect(calls.unmount).toHaveBeenCalledTimes(1)
+    expect(calls.mounted).toHaveBeenCalledTimes(1)
+    expect(calls.updated).toHaveBeenCalledTimes(1)
+    expect(calls.unmounted).toHaveBeenCalledTimes(1)
   })
 
   it("同名字段替换时应该移除旧 node 并写入新 descriptor", () => {

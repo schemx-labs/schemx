@@ -1081,7 +1081,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | ViewSchema         | `SchemxViewGroupSchema`         | Group 渲染投影。                        |
 | ViewSchema         | `SchemxViewSchema`              | 字段 / Group 投影联合。                 |
 | 配置               | `SchemxConfig`                  | Core 全局默认配置。                     |
-| 配置               | `SchemxValidationConfig`        | Core 全局校验 adapter 配置。            |
 | Renderer           | `SchemxRendererKey`             | Renderer key 类型。                     |
 | Renderer           | `SchemxRendererDefinition`      | Renderer Props 声明合并接口。           |
 | Renderer Registry  | `RendererRegistry`              | Renderer Registry 实例类型。            |

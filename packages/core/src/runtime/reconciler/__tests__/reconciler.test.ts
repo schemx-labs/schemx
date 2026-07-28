@@ -10,6 +10,7 @@
 
 import { describe, expect, it, vi } from "vitest"
 
+import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
 import { commitReconcilePlan, createReconcilePlan, createReconciler } from "../index"
 
 import type { FormDescriptor } from "../../descriptor"
@@ -216,7 +217,7 @@ describe("createReconciler", () => {
     ])
 
     const context = {
-      defaultProps: {},
+      schemaConfig: mergeSchemaConfig(),
       instance: {
         getFieldSnapshot: vi.fn(() => undefined),
         getFieldValue: vi.fn(),

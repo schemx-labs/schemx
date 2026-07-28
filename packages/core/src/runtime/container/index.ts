@@ -19,9 +19,6 @@ export {
 export {
   createContainerRuntimeState,
   createInheritedContainerState,
-  setContainerStaticState,
-  setContainerDynamicOverrides,
-  resetContainerDynamicOverrides,
   type ContainerDynamicOverrides,
   type ContainerEffectiveState,
   type ContainerRuntimeState,

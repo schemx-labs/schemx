@@ -424,6 +424,13 @@ describe("容器状态运行时链路", () => {
   })
 })
 
+/**
+ * 将未知运行时节点断言为 Group 节点。
+ *
+ * @param node - 待断言的运行时节点。
+ * @returns Group 运行时节点。
+ * @throws 节点类型不是 Group 时抛出测试错误。
+ */
 function expectGroup(node: unknown): GroupRuntimeNode {
   if (!node || (node as GroupRuntimeNode).type !== "group") {
     throw new Error("expected group runtime node")
@@ -432,6 +439,13 @@ function expectGroup(node: unknown): GroupRuntimeNode {
   return node as GroupRuntimeNode
 }
 
+/**
+ * 将未知运行时节点断言为 Dependency 节点。
+ *
+ * @param node - 待断言的运行时节点。
+ * @returns Dependency 运行时节点。
+ * @throws 节点类型不是 Dependency 时抛出测试错误。
+ */
 function expectDependency(node: unknown): DependencyRuntimeNode {
   if (!node || (node as DependencyRuntimeNode).type !== "dependency") {
     throw new Error("expected dependency runtime node")
@@ -440,6 +454,13 @@ function expectDependency(node: unknown): DependencyRuntimeNode {
   return node as DependencyRuntimeNode
 }
 
+/**
+ * 将未知运行时节点断言为 Field 节点。
+ *
+ * @param node - 待断言的运行时节点。
+ * @returns Field 运行时节点。
+ * @throws 节点类型不是 Field 时抛出测试错误。
+ */
 function expectField(node: unknown): FieldRuntimeNode {
   if (!node || (node as FieldRuntimeNode).type !== "field") {
     throw new Error("expected field runtime node")

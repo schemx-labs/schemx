@@ -538,7 +538,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
 // 单元测试：验证 createForm 生命周期 hooks、dependency 子树水合、字段规则注册等集成行为
 describe("字段规则注册上下文 单元测试", () => {
   it("createForm 应该注册并触发生命周期 hooks", () => {
-    const mount = vi.fn()
+    const mounted = vi.fn()
     const form = createForm({
       schemas: [
         {
@@ -548,16 +548,16 @@ describe("字段规则注册上下文 单元测试", () => {
         },
       ],
       lifecycleHooks: {
-        mount,
+        mounted,
       },
     })
 
-    expect(mount).toHaveBeenCalledTimes(1)
-    expect(mount.mock.calls[0][0]).toMatchObject({
+    expect(mounted).toHaveBeenCalledTimes(1)
+    expect(mounted.mock.calls[0][0]).toMatchObject({
       type: "field",
       key: "field:name",
     })
-    expect(mount.mock.calls[0][0].descriptor ?? undefined).toMatchObject({
+    expect(mounted.mock.calls[0][0].descriptor ?? undefined).toMatchObject({
       type: "field",
       key: "field:name",
       name: "name",
@@ -909,7 +909,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
     const unsubscribe = form.subscribeViewSchemas(() => undefined)
 
-    form.updateDefaultProps({
+    form.updateSchemaConfig({
       required: undefined,
       readonly: undefined,
       disabled: undefined,
@@ -1262,7 +1262,7 @@ describe("动态 schemas", () => {
   })
 
   it("移除 group 子树时应该递归发送子字段 unmount 事件", () => {
-    const unmount = vi.fn()
+    const unmounted = vi.fn()
     const form = createForm({
       schemas: [
         {
@@ -1271,14 +1271,14 @@ describe("动态 schemas", () => {
         },
       ],
       lifecycleHooks: {
-        unmount,
+        unmounted,
       },
     })
 
     form.setSchemas([])
 
     expect(
-      unmount.mock.calls.some(
+      unmounted.mock.calls.some(
         ([node]) => node.type === "field" && node.key.endsWith("/name")
       )
     ).toBe(true)

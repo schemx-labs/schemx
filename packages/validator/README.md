@@ -70,7 +70,7 @@ const form = createForm({
 | `@schemx/validator/async-validator` | `createAsyncValidatorAdapter`   | 适配 `RuleItem` descriptor。                                                           |
 | `@schemx/validator/preset`          | `createValidationAdapterPreset` | 创建 async-validator 适配器集合。                                                     |
 
-适配器需要通过 `createForm({ validatorAdapters })`、`configureSchemx({ validation: { validatorAdapters } })` 或其他 Core 表单创建入口注册。Core 内置的原生 `ValidationRule` 与 Standard Schema 不需要额外适配器。完整的结果类型和错误模型见 [`@schemx/core`](../core)。
+适配器需要通过 `createForm({ validatorAdapters })`、`configureSchemx({ validatorAdapters })` 或其他 Core 表单创建入口注册。Core 内置的原生 `ValidationRule` 与 Standard Schema 不需要额外适配器。完整的结果类型和错误模型见 [`@schemx/core`](../core)。
 
 同 ID adapter 默认会被拒绝；如需显式覆盖前一项，使用 `{ adapter, override: true }`。
 

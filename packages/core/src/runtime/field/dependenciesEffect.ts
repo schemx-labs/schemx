@@ -8,7 +8,10 @@
  * @module core/runtime/field/dependencies
  */
 
-import { createDynamicPropsEffect } from "../dynamicProps/effect"
+import {
+  createDepSchedulerEffect,
+  resolveDependencyProps,
+} from "../dependencySchedulerEffect"
 
 import { type FieldRuntimeState, setFieldDynamicOverrides } from "./runtimeState"
 
@@ -61,6 +64,12 @@ export interface CreateDependenciesEffectOptions<TValues extends Values = Values
    * 当前 form 实例运行时上下文。
    */
   context: SchemaRuntimeContext<TValues>
+
+  /**
+   * Scheduler 队列中标识当前字段动态属性任务的唯一 ID。
+   */
+  taskId: string
+
   /**
    * 字段 descriptor，提供静态 schema、validation 和 dependencies 配置。
    */
@@ -83,29 +92,41 @@ export interface CreateDependenciesEffectOptions<TValues extends Values = Values
 export function createDependenciesEffect<TValues extends Values = Values>(
   options: CreateDependenciesEffectOptions<TValues>
 ): void {
-  const { context, descriptor, runtimeState, scope } = options
+  // 字段 dependencies effect 使用的运行时资源。
+  const { context, taskId, descriptor, runtimeState, scope } = options
 
+  // 字段 descriptor 中编译后的动态属性描述。
   const dynamicProps = descriptor.dynamicProps
 
+  // 原始字段 dependencies 配置。
   const dependencies = dynamicProps?.dependencies
 
+  // 当前动态属性 effect 明确订阅的字段列表。
   const triggerFields = dynamicProps?.triggerFields
 
   if (dependencies == null || triggerFields == null || triggerFields.length === 0) {
     return
   }
 
-  createDynamicPropsEffect<TValues, DependenciesResolvedProps<TValues>>({
+  createDepSchedulerEffect<TValues, DependenciesResolvedProps<TValues>>({
     context,
-    dependencies,
     triggerFields,
-    propKeys: FIELD_DEPENDENCIES_PROP_KEYS,
+    taskId,
     scope,
+    run: () =>
+      resolveDependencyProps<TValues, DependenciesResolvedProps<TValues>>(
+        dependencies,
+        FIELD_DEPENDENCIES_PROP_KEYS,
+        context.formApi
+      ),
     onSuccess: (resolvedProps) => {
       setFieldDynamicOverrides(runtimeState, resolvedProps, {
         source: "dependencies",
         triggerFields,
       })
+    },
+    onError: (error) => {
+      console.error("[schemx] 字段 dependencies 执行错误:", error)
     },
   })
 }

@@ -7,15 +7,14 @@
  * @module core/runtime/field/dependencyEffect
  */
 
-import { createSignal, createSignalEffect } from "../../reactivity"
+import { createSignal } from "../../reactivity"
+import { createDepSchedulerEffect } from "../dependencySchedulerEffect"
 import { type DependencyDescriptor, isDependencyDescriptor } from "../descriptor"
-import { createAbortableTaskRunner } from "../scheduler/abortableTaskRunner"
 
 import type { Signal } from "../../reactivity"
-import type { NamePath, SchemxField, SchemxFormApi, Values } from "../../types"
+import type { SchemxField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type { DependencyRuntimeNode, RuntimeDispose } from "../node"
-import type { Scheduler } from "../scheduler"
 
 /**
  * 检查 DependencyRuntimeNode 是否有 DependencyEffectState。
@@ -43,9 +42,24 @@ export function getDependencyEffect(
  * Dependency renderer 的执行状态与控制句柄。
  */
 export interface DependencyEffectState {
+  /**
+   * renderer 是否正在执行。
+   */
   readonly loading: Signal<boolean>
+
+  /**
+   * 最新一次 renderer 执行错误。
+   */
   readonly error: Signal<Error | null>
+
+  /**
+   * renderer 启动或 effect 释放时递增的版本号。
+   */
   readonly version: Signal<number>
+
+  /**
+   * 当前 renderer 任务使用的 AbortController。
+   */
   readonly abortController: Signal<AbortController | null>
 
   /**
@@ -100,30 +114,45 @@ export interface CreateDependencyEffectOptions<TValues extends Values = Values> 
 export function createDependencyEffect<TValues extends Values = Values>(
   options: CreateDependencyEffectOptions<TValues>
 ): DependencyEffectState {
+  // dependency effect 所需的运行时节点与 descriptor。
   const { context, node, descriptor } = options
 
-  const { formApi, scheduler, compile, commitChildren } = context
+  // renderer 执行和结果提交所需的运行时能力。
+  const { formApi, compile, commitChildren } = context
 
+  // 当前 dependency effect 独占的资源作用域。
   const resourceScope = options.scope ?? node.dispose.child()
 
   node.effectState?.dispose()
 
-  const effectState: DependencyEffectState = {
-    loading: createSignal(false),
-    error: createSignal<Error | null>(null),
-    version: createSignal(0),
-    abortController: createSignal<AbortController | null>(null),
-    run: async (): Promise<void> => undefined,
-    dispose: (): void => undefined,
-  }
+  // renderer 是否正在执行的公开状态。
+  const loading = createSignal(false)
 
-  node.effectState = effectState
+  // 最新一次 renderer 执行产生的公开错误状态。
+  const error = createSignal<Error | null>(null)
+
+  // renderer 启动或 effect 释放时递增的公开版本状态。
+  const version = createSignal(0)
+
+  // 当前 renderer 任务使用的公开 AbortController 状态。
+  const abortController = createSignal<AbortController | null>(null)
+
   node.dependencyDispose = resourceScope
 
-  const taskRunner = createAbortableTaskRunner<SchemxField<TValues>[]>({
+  // 统一管理字段订阅、队列合并、异步取消和最新结果提交。
+  const schedulerEffect = createDepSchedulerEffect<TValues, SchemxField<TValues>[]>({
+    context,
+    triggerFields: descriptor.triggerFields,
+    taskId: `dependency:${node.id}:renderer`,
     scope: resourceScope,
-    scheduler,
+    shouldRun: () => {
+      // 只在节点仍持有 dependency descriptor 时执行 renderer。
+      const currentDescriptor = node.descriptor ?? undefined
+
+      return currentDescriptor != null && isDependencyDescriptor(currentDescriptor)
+    },
     run: async (signal) => {
+      // 每次任务读取节点上的最新 descriptor，避免使用过期 renderer。
       const currentDescriptor = node.descriptor ?? undefined
 
       if (!currentDescriptor || !isDependencyDescriptor(currentDescriptor)) {
@@ -133,47 +162,42 @@ export function createDependencyEffect<TValues extends Values = Values>(
       return await Promise.resolve(currentDescriptor.renderer(formApi, signal))
     },
     onStart: (controller) => {
-      effectState.version.value += 1
-      effectState.abortController.value = controller
-      effectState.loading.value = true
-      effectState.error.value = null
+      version.value += 1
+      abortController.value = controller
+      loading.value = true
+      error.value = null
     },
     onSuccess: (childSchemas) => {
       const descriptors = compile.toDescriptors(childSchemas, "")
 
       commitChildren(node, descriptors)
     },
-    onError: (error) => {
-      effectState.error.value = error
+    onError: (runError) => {
+      error.value = runError
     },
     onSettled: () => {
-      effectState.loading.value = false
+      loading.value = false
     },
   })
 
-  effectState.run = async (): Promise<void> => {
-    if (resourceScope.disposed) return
-
-    const currentDescriptor = node.descriptor ?? undefined
-
-    if (!currentDescriptor || !isDependencyDescriptor(currentDescriptor)) {
-      return
-    }
-
-    await taskRunner.run()
+  // 手动执行入口复用统一调度 effect 的可中止任务运行器。
+  const run = async (): Promise<void> => {
+    await schedulerEffect.run()
   }
 
-  effectState.dispose = (): void => {
-    effectState.version.value += 1
-    taskRunner.dispose()
+  // 释放统一调度 effect 和当前 dependency 的父作用域。
+  const dispose = (): void => {
+    version.value += 1
+    schedulerEffect.dispose()
     resourceScope.dispose()
   }
 
+  // 清理节点上仅属于当前 effect 的运行时引用。
   resourceScope.add(() => {
-    effectState.abortController.value?.abort()
-    effectState.abortController.value = null
+    abortController.value?.abort()
+    abortController.value = null
 
-    if (node.effectState === effectState) {
+    if (node.effectState?.dispose === dispose) {
       node.effectState = null
     }
 
@@ -182,68 +206,22 @@ export function createDependencyEffect<TValues extends Values = Values>(
     }
   })
 
-  setupTriggerSubscription(
-    descriptor.triggerFields,
-    formApi,
-    () => effectState.run(),
-    resourceScope,
-    scheduler,
-    `dependency:${node.id}:trigger`
-  )
+  // 挂载节点可查询的 dependency effect 状态。
+  node.effectState = {
+    loading,
+    error,
+    version,
+    abortController,
+    run,
+    dispose,
+  }
 
-  void effectState.run().catch((runError) => {
-    console.error("DependencyEffectState initial run error:", runError)
-  })
-
-  return effectState
-}
-
-/**
- * 设置 trigger 字段的响应式监听。
- *
- * 通过 createSignalEffect 订阅 trigger 字段值变化，
- * 首次执行跳过调度，后续变化通过 scheduler 调度异步执行 renderer。
- * 监听生命周期绑定到 resourceScope，随 scope 释放自动清理。
- *
- * @typeParam TValues - 表单值类型
- * @typeParam TName - trigger 字段的 name path 类型
- * @param triggers - 触发字段名列表
- * @param formApi - 表单 API
- * @param run - 执行 renderer 的回调
- * @param scope - 资源作用域
- * @param scheduler - 任务调度器
- * @param taskId - 调度任务 ID
- */
-function setupTriggerSubscription<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
->(
-  triggers: readonly TName[],
-  formApi: SchemxFormApi<TValues>,
-  run: () => Promise<void>,
-  scope: RuntimeDispose,
-  scheduler: Scheduler,
-  taskId: string
-): void {
-  let isFirstRun = true
-
-  const disposeEffect = createSignalEffect(() => {
-    void formApi.getValues([...triggers])
-
-    if (!isFirstRun) {
-      scheduler.schedule({
-        id: taskId,
-        priority: "normal",
-        scope,
-        run,
-        onError: (runError) => {
-          console.error("DependencyEffectState trigger run error:", runError)
-        },
-      })
-    }
-
-    isFirstRun = false
-  })
-
-  scope.add(disposeEffect)
+  return {
+    loading,
+    error,
+    version,
+    abortController,
+    run,
+    dispose,
+  }
 }

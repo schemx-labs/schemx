@@ -9,6 +9,7 @@
 import { vi } from "vitest"
 
 import { createCompile } from "../../compiler"
+import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
 import type { FormDescriptor } from "../../descriptor"
 import { createLifecycleBus, type LifecycleListener } from "../../lifecycle"
 import { createSignal } from "../../../reactivity"
@@ -161,12 +162,12 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   }
 
   const compile = createCompile<TValues>({
-    defaultProps: {},
+    schemaConfig: mergeSchemaConfig(),
     formInstance: instance as any,
   })
 
   const context = {
-    defaultProps: {},
+    schemaConfig: mergeSchemaConfig(),
     instance,
     formApi,
     compile,

@@ -12,12 +12,20 @@ import { createFormController } from "./form/controller"
 import { createFormApi, createFormFacade } from "./form/facade"
 import { createFormModel, createRuntimeFormModelPort } from "./form/model"
 import { createFormObserver } from "./form/observer"
-import { type CreateFormOptions, resolveCreateFormOptions } from "./form/options"
+import { type CreateFormOptions, mergeCreateFormOptions } from "./form/options"
+import { createRendererRegistry, createValidationRuleRegistry } from "./registry"
 import { createSchemaRuntime } from "./runtime/createSchemaRuntime"
 
 import type { SchemxInstance, Values } from "./types"
 
-export type { CreateFormOptions } from "./form/options"
+export type {
+  CreateFormOptions,
+  ResolvedCreateFormOptions,
+  FormCallbackOptions,
+  FormLifecycleOptions,
+  FormRegistryOptions,
+  FormSchemaOptions,
+} from "./form/options"
 
 /**
  * 创建 Schemx 表单实例。
@@ -34,14 +42,15 @@ export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
   // Normalized configuration shared by every Form subsystem.
-  const resolved = resolveCreateFormOptions(options)
+  const merged = mergeCreateFormOptions(options)
 
   // State, value storage, and validation model owned by the Form.
   const model = createFormModel<TValues>({
-    initialValues: resolved.initialValues,
-    validationRuleRegistry: resolved.validationRuleRegistry,
-    validatorAdapters: resolved.validatorAdapters,
-    onRuleError: resolved.onRuleError,
+    initialValues: merged.initialValues ?? ({} as TValues),
+    validationRuleRegistry:
+      merged.validationRuleRegistry ?? createValidationRuleRegistry(),
+    validatorAdapters: [...(merged.validatorAdapters ?? [])],
+    onRuleError: merged.onRuleError,
   })
 
   // One-time connection container shared by the public facade and services.
@@ -54,8 +63,10 @@ export function createForm<TValues extends Values>(
   const instance = createFormFacade({
     model,
     bindings,
-    rendererRegistry: resolved.rendererRegistry,
-    validationRuleRegistry: resolved.validationRuleRegistry,
+    rendererRegistry:
+      merged.rendererRegistry ?? createRendererRegistry(merged.defaultRendererType),
+    validationRuleRegistry:
+      merged.validationRuleRegistry ?? createValidationRuleRegistry(),
   })
 
   // Runtime responsible for compiling and reconciling the current schemas.
@@ -63,16 +74,19 @@ export function createForm<TValues extends Values>(
     model: createRuntimeFormModelPort(model),
     instance,
     formApi,
-    defaultProps: resolved.defaultProps,
-    defaultRendererType: resolved.defaultRendererType,
-    lifecycleHooks: resolved.lifecycleHooks,
+    schemaConfig: merged.schemaConfig,
+    defaultRendererType: merged.defaultRendererType,
+    lifecycleHooks: merged.lifecycleHooks,
   })
 
   // Controller responsible for dependency-aware validation and submission.
   const controller = createFormController({
     model,
     runtime,
-    callbacks: resolved.callbacks,
+    callbacks: {
+      onFinish: merged.onFinish,
+      onFinishFailed: merged.onFinishFailed,
+    },
   })
 
   bindings.connect({ runtime, controller })
@@ -96,8 +110,11 @@ export function createForm<TValues extends Values>(
   })
 
   try {
-    runtime.mount(resolved.schemas)
-    disposeObserver = createFormObserver(model, resolved.callbacks)
+    runtime.mount(merged.schemas)
+    disposeObserver = createFormObserver(model, {
+      onValuesChange: merged.onValuesChange,
+      onFieldsChange: merged.onFieldsChange,
+    })
   } catch (error) {
     bindings.destroy()
     throw error

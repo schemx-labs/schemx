@@ -13,21 +13,12 @@ import { DeepNamePath, PathValue } from "./namePathType"
 import { SchemxRendererKey } from "./renderer"
 import { FieldRules } from "./rule"
 
-import type { DefaultConfigKey } from "../defaultConfig"
-import type {
-  RegistryOptions,
-  RendererRegistry,
-  ValidationRuleEntry,
-  ValidationRuleRegistry,
-} from "../registry"
+import type { SchemaConfigKey } from "../config/defaultSchemaConfig"
+import type { RegistryOptions, ValidationRuleEntry } from "../registry"
 import type { SchemxBaseField, SchemxField } from "./schema"
 import type { SchemxViewSchema } from "../runtime/view"
 import type { StorePending } from "../store"
-import type {
-  CreateValidatorOptions,
-  ValidationFailure,
-  ValidationResult,
-} from "../validator"
+import type { ValidationResult } from "../validator"
 
 /**
  * 字段值类型。
@@ -86,136 +77,20 @@ export type ValidationTrigger =
  *
  * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
  */
-export type SchemxDefaultProps = Pick<SchemxBaseField, DefaultConfigKey>
+export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemaConfigKey>
 
 /**
- * 已完成内置默认值解析的表单级配置。
+ * 已完成内置默认值合并的表单级 Schema 配置。
  *
- * 仅供 Core 内部编译链路使用；与 {@link SchemxDefaultProps} 不同，所有默认配置键
- * 都已存在，但值本身仍可为 `undefined`（例如 `showRequiredMark` 的动态回退语义）。
+ * Runtime 内部使用该类型，保证除 `showRequiredMark` 外的配置字段都已具备确定值。
  */
-export type ResolvedSchemxDefaultProps = Required<SchemxDefaultProps>
-
-/**
- * schemx 组件 Props
- *
- * @typeParam T - 表单值类型
- */
-export interface SchemxProps<T extends Values = Values> {
-  /**
-   * 字段未显式设置时是否启用默认必填校验。
-   */
-  required?: boolean
-  /**
-   * 是否只读。
-   */
-  readonly?: boolean
-  /**
-   * 是否禁用。
-   */
-  disabled?: boolean
-  /**
-   * 是否可见。
-   */
-  visible?: boolean
-  /**
-   * 标签图标。
-   */
-  labelIcon?: string
-  /**
-   * 标签对齐方式。
-   */
-  labelAlign?: "left" | "center" | "right"
-  /**
-   * 标签位置。
-   */
-  labelPosition?: "left" | "top" | "right"
-  /**
-   * 标签宽度。
-   */
-  labelWidth?: string
-  /**
-   * 内容区域对齐方式。
-   */
-  contentAlign?: "left" | "center" | "right"
-  /**
-   * 校验触发时机。
-   */
-  validationTrigger?: ValidationTrigger | ValidationTrigger[]
-  /**
-   * 是否在标签后显示冒号。
-   */
-  colon?: boolean
-
-  /**
-   * 表单数据（v-model）。
-   */
-  modelValue?: T
-  /**
-   * 初始值。
-   */
-  initialValues?: T
-  /**
-   * 表单字段配置。
-   */
-  schemas: SchemxField<T>[]
-  /**
-   * 表单实例。
-   */
-  form?: SchemxInstance<T>
-
-  /**
-   * 渲染器注册实例。
-   */
-  rendererRegistry?: RendererRegistry
-  /**
-   * 默认渲染器类型，当字段未指定 `componentType` 时使用。
-   */
-  defaultRendererType?: SchemxRendererKey
-  /**
-   * 规则注册实例。
-   */
-  validationRuleRegistry?: ValidationRuleRegistry
-
-  /**
-   * 将规则执行异常转换为字段错误消息。
-   *
-   * @param error - 规则执行时抛出的原始异常。
-   * @param context - 发生异常的字段校验上下文。
-   * @returns 写入字段错误状态的消息。
-   */
-  onRuleError?: CreateValidatorOptions<T>["onRuleError"]
-
-  /**
-   * 表单提交校验通过后执行；返回 Promise 时，submit 会等待其完成。
-   *
-   * @param values - 本次校验通过的只读表单值。
-   * @returns 可选的异步完成信号。
-   */
-  onFinish?: (values: Readonly<T>) => void | Promise<void>
-  /**
-   * 表单提交校验失败后的回调。
-   *
-   * @param failure - 包含表单值与全部校验错误的失败结果。
-   */
-  onFinishFailed?: (failure: ValidationFailure<T>) => void
-  /**
-   * 字段值更新时触发的回调。
-   *
-   * @param changedValues - 本次变化的字段值片段。
-   * @param latestSnapshot - 变化后的完整表单值视图。
-   */
-  onValuesChange?: (
-    changedValues: Readonly<Partial<T>>,
-    latestSnapshot: Readonly<T> | T
-  ) => void
-  /**
-   * 字段路径更新时触发的回调。
-   *
-   * @param changedFields - 本次发生变化的字段路径。
-   * @param allFields - 当前所有已知字段路径。
-   */
-  onFieldsChange?: (changedFields: NamePath<T>[], allFields: NamePath<T>[]) => void
+export type ResolvedSchemxSchemaConfig = Omit<
+  {
+    [K in keyof SchemxSchemaConfig]-?: SchemxSchemaConfig[K]
+  },
+  "showRequiredMark"
+> & {
+  showRequiredMark: boolean | undefined
 }
 
 /**
@@ -637,7 +512,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
    *
    * @param schemas - 下一版 root schema 列表
    */
-  setSchemas: (schemas: readonly SchemxField<TValues>[]) => void
+  setSchemas: (schemas: SchemxField<TValues>[]) => void
 
   /**
    * 基于当前 root schemas 派生下一版 schemas。
@@ -666,17 +541,17 @@ export interface SchemxInstance<TValues extends Values = Values> {
   /**
    * 更新表单默认配置。
    *
-   * 合并传入属性到当前 defaultProps，然后重新编译根 schemas 并 reconcile。
+   * 合并传入属性到当前 schemaConfig，然后重新编译根 schemas 并 reconcile。
    * 未设置的字段级属性会回退到这些默认值。
    *
    * @param partial - 要更新的默认配置（部分或全部）
    *
    * @example
    * ```typescript
-   * form.updateDefaultProps({ visible: false, disabled: true })
+   * form.updateSchemaConfig({ visible: false, disabled: true })
    * ```
    */
-  updateDefaultProps: (partial: Partial<SchemxDefaultProps>) => void
+  updateSchemaConfig: (partial: Partial<SchemxSchemaConfig>) => void
 
   /**
    * 获取当前 ViewSchemas。
@@ -849,14 +724,11 @@ export interface SchemxInstance<TValues extends Values = Values> {
 }
 
 /**
- * 全局状态配置。
- *
- * 从 SchemxProps 中提取的全局只读/禁用/触发时机配置。
+ * Schema 通用配置上下文。
  */
-export interface SchemxGlobalContext extends Pick<
-  SchemxProps,
-  "readonly" | "disabled" | "validationTrigger"
-> {}
+export interface SchemxGlobalContext {
+  schemaConfig: Partial<SchemxSchemaConfig>
+}
 
 /**
  * 表单 API，提供与表单交互的方法。

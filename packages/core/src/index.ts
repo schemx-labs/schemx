@@ -15,13 +15,22 @@ export {
   type RendererMap,
 } from "./registry"
 
-export { createForm, type CreateFormOptions } from "./createForm"
+export {
+  createForm,
+  type CreateFormOptions,
+  type FormCallbackOptions,
+  type FormLifecycleOptions,
+  type FormRegistryOptions,
+  type FormSchemaOptions,
+  type ResolvedCreateFormOptions,
+} from "./createForm"
 
 export {
   configureSchemx,
+  schemaConfigKeys,
+  excludeSchemaConfigKeys,
   type SchemxConfig,
-  type SchemxValidationConfig,
-} from "./config/schemxConfig"
+} from "./config"
 
 export { type SchemxContext } from "./runtime/context"
 
@@ -100,8 +109,7 @@ export type {
   ValidationTrigger,
   StandardSchemaV1,
   SchemxInstance,
-  SchemxProps,
-  SchemxDefaultProps,
+  SchemxSchemaConfig,
   SchemxGlobalContext,
   SchemxRendererKey,
   SchemxRendererDefinition,

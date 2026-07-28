@@ -33,13 +33,10 @@ describe("node lifecycle flow", () => {
   it("create/update/remove transition 每类生命周期事件只触发一次", () => {
     const hooks = {
       beforeMount: vi.fn(),
-      mount: vi.fn(),
       mounted: vi.fn(),
       beforeUpdate: vi.fn(),
-      update: vi.fn(),
       updated: vi.fn(),
       beforeUnmount: vi.fn(),
-      unmount: vi.fn(),
       unmounted: vi.fn(),
     }
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
@@ -49,23 +46,18 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [])
 
     expect(hooks.beforeMount).toHaveBeenCalledTimes(1)
-    expect(hooks.mount).toHaveBeenCalledTimes(1)
     expect(hooks.mounted).toHaveBeenCalledTimes(1)
     expect(hooks.beforeUpdate).toHaveBeenCalledTimes(1)
-    expect(hooks.update).toHaveBeenCalledTimes(1)
     expect(hooks.updated).toHaveBeenCalledTimes(1)
     expect(hooks.beforeUnmount).toHaveBeenCalledTimes(1)
-    expect(hooks.unmount).toHaveBeenCalledTimes(1)
     expect(hooks.unmounted).toHaveBeenCalledTimes(1)
   })
 
-  it("生命周期回调只接收 node，update 回调接收 previousNode", () => {
+  it("生命周期回调只接收 node，更新回调接收 previousNode", () => {
     const hooks = {
       beforeMount: vi.fn(),
-      mount: vi.fn(),
       mounted: vi.fn(),
       beforeUpdate: vi.fn(),
-      update: vi.fn(),
       updated: vi.fn(),
     }
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
@@ -78,23 +70,19 @@ describe("node lifecycle flow", () => {
     const nextDescriptor = node.descriptor ?? undefined
 
     expect(hooks.beforeMount).toHaveBeenCalledWith(node)
-    expect(hooks.mount).toHaveBeenCalledWith(node)
     expect(hooks.mounted).toHaveBeenCalledWith(node)
 
     const [beforeUpdateNode, beforeUpdatePreviousRuntimeNode] =
       hooks.beforeUpdate.mock.calls[0] ?? []
-    const [updateNode, updatePreviousRuntimeNode] = hooks.update.mock.calls[0] ?? []
     const [updatedNode, updatedPreviousRuntimeNode] = hooks.updated.mock.calls[0] ?? []
 
     expect(beforeUpdateNode).toBe(node)
-    expect(updateNode).toBe(node)
     expect(updatedNode).toBe(node)
     expect(beforeUpdatePreviousRuntimeNode).toMatchObject({
       type: "field",
       key: "name",
     })
     expect(beforeUpdatePreviousRuntimeNode).toHaveProperty("descriptor")
-    expect(updatePreviousRuntimeNode).toBe(beforeUpdatePreviousRuntimeNode)
     expect(updatedPreviousRuntimeNode).toBe(beforeUpdatePreviousRuntimeNode)
     expect(beforeUpdatePreviousRuntimeNode).not.toBe(previousDescriptor)
     expect(nextDescriptor).not.toBe(previousDescriptor)

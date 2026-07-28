@@ -31,11 +31,12 @@ import type { SchemxBaseField, SchemxInstance } from "@schemx/core"
  */
 function createFormContext(overrides?: Partial<FormContextProps>): FormContextProps {
   return {
-    schemas: [],
-    labelPosition: "left",
-    labelAlign: "left",
-    contentAlign: "left",
-    colon: false,
+    schemaConfig: {
+      labelPosition: "left",
+      labelAlign: "left",
+      contentAlign: "left",
+      colon: false,
+    },
     ...overrides,
   }
 }

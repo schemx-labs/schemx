@@ -97,7 +97,11 @@ const FieldFormItem = defineComponent({
     createFieldContext(field)
 
     const trigger = computed<TriggerConfig>(() =>
-      mergeTrigger(schema().validationTrigger, formContext.validationTrigger, "onChange")
+      mergeTrigger(
+        schema().validationTrigger,
+        formContext.schemaConfig.validationTrigger,
+        "onChange"
+      )
     )
 
     /**
@@ -186,11 +190,11 @@ const FieldFormItem = defineComponent({
         return labelSlot(schema())
       }
 
-      const labelAlign = schema().labelAlign || formContext.labelAlign
+      const labelAlign = schema().labelAlign || formContext.schemaConfig.labelAlign
 
-      const labelWidth = schema().labelWidth || formContext.labelWidth
+      const labelWidth = schema().labelWidth || formContext.schemaConfig.labelWidth
 
-      const colon = schema().colon ?? formContext.colon
+      const colon = schema().colon ?? formContext.schemaConfig.colon
 
       return (
         <label
@@ -279,7 +283,8 @@ const FieldFormItem = defineComponent({
         return itemSlot(schema())
       }
 
-      const labelPosition = schema().labelPosition || formContext.labelPosition
+      const labelPosition =
+        schema().labelPosition || formContext.schemaConfig.labelPosition
 
       return (
         <div class={classnames("schemx-item-wrapper")} style={schema().style}>

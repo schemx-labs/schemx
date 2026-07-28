@@ -29,8 +29,6 @@ export { useDictionary, type UseDictionaryReturn } from "./useDictionary"
 export {
   createFormConfigContext,
   useFormConfigContext,
-  formConfigContextOmitKey,
-  type FormConfigContextOmitKey,
   type FormContextProps,
 } from "./provideFormConfigContext"
 

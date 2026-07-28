@@ -13,8 +13,9 @@ export type {
   SchemxFieldSchemaPatch,
   SchemxInstance,
   SchemxFormApi,
-  SchemxDefaultProps,
-  ResolvedSchemxDefaultProps,
+  SchemxSchemaConfig,
+  ResolvedSchemxSchemaConfig,
+  SchemxGlobalContext,
 } from "./form"
 
 export type {
@@ -46,8 +47,6 @@ export type {
   SchemxFormItemProps,
   SchemxDependencyRendererContext,
 } from "./schema"
-
-export type { SchemxProps, SchemxGlobalContext } from "./form"
 
 export type {
   DisposeBag,

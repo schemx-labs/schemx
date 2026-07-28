@@ -10,7 +10,7 @@
 import type { NamePath, SchemxFormApi, Values } from "./form"
 import type { SchemxRendererKey } from "./renderer"
 import type { DefinedFieldValue, FieldRules, RequiredRule } from "./rule"
-import type { SchemxBase, SchemxDependencyField, SchemxGroupField } from "./schema"
+import type { SchemxBase } from "./schema"
 
 /**
  * 条件函数类型

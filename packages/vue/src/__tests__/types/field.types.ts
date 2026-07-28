@@ -1,8 +1,23 @@
 import type { FieldInstance } from "../../types/field"
+import type { SchemxFormProps } from "../../types/form"
 
 interface FormValues {
   name: string
 }
+
+const componentProps: SchemxFormProps<FormValues> = {
+  schemas: [],
+  readonly: true,
+}
+
+const invalidComponentProps: SchemxFormProps<FormValues> = {
+  schemas: [],
+  // @ts-expect-error 组件 Props 不接受嵌套 schemaConfig。
+  schemaConfig: { readonly: true },
+}
+
+void componentProps
+void invalidComponentProps
 
 declare const field: FieldInstance<FormValues>
 

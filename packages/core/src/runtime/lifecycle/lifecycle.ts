@@ -8,19 +8,13 @@
  *
  * @example
  * ```ts
- * import { createLifecycleBus, createLifecycle } from '@schemx/core'
+ * import { createLifecycleBus } from '@schemx/core'
  *
  * // 创建生命周期总线
  * const bus = createLifecycleBus()
  *
  * // 订阅生命周期事件
  * const dispose = bus.on({
- *   // 旧版兼容接口
- *   mount: (node) => console.log('挂载:', node),
- *   update: (node, prev) => console.log('更新:', node),
- *   unmount: (node) => console.log('卸载:', node),
- *
- *   // 新版详细接口
  *   beforeMount: (node) => console.log('即将挂载:', node),
  *   mounted: (node) => console.log('已挂载:', node),
  *   beforeUpdate: (node, prev) => console.log('即将更新:', node),
@@ -63,40 +57,10 @@
  * ```
  */
 
-import type { Values } from "../../types"
-import type { RuntimeNode } from "../node"
-
-/**
- * 兼容旧命名的完整生命周期 hooks。
- */
-export interface LifecycleHooks<TNode> {
-  /**
-   * 挂载新节点。
-   *
-   * @param node - 被挂载的节点。
-   */
-  mount(node: TNode): void
-
-  /**
-   * 更新已有节点。
-   *
-   * @param node - 被更新的节点。
-   * @param previousNode - 更新前的节点快照。
-   */
-  update(node: TNode, previousNode: TNode): void
-
-  /**
-   * 卸载节点。
-   *
-   * @param node - 被卸载的节点。
-   */
-  unmount(node: TNode): void
-}
-
 /**
  * RuntimeNode 生命周期 hooks。
  */
-export interface RuntimeNodeLifecycleHooks<TNode> {
+export interface LifecycleHooks<TNode> {
   /**
    * RuntimeNode 挂载前。
    *
@@ -145,12 +109,9 @@ export interface RuntimeNodeLifecycleHooks<TNode> {
 /**
  * 生命周期事件监听器。
  *
- * 监听器允许只实现关心的事件。mount/update/unmount 是兼容旧命名的观察入口，
- * mounted/updated/unmounted 是新的 RuntimeNode 生命周期入口。
+ * 监听器允许只实现关心的事件。
  */
-export type LifecycleListener<TNode> = Partial<
-  LifecycleHooks<TNode> & RuntimeNodeLifecycleHooks<TNode>
->
+export type LifecycleListener<TNode> = Partial<LifecycleHooks<TNode>>
 
 /**
  * 生命周期事件总线。
@@ -247,16 +208,6 @@ export interface LifecycleBus<TNode> {
 }
 
 /**
- * 表单内部生命周期 hooks。
- *
- * 这些 hook 由 createForm 传入，用于在表单内部资源装配后
- * 观察字段、分组和 dependency 节点的 mount/update/unmount。
- */
-export type SchemxLifecycleHooks<TValues extends Values = Values> = LifecycleListener<
-  RuntimeNode<TValues>
->
-
-/**
  * 创建生命周期事件总线。
  *
  * listener 按订阅顺序执行。发布事件前会复制 listener 快照，避免某个 listener
@@ -318,7 +269,6 @@ export function createLifecycleBus<TNode>(
    */
   const emitMount = (node: TNode) => {
     emit((listener, currentNode) => {
-      listener.mount?.(currentNode)
       listener.mounted?.(currentNode)
     }, node)
   }
@@ -336,13 +286,8 @@ export function createLifecycleBus<TNode>(
    * 发布 update 事件。
    */
   const emitUpdate = (node: TNode, previousNode: TNode) => {
-    emit(
-      (listener, currentNode, currentPreviousNode) => {
-        listener.update?.(currentNode, currentPreviousNode)
-      },
-      node,
-      previousNode
-    )
+    void node
+    void previousNode
   }
 
   /**
@@ -385,7 +330,6 @@ export function createLifecycleBus<TNode>(
    */
   const emitUnmount = (node: TNode) => {
     emit((listener, currentNode) => {
-      listener.unmount?.(currentNode)
       listener.unmounted?.(currentNode)
     }, node)
   }
@@ -409,8 +353,3 @@ export function createLifecycleBus<TNode>(
     clear,
   }
 }
-
-/**
- * 兼容旧命名：创建生命周期事件总线。
- */
-export const createLifecycle = createLifecycleBus

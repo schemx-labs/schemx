@@ -7,23 +7,22 @@
 -->
 
 <script lang="ts" setup generic="T extends Values = Values">
-  import { onUnmounted, watch, watchEffect } from "vue"
+  import { onUnmounted, reactive, watch, watchEffect } from "vue"
 
-  import { createWatch } from "@schemx/core"
-  import { omit } from "es-toolkit"
+  import { createWatch, isSchemxSchemas, schemaConfigKeys } from "@schemx/core"
+  import { pick } from "es-toolkit"
 
   import FormItem from "./components/FormItem"
   import {
     createFormConfigContext,
     createFormContext,
-    formConfigContextOmitKey,
     useForm,
     useViewSchemas,
   } from "./hooks"
   import { getSectionPosition } from "./utils/helpers"
 
   import type { SchemxFormProps } from "./types/index"
-  import type { SchemxViewSchema, Values } from "@schemx/core"
+  import type { SchemxSchemaConfig, SchemxViewSchema, Values } from "@schemx/core"
 
   import "./styles/index.css"
 
@@ -49,12 +48,18 @@
     "update:modelValue": [value: T]
   }>()
 
+  const pickSchemaConfig = (): Partial<SchemxSchemaConfig> => {
+    return pick(props, schemaConfigKeys)
+  }
+
+  const formSchemaConfig = reactive<Partial<SchemxSchemaConfig>>(pickSchemaConfig())
+
   /**
    * 创建 FormContext 上下文
    *
    * 为子组件提供表单配置信息。
    */
-  createFormConfigContext(omit(props, formConfigContextOmitKey))
+  createFormConfigContext({ schemaConfig: formSchemaConfig })
 
   /**
    * 获取或创建表单实例
@@ -66,6 +71,7 @@
     ? props.form
     : useForm<T>({
         schemas: props.schemas,
+        schemaConfig: pickSchemaConfig(),
         initialValues:
           Object.keys(props.modelValue).length > 0
             ? props.modelValue
@@ -74,9 +80,6 @@
         rendererRegistry: props.rendererRegistry,
         defaultRendererType: props.defaultRendererType,
         validationRuleRegistry: props.validationRuleRegistry,
-
-        readonly: props.readonly,
-        disabled: props.disabled,
 
         onFinish: async (values) => {
           props.onFinish?.(values)
@@ -122,7 +125,9 @@
   watch(
     () => props.schemas,
     (schemas) => {
-      form.setSchemas(schemas)
+      if (!isSchemxSchemas(schemas)) {
+        form.setSchemas(schemas)
+      }
     },
     { deep: false, immediate: !!props.form }
   )
@@ -142,7 +147,10 @@
   }
 
   watchEffect(() => {
-    form.updateDefaultProps(props)
+    const nextSchemaConfig = pickSchemaConfig()
+
+    Object.assign(formSchemaConfig, nextSchemaConfig)
+    form.updateSchemaConfig(nextSchemaConfig)
   })
 
   defineExpose({

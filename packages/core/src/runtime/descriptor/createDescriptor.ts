@@ -43,7 +43,7 @@ import type {
  */
 type DescriptorContext<TValues extends Values = Values> = Pick<
   SchemaRuntimeContext<TValues>,
-  "defaultProps" | "instance"
+  "schemaConfig" | "instance"
 >
 
 /**
@@ -195,9 +195,9 @@ function buildNormalizedContainerState<TValues extends Values>(
   context: DescriptorContext<TValues>
 ): ContainerStaticState {
   return {
-    visible: schema.visible ?? context.defaultProps.visible,
-    readonly: schema.readonly ?? context.defaultProps.readonly,
-    disabled: schema.disabled ?? context.defaultProps.disabled,
+    visible: schema.visible ?? context.schemaConfig.visible,
+    readonly: schema.readonly ?? context.schemaConfig.readonly,
+    disabled: schema.disabled ?? context.schemaConfig.disabled,
   }
 }
 
@@ -243,11 +243,11 @@ function getPlaceholder<TValues extends Values>(
 /**
  * 合并默认值与 schema 配置，生成规范化字段 schema。
  *
- * 合并优先级（高→低）：字段自身配置 > 已解析的表单级 defaultProps。
+ * 合并优先级（高→低）：字段自身配置 > 已解析的表单级 schemaConfig。
  * 只读态会强制 contentAlign 为 right、labelPosition 为 left。
  *
  * @param schema - 原始字段 schema。
- * @param context - 运行时上下文，提供 defaultProps 与表单实例。
+ * @param context - 运行时上下文，提供 schemaConfig 与表单实例。
  * @returns 规范化后的字段 schema。
  */
 function buildNormalizedFieldSchema<TValues extends Values>(
@@ -255,7 +255,7 @@ function buildNormalizedFieldSchema<TValues extends Values>(
   key: string,
   context: DescriptorContext<TValues>
 ): SchemxResolvedBaseField<TValues> {
-  const { defaultProps, instance } = context
+  const { schemaConfig, instance } = context
 
   // 解构分离出需要单独合并的属性，其余（如 label、name）直接透传
   const {
@@ -278,27 +278,27 @@ function buildNormalizedFieldSchema<TValues extends Values>(
     ...rest
   } = schema
 
-  // defaultProps 已在 createForm 装配阶段合并内置、全局与 Form 实例配置。
-  const mergedVisible = visible ?? defaultProps.visible
+  // schemaConfig 已在 createForm 装配阶段合并内置、全局与 Form 实例配置。
+  const mergedVisible = visible ?? schemaConfig.visible
 
-  const mergedReadonly = readonly ?? defaultProps.readonly
+  const mergedReadonly = readonly ?? schemaConfig.readonly
 
-  const mergedDisabled = disabled ?? defaultProps.disabled
+  const mergedDisabled = disabled ?? schemaConfig.disabled
 
-  const mergedContentAlign = contentAlign ?? defaultProps.contentAlign
+  const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
 
   const mergedAlign = mergedReadonly ? "right" : (cp?.align ?? mergedContentAlign)
 
-  const mergedValidationTrigger = validationTrigger ?? defaultProps.validationTrigger
+  const mergedValidationTrigger = validationTrigger ?? schemaConfig.validationTrigger
 
   const mergedPlaceholder = getPlaceholder(schema)
 
-  const mergedRequired = required ?? defaultProps.required
+  const mergedRequired = required ?? schemaConfig.required
 
   const mergedReadonlyPlaceholder = cp?.readonlyPlaceholder ?? readonlyPlaceholder
 
   // showRequiredMark 未设置时为 undefined，运行时由 effectiveSchema 回退到 Boolean(required)。
-  const mergedShowRequiredMark = showRequiredMark ?? defaultProps.showRequiredMark
+  const mergedShowRequiredMark = showRequiredMark ?? schemaConfig.showRequiredMark
 
   const normalizedSchema = {
     ...(rest ?? {}),
@@ -312,12 +312,12 @@ function buildNormalizedFieldSchema<TValues extends Values>(
     placeholder: mergedPlaceholder,
     showRequiredMark: mergedShowRequiredMark,
 
-    labelIcon: labelIcon ?? defaultProps.labelIcon,
-    labelAlign: labelAlign ?? defaultProps.labelAlign,
-    labelPosition: labelPosition ?? defaultProps.labelPosition,
-    labelWidth: labelWidth ?? defaultProps.labelWidth,
+    labelIcon: labelIcon ?? schemaConfig.labelIcon,
+    labelAlign: labelAlign ?? schemaConfig.labelAlign,
+    labelPosition: labelPosition ?? schemaConfig.labelPosition,
+    labelWidth: labelWidth ?? schemaConfig.labelWidth,
     contentAlign: mergedContentAlign,
-    colon: colon ?? defaultProps.colon,
+    colon: colon ?? schemaConfig.colon,
 
     rules,
     validationTrigger: normalizeTrigger(mergedValidationTrigger),

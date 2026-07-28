@@ -1,15 +1,15 @@
 import { pick } from "es-toolkit"
 
+import { mergeSchemaConfig, schemaConfigKeys } from "../config/defaultSchemaConfig"
 import {
   createSchemas,
   isSchemxSchemas,
   type SchemxSchemas,
   type SchemxSchemasInput,
 } from "../createSchemas"
-import { defaultConfigKey, resolveDefaultConfig } from "../defaultConfig"
 
 import { createCompile } from "./compiler"
-import { createLifecycleBus, type SchemxLifecycleHooks } from "./lifecycle"
+import { createLifecycleBus, type LifecycleListener } from "./lifecycle"
 import {
   type ContainerRuntimeNode,
   createRuntimeResources,
@@ -27,14 +27,14 @@ import type { SchemxViewSchema } from "./view"
 import type { RuntimeFormModelPort } from "../form/model"
 import type {
   NamePath,
-  ResolvedSchemxDefaultProps,
+  ResolvedSchemxSchemaConfig,
   SchemxBaseField,
-  SchemxDefaultProps,
   SchemxField,
   SchemxFieldSchemaPatch,
   SchemxFormApi,
   SchemxInstance,
   SchemxRendererKey,
+  SchemxSchemaConfig,
   Values,
 } from "../types"
 
@@ -59,7 +59,7 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   /**
    * 已合并的字段默认配置。
    */
-  defaultProps: ResolvedSchemxDefaultProps
+  schemaConfig: ResolvedSchemxSchemaConfig
   /**
    * 未注册 renderer 的 fallback 类型。
    */
@@ -67,7 +67,7 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: SchemxLifecycleHooks<TValues>
+  lifecycleHooks?: LifecycleListener<RuntimeNode<TValues>>
 }
 
 /**
@@ -113,7 +113,7 @@ export interface SchemaRuntime<TValues extends Values> {
    *
    * @param partial - 要覆盖的默认属性。
    */
-  updateDefaultProps(partial: Partial<SchemxDefaultProps>): void
+  updateSchemaConfig(partial: Partial<SchemxSchemaConfig>): void
   /**
    * 获取字段当前生效的 label 与 required 配置。
    *
@@ -183,9 +183,12 @@ export function createSchemaRuntime<TValues extends Values>(
   // 广播 Runtime 生命周期事件。
   const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(options.lifecycleHooks)
 
+  // Runtime 与 Compiler 共享同一份配置引用，动态更新后无需重新装配 Compiler。
+  const schemaConfig = mergeSchemaConfig(options.schemaConfig)
+
   // 编译 Schema 并保留当前 Form 实例引用。
   const compile = createCompile({
-    defaultProps: options.defaultProps,
+    schemaConfig,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.instance,
   })
@@ -201,7 +204,7 @@ export function createSchemaRuntime<TValues extends Values>(
 
   // Runtime 内部共享的最小服务上下文。
   const context: SchemaRuntimeContext<TValues> = {
-    defaultProps: options.defaultProps,
+    schemaConfig,
     instance: options.instance,
     model: options.model,
     formApi: options.formApi,
@@ -354,14 +357,14 @@ export function createSchemaRuntime<TValues extends Values>(
   /**
    * 合并新的默认属性并使编译缓存失效。
    */
-  const updateDefaultProps = (partial: Partial<SchemxDefaultProps>): void => {
+  const updateSchemaConfig = (partial: Partial<SchemxSchemaConfig>): void => {
     if (disposed) {
       return
     }
 
     Object.assign(
-      context.defaultProps,
-      resolveDefaultConfig(context.defaultProps, pick(partial, defaultConfigKey))
+      context.schemaConfig,
+      mergeSchemaConfig(context.schemaConfig, pick(partial, schemaConfigKeys))
     )
     compile.invalidate()
     applySchemas(assertMounted().peek())
@@ -440,7 +443,7 @@ export function createSchemaRuntime<TValues extends Values>(
     setSchemas,
     updateSchemas,
     updateFieldSchema,
-    updateDefaultProps,
+    updateSchemaConfig,
     getEffectiveFieldSchema,
     getViewSchemas,
     subscribeViewSchemas: subscribeRuntimeViewSchemas,

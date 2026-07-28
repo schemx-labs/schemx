@@ -6,7 +6,7 @@
  * @module utils/validation
  */
 
-import { defaultConfig } from "../defaultConfig"
+import { schemaConfig } from "../config/defaultSchemaConfig"
 
 import type { ValidationTrigger } from "../types"
 
@@ -41,7 +41,7 @@ function isValidTrigger(v: TriggerConfig | undefined): v is TriggerConfig {
 /**
  * 合并校验触发时机配置。
  *
- * 按优先级从高到低取值：字段级配置 > 当前 Form 的 defaultProps > 默认值。
+ * 按优先级从高到低取值：字段级配置 > 当前 Form 的 schemaConfig > 默认值。
  * 跳过 undefined 和空数组，确保空数组不会意外覆盖后续配置。
  *
  * @param columnTrigger - 列级配置的触发时机
@@ -90,7 +90,7 @@ function normalizeTrigger(t: ValidationTrigger): NormalizedTrigger {
     submit: "submit",
   }
 
-  return map[t] || defaultConfig.validationTrigger
+  return map[t] || schemaConfig.validationTrigger
 }
 
 /**

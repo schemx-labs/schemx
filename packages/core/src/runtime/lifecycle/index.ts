@@ -6,11 +6,5 @@
  * @module core/runtime/lifecycle
  */
 
-export type {
-  RuntimeNodeLifecycleHooks,
-  LifecycleBus,
-  LifecycleHooks,
-  LifecycleListener,
-  SchemxLifecycleHooks,
-} from "./lifecycle"
-export { createLifecycle, createLifecycleBus } from "./lifecycle"
+export type { LifecycleBus, LifecycleHooks, LifecycleListener } from "./lifecycle"
+export { createLifecycleBus } from "./lifecycle"

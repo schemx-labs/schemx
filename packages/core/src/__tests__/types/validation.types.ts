@@ -38,6 +38,19 @@ interface FormValues {
   files: File[]
 }
 
+const configuredForm = createForm<FormValues>({
+  schemaConfig: {
+    readonly: true,
+  },
+})
+
+// @ts-expect-error createForm 不再接受平铺的 Schema 配置。
+createForm<FormValues>({ readonly: true })
+// @ts-expect-error 实例只提供 updateSchemaConfig，不再提供旧方法。
+configuredForm.updateDefaultProps({ disabled: true })
+// @ts-expect-error 旧 Schema 配置类型已从 Core 公共入口删除。
+import type { SchemxDefaultProps } from "../../index"
+
 const externalAdapter: ValidationAdapter<{ readonly message: string }> = {
   id: "external",
   rule(input): AdapterRule {

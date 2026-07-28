@@ -291,8 +291,16 @@ dispose()
 - `createEffect()`、`createWatch()`、`createWatchField()`、`createWatchFields()`、`createWatchAll()`：构建响应式监听。
 - `getViewSchemas()` 与 `subscribeViewSchemas()`：向 UI 适配层提供稳定投影。
 
-表单实例还提供 `getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()`、`getInitialValues()`、`getTouchedFields()`、`getPendingFields()`、`updateDefaultProps()` 和 `waitForDependencies()`；完整签名以根入口导出的 `SchemxInstance` 为准。
+表单实例还提供 `getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()`、`getInitialValues()`、`getTouchedFields()`、`getPendingFields()`、`updateSchemaConfig()` 和 `waitForDependencies()`；完整签名以根入口导出的 `SchemxInstance` 为准。
 
-全局配置对应的公开类型为 `SchemxConfig` 和 `SchemxValidationConfig`；配置采用替换语义，只影响之后创建的 Form。
+全局配置使用 `SchemxConfig`：字段默认值通过 `schemaConfig` 配置，第三方校验 adapter 通过 `validatorAdapters` 配置。配置采用替换语义，只影响之后创建的 Form。
+
+Form 级 Schema 配置同样通过 `schemaConfig` 聚合：
+
+```ts
+const form = createForm({
+  schemaConfig: { readonly: true },
+})
+```
 
 业务代码与框架适配层应从 `@schemx/core` 根入口导入公开 API；未由根入口导出的内部模块不属于稳定契约。

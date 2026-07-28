@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveDefaultConfig } from "../../defaultConfig"
+import { mergeSchemaConfig } from "../../config/defaultSchemaConfig"
 import { createSchemaRuntime } from "../createSchemaRuntime"
 
 import type { RuntimeFormModelPort } from "../../form/model"
@@ -14,7 +14,7 @@ describe("SchemaRuntime", () => {
       model,
       instance,
       formApi: {} as SchemxFormApi,
-      defaultProps: resolveDefaultConfig(),
+      schemaConfig: mergeSchemaConfig(),
     })
 
     runtime.mount([
@@ -39,7 +39,7 @@ describe("SchemaRuntime", () => {
       model,
       instance: {} as SchemxInstance,
       formApi: {} as SchemxFormApi,
-      defaultProps: resolveDefaultConfig(),
+      schemaConfig: mergeSchemaConfig(),
     })
 
     runtime.mount([

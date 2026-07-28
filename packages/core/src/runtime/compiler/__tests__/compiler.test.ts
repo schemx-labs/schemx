@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createCompile, CompileError } from "../index"
 import { createDescriptor } from "../../descriptor"
+import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
 
 import type { SchemxField } from "../../../types/schema"
 
@@ -81,7 +82,7 @@ describe("createCompile().toDescriptors", () => {
       0,
       "",
       {
-        defaultProps: {
+        schemaConfig: {
           readonly: true,
         },
         instance: {
@@ -545,10 +546,10 @@ describe("createCompile().toDescriptors", () => {
     const schemas: SchemxField[] = [{ name: "f1", label: "F1", componentType: "input" }]
 
     const descriptors = createCompile({
-      defaultProps: {
+      schemaConfig: mergeSchemaConfig({
         readonly: true,
         disabled: true,
-      },
+      }),
     }).toDescriptors(schemas)
 
     if (descriptors[0].type === "field") {
@@ -561,7 +562,7 @@ describe("createCompile().toDescriptors", () => {
     const schemas: SchemxField[] = [{ name: "f1", label: "F1", componentType: "input" }]
 
     const descriptors = createCompile({
-      defaultProps: {
+      schemaConfig: mergeSchemaConfig({
         required: true,
         readonly: false,
         disabled: true,
@@ -573,7 +574,7 @@ describe("createCompile().toDescriptors", () => {
         contentAlign: "left",
         validationTrigger: "change",
         colon: false,
-      },
+      }),
     }).toDescriptors(schemas)
 
     if (descriptors[0].type === "field") {

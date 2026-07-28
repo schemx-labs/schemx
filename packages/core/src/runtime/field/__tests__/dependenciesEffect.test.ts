@@ -319,6 +319,7 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
 
     createDependenciesEffect({
       context,
+      taskId: "field:test:dependencies",
       descriptor,
       runtimeState,
       scope,
@@ -390,6 +391,7 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
 
     createDependenciesEffect({
       context,
+      taskId: "field:test:async-dependencies",
       descriptor,
       runtimeState,
       scope,

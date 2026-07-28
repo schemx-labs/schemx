@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createForm } from "../../createForm"
 import { createRendererRegistry } from "../../registry"
-import { configureSchemx, resetSchemxConfigForTests } from "../schemxConfig"
+import { configureSchemx } from "../schemxConfig"
 
 import type {
   AdapterRule,
@@ -31,7 +31,7 @@ function createTestAdapter<TInput>(
   }
 }
 
-afterEach(() => resetSchemxConfigForTests())
+afterEach(() => configureSchemx())
 
 function findField(
   form: { getViewSchemas: () => readonly SchemxViewSchema[] },
@@ -51,7 +51,7 @@ describe("configureSchemx", () => {
       { validate: () => ({ valid: false as const, issues: [{ message: "表单" }] }) },
     ])
 
-    configureSchemx({ validation: { validatorAdapters: [globalAdapter] } })
+    configureSchemx({ validatorAdapters: [globalAdapter] })
     const globalForm = createForm<{ email: string }>({
       schemas: [
         {
@@ -73,7 +73,7 @@ describe("configureSchemx", () => {
         },
       ],
     })
-    configureSchemx({ validation: { validatorAdapters: [] } })
+    configureSchemx({ validatorAdapters: [] })
 
     await expect(
       globalForm.validateField("email", { email: "x" })
@@ -103,8 +103,8 @@ describe("configureSchemx", () => {
     ).not.toThrow()
   })
 
-  it("全局 defaultProps 作为后续 Form 的字段默认值", async () => {
-    configureSchemx({ readonly: true })
+  it("全局 schemaConfig 作为后续 Form 的字段默认值", async () => {
+    configureSchemx({ schemaConfig: { readonly: true } })
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
@@ -113,10 +113,10 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.readonly).toBe(true)
   })
 
-  it("Form 显式传入的 defaultProps 覆盖全局值", async () => {
-    configureSchemx({ readonly: true })
+  it("Form 显式传入的字段默认值覆盖全局 schemaConfig", async () => {
+    configureSchemx({ schemaConfig: { readonly: true } })
     const form = createForm<{ name: string }>({
-      readonly: false,
+      schemaConfig: { readonly: false },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
     await Promise.resolve()
@@ -125,9 +125,9 @@ describe("configureSchemx", () => {
   })
 
   it("Form 显式传入 undefined 时回到内置默认值", async () => {
-    configureSchemx({ readonly: true })
+    configureSchemx({ schemaConfig: { readonly: true } })
     const form = createForm<{ name: string }>({
-      readonly: undefined,
+      schemaConfig: { readonly: undefined },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
     await Promise.resolve()
@@ -137,18 +137,18 @@ describe("configureSchemx", () => {
 
   it("动态配置显式更新为 undefined 时回到内置默认值", async () => {
     const form = createForm<{ name: string }>({
-      readonly: true,
+      schemaConfig: { readonly: true },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
-    form.updateDefaultProps({ readonly: undefined })
+    form.updateSchemaConfig({ readonly: undefined })
     await Promise.resolve()
 
     expect(findField(form, "name")?.readonly).toBe(false)
   })
 
   it("全局 showRequiredMark 覆盖必填字段的标记显示", async () => {
-    configureSchemx({ showRequiredMark: false })
+    configureSchemx({ schemaConfig: { showRequiredMark: false } })
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input", required: true }],
     })

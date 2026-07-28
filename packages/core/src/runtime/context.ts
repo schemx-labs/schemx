@@ -18,7 +18,7 @@ import type { Scheduler } from "./scheduler"
 import type { RuntimeFormModelPort } from "../form/model"
 import type {
   NamePath,
-  ResolvedSchemxDefaultProps,
+  ResolvedSchemxSchemaConfig,
   SchemxFormApi,
   SchemxInstance,
   Values,
@@ -54,7 +54,7 @@ export interface SchemxContext<TValues extends Values = Values> {
   /**
    * schema 编译默认选项，供 root 与 dependency 子树复用。
    */
-  defaultProps: ResolvedSchemxDefaultProps
+  schemaConfig: ResolvedSchemxSchemaConfig
   /**
    * 表单实例公开 API。
    */

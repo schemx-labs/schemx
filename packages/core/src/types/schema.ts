@@ -214,7 +214,7 @@ export interface SchemxBase<
   /**
    * 是否只读（静态默认值）
    *
-   * 未设置时继承当前 Form 的 `defaultProps.readonly` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.readonly` 配置。
    */
   readonly?: boolean
 
@@ -226,7 +226,7 @@ export interface SchemxBase<
   /**
    * 是否禁用（静态默认值）
    *
-   * 未设置时继承当前 Form 的 `defaultProps.disabled` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.disabled` 配置。
    */
   disabled?: boolean
 
@@ -269,21 +269,21 @@ export interface SchemxBase<
   /**
    * 标签对齐方式
    *
-   * 未设置时继承当前 Form 的 `defaultProps.labelAlign` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.labelAlign` 配置。
    */
   labelAlign?: "left" | "center" | "right"
 
   /**
    * 标签位置
    *
-   * 未设置时继承当前 Form 的 `defaultProps.labelPosition` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.labelPosition` 配置。
    */
   labelPosition?: "left" | "top" | "right"
 
   /**
    * 标签宽度
    *
-   * 未设置时继承当前 Form 的 `defaultProps.labelWidth` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.labelWidth` 配置。
    */
   labelWidth?: string
 
@@ -295,7 +295,7 @@ export interface SchemxBase<
   /**
    * 是否在标签后显示冒号
    *
-   * 未设置时继承当前 Form 的 `defaultProps.colon` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.colon` 配置。
    */
   colon?: boolean
 
@@ -303,7 +303,7 @@ export interface SchemxBase<
    * 校验触发时机
    *
    * 支持单个或多个触发时机组合，如 `'change'`、`'blur'`、`['change', 'blur']`。
-   * 未设置时继承当前 Form 的 `defaultProps.validationTrigger` 配置。
+   * 未设置时继承当前 Form 的 `schemaConfig.validationTrigger` 配置。
    */
   validationTrigger?: ValidationTrigger | ValidationTrigger[]
 

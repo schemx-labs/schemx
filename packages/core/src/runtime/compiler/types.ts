@@ -8,7 +8,7 @@
 
 import type {
   NamePath,
-  ResolvedSchemxDefaultProps,
+  ResolvedSchemxSchemaConfig,
   SchemxField,
   SchemxInstance,
   SchemxRendererKey,
@@ -27,7 +27,7 @@ export interface CompileOptions<TValues extends Values> {
    *
    * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
    */
-  defaultProps: ResolvedSchemxDefaultProps
+  schemaConfig: ResolvedSchemxSchemaConfig
   /**
    * 缺失 `componentType` 的 field 使用的显式默认渲染器类型。
    *
@@ -51,7 +51,7 @@ export interface CompileOptions<TValues extends Values> {
  * 以 schema 对象引用和编译位置共同缓存 descriptor，让未变化的 schema 在相同位置
  * 多次编译时复用 descriptor。编译位置参与缓存键，因为生成 key 依赖 parentKey 和 index。
  *
- * 缓存通过 `version` 失效：defaultProps 等编译选项变化时调用方 bump version，
+ * 缓存通过 `version` 失效：schemaConfig 等编译选项变化时调用方 bump version，
  * 后续编译会跳过所有缓存条目。
  */
 export interface CompileCache<TValues extends Values = Values> {
