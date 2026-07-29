@@ -19,14 +19,17 @@ import type { SchemxViewGroupSchema, SchemxViewSchema, Values } from "@schemx/co
 /**
  * FormGroup Props
  *
- * @typeParam T - 表单值类型
+ * @typeParam TValues - 表单值类型
  */
-export interface SchemxGroupProps<T extends Values = Values> {
-  schema: SchemxViewGroupSchema<T>
+export interface SchemxGroupProps<TValues extends Values = Values> {
+  schema: SchemxViewGroupSchema<TValues>
 }
 
 const FormGroup = defineComponent(
-  <T extends Values = Values>(props: SchemxGroupProps<T>, { slots }: SetupContext) => {
+  <TValues extends Values = Values>(
+    props: SchemxGroupProps<TValues>,
+    { slots }: SetupContext
+  ) => {
     const internalCollapsed = ref(Boolean(props.schema.defaultCollapsed))
 
     const collapsed = computed(() => props.schema.collapsed ?? internalCollapsed.value)

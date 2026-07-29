@@ -19,7 +19,7 @@ import { isEqual } from "es-toolkit/compat"
  * 遍历 current 的所有 key，与 prev 逐一深度比较，
  * 收集不相等的 key 对应的新值。
  *
- * @typeParam T - 对象类型
+ * @typeParam TRecord - 对象类型
  *
  * @param current - 当前对象
  * @param prev - 上一次对象
@@ -32,10 +32,13 @@ import { isEqual } from "es-toolkit/compat"
  * // changed => { b: 2 }
  * ```
  */
-export function diff<T extends Record<string, unknown>>(current: T, prev: T): Partial<T> {
-  const changedValues: Partial<T> = {}
+export function diff<TRecord extends Record<string, unknown>>(
+  current: TRecord,
+  prev: TRecord
+): Partial<TRecord> {
+  const changedValues: Partial<TRecord> = {}
 
-  for (const key of Object.keys(current) as (keyof T)[]) {
+  for (const key of Object.keys(current) as (keyof TRecord)[]) {
     if (!isEqual(current[key], prev[key])) {
       changedValues[key] = current[key]
     }

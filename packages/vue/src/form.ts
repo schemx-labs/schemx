@@ -33,12 +33,14 @@ export interface SchemxInstallOptions {}
  *
  * @param comp - 原始组件
  * @param extra - 要挂载的静态属性
+ * @typeParam TComponent - 原始组件类型。
+ * @typeParam TExtras - 待挂载的静态属性类型。
  */
-export function withInstall<T extends object, E extends Record<string, unknown>>(
-  comp: T,
-  extra: E
-) {
-  return Object.assign(comp, extra) as T & E
+export function withInstall<
+  TComponent extends object,
+  TExtras extends Record<string, unknown>,
+>(comp: TComponent, extra: TExtras) {
+  return Object.assign(comp, extra) as TComponent & TExtras
 }
 
 export type SchemxFormPlugin = typeof SchemxForm & {

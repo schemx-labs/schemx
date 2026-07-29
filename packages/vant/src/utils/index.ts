@@ -15,6 +15,7 @@
  * @param attrs - Vue 组件的 attrs 对象
  * @param key - 属性名
  * @param defaultValue - 默认值
+ * @typeParam TProps - attrs 对象类型
  *
  * @returns 属性值或默认值
  *
@@ -22,11 +23,11 @@
  * getFieldProps(attrs, "align", "right")
  * getFieldProps(attrs, "rightIcon", "arrow")
  */
-export function getFieldProps<T extends Record<string, unknown>>(
-  attrs: T,
-  key: keyof T,
-  defaultValue: T[typeof key] = undefined as T[typeof key]
-): T[typeof key] {
+export function getFieldProps<TProps extends Record<string, unknown>>(
+  attrs: TProps,
+  key: keyof TProps,
+  defaultValue: TProps[typeof key] = undefined as TProps[typeof key]
+): TProps[typeof key] {
   return attrs?.[key] ?? defaultValue
 }
 
@@ -53,16 +54,18 @@ export function isEmptyDisplayValue(value: unknown): boolean {
  *
  * 只在值为空时回退到 readonlyPlaceholder，保留 0、false 等有效值。
  *
+ * @typeParam TValue - 待展示的值类型。
+ *
  * @example
  * ```ts
  * getReadonlyDisplayValue(undefined, "未填写") // => "未填写"
  * getReadonlyDisplayValue(0, "未填写")         // => 0
  * ```
  */
-export function getReadonlyDisplayValue<T>(
-  value: T,
+export function getReadonlyDisplayValue<TValue>(
+  value: TValue,
   readonlyPlaceholder = "-"
-): T | string {
+): TValue | string {
   return isEmptyDisplayValue(value) ? readonlyPlaceholder : value
 }
 
@@ -104,6 +107,9 @@ export function isRendererInteractive(mode: RendererMode): boolean {
 
 /**
  * 树形查找结果
+ *
+ * @typeParam TNode - 树节点类型。
+ * @typeParam TValue - 节点值类型。
  */
 export interface FindTreeItemResult<
   TNode extends Record<string, unknown> = Record<string, unknown>,
@@ -122,6 +128,8 @@ export interface FindTreeItemResult<
  *
  * 支持自定义字段名映射，适用于 Cascader、Picker 等树形选择组件。
  *
+ * @typeParam TNode - 树节点类型。
+ * @typeParam TValue - 待查找的节点值类型。
  * @param tree - 树形数据数组
  * @param targetValue - 要查找的目标值
  * @param options - 字段名配置

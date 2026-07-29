@@ -19,13 +19,13 @@ import type { Values } from "@schemx/core"
 /**
  * 批量解析的单个属性条目
  *
- * @typeParam T - 属性值类型
+ * @typeParam TValue - 属性值类型
  */
-export interface DependencieEntry<T> {
+export interface DependencieEntry<TValue> {
   /** 动态属性值（函数、静态值、null 或 undefined） */
-  value: Dynamic<T> | undefined | null
+  value: Dynamic<TValue> | undefined | null
   /** 默认值，当 value 为空或函数返回 nullish 时使用 */
-  defaultValue: T
+  defaultValue: TValue
 }
 
 /**
@@ -33,26 +33,26 @@ export interface DependencieEntry<T> {
  *
  * 将属性名映射到对应的 {@link DependencieEntry}。
  *
- * @typeParam M - 属性名到值类型的映射
+ * @typeParam TProps - 属性名到值类型的映射
  */
-type DependencieEntries<M extends Record<string, unknown>> = {
-  [K in keyof M]: DependencieEntry<M[K]>
+type DependencieEntries<TProps extends Record<string, unknown>> = {
+  [TKey in keyof TProps]: DependencieEntry<TProps[TKey]>
 }
 
 /**
  * 解析泛型动态属性
  *
- * 将 `Dynamic<T>`（函数或静态值）统一解析为 `T`。
+ * 将 `Dynamic<TValue>`（函数或静态值）统一解析为 `TValue`。
  * 当 value 为函数时调用并传入表单值，捕获错误返回默认值；
  * 当 value 为 null/undefined 时返回默认值。
  *
- * @typeParam T - 解析后的属性值类型
+ * @typeParam TValue - 解析后的属性值类型
  *
  * @param value - 动态属性值（函数、静态值、null 或 undefined）
  * @param formValues - 当前表单值，作为函数形式的入参
  * @param defaultValue - 默认值，当 value 为空或函数返回 nullish 时使用
  *
- * @returns 解析后的属性值，类型始终为 T
+ * @returns 解析后的属性值，类型始终为 TValue
  *
  * @example
  * ```typescript
@@ -69,18 +69,20 @@ type DependencieEntries<M extends Record<string, unknown>> = {
  * // => 'default'
  * ```
  */
-export async function resolveDependencie<T>(
-  value: Dynamic<T> | undefined | null,
+export async function resolveDependencie<TValue>(
+  value: Dynamic<TValue> | undefined | null,
   formValues: Values,
-  defaultValue: T
-): Promise<T> {
+  defaultValue: TValue
+): Promise<TValue> {
   if (value == null) {
     return defaultValue
   }
 
   if (typeof value === "function") {
     try {
-      const result = await (value as (values: Values) => T | Promise<T>)(formValues)
+      const result = await (value as (values: Values) => TValue | Promise<TValue>)(
+        formValues
+      )
 
       return result ?? defaultValue
     } catch (error) {
@@ -100,7 +102,7 @@ export async function resolveDependencie<T>(
  * 高频调用时只保留最后一次的参数，debounce 窗口结束后一次性
  * 通过 `Promise.all` 并行解析所有属性，将结果通过回调分发。
  *
- * @typeParam M - 属性名到值类型的映射
+ * @typeParam TProps - 属性名到值类型的映射
  *
  * @param wait - debounce 等待时间（毫秒），默认 16ms（约一帧）
  *
@@ -135,17 +137,17 @@ export async function resolveDependencie<T>(
  * 适用于 signal effect / watch 回调中批量解析动态属性的场景，
  * 避免多个字段同时变化时重复解析。
  */
-export function batchResolveDependencie<M extends Record<string, unknown>>(
+export function batchResolveDependencie<TProps extends Record<string, unknown>>(
   wait = 16
 ): (
-  entries: DependencieEntries<M>,
+  entries: DependencieEntries<TProps>,
   formValues: Values,
-  callback: (results: M) => void
+  callback: (results: TProps) => void
 ) => void {
   let pending: {
-    entries: DependencieEntries<M>
+    entries: DependencieEntries<TProps>
     formValues: Values
-    callback: (results: M) => void
+    callback: (results: TProps) => void
   } | null = null
 
   const flush = debounce(async () => {
@@ -155,7 +157,7 @@ export function batchResolveDependencie<M extends Record<string, unknown>>(
 
     pending = null
 
-    const keys = Object.keys(entries) as (keyof M & string)[]
+    const keys = Object.keys(entries) as (keyof TProps & string)[]
 
     const promises = keys.map((key) =>
       resolveDependencie(entries[key].value, formValues, entries[key].defaultValue)
@@ -163,7 +165,7 @@ export function batchResolveDependencie<M extends Record<string, unknown>>(
 
     const values = await Promise.all(promises)
 
-    const results = {} as M
+    const results = {} as TProps
 
     keys.forEach((key, i) => {
       ;(results as any)[key] = values[i]

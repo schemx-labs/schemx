@@ -18,8 +18,8 @@ import { SchemxViewSchema } from "@schemx/core"
  * getSectionPosition(list, 'a')
  * // => { found: true, isFirst: true, isLast: false }
  */
-export function getSectionPosition<T extends SchemxViewSchema>(
-  list: T[],
+export function getSectionPosition<TItem extends SchemxViewSchema>(
+  list: TItem[],
   currentKey: string
 ) {
   const currentIndex = list.findIndex((item) => item.key === currentKey)
@@ -52,18 +52,18 @@ export function getSectionPosition<T extends SchemxViewSchema>(
 /**
  * 判断 schema 是否为 Group ViewSchema。
  */
-function isViewGroupSchema<T extends SchemxViewSchema>(
-  item?: T
-): item is Extract<T, { children: readonly SchemxViewSchema[] }> {
+function isViewGroupSchema<TItem extends SchemxViewSchema>(
+  item?: TItem
+): item is Extract<TItem, { children: readonly SchemxViewSchema[] }> {
   return !!item && "children" in item
 }
 
-function isPositionItem<T extends SchemxViewSchema>(item?: T) {
+function isPositionItem<TItem extends SchemxViewSchema>(item?: TItem) {
   return !!item && !isViewGroupSchema(item) && item.visible !== false
 }
 
-function hasPositionItemInSection<T extends SchemxViewSchema>(
-  list: T[],
+function hasPositionItemInSection<TItem extends SchemxViewSchema>(
+  list: TItem[],
   startIndex: number,
   step: 1 | -1
 ): boolean {

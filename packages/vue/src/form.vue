@@ -6,7 +6,7 @@
   @module schemx
 -->
 
-<script lang="ts" setup generic="T extends Values = Values">
+<script lang="ts" setup generic="TValues extends Values = Values">
   import { onUnmounted, reactive, watch, watchEffect } from "vue"
 
   import { createWatch, isSchemxSchemas, schemaConfigKeys } from "@schemx/core"
@@ -28,9 +28,9 @@
 
   defineOptions({ name: "SchemxForm" })
 
-  const props = withDefaults(defineProps<SchemxFormProps<T>>(), {
-    modelValue: () => ({}) as T,
-    initialValues: () => ({}) as T,
+  const props = withDefaults(defineProps<SchemxFormProps<TValues>>(), {
+    modelValue: () => ({}) as TValues,
+    initialValues: () => ({}) as TValues,
     form: undefined,
     schemas: () => [],
     class: "",
@@ -45,7 +45,7 @@
   })
 
   const emit = defineEmits<{
-    "update:modelValue": [value: T]
+    "update:modelValue": [value: TValues]
   }>()
 
   const pickSchemaConfig = (): Partial<SchemxSchemaConfig> => {
@@ -69,7 +69,7 @@
    */
   const form = props.form
     ? props.form
-    : useForm<T>({
+    : useForm<TValues>({
         schemas: props.schemas,
         schemaConfig: pickSchemaConfig(),
         initialValues:
@@ -134,7 +134,7 @@
 
   const viewSchemas = useViewSchemas(form)
 
-  const getFormItemClass = (schema: SchemxViewSchema<T>) => {
+  const getFormItemClass = (schema: SchemxViewSchema<TValues>) => {
     const { isFirst, isLast } = getSectionPosition(
       viewSchemas.value as SchemxViewSchema[],
       schema.key
@@ -164,7 +164,7 @@
       v-for="schema in viewSchemas"
       :key="schema.key"
       :schema="schema as SchemxViewSchema"
-      :class="getFormItemClass(schema as SchemxViewSchema<T>)"
+      :class="getFormItemClass(schema as SchemxViewSchema<TValues>)"
     >
       <template v-for="(_, slotName) in $slots" #[slotName]="slotProps">
         <slot :name="slotName" v-bind="slotProps ?? {}" />

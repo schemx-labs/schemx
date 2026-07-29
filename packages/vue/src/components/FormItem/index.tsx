@@ -44,10 +44,10 @@ import type {
 /**
  * FormItem 属性。
  *
- * @typeParam T - 表单值类型
+ * @typeParam TValues - 表单值类型
  */
-export interface SchemxItemProps<T extends Values = Values> {
-  schema: SchemxViewSchema<T>
+export interface SchemxItemProps<TValues extends Values = Values> {
+  schema: SchemxViewSchema<TValues>
 }
 
 const FormItem = defineComponent({
@@ -315,9 +315,9 @@ const FieldFormItem = defineComponent({
 
 export default FormItem
 
-const isViewGroupSchema = <T extends Values>(
-  schema: SchemxViewSchema<T>
-): schema is SchemxViewGroupSchema<T> => {
+const isViewGroupSchema = <TValues extends Values>(
+  schema: SchemxViewSchema<TValues>
+): schema is SchemxViewGroupSchema<TValues> => {
   return "children" in schema
 }
 
