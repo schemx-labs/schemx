@@ -192,7 +192,7 @@ const noop = (): void => {}
  * @param items - 目标数组
  * @param item - 要移除的元素
  */
-const removeItem = <T>(items: T[], item: T): void => {
+const removeItem = <TItem>(items: TItem[], item: TItem): void => {
   const index = items.indexOf(item)
 
   if (index >= 0) {

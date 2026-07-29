@@ -312,7 +312,9 @@ export interface RuntimeNodeResourceContext<TValues extends Values = Values> {
  * 将 RuntimeNodeResourceContext 的每个 key 映射为其值的类型，方便泛型推导。
  */
 export type RuntimeNodeResourceMaps<TValues extends Values = Values> = {
-  [K in keyof RuntimeNodeResourceContext<TValues>]: RuntimeNodeResourceContext<TValues>[K]
+  [
+    TKey in keyof RuntimeNodeResourceContext<TValues>
+  ]: RuntimeNodeResourceContext<TValues>[TKey]
 }
 
 /**

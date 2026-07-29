@@ -79,11 +79,11 @@ export interface Scheduler {
   /**
    * 跟踪异步任务。
    *
-   * @typeParam T - 返回值类型
+   * @typeParam TResult - 返回值类型
    * @param promise - 异步任务
    * @returns 原始 promise
    */
-  track<T>(promise: Promise<T>): Promise<T>
+  track<TResult>(promise: Promise<TResult>): Promise<TResult>
 
   /**
    * 释放调度器。
@@ -242,7 +242,7 @@ export function createScheduler(): Scheduler {
    * 增加飞行中任务计数，任务完成后减少计数并检查空闲状态。
    * 用于确保 whenIdle 能正确等待所有异步任务完成。
    */
-  const track = async <T>(promise: Promise<T>): Promise<T> => {
+  const track = async <TResult>(promise: Promise<TResult>): Promise<TResult> => {
     pendingAsync += 1
 
     try {

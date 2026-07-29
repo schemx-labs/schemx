@@ -24,14 +24,14 @@ import type { Signal } from "./signal"
  * 用于追踪 key 的新增/删除。内部类不直接暴露，通过 `SignalMap` 类型
  * 和 `createSignalMap` 工厂提供公共 API。
  *
- * @typeParam K - key 类型
- * @typeParam V - value 类型
+ * @typeParam TKey - key 类型
+ * @typeParam TValue - value 类型
  */
-class SignalMapImpl<K, V> {
+class SignalMapImpl<TKey, TValue> {
   /**
    * 每个 key 独占一个 signal，保证字段级更新能细粒度触发。
    */
-  private signals = new Map<K, Signal<V>>()
+  private signals = new Map<TKey, Signal<TValue>>()
 
   /**
    * 结构版本 signal，用于追踪“新 key 创建”事件。
@@ -47,7 +47,7 @@ class SignalMapImpl<K, V> {
    * @param key - 待读取的 key。
    * @returns key 对应的值；不存在时返回 undefined。
    */
-  get(key: K): V | undefined {
+  get(key: TKey): TValue | undefined {
     const s = this.signals.get(key)
 
     if (s) return s.value
@@ -64,7 +64,7 @@ class SignalMapImpl<K, V> {
    * @param value - 新值。
    * @returns 当前 SignalMap 实例，便于链式调用。
    */
-  set(key: K, value: V): this {
+  set(key: TKey, value: TValue): this {
     const s = this.signals.get(key)
 
     if (s) {
@@ -83,7 +83,7 @@ class SignalMapImpl<K, V> {
    * @param key - 待读取的 key。
    * @returns key 对应的值；不存在时返回 undefined。
    */
-  peek(key: K): V | undefined {
+  peek(key: TKey): TValue | undefined {
     return this.signals.get(key)?.peek()
   }
 
@@ -93,7 +93,7 @@ class SignalMapImpl<K, V> {
    * @param key - 待检查的 key。
    * @returns key 已存在时返回 true。
    */
-  has(key: K): boolean {
+  has(key: TKey): boolean {
     return this.signals.has(key)
   }
 
@@ -103,7 +103,7 @@ class SignalMapImpl<K, V> {
    * @param key - 待删除的 key。
    * @returns 成功删除时返回 true；key 不存在时返回 false。
    */
-  delete(key: K): boolean {
+  delete(key: TKey): boolean {
     const s = this.signals.get(key)
 
     if (!s) return false
@@ -111,7 +111,7 @@ class SignalMapImpl<K, V> {
     this.signals.delete(key)
 
     batchUpdates(() => {
-      s.value = undefined as unknown as V
+      s.value = undefined as unknown as TValue
       this.version.value++
     })
 
@@ -130,7 +130,7 @@ class SignalMapImpl<K, V> {
 
     batchUpdates(() => {
       for (const s of oldSignals) {
-        s.value = undefined as unknown as V
+        s.value = undefined as unknown as TValue
       }
 
       this.version.value++
@@ -142,7 +142,7 @@ class SignalMapImpl<K, V> {
    *
    * @returns key 迭代器。
    */
-  keys(): IterableIterator<K> {
+  keys(): IterableIterator<TKey> {
     void this.version.value
 
     return this.signals.keys()
@@ -153,7 +153,7 @@ class SignalMapImpl<K, V> {
    *
    * @returns value 迭代器。
    */
-  values(): IterableIterator<V> {
+  values(): IterableIterator<TValue> {
     void this.version.value
 
     return Array.from(this.signals.values(), (signal) => signal.value).values()
@@ -164,12 +164,12 @@ class SignalMapImpl<K, V> {
    *
    * @returns key/value entry 迭代器。
    */
-  entries(): IterableIterator<[K, V]> {
+  entries(): IterableIterator<[TKey, TValue]> {
     void this.version.value
 
     return Array.from(
       this.signals.entries(),
-      ([key, signal]) => [key, signal.value] as [K, V]
+      ([key, signal]) => [key, signal.value] as [TKey, TValue]
     ).values()
   }
 }
@@ -177,13 +177,13 @@ class SignalMapImpl<K, V> {
 /**
  * SignalMap 的实例类型。
  */
-export type SignalMap<K, V> = InstanceType<typeof SignalMapImpl<K, V>>
+export type SignalMap<TKey, TValue> = InstanceType<typeof SignalMapImpl<TKey, TValue>>
 
 /**
  * 创建 SignalMap 实例。
  *
  * @returns 新的响应式 Map。
  */
-export function createSignalMap<K, V>(): SignalMap<K, V> {
-  return new SignalMapImpl<K, V>()
+export function createSignalMap<TKey, TValue>(): SignalMap<TKey, TValue> {
+  return new SignalMapImpl<TKey, TValue>()
 }

@@ -85,7 +85,9 @@ type DeclaredRuleName = Extract<keyof ValidationRuleDefinition, string>
 export type ValidationRuleName<TValue> = [DeclaredRuleName] extends [never]
   ? string
   : {
-      [K in DeclaredRuleName]: TValue extends ValidationRuleDefinition[K] ? K : never
+      [TKey in DeclaredRuleName]: TValue extends ValidationRuleDefinition[TKey]
+        ? TKey
+        : never
     }[DeclaredRuleName]
 
 /**

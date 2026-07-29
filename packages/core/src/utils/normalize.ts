@@ -30,16 +30,16 @@ import type { SchemxField, SchemxRendererKey, Values } from "../types"
  * normalizeSchemas([{ name: "email", label: "" }], "input")
  * ```
  */
-export function normalizeSchemas<T extends Values = Values>(
+export function normalizeSchemas<TValues extends Values = Values>(
   schemas: unknown,
   defaultRendererType?: SchemxRendererKey
-): SchemxField<T>[] {
-  const normalize = (items: unknown, path: string): SchemxField<T>[] => {
+): SchemxField<TValues>[] {
+  const normalize = (items: unknown, path: string): SchemxField<TValues>[] => {
     if (!Array.isArray(items)) {
       throw new CompileError(`[schemx] ${path} 必须是数组`)
     }
 
-    const result: SchemxField<T>[] = []
+    const result: SchemxField<TValues>[] = []
 
     let changed = false
 
@@ -54,7 +54,7 @@ export function normalizeSchemas<T extends Values = Values>(
 
       const schema = item as Record<string, unknown>
 
-      const kind = getSchemaKind(schema as unknown as SchemxField<T>)
+      const kind = getSchemaKind(schema as unknown as SchemxField<TValues>)
 
       if (kind === "group" && schema.componentType === "group") {
         console.warn(
@@ -72,7 +72,7 @@ export function normalizeSchemas<T extends Values = Values>(
         continue
       }
 
-      let normalized = item as SchemxField<T>
+      let normalized = item as SchemxField<TValues>
 
       if (kind === "field") {
         if (typeof schema.name !== "string" || schema.name.length === 0) {
@@ -91,7 +91,10 @@ export function normalizeSchemas<T extends Values = Values>(
             throw new CompileError(`[schemx] ${itemPath}.componentType 必须是非空字符串`)
           }
 
-          normalized = { ...schema, componentType: defaultRendererType } as SchemxField<T>
+          normalized = {
+            ...schema,
+            componentType: defaultRendererType,
+          } as SchemxField<TValues>
         } else if (
           typeof schema.componentType !== "string" ||
           schema.componentType.length === 0
@@ -110,7 +113,7 @@ export function normalizeSchemas<T extends Values = Values>(
         const children = normalize(schema.children, `${itemPath}.children`)
 
         if (children !== schema.children) {
-          normalized = { ...schema, children } as SchemxField<T>
+          normalized = { ...schema, children } as SchemxField<TValues>
         }
       } else {
         if (
@@ -133,7 +136,7 @@ export function normalizeSchemas<T extends Values = Values>(
       changed ||= normalized !== item
     }
 
-    return changed ? result : (items as SchemxField<T>[])
+    return changed ? result : (items as SchemxField<TValues>[])
   }
 
   return normalize(schemas, "schemas")

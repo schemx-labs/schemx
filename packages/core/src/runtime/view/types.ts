@@ -18,13 +18,15 @@ import type { FieldDynamicOverrideKey } from "../field/runtimeState"
 /**
  * 对联合类型逐项执行 Omit。
  *
- * TypeScript 内置的 `Omit<T, K>` 直接作用在联合类型上时会先合并成员公共属性，
+ * TypeScript 内置的 `Omit<TSource, TKey>` 直接作用在联合类型上时会先合并成员公共属性，
  * 这里通过条件类型触发 distributive behavior，保留每个 schema 分支各自的字段。
  *
- * @typeParam T - 要处理的源类型，支持联合类型。
- * @typeParam K - 要从每个联合成员中移除的属性 key。
+ * @typeParam TSource - 要处理的源类型，支持联合类型。
+ * @typeParam TKey - 要从每个联合成员中移除的属性 key。
  */
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+type DistributiveOmit<TSource, TKey extends PropertyKey> = TSource extends unknown
+  ? Omit<TSource, TKey>
+  : never
 
 /**
  * 渲染器标识。

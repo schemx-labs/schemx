@@ -32,7 +32,7 @@ export interface DependencyEffectDependencies<TValues extends Values = Values> {
  * 其他属性和 `trigger` 仍可正常完成。
  *
  * @typeParam TValues - 当前表单值类型。
- * @typeParam TResolved - 可解析的动态属性集合。
+ * @typeParam TProps - 可解析的动态属性集合。
  * @param dependencies - 保存条件函数和副作用的依赖配置。
  * @param propKeys - 要解析的动态属性键。
  * @param formApi - 用于读取全量快照和传入用户回调的表单 API。
@@ -40,12 +40,12 @@ export interface DependencyEffectDependencies<TValues extends Values = Values> {
  */
 export async function resolveDependencyProps<
   TValues extends Values,
-  TResolved extends object,
+  TProps extends object,
 >(
   dependencies: DependencyEffectDependencies<TValues>,
-  propKeys: readonly Extract<keyof TResolved, string>[],
+  propKeys: readonly Extract<keyof TProps, string>[],
   formApi: SchemxFormApi<TValues>
-): Promise<TResolved> {
+): Promise<TProps> {
   // 当前解析批次使用的完整表单值快照。
   const values = formApi.getValues() as TValues
 
@@ -78,7 +78,7 @@ export async function resolveDependencyProps<
     runTrigger(dependencies, values, formApi),
   ])
 
-  return Object.fromEntries(entries.filter(([, value]) => value != null)) as TResolved
+  return Object.fromEntries(entries.filter(([, value]) => value != null)) as TProps
 }
 
 /**

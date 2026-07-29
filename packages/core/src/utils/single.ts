@@ -25,11 +25,11 @@
  * const fresh = singleton.getInstance('localhost', 6379) // 重新创建
  * ```
  */
-export function createStrictSingleton<T, Args extends any[] = []>(
-  factory: (...args: Args) => T
+export function createStrictSingleton<TValue, TArgs extends any[] = []>(
+  factory: (...args: TArgs) => TValue
 ) {
   // Cached singleton instance created by the first successful access.
-  let instance: T | undefined
+  let instance: TValue | undefined
 
   // Tracks whether the factory has already produced the singleton instance.
   let initialized = false
@@ -37,7 +37,7 @@ export function createStrictSingleton<T, Args extends any[] = []>(
   /**
    * 返回当前单例；首次调用时执行外部 factory。
    */
-  const getInstance = (...args: Args): T => {
+  const getInstance = (...args: TArgs): TValue => {
     if (!initialized) {
       instance = factory(...args)
 
@@ -48,7 +48,7 @@ export function createStrictSingleton<T, Args extends any[] = []>(
       initialized = true
     }
 
-    return instance as T
+    return instance as TValue
   }
 
   /**

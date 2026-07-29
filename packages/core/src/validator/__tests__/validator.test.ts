@@ -27,9 +27,9 @@ const throwingRule = (error: Error): ValidationRule<string, TestForm, "name"> =>
   },
 })
 
-const deferred = <T>() => {
-  let resolve!: (value: T) => void
-  const promise = new Promise<T>((nextResolve) => {
+const deferred = <TValue>() => {
+  let resolve!: (value: TValue) => void
+  const promise = new Promise<TValue>((nextResolve) => {
     resolve = nextResolve
   })
 

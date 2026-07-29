@@ -107,7 +107,7 @@ export interface DebouncedSignalEffectOptions {
  * `collect` 会在 effect 中同步执行，以便追踪其中读取的 signal；
  * `run` 则在等待窗口结束后接收最新一次收集结果并执行。
  *
- * @typeParam T - `collect` 返回且传递给 `run` 的数据类型。
+ * @typeParam TValue - `collect` 返回且传递给 `run` 的数据类型。
  *
  * @param collect - 同步读取 signal 并返回副作用所需数据的函数。
  * @param run - debounce 后执行的副作用函数。
@@ -120,9 +120,9 @@ export interface DebouncedSignalEffectOptions {
  * 不要将 `collect` 内的 signal 读取移动到 `run` 中。异步执行时已经离开
  * effect 的依赖收集上下文，后续 signal 变化将无法重新触发该 effect。
  */
-export function createDebouncedSignalEffect<T>(
-  collect: () => T,
-  run: (value: T) => void,
+export function createDebouncedSignalEffect<TValue>(
+  collect: () => TValue,
+  run: (value: TValue) => void,
   wait = 16,
   options: DebouncedSignalEffectOptions = {}
 ): SignalEffectDispose {
@@ -131,7 +131,7 @@ export function createDebouncedSignalEffect<T>(
   // 用包装后的 run 创建 debounce，使得无论是立即执行还是 debounce 回调，
   // 在 `once` 模式下首次执行后都能通过 teardown 释放 effect 并取消后续
   // 待执行回调。
-  const wrappedRun = (value: T) => {
+  const wrappedRun = (value: TValue) => {
     run(value)
 
     if (options.once) {

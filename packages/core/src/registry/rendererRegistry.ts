@@ -73,8 +73,14 @@ import type { RegistryOptions } from "./types"
  * 渲染器组件映射类型。
  *
  * key 为渲染器类型字符串，value 为对应的框架组件。
+ *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
  */
-export type RendererMap<T extends SchemxRendererKey, R = unknown> = Record<T, R>
+export type RendererMap<TKey extends SchemxRendererKey, TRenderer = unknown> = Record<
+  TKey,
+  TRenderer
+>
 
 /**
  * 渲染器注册中心。
@@ -84,27 +90,30 @@ export type RendererMap<T extends SchemxRendererKey, R = unknown> = Record<T, R>
  * @remarks
  * 当 {@link RendererRegistry.resolve} 找不到指定类型时，会回退到构造函数或
  * {@link RendererRegistry.setFallback} 设置的回退类型；未设置时不会回退。
+ *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
  */
 export class RendererRegistry<
-  T extends SchemxRendererKey = SchemxRendererKey,
-  R = unknown,
+  TKey extends SchemxRendererKey = SchemxRendererKey,
+  TRenderer = unknown,
 > {
   /**
    * 渲染器存储。
    */
-  private renderers: Map<T, R>
+  private renderers: Map<TKey, TRenderer>
 
   /**
    * 未找到匹配渲染器时使用的回退类型。
    */
-  private fallbackType?: T
+  private fallbackType?: TKey
 
   /**
    * 创建 Registry 实例。
    *
    * @param fallbackType - 回退渲染器类型，未找到指定类型时回退使用
    */
-  constructor(fallbackType?: T) {
+  constructor(fallbackType?: TKey) {
     this.renderers = new Map()
     this.fallbackType = fallbackType
   }
@@ -124,7 +133,7 @@ export class RendererRegistry<
    * renderer.register('text', NewTextRenderer, { override: true })
    * ```
    */
-  register(type: T, renderer: R, options?: RegistryOptions): void {
+  register(type: TKey, renderer: TRenderer, options?: RegistryOptions): void {
     if (this.renderers.has(type) && options?.override === false) {
       console.warn(
         `[RendererRegistry] Renderer "${type}" already exists, skipping registration`
@@ -152,9 +161,9 @@ export class RendererRegistry<
    * })
    * ```
    */
-  registerAll(renderers: RendererMap<T, R>): void {
+  registerAll(renderers: RendererMap<TKey, TRenderer>): void {
     Object.entries(renderers).forEach(([type, renderer]) => {
-      this.renderers.set(type as T, renderer as R)
+      this.renderers.set(type as TKey, renderer as TRenderer)
     })
   }
 
@@ -172,7 +181,7 @@ export class RendererRegistry<
    * const missing = renderer.get('unknown') // => undefined
    * ```
    */
-  get(type: T): R | undefined {
+  get(type: TKey): TRenderer | undefined {
     return this.renderers.get(type)
   }
 
@@ -190,7 +199,7 @@ export class RendererRegistry<
    * const fallback = renderer.resolve('unknown') // => 回退渲染器
    * ```
    */
-  resolve(type: T): R | undefined {
+  resolve(type: TKey): TRenderer | undefined {
     let renderer = this.renderers.get(type)
 
     if (!renderer) {
@@ -216,7 +225,7 @@ export class RendererRegistry<
    * renderer.has('custom') // => false
    * ```
    */
-  has(type: T): boolean {
+  has(type: TKey): boolean {
     return this.renderers.has(type)
   }
 
@@ -235,7 +244,7 @@ export class RendererRegistry<
    * renderer.unregister('nonexistent') // => false
    * ```
    */
-  unregister(type: T): boolean {
+  unregister(type: TKey): boolean {
     const isFallback = type === this.fallbackType
 
     const deleted = this.renderers.delete(type)
@@ -265,7 +274,7 @@ export class RendererRegistry<
    * renderer.keys() // => ['text', 'number', 'date']
    * ```
    */
-  keys(): T[] {
+  keys(): TKey[] {
     return Array.from(this.renderers.keys())
   }
 
@@ -283,7 +292,7 @@ export class RendererRegistry<
    * renderer.getFallback() // => 'number'
    * ```
    */
-  setFallback(type: T): void {
+  setFallback(type: TKey): void {
     if (!this.renderers.has(type)) {
       console.warn(
         `[RendererRegistry] Cannot set fallback to "${type}": renderer not registered`
@@ -305,7 +314,7 @@ export class RendererRegistry<
    * renderer.getFallback() // => 'text'
    * ```
    */
-  getFallback(): T | undefined {
+  getFallback(): TKey | undefined {
     return this.fallbackType
   }
 
@@ -347,14 +356,18 @@ export class RendererRegistry<
  * @remarks
  * 调用方可以通过 `fallbackType` 配置未命中时使用的回退类型。
  *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
+ *
  * @example
  * ```ts
  * const registry = createRendererRegistry("input")
  * registry.register("input", InputRenderer)
  * ```
  */
-export function createRendererRegistry<T extends SchemxRendererKey, R = unknown>(
-  fallbackType?: T
-): RendererRegistry<T, R> {
-  return new RendererRegistry<T, R>(fallbackType)
+export function createRendererRegistry<
+  TKey extends SchemxRendererKey,
+  TRenderer = unknown,
+>(fallbackType?: TKey): RendererRegistry<TKey, TRenderer> {
+  return new RendererRegistry<TKey, TRenderer>(fallbackType)
 }

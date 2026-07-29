@@ -413,11 +413,11 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
   })
 })
 
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
+function createDeferred<TValue>() {
+  let resolve!: (value: TValue) => void
   let reject!: (cause?: unknown) => void
 
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+  const promise = new Promise<TValue>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise
     reject = rejectPromise
   })

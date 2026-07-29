@@ -14,7 +14,7 @@ import { createDescriptor } from "../descriptor"
 
 import { type Compile, type CompileCache, type CompileOptions } from "./types"
 
-import type { SchemxInstance, SchemxSchemaConfig, Values } from "../../types"
+import type { ResolvedSchemxSchemaConfig, SchemxInstance, Values } from "../../types"
 import type { SchemxField } from "../../types/schema"
 import type { SchemaRuntimeContext } from "../context"
 import type { FormDescriptor } from "../descriptor"
@@ -42,12 +42,12 @@ function createCompileCache<TValues extends Values = Values>(): CompileCache<TVa
  */
 export function createCompile<TValues extends Values = Values>(
   options: Partial<Omit<CompileOptions<TValues>, "schemaConfig">> & {
-    schemaConfig?: SchemxSchemaConfig
+    schemaConfig?: ResolvedSchemxSchemaConfig
   } = {}
 ): Compile<TValues> {
   const compileOptions: CompileOptions<TValues> = {
     // createForm 传入的是与 context 共享的已合并对象，必须保留其引用。
-    schemaConfig: mergeSchemaConfig(options.schemaConfig ?? {}),
+    schemaConfig: options.schemaConfig ?? mergeSchemaConfig(),
     defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
   }

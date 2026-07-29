@@ -1,5 +1,3 @@
-import { pick } from "es-toolkit"
-
 import { mergeSchemaConfig, schemaConfigKeys } from "../config/defaultSchemaConfig"
 import {
   createSchemas,
@@ -362,9 +360,15 @@ export function createSchemaRuntime<TValues extends Values>(
       return
     }
 
+    const schemaConfigPatch = Object.fromEntries(
+      schemaConfigKeys
+        .filter((key) => Object.prototype.hasOwnProperty.call(partial, key))
+        .map((key) => [key, partial[key]])
+    ) as Partial<SchemxSchemaConfig>
+
     Object.assign(
       context.schemaConfig,
-      mergeSchemaConfig(context.schemaConfig, pick(partial, schemaConfigKeys))
+      mergeSchemaConfig(context.schemaConfig, schemaConfigPatch)
     )
     compile.invalidate()
     applySchemas(assertMounted().peek())

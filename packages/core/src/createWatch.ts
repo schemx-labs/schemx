@@ -122,7 +122,10 @@ type GlobalPayload<
  *
  * 回调接收两个参数：变更后的表单完整快照（latestSnapshot）和变更载荷（payload）。
  */
-type BaseSubscribeCallback<TValues, P> = (latestSnapshot: TValues, payload: P) => void
+type BaseSubscribeCallback<TValues, TPayload> = (
+  latestSnapshot: TValues,
+  payload: TPayload
+) => void
 
 /**
  * 单字段订阅回调类型。

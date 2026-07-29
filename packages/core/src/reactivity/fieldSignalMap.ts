@@ -21,42 +21,42 @@ import type { FieldSignal } from "./fieldSignal"
 /**
  * FieldSignalMap 配置项。
  */
-export interface FieldSignalMapOptions<K> {
+export interface FieldSignalMapOptions<TKey> {
   /**
    * 自定义字段路径标准化函数。
    *
    * @param key - 原始字段路径。
    * @returns 标准化后的映射 key。
    */
-  normalizeKey?: (key: K | unknown) => string
+  normalizeKey?: (key: TKey | unknown) => string
 }
 
-interface FieldSignalRecord<K, V> {
-  readonly key: K
-  readonly value: FieldSignal<V>
+interface FieldSignalRecord<TKey, TValue> {
+  readonly key: TKey
+  readonly value: FieldSignal<TValue>
 }
 
 /**
  * 字段状态 signal 映射。
  *
- * @typeParam K - 字段路径类型
- * @typeParam V - 字段值类型
+ * @typeParam TKey - 字段路径类型
+ * @typeParam TValue - 字段值类型
  */
-class FieldSignalMapImpl<K, V> {
-  private readonly records = new Map<string, FieldSignalRecord<K, V>>()
+class FieldSignalMapImpl<TKey, TValue> {
+  private readonly records = new Map<string, FieldSignalRecord<TKey, TValue>>()
 
   private readonly version = createSignal(0)
 
-  private readonly normalizeKey: (key: K | unknown) => string
+  private readonly normalizeKey: (key: TKey | unknown) => string
 
-  constructor(options: FieldSignalMapOptions<K> = {}) {
+  constructor(options: FieldSignalMapOptions<TKey> = {}) {
     this.normalizeKey = options.normalizeKey ?? defaultNormalizeFieldKey
   }
 
   /**
    * 获取字段 key 的标准化字符串。
    */
-  private getKey(key: K | unknown): string {
+  private getKey(key: TKey | unknown): string {
     return this.normalizeKey(key)
   }
 
@@ -68,7 +68,7 @@ class FieldSignalMapImpl<K, V> {
    * @param key - 字段路径。
    * @returns 字段 signal；未创建时返回 undefined。
    */
-  public get(key: K): FieldSignal<V> | undefined {
+  public get(key: TKey): FieldSignal<TValue> | undefined {
     const record = this.records.get(this.getKey(key))
 
     if (record) {
@@ -86,7 +86,7 @@ class FieldSignalMapImpl<K, V> {
    * @param key - 字段路径。
    * @returns 字段 signal；未创建时返回 undefined。
    */
-  public peek(key: K): FieldSignal<V> | undefined {
+  public peek(key: TKey): FieldSignal<TValue> | undefined {
     return this.records.get(this.getKey(key))?.value
   }
 
@@ -97,7 +97,7 @@ class FieldSignalMapImpl<K, V> {
    * @param value - 字段 signal。
    * @returns 当前映射实例，便于链式调用。
    */
-  public set(key: K, value: FieldSignal<V>): this {
+  public set(key: TKey, value: FieldSignal<TValue>): this {
     const normalizedKey = this.getKey(key)
 
     const exists = this.records.has(normalizedKey)
@@ -117,7 +117,7 @@ class FieldSignalMapImpl<K, V> {
    * @param key - 字段路径。
    * @returns 字段 signal 是否已存在。
    */
-  public has(key: K): boolean {
+  public has(key: TKey): boolean {
     return this.records.has(this.getKey(key))
   }
 
@@ -127,7 +127,7 @@ class FieldSignalMapImpl<K, V> {
    * @param key - 字段路径。
    * @returns 是否删除了已存在的字段 signal。
    */
-  public delete(key: K): boolean {
+  public delete(key: TKey): boolean {
     const normalizedKey = this.getKey(key)
 
     const record = this.records.get(normalizedKey)
@@ -160,7 +160,7 @@ class FieldSignalMapImpl<K, V> {
    *
    * @returns 原始字段 key 的迭代器。
    */
-  public keys(): IterableIterator<K> {
+  public keys(): IterableIterator<TKey> {
     void this.version.value
 
     return Array.from(this.records.values(), (record) => record.key).values()
@@ -171,7 +171,7 @@ class FieldSignalMapImpl<K, V> {
    *
    * @returns 字段 signal 的迭代器。
    */
-  public values(): IterableIterator<FieldSignal<V>> {
+  public values(): IterableIterator<FieldSignal<TValue>> {
     void this.version.value
 
     return Array.from(this.records.values(), (record) => record.value).values()
@@ -182,12 +182,12 @@ class FieldSignalMapImpl<K, V> {
    *
    * @returns 原始字段 key 与字段 signal 的迭代器。
    */
-  public entries(): IterableIterator<[K, FieldSignal<V>]> {
+  public entries(): IterableIterator<[TKey, FieldSignal<TValue>]> {
     void this.version.value
 
     return Array.from(
       this.records.values(),
-      (record) => [record.key, record.value] as [K, FieldSignal<V>]
+      (record) => [record.key, record.value] as [TKey, FieldSignal<TValue>]
     ).values()
   }
 }
@@ -195,7 +195,9 @@ class FieldSignalMapImpl<K, V> {
 /**
  * FieldSignalMap 的实例类型。
  */
-export type FieldSignalMap<K, V> = InstanceType<typeof FieldSignalMapImpl<K, V>>
+export type FieldSignalMap<TKey, TValue> = InstanceType<
+  typeof FieldSignalMapImpl<TKey, TValue>
+>
 
 /**
  * 创建 FieldSignalMap 实例。
@@ -203,10 +205,10 @@ export type FieldSignalMap<K, V> = InstanceType<typeof FieldSignalMapImpl<K, V>>
  * @param options - 字段路径标准化配置。
  * @returns 新的字段 signal 映射。
  */
-export function createFieldSignalMap<K, V>(
-  options: FieldSignalMapOptions<K> = {}
-): FieldSignalMap<K, V> {
-  return new FieldSignalMapImpl<K, V>(options)
+export function createFieldSignalMap<TKey, TValue>(
+  options: FieldSignalMapOptions<TKey> = {}
+): FieldSignalMap<TKey, TValue> {
+  return new FieldSignalMapImpl<TKey, TValue>(options)
 }
 
 /**

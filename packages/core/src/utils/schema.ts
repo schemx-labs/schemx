@@ -38,8 +38,8 @@ export type SchemaKind = "field" | "group" | "dependency"
  * getSchemaKind({ children: [], to: ["type"] }) // => "group"
  * ```
  */
-export function getSchemaKind<T extends Values = Values>(
-  schema: SchemxField | SchemxField<T>
+export function getSchemaKind<TValues extends Values = Values>(
+  schema: SchemxField | SchemxField<TValues>
 ): SchemaKind {
   if (Object.hasOwn(schema, "children")) {
     return "group"
@@ -76,9 +76,9 @@ export function getSchemaKind<T extends Values = Values>(
  * })
  * ```
  */
-export function isBaseSchema<T extends Values = Values>(
-  schema: SchemxField<T>
-): schema is SchemxBaseField<T> {
+export function isBaseSchema<TValues extends Values = Values>(
+  schema: SchemxField<TValues>
+): schema is SchemxBaseField<TValues> {
   return getSchemaKind(schema) === "field"
 }
 
@@ -106,9 +106,9 @@ export function isBaseSchema<T extends Values = Values>(
  * }
  * ```
  */
-export function isGroupSchema<T extends Values = Values>(
-  schema: SchemxField<T>
-): schema is SchemxGroupField<T> {
+export function isGroupSchema<TValues extends Values = Values>(
+  schema: SchemxField<TValues>
+): schema is SchemxGroupField<TValues> {
   return getSchemaKind(schema) === "group"
 }
 
@@ -136,9 +136,9 @@ export function isGroupSchema<T extends Values = Values>(
  * }
  * ```
  */
-export function isDependencySchema<T extends Values = Values>(
-  schema: SchemxField<T>
-): schema is SchemxDependencyField<T> {
+export function isDependencySchema<TValues extends Values = Values>(
+  schema: SchemxField<TValues>
+): schema is SchemxDependencyField<TValues> {
   return getSchemaKind(schema) === "dependency"
 }
 
@@ -177,17 +177,17 @@ export function isDependencySchema<T extends Values = Values>(
  * console.log(notFound) // => undefined
  * ```
  */
-export function findSchema<T extends Values = Values>(
-  schemas: SchemxField<T>[],
+export function findSchema<TValues extends Values = Values>(
+  schemas: SchemxField<TValues>[],
   name: string
-): SchemxBaseField<T> | undefined {
+): SchemxBaseField<TValues> | undefined {
   for (const schema of schemas) {
     if (isBaseSchema(schema) && schema.name === name) {
       return schema
     }
 
     if (isGroupSchema(schema)) {
-      const found = findSchema<T>(schema.children as SchemxField<T>[], name)
+      const found = findSchema<TValues>(schema.children as SchemxField<TValues>[], name)
 
       if (found) return found
     }
@@ -216,9 +216,9 @@ export function findSchema<T extends Values = Values>(
  * })
  * ```
  */
-export function isBaseResolvedSchema<T extends Values = Values>(
-  schema: SchemxResolvedField<T>
-): schema is SchemxResolvedBaseField<T> {
+export function isBaseResolvedSchema<TValues extends Values = Values>(
+  schema: SchemxResolvedField<TValues>
+): schema is SchemxResolvedBaseField<TValues> {
   return !isGroupResolvedSchema(schema)
 }
 
@@ -242,8 +242,8 @@ export function isBaseResolvedSchema<T extends Values = Values>(
  * })
  * ```
  */
-export function isGroupResolvedSchema<T extends Values = Values>(
-  schema: SchemxResolvedField<T>
-): schema is SchemxResolvedGroupField<T> {
+export function isGroupResolvedSchema<TValues extends Values = Values>(
+  schema: SchemxResolvedField<TValues>
+): schema is SchemxResolvedGroupField<TValues> {
   return "children" in schema
 }

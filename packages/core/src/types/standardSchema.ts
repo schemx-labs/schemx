@@ -15,14 +15,14 @@ export declare namespace StandardSchemaV1 {
    *
    * 包含版本号、供应商标识、校验方法和可选的类型信息。
    *
-   * @typeParam Input - 输入值类型
-   * @typeParam Output - 输出值类型
+   * @typeParam TInput - 输入值类型
+   * @typeParam TOutput - 输出值类型
    */
-  interface Props<Input = unknown, Output = Input> {
+  interface Props<TInput = unknown, TOutput = TInput> {
     readonly version: 1
     readonly vendor: string
-    readonly validate: (value: unknown) => Result<Output> | Promise<Result<Output>>
-    readonly types?: Types<Input, Output>
+    readonly validate: (value: unknown) => Result<TOutput> | Promise<Result<TOutput>>
+    readonly types?: Types<TInput, TOutput>
   }
 
   /**
@@ -31,10 +31,10 @@ export declare namespace StandardSchemaV1 {
    * 成功时包含 `value` 字段，失败时包含 `issues` 数组。
    * 两种形态互斥，通过可辨识联合类型区分。
    *
-   * @typeParam Output - 输出值类型
+   * @typeParam TOutput - 输出值类型
    */
-  type Result<Output = unknown> =
-    | { readonly value: Output; readonly issues?: undefined }
+  type Result<TOutput = unknown> =
+    | { readonly value: TOutput; readonly issues?: undefined }
     | { readonly issues: ReadonlyArray<Issue>; readonly value?: undefined }
 
   /**
@@ -67,30 +67,30 @@ export declare namespace StandardSchemaV1 {
    *
    * 用于在类型层面携带输入/输出类型信息，运行时不使用。
    *
-   * @typeParam Input - 输入值类型
-   * @typeParam Output - 输出值类型
+   * @typeParam TInput - 输入值类型
+   * @typeParam TOutput - 输出值类型
    */
-  interface Types<Input = unknown, Output = Input> {
-    readonly input?: Input
-    readonly output?: Output
+  interface Types<TInput = unknown, TOutput = TInput> {
+    readonly input?: TInput
+    readonly output?: TOutput
   }
 
   /**
    * 从 StandardSchemaV1 实例中提取输入类型。
    *
-   * @typeParam T - StandardSchemaV1 实例类型
+   * @typeParam TSchema - StandardSchemaV1 实例类型
    */
-  type InferInput<T extends StandardSchemaV1> = NonNullable<
-    T["~standard"]["types"]
+  type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"]
 
   /**
    * 从 StandardSchemaV1 实例中提取输出类型。
    *
-   * @typeParam T - StandardSchemaV1 实例类型
+   * @typeParam TSchema - StandardSchemaV1 实例类型
    */
-  type InferOutput<T extends StandardSchemaV1> = NonNullable<
-    T["~standard"]["types"]
+  type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"]
 }
 
@@ -100,9 +100,9 @@ export declare namespace StandardSchemaV1 {
  * 定义了验证库互操作的统一协议。
  * 校验库只需实现 `~standard` 属性即可与表单系统集成。
  *
- * @typeParam Input - 输入值类型
- * @typeParam Output - 输出值类型，默认与 Input 相同
+ * @typeParam TInput - 输入值类型
+ * @typeParam TOutput - 输出值类型，默认与 TInput 相同
  */
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardSchemaV1.Props<Input, Output>
+export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
+  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>
 }

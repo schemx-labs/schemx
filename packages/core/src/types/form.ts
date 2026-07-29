@@ -42,16 +42,17 @@ export type Values = Record<string, any>
  *
  * 支持静态值或函数形式，函数接收当前表单值并返回属性值（支持异步）。
  */
-export type Dynamic<T, V extends Values = Values> = ((values: V) => T | Promise<T>) | T
+export type Dynamic<TValue, TValues extends Values = Values> =
+  ((values: TValues) => TValue | Promise<TValue>) | TValue
 
 /**
  * 字段路径类型
  *
  * 支持字符串路径（如 `'user.address.city'`）和类型安全的深层路径推断。
  *
- * @typeParam T - 表单值类型，用于路径类型推断
+ * @typeParam TValues - 表单值类型，用于路径类型推断
  */
-export type NamePath<T = Values> = DeepNamePath<T>
+export type NamePath<TValues = Values> = DeepNamePath<TValues>
 
 /**
  * 字段静态 schema patch。
@@ -86,7 +87,7 @@ export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemaConfigKey>
  */
 export type ResolvedSchemxSchemaConfig = Omit<
   {
-    [K in keyof SchemxSchemaConfig]-?: SchemxSchemaConfig[K]
+    [TKey in keyof SchemxSchemaConfig]-?: SchemxSchemaConfig[TKey]
   },
   "showRequiredMark"
 > & {
@@ -99,7 +100,7 @@ export type ResolvedSchemxSchemaConfig = Omit<
  * 定义表单的所有操作方法，是 useForm 返回值的基础接口。
  * SchemxInstance 类实现此接口，提供完整的表单操作能力。
  *
- * @typeParam T - 表单值类型，默认为 Values
+ * @typeParam TValues - 表单值类型，默认为 Values
  */
 export interface SchemxInstance<TValues extends Values = Values> {
   /**
@@ -131,7 +132,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
    *
    * @example
    * ```typescript
-   * const latestValues = form.getFieldsValue()       // Readonly<T>
+   * const latestValues = form.getFieldsValue()       // Readonly<TValues>
    * const partial = form.getFieldsValue(['name', 'email'])
    * ```
    */

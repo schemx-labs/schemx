@@ -18,15 +18,15 @@ import type { SchemxBase } from "./schema"
  * 接收当前表单值，返回属性的计算结果（支持同步和异步）。
  *
  * @typeParam TValues - 表单值类型
- * @typeParam R - 返回值类型
+ * @typeParam TResult - 返回值类型
  * @param values - 条件执行时的当前表单值快照。
  * @param form - 可读取或更新当前表单的公开 API。
  * @returns 属性计算结果或异步结果。
  */
-export type SchemxConditionFn<TValues extends Values = Values, R = unknown> = (
+export type SchemxConditionFn<TValues extends Values = Values, TResult = unknown> = (
   values: TValues,
   form: SchemxFormApi<TValues>
-) => R | Promise<R>
+) => TResult | Promise<TResult>
 
 /**
  * 三类 Schema 共用的结构化依赖配置。
@@ -321,7 +321,7 @@ export type SchemxDependenciesConditionKey = SchemxFieldDependenciesConditionKey
  * 从 SchemxFieldDependencies 中提取各属性的静态返回类型
  *
  * 排除 `triggerFields`（配置字段）和 `trigger`（void 无静态值意义），
- * 将每个 `SchemxConditionFn<TValues, R>` 映射为 `R`。
+ * 将每个 `SchemxConditionFn<TValues, TResult>` 映射为 `TResult`。
  *
  * @typeParam TValues - 表单值类型
  * @typeParam TName - 当前字段路径，用于推导字段专属的动态属性类型。
@@ -331,7 +331,7 @@ export type SchemxDependenciesConditionKey = SchemxFieldDependenciesConditionKey
  * ```ts
  * // 等价于：
  * // {
- * //   componentProps: SchemxComponentProps<TValues, K>
+ * //   componentProps: SchemxComponentProps<TValues, TKey>
  * //   placeholder: string
  * //   required: RequiredRule<string>
  * //   readonly: boolean
@@ -346,12 +346,12 @@ export type SchemxFieldDependenciesStaticProps<
   TName extends NamePath<TValues> = NamePath<TValues>,
   TKey extends string = SchemxRendererKey<TValues>,
 > = {
-  [P in SchemxFieldDependenciesConditionKey]-?: SchemxFieldDependencies<
+  [TProperty in SchemxFieldDependenciesConditionKey]-?: SchemxFieldDependencies<
     TValues,
     TName,
     TKey
-  >[P] extends SchemxConditionFn<TValues, infer R> | undefined
-    ? R
+  >[TProperty] extends SchemxConditionFn<TValues, infer TResult> | undefined
+    ? TResult
     : never
 }
 

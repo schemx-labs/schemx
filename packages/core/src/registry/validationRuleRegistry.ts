@@ -9,8 +9,8 @@ type ValidationRuleKey = [DeclaredValidationRuleName] extends [never]
   ? string
   : DeclaredValidationRuleName
 
-type ValidationRuleValue<K extends ValidationRuleKey> =
-  K extends DeclaredValidationRuleName ? ValidationRuleDefinition[K] : unknown
+type ValidationRuleValue<TKey extends ValidationRuleKey> =
+  TKey extends DeclaredValidationRuleName ? ValidationRuleDefinition[TKey] : unknown
 
 type ResolvedValidationRuleEntry<TValue> =
   StandardSchemaV1<TValue, unknown> | ValidationRule<TValue>
@@ -87,7 +87,9 @@ export type ValidationRuleEntry<TValue = unknown> =
 export type ValidationRuleMap = [DeclaredValidationRuleName] extends [never]
   ? Record<string, ValidationRuleEntry<unknown>>
   : {
-      [K in DeclaredValidationRuleName]: ValidationRuleEntry<ValidationRuleDefinition[K]>
+      [TKey in DeclaredValidationRuleName]: ValidationRuleEntry<
+        ValidationRuleDefinition[TKey]
+      >
     }
 
 /**
@@ -135,7 +137,7 @@ export class ValidationRuleRegistry {
   /**
    * 注册一个命名校验规则。
    *
-   * @typeParam K - 已声明的规则名称及其关联值类型。
+   * @typeParam TKey - 已声明的规则名称及其关联值类型。
    * @param name - 规则名称。
    * @param rule - 原生规则、Standard Schema 或规则工厂。
    * @param options - 同名规则的覆盖策略。
@@ -145,9 +147,9 @@ export class ValidationRuleRegistry {
    * registry.register("email", emailRule)
    * ```
    */
-  register<K extends ValidationRuleKey>(
-    name: K,
-    rule: ValidationRuleEntry<ValidationRuleValue<K>>,
+  register<TKey extends ValidationRuleKey>(
+    name: TKey,
+    rule: ValidationRuleEntry<ValidationRuleValue<TKey>>,
     options?: RegistryOptions
   ): void {
     if (this.rules.has(name) && options?.override === false) {
@@ -176,14 +178,15 @@ export class ValidationRuleRegistry {
   /**
    * 获取原始注册条目，不会执行规则工厂。
    *
-   * @typeParam K - 规则名称。
+   * @typeParam TKey - 规则名称。
    * @param name - 要读取的规则名称。
    * @returns 注册条目；未注册时返回 `undefined`。
    */
-  get<K extends ValidationRuleKey>(
-    name: K
-  ): ValidationRuleEntry<ValidationRuleValue<K>> | undefined {
-    return this.rules.get(name) as ValidationRuleEntry<ValidationRuleValue<K>> | undefined
+  get<TKey extends ValidationRuleKey>(
+    name: TKey
+  ): ValidationRuleEntry<ValidationRuleValue<TKey>> | undefined {
+    return this.rules.get(name) as
+      ValidationRuleEntry<ValidationRuleValue<TKey>> | undefined
   }
 
   /**

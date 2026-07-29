@@ -24,8 +24,8 @@ import type { ReadonlySignal, SignalOptions } from "@preact/signals-core"
 /**
  * 深层只读响应式 signal 类型。
  *
- * `DeepSignalReadonly<T>` 表示一个整体上仍然是 readonly signal 的值，
- * 且 `.value` 会通过 `DeepReadonly<T>` 暴露为深层只读数据；同时在对象、
+ * `DeepSignalReadonly<TValue>` 表示一个整体上仍然是 readonly signal 的值，
+ * 且 `.value` 会通过 `DeepReadonly<TValue>` 暴露为深层只读数据；同时在对象、
  * 数组或 tuple 的子节点上暴露递归的只读 signal 视图。它是纯类型工具，
  * 不创建运行时代理，也不改变 `createSignal` 的行为。
  *
@@ -43,32 +43,35 @@ import type { ReadonlySignal, SignalOptions } from "@preact/signals-core"
  * user.profile.age.value  // number
  * ```
  *
- * @typeParam T - 原始值类型
+ * @typeParam TValue - 原始值类型
  */
-export type DeepReadonlySignal<T> = ReadonlySignal<DeepReadonly<T>>
+export type DeepReadonlySignal<TValue> = ReadonlySignal<DeepReadonly<TValue>>
 
 /**
  * 创建 reactive signal。
  *
- * @typeParam T - signal 值类型
+ * @typeParam TValue - signal 值类型
  * @param value - 初始值
  * @param options - signals-core 原生 signal 配置
  * @returns 可写 reactive signal
  */
-export function createSignal<T>(value: T, options?: SignalOptions<T>): Signal<T>
+export function createSignal<TValue>(
+  value: TValue,
+  options?: SignalOptions<TValue>
+): Signal<TValue>
 
 /**
  * 创建初始值为 undefined 的 reactive signal。
  *
- * @typeParam T - signal 值类型
+ * @typeParam TValue - signal 值类型
  * @param value - 可选初始值
  * @param options - signals-core 原生 signal 配置
  * @returns 可写 reactive signal
  */
-export function createSignal<T = undefined>(
-  value?: T,
-  options?: SignalOptions<T | undefined>
-): Signal<T | undefined>
+export function createSignal<TValue = undefined>(
+  value?: TValue,
+  options?: SignalOptions<TValue | undefined>
+): Signal<TValue | undefined>
 
 /**
  * `createSignal` overload 的运行时实现。
@@ -77,10 +80,10 @@ export function createSignal<T = undefined>(
  * @param options - signals-core 原生 signal 配置。
  * @returns 可写 reactive signal。
  */
-export function createSignal<T>(
-  value?: T,
-  options?: SignalOptions<T | undefined>
-): Signal<T | undefined> {
+export function createSignal<TValue>(
+  value?: TValue,
+  options?: SignalOptions<TValue | undefined>
+): Signal<TValue | undefined> {
   return signal(value, options)
 }
 

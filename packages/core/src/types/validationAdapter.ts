@@ -39,7 +39,7 @@ export declare namespace ValidationAdapterV1 {
    *
    * 品牌 adapter 通常只接收 {@link Rule}；自描述 adapter 也可直接接收其原始规则输入。
    */
-  type RuleInput<Input = unknown> = Rule | Input
+  type RuleInput<TInput = unknown> = Rule | TInput
 
   /**
    * adapter 在解析规则时可读取的字段元数据。
@@ -55,9 +55,9 @@ export declare namespace ValidationAdapterV1 {
   /**
    * 校验器适配器的属性协议。
    *
-   * @typeParam Input - adapter 接收的规则输入类型。
+   * @typeParam TInput - adapter 接收的规则输入类型。
    */
-  interface Props<Input = unknown> {
+  interface Props<TInput = unknown> {
     /**
      * 在单个 Form 内唯一的 adapter 标识。
      */
@@ -65,7 +65,7 @@ export declare namespace ValidationAdapterV1 {
     /**
      * 将输入包装为品牌规则；自描述规则 adapter 可省略此方法。
      */
-    rule?(input: Input): Rule
+    rule?(input: TInput): Rule
     /**
      * 判断值是否应由当前 adapter 处理。
      */
@@ -78,7 +78,7 @@ export declare namespace ValidationAdapterV1 {
       TValues extends Values = Values,
       TName extends NamePath<TValues> = NamePath<TValues>,
     >(
-      rule: RuleInput<Input>,
+      rule: RuleInput<TInput>,
       context: ResolveContext<TValues, TName>
     ): readonly ValidationRule<TValue, TValues, TName>[]
   }
@@ -89,8 +89,8 @@ export declare namespace ValidationAdapterV1 {
  *
  * 第三方校验库可仅依赖此规范实现适配器，并通过 Form 或全局配置注册。
  *
- * @typeParam Input - adapter 接收的规则输入类型。
+ * @typeParam TInput - adapter 接收的规则输入类型。
  */
 export interface ValidationAdapterV1<
-  Input = unknown,
-> extends ValidationAdapterV1.Props<Input> {}
+  TInput = unknown,
+> extends ValidationAdapterV1.Props<TInput> {}

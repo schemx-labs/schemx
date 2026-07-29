@@ -37,7 +37,7 @@ import { Values } from "./form"
  * `SchemxBase` 的 `componentProps` 也会根据 `componentType` 自动关联对应的 Props 类型。
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface SchemxRendererDefinition<T extends Values> {}
+export interface SchemxRendererDefinition<TValues extends Values> {}
 
 /**
  * 渲染器注册 key 类型
