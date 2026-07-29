@@ -219,7 +219,11 @@ case "$1" in
 
       grep -Fq "## @schemx/${pkg}@${version}" "$notes_file"
       grep -Fq "@schemx/${pkg}@${version}" "$notes_file"
-      grep -Fq 'feat(core): 支持动态 schema 更新' "$notes_file"
+      if [[ -n "${MOCK_EXPECT_RELEASE_NOTE:-}" ]]; then
+        grep -Fq "$MOCK_EXPECT_RELEASE_NOTE" "$notes_file"
+      else
+        grep -Fq 'feat(core): 支持动态 schema 更新' "$notes_file"
+      fi
       exit 0
     fi
     ;;
@@ -1285,6 +1289,78 @@ test_latest_publish_all_creates_package_scoped_tags_and_releases() {
   assert_log_contains "gh release create @schemx/vant@${vant_version} --repo Jiohon/schemx --title @schemx/vant@${vant_version} --notes-file"
 }
 
+# 验证显式 Release notes 文件会覆盖默认的提交摘要。
+test_latest_publish_uses_custom_release_notes_file() {
+  local notes_file
+
+  notes_file="$TMP_DIR/release-notes.md"
+  printf '%s\n' '由发布人确认的更新说明。' >"$notes_file"
+  : >"$COMMAND_LOG"
+
+  MOCK_EXPECT_RELEASE_NOTE='由发布人确认的更新说明。' \
+    SCHEMX_RELEASE_NOTES_FILE="$notes_file" \
+    run_release publish latest core current >/dev/null
+
+  assert_log_contains "gh release create @schemx/core@"
+}
+
+# 验证多包发布默认从各自包根目录读取 Release notes 文件。
+test_latest_publish_uses_package_release_notes_files() {
+  local core_notes vue_notes core_backup vue_backup
+  local had_core_notes=0 had_vue_notes=0
+
+  core_notes="$ROOT_DIR/packages/core/release-notes.md"
+  vue_notes="$ROOT_DIR/packages/vue/release-notes.md"
+  core_backup="$TMP_DIR/core-release-notes.backup"
+  vue_backup="$TMP_DIR/vue-release-notes.backup"
+
+  if [[ -e "$core_notes" ]]; then
+    cp "$core_notes" "$core_backup"
+    had_core_notes=1
+  fi
+  if [[ -e "$vue_notes" ]]; then
+    cp "$vue_notes" "$vue_backup"
+    had_vue_notes=1
+  fi
+
+  printf '%s\n' 'core 包专属发布说明。' >"$core_notes"
+  printf '%s\n' 'vue 包专属发布说明。' >"$vue_notes"
+
+  MOCK_EXPECT_RELEASE_NOTE='core 包专属发布说明。' \
+    run_release publish latest core current >/dev/null
+  MOCK_EXPECT_RELEASE_NOTE='vue 包专属发布说明。' \
+    run_release publish latest vue current >/dev/null
+
+  if [[ "$had_core_notes" -eq 1 ]]; then mv "$core_backup" "$core_notes"; else rm -f "$core_notes"; fi
+  if [[ "$had_vue_notes" -eq 1 ]]; then mv "$vue_backup" "$vue_notes"; else rm -f "$vue_notes"; fi
+}
+
+# 验证外部生成器能接收包级发布上下文并将输出写入 Release notes。
+test_latest_publish_uses_release_notes_generator() {
+  local generator args_file
+
+  generator="$TMP_DIR/release-notes-generator.sh"
+  args_file="$TMP_DIR/release-notes-generator-args.txt"
+  cat >"$generator" <<'GENERATOR'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s\n' "$*" >"${MOCK_GENERATOR_ARGS_FILE:?}"
+printf '%s\n' '由 Agent 生成的包级变更摘要。'
+GENERATOR
+  chmod +x "$generator"
+  : >"$COMMAND_LOG"
+
+  MOCK_EXPECT_RELEASE_NOTE='由 Agent 生成的包级变更摘要。' \
+    MOCK_GENERATOR_ARGS_FILE="$args_file" \
+    SCHEMX_RELEASE_NOTES_GENERATOR="$generator" \
+    run_release publish latest core current >/dev/null
+
+  assert_contains "$(cat "$args_file")" "--package core"
+  assert_contains "$(cat "$args_file")" "--previous-tag @schemx/core@0.1.22"
+  assert_contains "$(cat "$args_file")" "--commit-range @schemx/core@0.1.22..HEAD"
+}
+
 # 验证自动化环境变量不能绕过目标白名单。
 test_selector_rejects_unknown_environment_target() {
   local output status
@@ -1489,6 +1565,9 @@ RELEASE_TESTS=(
   test_selector_does_not_print_confirmation_line_after_enter
   test_latest_publish_tags_and_pushes_after_publish
   test_latest_publish_all_creates_package_scoped_tags_and_releases
+  test_latest_publish_uses_custom_release_notes_file
+  test_latest_publish_uses_package_release_notes_files
+  test_latest_publish_uses_release_notes_generator
   test_selector_rejects_unknown_environment_target
   test_selector_requires_tty_or_automation_target
   test_selector_rejects_unknown_channel

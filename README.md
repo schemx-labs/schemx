@@ -27,12 +27,12 @@
 
 ## 包说明
 
-| 包                                | 职责                         | 适用场景                                     |
-| --------------------------------- | ---------------------------- | -------------------------------------------- |
-| [`@schemx/core`](./packages/core) | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas |
-| [`@schemx/validator`](./packages/validator) | 第三方校验器适配包 | 接入 async-validator 等非 Standard Schema 校验器 |
-| [`@schemx/vue`](./packages/vue)   | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树             |
-| [`@schemx/vant`](./packages/vant) | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单           |
+| 包                                          | 职责                         | 适用场景                                         |
+| ------------------------------------------- | ---------------------------- | ------------------------------------------------ |
+| [`@schemx/core`](./packages/core)           | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas     |
+| [`@schemx/validator`](./packages/validator) | 第三方校验器适配包           | 接入 async-validator 等非 Standard Schema 校验器 |
+| [`@schemx/vue`](./packages/vue)             | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树                 |
+| [`@schemx/vant`](./packages/vant)           | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单               |
 
 ## 快速开始
 
@@ -216,6 +216,31 @@ pnpm release:publish latest vue current
 ```bash
 pnpm release:publish alpha vue
 ```
+
+### 自定义 GitHub Release 说明
+
+`latest` 正式发布会为每个包创建 GitHub Release。默认说明按该包上一个 tag 到
+`HEAD` 的 Conventional Commit 自动生成。需要人工确认时，可在对应包根目录放置
+`release-notes.md`；也可以由 Agent 生成摘要。两种方式均只影响 GitHub Release notes，
+不影响版本提交信息。
+
+```bash
+# 使用包级 Markdown 文件；例如 packages/core/release-notes.md。
+pnpm release:publish latest core current
+
+# 调用可执行生成器；生成器从 stdout 输出 Markdown。
+SCHEMX_RELEASE_NOTES_GENERATOR=./scripts/release/generate-agent-notes.sh \
+  pnpm release:publish latest core current
+```
+
+生成器会收到以下参数：`--repository`、`--package`、`--version`、`--tag`、
+`--previous-tag` 和 `--commit-range`。可据此调用 Agent/LLM，并通过
+`git diff <commit-range> -- packages/<package>` 获取包级变更。Skill 不能由 Bash
+直接执行；应由具备相应 Skill 的 Agent CLI 或自动化服务实现该生成器。
+
+如果设置了 `SCHEMX_RELEASE_NOTES_FILE`，它会覆盖包级默认路径，仅适用于临时单包发布。
+多包发布时，每个包会读取自己的 `packages/<package>/release-notes.md`；若文件不存在，
+则按该包自己的上一个 tag 生成说明。
 
 ### 常用命令
 
