@@ -1,14 +1,39 @@
-import { StyleValue } from "vue"
+import type { StyleValue } from "vue"
 
 import type {
+  DefinedFieldValue,
   FormCallbackOptions,
   FormLifecycleOptions,
   FormRegistryOptions,
   FormSchemaOptions,
-  SchemxSchemaConfig,
+  NamePath,
+  RequiredRule,
+  SchemxInstance,
+  ValidationTrigger,
+  Values,
 } from "@schemx/core"
 
-import type { SchemxInstance, ValidationTrigger, Values } from "@schemx/core"
+/**
+ * Vue 需要在编译 `defineProps` 时直接读取 Props 的字段列表。
+ *
+ * Core 中的 `SchemxSchemaConfig` 是基于 `SchemxBaseField` 的外部复合类型别名，
+ * Vue SFC 编译器无法将它作为接口基类展开。这里在框架适配层保留同一组字段，
+ * 让运行时 Props 推导可静态解析，同时避免把这些配置误判为 fallthrough attrs。
+ */
+interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
+  required?: RequiredRule<DefinedFieldValue<TValues, NamePath<TValues>>>
+  readonly?: boolean
+  disabled?: boolean
+  visible?: boolean
+  labelIcon?: string
+  labelAlign?: "left" | "center" | "right"
+  labelPosition?: "left" | "top" | "right"
+  labelWidth?: string
+  contentAlign?: "left" | "center" | "right"
+  validationTrigger?: ValidationTrigger | ValidationTrigger[]
+  colon?: boolean
+  showRequiredMark?: boolean
+}
 
 /**
  * schemx 组件 Props
@@ -21,7 +46,7 @@ export interface SchemxFormProps<TValues extends Values = Values>
     FormRegistryOptions,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
-    SchemxSchemaConfig {
+    SchemxFormSchemaConfigProps<TValues> {
   /**
    * Vue 受控模式下的表单值。
    */

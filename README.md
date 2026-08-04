@@ -172,21 +172,56 @@ pnpm dev
 pnpm --filter vant-demo dev
 ```
 
-| 命令                | 作用                                              |
-| ------------------- | ------------------------------------------------- |
-| `pnpm dev`          | 交互选择并启动具有 `dev` 或 `dev:h5` 脚本的目标。 |
-| `pnpm build`        | 交互选择并构建目标；非交互环境默认构建全部目标。  |
-| `pnpm test`         | 交互选择并运行测试；非交互环境默认运行全部测试。  |
-| `pnpm type-check`   | 交互选择并执行 TypeScript 类型检查。              |
-| `pnpm lint`         | 交互选择并执行 ESLint 检查。                      |
-| `pnpm format:check` | 交互选择并执行 Prettier 格式检查。                |
-| `pnpm check`        | 交互选择并执行目标自身的完整静态检查。            |
+| 命令                  | 作用                                                        |
+| --------------------- | ----------------------------------------------------------- |
+| `pnpm dev`            | 交互单选并启动具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境默认启动全部目标。 |
+| `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。            |
+| `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                |
+| `pnpm test`           | 交互选择并运行测试；非交互环境默认运行全部测试。            |
+| `pnpm type-check`     | 交互选择并执行 TypeScript 类型检查。                        |
+| `pnpm lint`           | 交互选择并执行 ESLint 检查。                                |
+| `pnpm lint:fix`       | 交互选择并执行 ESLint 自动修复。                            |
+| `pnpm format`         | 交互选择并执行 Prettier 格式化。                            |
+| `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                          |
+| `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                      |
+| `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。 |
+| `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。             |
+| `pnpm preview`        | 启动 Vite Preview。                                          |
+
+## 项目工作流
+
+根目录的开发、构建、质量与测试命令统一通过 `scripts/workflow.sh` 执行。本地终端会按任务
+使用 Clack 选择定义了对应 script 的 `packages`、`plugins`、`examples` 目标；`dev` 使用单选，
+其余批处理任务使用多选；CI 或管道环境默认执行所有符合条件的目标。`build`、`lint`、
+`type-check`、`test` 会交由 Turborepo 编排依赖与缓存，
+其余任务直接执行对应 package script。
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm test
+pnpm check:packages
+```
+
+`pnpm pack-local` 也通过同一工作流选择多个目标；它只处理可本地打包的 `packages` 和
+`plugins` 目标。在 CI 中可在命令后传入 `all`、`packages/core` 或 `plugins/<name>`，
+也可使用 `SCHEMX_WORKFLOW_TARGETS` 提供逗号分隔的目标列表。
+
+所有工作流共用同一套 Shell UI：流程只显示一次顶层标题，任务负责命令、耗时和退出码，
+`ui_flow_group` 仅用于业务分组，不再额外渲染重复的“阶段”反馈。UI 写入 stderr，提示结果
+写入 stdout，原生命令日志保持原样透传。可用 `SCHEMX_UI_FORMAT=plain` 强制稳定纯文本，
+或用 `SCHEMX_UI_EVENTS_FILE=/path/to/events.jsonl` 追加机器可消费的 `schemx.ui/v1` JSONL
+生命周期事件；相邻 UI 输出块之间保持 1 条带前置 `│` 的导轨间隔行，任务完成状态与原始
+日志末尾保持 1–2 条导轨间隔行；非交互确认可设置 `SCHEMX_UI_ASSUME_YES=true`。
+
+发布是其中的独立命令域，使用 `release:*` 前缀。
 
 ## 发布脚本
 
 发布脚本统一通过 `pnpm release:*` 执行。涉及包目标的命令都支持 `all`、`core`、`vue`、`vant`：
 
-- `release:publish` 不传参数时会依次选择发布通道、发布目标和正式版本处理方式。
+- `release:publish` 不传参数时会依次选择发布通道、发布目标和版本基线动作；发布目标支持空格多选。
 - `release:pack` 默认目标为 `all`。
 - CI 或非交互环境中建议显式传入参数。
 
@@ -211,10 +246,12 @@ pnpm release:publish latest vue current
 
 精确版本（如 `0.1.21`）只允许用于单包目标，避免把版本线不同的包强行设置成同一个版本。
 
-预发布会临时生成 `0.1.x-alpha.<timestamp>.<sha>` 这类版本号，发布完成后恢复本地 `package.json`：
+预发布需要明确选择 `patch`、`minor`、`major` 或 `x.y.z` 版本基线。`alpha`、`beta`、`rc`、`next`
+会生成可排序的 `0.1.0-beta.0` 版本；发布完成后恢复本地 `package.json`：
 
 ```bash
-pnpm release:publish alpha vue
+# 发布 1.0.0 的首个公开 Beta；再次发布会自动递增为 1.0.0-beta.1。
+pnpm release:publish beta vue 1.0.0
 ```
 
 ### 自定义 GitHub Release 说明
@@ -229,7 +266,7 @@ pnpm release:publish alpha vue
 pnpm release:publish latest core current
 
 # 调用可执行生成器；生成器从 stdout 输出 Markdown。
-SCHEMX_RELEASE_NOTES_GENERATOR=./scripts/release/generate-agent-notes.sh \
+SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
   pnpm release:publish latest core current
 ```
 
@@ -248,8 +285,9 @@ SCHEMX_RELEASE_NOTES_GENERATOR=./scripts/release/generate-agent-notes.sh \
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm release:check`                                | 执行完整发布前检查：安装一致性、测试、lint、构建和发布包内容检查。                                                | 发布前本地自检：`pnpm release:check`                                                                                        |
 | `pnpm release:pack [target]`                        | 生成本地 tarball，用于检查实际发布包内容。                                                                        | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                 |
-| `pnpm release:publish [channel] [target] [version]` | 发布到指定通道。`latest` 可选择 `current`、`patch`、`minor`、`major` 或 `x.y.z`；预发布通道会临时生成版本并恢复。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；预发布：`pnpm release:publish alpha vue` |
-| `pnpm release:test`                                 | 运行发布脚本自身的测试，不发布、不改版本。                                                                        | 修改发布脚本后执行：`pnpm release:test`                                                                                     |
+| `pnpm release:publish [channel] [target] [version-action]` | 发布到指定通道。所有通道均支持 `patch`、`minor`、`major` 或 `x.y.z`；`current` 仅限 `latest`。目标可传 `all` 或 `core,vue`。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；公开 Beta：`pnpm release:publish beta core 1.0.0` |
+| `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。 | `pnpm release:dry-run beta core 1.0.0` |
+| `pnpm release:test`                                       | 运行发布脚本自身的测试，不发布、不改版本。 | 修改发布脚本后执行：`pnpm release:test` |
 
 ### 发布通道
 

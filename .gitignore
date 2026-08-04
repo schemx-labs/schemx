@@ -70,6 +70,7 @@ build/
 out/
 docs/*
 !docs/group-state-extension-design.md
+!docs/release-version-selection-design.md
 unpackage/
 .packs
 
@@ -179,3 +180,5 @@ bower_components
 
 # Typescript v1 declaration files
 # typings/
+
+.turbo

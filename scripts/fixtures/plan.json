@@ -1,0 +1,19 @@
+{
+  "channel": "beta",
+  "target": "core",
+  "versionAction": "1.0.0",
+  "baselineVersion": "1.0.0",
+  "distTag": "beta",
+  "packages": [
+    {
+      "name": "@schemx/core",
+      "currentVersion": "0.2.3",
+      "version": "1.0.0-beta.0"
+    },
+    {
+      "name": "@schemx/vue",
+      "currentVersion": "0.2.3",
+      "version": "1.0.0-beta.0"
+    }
+  ]
+}
