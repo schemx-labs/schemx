@@ -4,6 +4,15 @@
 
 set -o pipefail
 
+_ui_timestamp() {
+  perl -MTime::HiRes=time -e 'printf "%.6f", time'
+}
+
+_ui_elapsed_seconds() {
+  local started_at="$1"
+  perl -MTime::HiRes=time -e 'printf "%.2f", time - $ARGV[0]' "$started_at"
+}
+
 ui_task() {
   local title=''
   local display=''
@@ -23,7 +32,8 @@ ui_task() {
   display="${display:-$(_ui_command_text "$@")}" || return
   _ui_task_start "$title" "$display" || return
 
-  local started_at=$SECONDS
+  local started_at
+  started_at="$(_ui_timestamp)" || return
   local output_file=''
   local exit_code
   local status=success
@@ -40,7 +50,8 @@ ui_task() {
     if "$@"; then exit_code=0; else exit_code=$?; fi
   fi
   [[ "$exit_code" -eq 0 ]] || status=failed
-  local elapsed=$((SECONDS - started_at))
+  local elapsed
+  elapsed="$(_ui_elapsed_seconds "$started_at")" || return
   _ui_task_finish "$title" "$status" "$exit_code" "$elapsed" || return
   return "$exit_code"
 }
@@ -61,10 +72,12 @@ ui_service() {
   display="${display:-$(_ui_command_text "$@")}" || return
   _ui_task_start "$title" "$display" || return
   _ui_render_line note muted '服务正在运行；按 Ctrl+C 停止。'
-  local started_at=$SECONDS
+  local started_at
+  started_at="$(_ui_timestamp)" || return
   local exit_code
   if "$@"; then exit_code=0; else exit_code=$?; fi
-  local elapsed=$((SECONDS - started_at))
+  local elapsed
+  elapsed="$(_ui_elapsed_seconds "$started_at")" || return
   if [[ "$exit_code" -eq 130 ]]; then
     _ui_task_finish "$title" cancelled "$exit_code" "$elapsed" || return
     return 130

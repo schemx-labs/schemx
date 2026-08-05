@@ -80,6 +80,11 @@ assert_rail_gap_before "$plain_stderr" '[说明] info'
 assert_rail_gap_before "$plain_stderr" '[成功] ok'
 assert_rail_gap_before "$plain_stderr" '[任务] 成功任务'
 assert_rail_gap_before "$plain_stderr" '[成功] 成功任务'
+rg -q '成功任务（[0-9]+\.[0-9]{2}s）' "$plain_stderr" || {
+  printf '断言失败：任务耗时应保留两位小数。\n' >&2
+  sed -n l "$plain_stderr" >&2
+  exit 1
+}
 assert_rail_gap_before "$plain_stderr" '--- 结果摘要 ---'
 assert_rail_gap_before "$plain_stderr" '[成功] 流程完成'
 if rg -n '^$' "$plain_stderr" >/dev/null; then
@@ -95,6 +100,7 @@ done < <(jq -r '.event' "$events_file")
 [[ "$event_names" == 'flow.started group.started note status status task.started task.finished summary flow.finished' ]]
 jq -se 'all(.[]; .schema == "schemx.ui/v1")' "$events_file" >/dev/null
 jq -se 'any(.[]; .event == "task.finished" and .status == "success" and .exitCode == 0)' "$events_file" >/dev/null
+jq -se 'any(.[]; .event == "task.finished" and (.durationSeconds | type) == "number")' "$events_file" >/dev/null
 
 _ui_is_interactive() { [[ "${_UI_TEST_NONINTERACTIVE:-}" != true ]]; }
 _ui_prompt_clack() {

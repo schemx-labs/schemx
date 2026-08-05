@@ -1,10 +1,16 @@
-# schemx
+<p align="center">
+  <img src="./logo.png" alt="schemx logo" width="360" />
+</p>
 
-`schemx` 是一套 Schema 驱动的动态表单引擎，用来把「表单业务规则」从「具体 UI 组件」中拆出来。
+<p align="center">
+  Schema 驱动的动态表单引擎，将表单业务规则与具体 UI 组件解耦。
+</p>
 
-它的核心目标不是再封装一个输入框组件库，而是解决动态表单中最容易失控的部分：字段状态、校验、联动、运行时 Schema 更新、可渲染视图投影和 UI 适配边界。业务只描述 Schema，Core 负责把 Schema 编译成稳定的运行时结构，上层适配器再把 ViewSchemas 渲染成具体界面。
+<p align="center">
+  <a href="#包说明">包说明</a> · <a href="#快速开始">快速开始</a> · <a href="#示例项目">示例项目</a> · <a href="#本地开发">本地开发</a> · <a href="#发布脚本">发布脚本</a>
+</p>
 
-[包说明](#包说明) · [快速开始](#快速开始) · [示例项目](#示例项目) · [本地开发](#本地开发) · [发布脚本](#发布脚本)
+schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、联动、运行时 Schema 更新、可渲染视图投影和 UI 适配边界。业务只描述 Schema，Core 负责将其编译为稳定的运行时结构，上层适配器再把 ViewSchemas 渲染为具体界面。
 
 ## 解决的问题
 
@@ -58,6 +64,7 @@ pnpm add @schemx/vant @schemx/vue @schemx/core vant vue
 各入口的完整示例、样式导入方式和 API 说明见对应的包文档：
 
 - [`@schemx/core` 使用说明](./packages/core/README.md)
+- [`@schemx/validator` 使用说明](./packages/validator/README.md)
 - [`@schemx/vue` 使用说明](./packages/vue/README.md)
 - [`@schemx/vant` 使用说明](./packages/vant/README.md)
 
@@ -172,21 +179,21 @@ pnpm dev
 pnpm --filter vant-demo dev
 ```
 
-| 命令                  | 作用                                                        |
-| --------------------- | ----------------------------------------------------------- |
+| 命令                  | 作用                                                                          |
+| --------------------- | ----------------------------------------------------------------------------- |
 | `pnpm dev`            | 交互单选并启动具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境默认启动全部目标。 |
-| `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。            |
-| `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                |
-| `pnpm test`           | 交互选择并运行测试；非交互环境默认运行全部测试。            |
-| `pnpm type-check`     | 交互选择并执行 TypeScript 类型检查。                        |
-| `pnpm lint`           | 交互选择并执行 ESLint 检查。                                |
-| `pnpm lint:fix`       | 交互选择并执行 ESLint 自动修复。                            |
-| `pnpm format`         | 交互选择并执行 Prettier 格式化。                            |
-| `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                          |
-| `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                      |
-| `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。 |
-| `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。             |
-| `pnpm preview`        | 启动 Vite Preview。                                          |
+| `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。                              |
+| `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                                  |
+| `pnpm test`           | 交互选择并运行测试；非交互环境默认运行全部测试。                              |
+| `pnpm type-check`     | 交互选择并执行 TypeScript 类型检查。                                          |
+| `pnpm lint`           | 交互选择并执行 ESLint 检查。                                                  |
+| `pnpm lint:fix`       | 交互选择并执行 ESLint 自动修复。                                              |
+| `pnpm format`         | 交互选择并执行 Prettier 格式化。                                              |
+| `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                                            |
+| `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                                        |
+| `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                  |
+| `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。                               |
+| `pnpm preview`        | 启动 Vite Preview。                                                           |
 
 ## 项目工作流
 
@@ -235,7 +242,7 @@ pnpm check:packages
 
 ```bash
 pnpm release:publish latest vue patch
-pnpm release:publish latest vue 0.1.21
+pnpm release:publish latest vue x.y.z
 ```
 
 如果要发布当前已提交版本，可以选择 `current`：
@@ -244,7 +251,8 @@ pnpm release:publish latest vue 0.1.21
 pnpm release:publish latest vue current
 ```
 
-精确版本（如 `0.1.21`）只允许用于单包目标，避免把版本线不同的包强行设置成同一个版本。
+精确版本（将示例中的 `x.y.z` 替换为目标版本）只允许用于单包目标，且必须是尚未发布的版本；
+已发布版本应使用 `current`，避免把版本线不同的包强行设置成同一个版本。
 
 预发布需要明确选择 `patch`、`minor`、`major` 或 `x.y.z` 版本基线。`alpha`、`beta`、`rc`、`next`
 会生成可排序的 `0.1.0-beta.0` 版本；发布完成后恢复本地 `package.json`：
@@ -281,13 +289,13 @@ SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
 
 ### 常用命令
 
-| 命令                                                | 作用                                                                                                              | 使用                                                                                                                        |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm release:check`                                | 执行完整发布前检查：安装一致性、测试、lint、构建和发布包内容检查。                                                | 发布前本地自检：`pnpm release:check`                                                                                        |
-| `pnpm release:pack [target]`                        | 生成本地 tarball，用于检查实际发布包内容。                                                                        | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                 |
+| 命令                                                       | 作用                                                                                                                         | 使用                                                                                                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm release:check`                                       | 执行完整发布前检查：安装一致性、测试、lint、构建和发布包内容检查。                                                           | 发布前本地自检：`pnpm release:check`                                                                                                 |
+| `pnpm release:pack [target]`                               | 生成本地 tarball，用于检查实际发布包内容。                                                                                   | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                          |
 | `pnpm release:publish [channel] [target] [version-action]` | 发布到指定通道。所有通道均支持 `patch`、`minor`、`major` 或 `x.y.z`；`current` 仅限 `latest`。目标可传 `all` 或 `core,vue`。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；公开 Beta：`pnpm release:publish beta core 1.0.0` |
-| `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。 | `pnpm release:dry-run beta core 1.0.0` |
-| `pnpm release:test`                                       | 运行发布脚本自身的测试，不发布、不改版本。 | 修改发布脚本后执行：`pnpm release:test` |
+| `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。                                      | `pnpm release:dry-run beta core 1.0.0`                                                                                               |
+| `pnpm release:test`                                        | 运行发布脚本自身的测试，不发布、不改版本。                                                                                   | 修改发布脚本后执行：`pnpm release:test`                                                                                              |
 
 ### 发布通道
 
