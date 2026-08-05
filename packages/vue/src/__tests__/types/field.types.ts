@@ -1,5 +1,4 @@
-import type { FieldInstance } from "../../types/field"
-import type { SchemxFormProps } from "../../types/form"
+import type { FieldInstance, SchemxFormProps } from "../../index"
 
 interface FormValues {
   name: string

@@ -4,13 +4,13 @@ import type {
   DefinedFieldValue,
   FormCallbackOptions,
   FormLifecycleOptions,
-  FormRegistryOptions,
-  FormSchemaOptions,
   NamePath,
   RequiredRule,
   SchemxInstance,
+  SchemxSchemasInput,
   ValidationTrigger,
   Values,
+  SchemxConfig,
 } from "@schemx/core"
 
 /**
@@ -42,11 +42,20 @@ interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
  */
 export interface SchemxFormProps<TValues extends Values = Values>
   extends
-    Omit<FormSchemaOptions<TValues>, "schemaConfig">,
-    FormRegistryOptions,
+    Omit<SchemxConfig, "schemaConfig">,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
     SchemxFormSchemaConfigProps<TValues> {
+  /**
+   * 初始 Schema 列表。
+   */
+  schemas?: SchemxSchemasInput<TValues>
+
+  /**
+   * Store 使用的初始表单值。
+   */
+  initialValues?: TValues
+
   /**
    * Vue 受控模式下的表单值。
    */

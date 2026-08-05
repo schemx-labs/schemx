@@ -1,10 +1,15 @@
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
 import { defineComponent, h, markRaw, nextTick } from "vue"
 
-import { createRendererRegistry, createValidationRuleRegistry } from "@schemx/core"
+import {
+  createRendererRegistry,
+  createValidationRuleRegistry,
+  type ValidationAdapter,
+} from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vitest"
 
+import Schemx from "../form"
 import SchemxForm from "../form.vue"
 import { validationRuleRegistry } from "../utils/rulesProvider"
 
@@ -45,7 +50,116 @@ const CountRenderer = defineComponent({
   },
 })
 
+/**
+ * 创建只返回固定失败结果的测试 adapter。
+ *
+ * 通过 WeakSet 保留品牌规则语义，确保测试验证的是 adapter 是否真正进入
+ * Form 的 ValidationController，而不是仅凭对象形状被误识别。
+ *
+ * @param id - adapter 标识。
+ * @param message - adapter 生成的错误消息。
+ * @returns 可用于 Schema 与 Form 配置的 adapter。
+ */
+function createTestAdapter(id: string, message: string): ValidationAdapter<string> {
+  const rules = new WeakSet<object>()
+
+  return {
+    id,
+    rule(input) {
+      const rule = Object.freeze({ adapterId: id, payload: input })
+
+      rules.add(rule)
+
+      return rule
+    },
+    isRule(value) {
+      return typeof value === "object" && value !== null && rules.has(value)
+    },
+    resolve() {
+      return [
+        {
+          validate: () => ({
+            valid: false as const,
+            issues: [{ message }],
+          }),
+        },
+      ]
+    },
+  }
+}
+
 describe("SchemxForm 动态 schemas", () => {
+  it("将 validatorAdapters Prop 传递给内部 Form 并执行 adapter", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const adapter = createTestAdapter("vue-form-adapter", "adapter 校验失败")
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        validatorAdapters: [adapter],
+        schemas: [
+          {
+            name: "email",
+            label: "邮箱",
+            componentType: "input",
+            rules: adapter.rule("invalid"),
+          },
+        ],
+      },
+    })
+
+    const result = await (wrapper.vm as any).validate()
+
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual([
+      {
+        scope: "field",
+        name: "email",
+        issues: [{ message: "adapter 校验失败" }],
+      },
+    ])
+
+    wrapper.unmount()
+  })
+
+  it("表单显式 validatorAdapters 优先于 App 安装配置", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const appAdapter = createTestAdapter("priority-adapter", "App adapter")
+
+    const formAdapter = createTestAdapter("priority-adapter", "Form adapter")
+
+    const wrapper = mount(SchemxForm, {
+      global: {
+        plugins: [[Schemx, { validatorAdapters: [appAdapter] }]],
+      },
+      props: {
+        rendererRegistry,
+        validatorAdapters: [{ adapter: formAdapter, override: true }],
+        schemas: [
+          {
+            name: "email",
+            label: "邮箱",
+            componentType: "input",
+            rules: formAdapter.rule("invalid"),
+          },
+        ],
+      },
+    })
+
+    const result = await (wrapper.vm as any).validate()
+
+    expect(result.valid).toBe(false)
+    expect(result.errors?.[0]?.issues).toEqual([{ message: "Form adapter" }])
+
+    wrapper.unmount()
+  })
+
   it("默认使用 Vue 全局 ValidationRuleRegistry", async () => {
     const ruleName = "vue-global-rule-test"
 

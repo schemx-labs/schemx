@@ -9,7 +9,7 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { onUnmounted, reactive, watch, watchEffect } from "vue"
 
-  import { createWatch, isSchemxSchemas, schemaConfigKeys } from "@schemx/core"
+  import { createWatch, isSchemxSchemas, defaultSchemxConfigKeys } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import FormItem from "./components/FormItem"
@@ -49,7 +49,10 @@
   }>()
 
   const pickSchemaConfig = (): Partial<SchemxSchemaConfig> => {
-    return pick(props, schemaConfigKeys)
+    // Vue 保留 `required` 对当前 TValues 的泛型约束；Core 的表单级配置使用
+    // unknown 表示任意字段值。运行时该回调只会接收当前 Form 的字段值，因此在
+    // Vue 到 Core 的适配边界收窄为 Core 配置类型。
+    return pick(props, defaultSchemxConfigKeys) as Partial<SchemxSchemaConfig>
   }
 
   const formSchemaConfig = reactive<Partial<SchemxSchemaConfig>>(pickSchemaConfig())
@@ -80,6 +83,7 @@
         rendererRegistry: props.rendererRegistry,
         defaultRendererType: props.defaultRendererType,
         validationRuleRegistry: props.validationRuleRegistry,
+        validatorAdapters: props.validatorAdapters,
 
         onFinish: async (values) => {
           props.onFinish?.(values)

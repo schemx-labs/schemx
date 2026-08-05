@@ -11,22 +11,26 @@ import type { App } from "vue"
 
 import FormItem from "./components/FormItem"
 import SchemxForm from "./formRuntime.js"
+import { provideSchemxAppConfig } from "./config"
+
+import type { SchemxConfig } from "@schemx/core"
 
 /**
  * SchemxForm 插件安装选项
  *
- * 在 `app.use(SchemxForm, options)` 时传入，用于配置全局默认行为。
+ * 在 `app.use(SchemxForm, options)` 时传入，用于配置当前 Vue App 的默认行为。
+ * 安装配置不会写入 Core 的模块级全局配置，因此多个 Vue App 可以彼此隔离。
  *
  * @example
  * ```ts
  * import SchemxForm from '@schemx/vue'
  *
  * app.use(SchemxForm, {
- *   request: (url) => fetch(url).then(r => r.json()),
+ *   schemaConfig: { readonly: true },
  * })
  * ```
  */
-export interface SchemxInstallOptions {}
+export interface SchemxInstallOptions extends SchemxConfig {}
 
 /**
  * 为组件挂载静态属性并保留原始类型
@@ -50,7 +54,8 @@ export type SchemxFormPlugin = typeof SchemxForm & {
 
 const SchemxFormExport = withInstall(SchemxForm, {
   /** Vue 插件安装方法 */
-  install(app: App, _options?: SchemxInstallOptions) {
+  install(app: App, options: SchemxInstallOptions = {}) {
+    provideSchemxAppConfig(app, options)
     app.component("SchemxForm", SchemxForm)
   },
   /** FormItem 子组件引用 */
