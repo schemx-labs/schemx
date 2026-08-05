@@ -45,7 +45,7 @@
   import { computed, ref, useAttrs } from "vue"
 
   import { Picker, Popup } from "vant"
-  import type { PickerConfirmEventParams } from "vant"
+  import type { PickerConfirmEventParams, PickerOption } from "vant"
 
   import classNames from "classnames"
 
@@ -154,7 +154,7 @@
   }))
 
   /** 数据源 */
-  const columns = computed(() => {
+  const columns = computed<PickerOption[]>(() => {
     if (Array.isArray(props.options) && props.options?.length > 0) {
       return props.options
     }
