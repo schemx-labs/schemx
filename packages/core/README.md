@@ -288,12 +288,36 @@ dispose()
 - `createSchemas()`：创建可替换、可订阅的根 Schema source。
 - `createField()`：创建绑定到指定字段路径的控制器。
 - `configureSchemx()`：设置后续 `createForm()` 使用的全局默认配置，包括 Renderer Registry、校验 Registry 和第三方 adapter。
+- `getGlobalSchemxConfig()`：读取当前生效的全局配置。
+- `mergeSchemxConfig(...configs)`：按从后到前的优先级纯合并多个配置；首参数优先级最高，保留未设置和显式 `undefined` 值。
+- `resolveSchemxConfig(config)`：为单个已合并配置补齐完整的 `schemaConfig` 内置默认值。
+- `mergeAndResolveSchemxConfig(...configs)`：依次调用上述两个函数，返回可直接供 Runtime 消费的完整配置。
 - `createEffect()`、`createWatch()`、`createWatchField()`、`createWatchFields()`、`createWatchAll()`：构建响应式监听。
-- `getViewSchemas()` 与 `subscribeViewSchemas()`：向 UI 适配层提供稳定投影。
 
-表单实例还提供 `getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()`、`getInitialValues()`、`getTouchedFields()`、`getPendingFields()`、`updateSchemaConfig()` 和 `waitForDependencies()`；完整签名以根入口导出的 `SchemxInstance` 为准。
+`SchemxInstance` 的 `getViewSchemas()` 与 `subscribeViewSchemas()` 向 UI 适配层提供稳定投影；表单实例还提供
+`getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()`、`getInitialValues()`、
+`getTouchedFields()`、`getPendingFields()`、`updateSchemaConfig()` 和 `waitForDependencies()`。
+完整签名以根入口导出的 `SchemxInstance` 为准。
 
 全局配置使用 `SchemxConfig`：字段默认值通过 `schemaConfig` 配置，第三方校验 adapter 通过 `validatorAdapters` 配置。配置采用替换语义，只影响之后创建的 Form。
+
+### Form 配置类型
+
+以下类型从 `@schemx/core` 根入口导出，用于按职责拆分 `createForm()` 配置：
+
+| 类型                                        | 用途                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| `FormSchemaOptions<TValues>`                | Schema 列表、初始值和表单级 `schemaConfig`。                              |
+| `FormRegistryOptions`                       | Renderer、默认 Renderer、ValidationRule Registry 和 `validatorAdapters`。 |
+| `FormCallbackOptions<TValues, TName>`       | 规则错误、提交和字段值变化回调。                                          |
+| `FormLifecycleOptions<TValues>`             | Runtime 生命周期钩子。                                                    |
+| `CreateFormOptions<TValues, TName>`         | 上述四类配置的聚合入口。                                                  |
+| `ResolvedCreateFormOptions<TValues, TName>` | `createForm()` 内部使用的已归一化配置。                                   |
+| `MergedSchemxConfig`                        | `resolveSchemxConfig()` 返回的、已补齐 `schemaConfig` 默认值的配置。      |
+
+`mergeSchemxConfig()` 只负责按优先级合并显式配置，不读取全局状态，也不补齐默认值；
+`resolveSchemxConfig()` 只负责为单个配置补齐 Core 内置 `schemaConfig` 默认值；
+`mergeAndResolveSchemxConfig()` 才是两者的聚合便捷入口。
 
 Form 级 Schema 配置同样通过 `schemaConfig` 聚合：
 

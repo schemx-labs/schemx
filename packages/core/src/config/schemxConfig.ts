@@ -66,12 +66,12 @@ export function configureSchemx(nextConfig: SchemxConfig = {}): void {
 /**
  * 读取当前已标准化的模块级全局配置。
  *
- * 该函数仅供 Core 内部在解析 Form 选项时读取；单个 Form 的局部覆盖和内置
- * 默认值合并应由 `form/options` 处理。
+ * 适配层可用此函数与自身默认配置合并；单个 Form 的局部覆盖和内置默认值
+ * 仍应由 `mergeCreateFormOptions()` 处理。
  *
  * @returns 当前生效的全局配置。
  */
-export function readGlobalSchemxConfig(): SchemxConfig {
+export function getGlobalSchemxConfig(): SchemxConfig {
   return globalConfig
 }
 

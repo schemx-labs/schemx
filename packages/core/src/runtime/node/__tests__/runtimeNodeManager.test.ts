@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest"
 
 import { createCompile } from "../../compiler"
-import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
+import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createLifecycleBus } from "../../lifecycle"
 import { createScheduler } from "../../scheduler"
 import { createRuntimeResources } from "../resources"
@@ -37,11 +37,11 @@ function createRuntimeContext<
   }
 
   return {
-    schemaConfig: mergeSchemaConfig(),
+    schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     instance,
     formApi,
     compile: createCompile({
-      schemaConfig: mergeSchemaConfig(),
+      schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
       formInstance: instance as any,
     }),
     scheduler,

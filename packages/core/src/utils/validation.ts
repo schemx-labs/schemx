@@ -6,7 +6,7 @@
  * @module utils/validation
  */
 
-import { schemaConfig } from "../config/defaultSchemaConfig"
+import { defaultSchemxConfig } from "../config"
 
 import type { ValidationTrigger } from "../types"
 
@@ -90,7 +90,7 @@ function normalizeTrigger(t: ValidationTrigger): NormalizedTrigger {
     submit: "submit",
   }
 
-  return map[t] || schemaConfig.validationTrigger
+  return map[t] || defaultSchemxConfig.validationTrigger
 }
 
 /**

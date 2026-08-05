@@ -11,7 +11,7 @@ import { setFieldDynamicOverrides } from "../../field/runtimeState"
 import { describe, expect, it, vi } from "vitest"
 
 import { createCompile } from "../../compiler"
-import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
+import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createLifecycleBus } from "../../lifecycle"
 import { createReconciler } from "../../reconciler"
 import { type SchemaRuntimeContext } from "../../context"
@@ -68,11 +68,11 @@ function createGraphRuntime(listener: LifecycleListener<RuntimeNode> = {}) {
   }
 
   const context = {
-    schemaConfig: mergeSchemaConfig(),
+    schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     instance,
     formApi,
     compile: createCompile({
-      schemaConfig: mergeSchemaConfig(),
+      schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
       formInstance: instance as any,
     }),
     scheduler,

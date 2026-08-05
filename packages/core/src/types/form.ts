@@ -13,7 +13,7 @@ import { DeepNamePath, PathValue } from "./namePathType"
 import { SchemxRendererKey } from "./renderer"
 import { FieldRules } from "./rule"
 
-import type { SchemaConfigKey } from "../config/defaultSchemaConfig"
+import type { SchemxConfigKey } from "../config"
 import type { RegistryOptions, ValidationRuleEntry } from "../registry"
 import type { SchemxBaseField, SchemxField } from "./schema"
 import type { SchemxViewSchema } from "../runtime/view"
@@ -78,7 +78,7 @@ export type ValidationTrigger =
  *
  * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
  */
-export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemaConfigKey>
+export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemxConfigKey>
 
 /**
  * 已完成内置默认值合并的表单级 Schema 配置。

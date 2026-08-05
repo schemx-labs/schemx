@@ -1,10 +1,26 @@
 export {
+  defaultSchemxConfig,
+  defaultSchemxConfigKeys,
+  excludeSchemxConfigKeys,
   schemaConfig,
   schemaConfigKeys,
   excludeSchemaConfigKeys,
-  mergeSchemaConfig,
-} from "./defaultSchemaConfig"
-export type { SchemaConfigKey, ExcludeSchemaConfigKeys } from "./defaultSchemaConfig"
+} from "./defaultSchemxConfig"
 
-export { configureSchemx, readGlobalSchemxConfig } from "./schemxConfig"
+export type {
+  ExcludeSchemxConfigKeys,
+  SchemxConfigKey,
+  SchemaConfigKey,
+  ExcludeSchemaConfigKeys,
+} from "./defaultSchemxConfig"
+
+export {
+  mergeAndResolveSchemxConfig,
+  mergeSchemxConfig,
+  resolveSchemxConfig,
+  type MergedSchemxConfig,
+} from "./mergeSchemxConfig"
+
+export { configureSchemx, getGlobalSchemxConfig } from "./schemxConfig"
+
 export type { SchemxConfig } from "./schemxConfig"

@@ -1,12 +1,10 @@
-import type { ResolvedSchemxSchemaConfig, SchemxSchemaConfig } from "../types"
-
 /**
  * 字段级默认配置。
  *
  * 各字段的静态默认值，字段未显式设置时使用。
  * 部分属性可由全局 Schemx 配置或当前 Form 的实例配置覆盖。
  */
-export const schemaConfig = Object.freeze({
+export const defaultSchemxConfig = Object.freeze({
   /**
    * 是否启用必填校验（静态默认值）
    *
@@ -96,21 +94,23 @@ export const schemaConfig = Object.freeze({
 } as const)
 
 /**
- * `schemaConfig` 的键集合，用于类型安全的配置访问。
+ * `defaultSchemxConfig` 的键集合，用于类型安全的配置访问。
  */
-export type SchemaConfigKey = keyof typeof schemaConfig
+export type SchemxConfigKey = keyof typeof defaultSchemxConfig
 
 /**
- * schemaConfig 的所有键数组。
+ * `defaultSchemxConfig` 的所有键数组。
  *
  * 运行时需遍历默认配置字段时使用。
  */
-export const schemaConfigKeys = Object.keys(schemaConfig) as SchemaConfigKey[]
+export const defaultSchemxConfigKeys = Object.keys(
+  defaultSchemxConfig
+) as SchemxConfigKey[]
 
 /**
  * 运行时需遍历 排除 默认配置字段时使用。
  */
-export const excludeSchemaConfigKeys = [
+export const excludeSchemxConfigKeys = [
   "key",
   "name",
   "label",
@@ -131,28 +131,29 @@ export const excludeSchemaConfigKeys = [
 /**
  * 需要排除的 Schema 配置字段名称。
  */
-export type ExcludeSchemaConfigKeys = (typeof excludeSchemaConfigKeys)[number]
+export type ExcludeSchemxConfigKeys = (typeof excludeSchemxConfigKeys)[number]
 
 /**
- * 按优先级合并默认配置层，并补齐全部内置默认值。
- *
- * 后传入的配置层优先级更高。某层显式提供 `undefined` 时回到内置默认值，
- * 与此前 descriptor 中 `value ?? schemaConfig[key]` 的行为保持一致。
+ * @deprecated 请使用 `defaultSchemxConfig`。
  */
-export function mergeSchemaConfig(
-  ...layers: readonly Partial<SchemxSchemaConfig>[]
-): ResolvedSchemxSchemaConfig {
-  const merged: ResolvedSchemxSchemaConfig = { ...schemaConfig }
+export const schemaConfig = defaultSchemxConfig
 
-  for (const layer of layers) {
-    for (const key of schemaConfigKeys) {
-      if (Object.prototype.hasOwnProperty.call(layer, key)) {
-        Object.assign(merged, {
-          [key]: layer[key] ?? schemaConfig[key],
-        })
-      }
-    }
-  }
+/**
+ * @deprecated 请使用 `SchemxConfigKey`。
+ */
+export type SchemaConfigKey = SchemxConfigKey
 
-  return merged
-}
+/**
+ * @deprecated 请使用 `defaultSchemxConfigKeys`。
+ */
+export const schemaConfigKeys = defaultSchemxConfigKeys
+
+/**
+ * @deprecated 请使用 `excludeSchemxConfigKeys`。
+ */
+export const excludeSchemaConfigKeys = excludeSchemxConfigKeys
+
+/**
+ * @deprecated 请使用 `ExcludeSchemxConfigKeys`。
+ */
+export type ExcludeSchemaConfigKeys = ExcludeSchemxConfigKeys

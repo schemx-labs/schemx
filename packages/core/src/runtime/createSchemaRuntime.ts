@@ -1,4 +1,4 @@
-import { mergeSchemaConfig, schemaConfigKeys } from "../config/defaultSchemaConfig"
+import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
 import {
   createSchemas,
   isSchemxSchemas,
@@ -182,7 +182,9 @@ export function createSchemaRuntime<TValues extends Values>(
   const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(options.lifecycleHooks)
 
   // Runtime 与 Compiler 共享同一份配置引用，动态更新后无需重新装配 Compiler。
-  const schemaConfig = mergeSchemaConfig(options.schemaConfig)
+  const schemaConfig = mergeAndResolveSchemxConfig({
+    schemaConfig: options.schemaConfig,
+  }).schemaConfig
 
   // 编译 Schema 并保留当前 Form 实例引用。
   const compile = createCompile({
@@ -361,14 +363,17 @@ export function createSchemaRuntime<TValues extends Values>(
     }
 
     const schemaConfigPatch = Object.fromEntries(
-      schemaConfigKeys
+      defaultSchemxConfigKeys
         .filter((key) => Object.prototype.hasOwnProperty.call(partial, key))
         .map((key) => [key, partial[key]])
     ) as Partial<SchemxSchemaConfig>
 
     Object.assign(
       context.schemaConfig,
-      mergeSchemaConfig(context.schemaConfig, schemaConfigPatch)
+      mergeAndResolveSchemxConfig(
+        { schemaConfig: schemaConfigPatch },
+        { schemaConfig: context.schemaConfig }
+      ).schemaConfig
     )
     compile.invalidate()
     applySchemas(assertMounted().peek())

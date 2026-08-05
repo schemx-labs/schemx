@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createCompile, CompileError } from "../index"
 import { createDescriptor } from "../../descriptor"
-import { mergeSchemaConfig } from "../../../config/defaultSchemaConfig"
+import { mergeAndResolveSchemxConfig } from "../../../config"
 
 import type { SchemxField } from "../../../types/schema"
 
@@ -546,10 +546,12 @@ describe("createCompile().toDescriptors", () => {
     const schemas: SchemxField[] = [{ name: "f1", label: "F1", componentType: "input" }]
 
     const descriptors = createCompile({
-      schemaConfig: mergeSchemaConfig({
-        readonly: true,
-        disabled: true,
-      }),
+      schemaConfig: mergeAndResolveSchemxConfig({
+        schemaConfig: {
+          readonly: true,
+          disabled: true,
+        },
+      }).schemaConfig,
     }).toDescriptors(schemas)
 
     if (descriptors[0].type === "field") {
@@ -562,19 +564,21 @@ describe("createCompile().toDescriptors", () => {
     const schemas: SchemxField[] = [{ name: "f1", label: "F1", componentType: "input" }]
 
     const descriptors = createCompile({
-      schemaConfig: mergeSchemaConfig({
-        required: true,
-        readonly: false,
-        disabled: true,
-        visible: false,
-        labelIcon: "info",
-        labelAlign: "center",
-        labelPosition: "top",
-        labelWidth: "120px",
-        contentAlign: "left",
-        validationTrigger: "change",
-        colon: false,
-      }),
+      schemaConfig: mergeAndResolveSchemxConfig({
+        schemaConfig: {
+          required: true,
+          readonly: false,
+          disabled: true,
+          visible: false,
+          labelIcon: "info",
+          labelAlign: "center",
+          labelPosition: "top",
+          labelWidth: "120px",
+          contentAlign: "left",
+          validationTrigger: "change",
+          colon: false,
+        },
+      }).schemaConfig,
     }).toDescriptors(schemas)
 
     if (descriptors[0].type === "field") {

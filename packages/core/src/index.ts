@@ -27,9 +27,19 @@ export {
 
 export {
   configureSchemx,
+  getGlobalSchemxConfig,
+  mergeAndResolveSchemxConfig,
+  mergeSchemxConfig,
+  resolveSchemxConfig,
+  type MergedSchemxConfig,
+  defaultSchemxConfig,
+  defaultSchemxConfigKeys,
+  excludeSchemxConfigKeys,
   schemaConfigKeys,
   excludeSchemaConfigKeys,
   type SchemxConfig,
+  type SchemxConfigKey,
+  type ExcludeSchemxConfigKeys,
 } from "./config"
 
 export { type SchemxContext } from "./runtime/context"

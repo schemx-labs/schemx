@@ -1,5 +1,6 @@
 import type {
   FieldRules,
+  FormSchemaOptions,
   RequiredOptions,
   RequiredRule,
   SchemxExactBaseField,
@@ -43,6 +44,18 @@ const configuredForm = createForm<FormValues>({
     readonly: true,
   },
 })
+
+const schemaOptions: FormSchemaOptions<FormValues> = {
+  schemas: [],
+  initialValues: {
+    email: "",
+    age: 0,
+    files: [],
+  },
+  schemaConfig: {
+    readonly: true,
+  },
+}
 
 // @ts-expect-error createForm 不再接受平铺的 Schema 配置。
 createForm<FormValues>({ readonly: true })
@@ -284,6 +297,7 @@ if (!result.valid) {
 
 void fields
 void schemas
+void schemaOptions
 void emailRules
 void invalidEmailRules
 void adapterObjectRules

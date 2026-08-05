@@ -8,7 +8,7 @@
  * @module core/runtime/compiler/createCompile
  */
 
-import { mergeSchemaConfig } from "../../config/defaultSchemaConfig"
+import { mergeAndResolveSchemxConfig } from "../../config"
 import { normalizeSchemas } from "../../utils"
 import { createDescriptor } from "../descriptor"
 
@@ -47,7 +47,7 @@ export function createCompile<TValues extends Values = Values>(
 ): Compile<TValues> {
   const compileOptions: CompileOptions<TValues> = {
     // createForm 传入的是与 context 共享的已合并对象，必须保留其引用。
-    schemaConfig: options.schemaConfig ?? mergeSchemaConfig(),
+    schemaConfig: options.schemaConfig ?? mergeAndResolveSchemxConfig().schemaConfig,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
   }

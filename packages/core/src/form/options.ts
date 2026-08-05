@@ -1,5 +1,8 @@
-import { mergeSchemaConfig } from "../config/defaultSchemaConfig"
-import { readGlobalSchemxConfig } from "../config/schemxConfig"
+import {
+  getGlobalSchemxConfig,
+  mergeAndResolveSchemxConfig,
+  type SchemxConfig,
+} from "../config"
 import { type SchemxSchemasInput } from "../createSchemas"
 import {
   createRendererRegistry,
@@ -156,55 +159,59 @@ export function mergeCreateFormOptions<TValues extends Values>(
   options: CreateFormOptions<TValues>
 ): ResolvedCreateFormOptions<TValues> {
   // 提取需要单独归一化的配置，其余字段交给默认值解析器。
-  const {
-    schemas,
-    initialValues = {} as TValues,
-    rendererRegistry,
-    defaultRendererType,
-    validationRuleRegistry,
-    validatorAdapters,
-    onRuleError,
-    schemaConfig: formSchemaConfig,
-  } = options
+  const { schemas, initialValues = {} as TValues, onRuleError } = options
 
-  // 读取当前 Form 创建时生效的模块级全局配置。
-  const globalConfig = readGlobalSchemxConfig()
-
-  // 按 Form、全局、内置默认值的优先级解析字段默认值。
-  const schemaConfig = mergeSchemaConfig(
-    globalConfig.schemaConfig ?? {},
-    formSchemaConfig ?? {}
+  // 按 Form、全局的优先级合并可继承配置。
+  const configuredOptions = mergeAndResolveSchemxConfig(
+    getFormSchemxConfig(options),
+    getGlobalSchemxConfig()
   )
-
-  // Form 显式配置优先于模块级默认 renderer 类型。
-  const resolvedDefaultRendererType =
-    defaultRendererType ?? globalConfig.defaultRendererType
-
-  // Form 显式注入的 Registry 优先于模块级共享 Registry。
-  const resolvedRendererRegistry = rendererRegistry ?? globalConfig.rendererRegistry
-
-  // Form 显式注入的规则 Registry 优先于模块级共享 Registry。
-  const resolvedValidationRuleRegistry =
-    validationRuleRegistry ?? globalConfig.validationRuleRegistry
 
   return {
     schemas,
     initialValues,
     rendererRegistry:
-      resolvedRendererRegistry ?? createRendererRegistry(resolvedDefaultRendererType),
+      configuredOptions.rendererRegistry ??
+      createRendererRegistry(configuredOptions.defaultRendererType),
     validationRuleRegistry:
-      resolvedValidationRuleRegistry ?? createValidationRuleRegistry(),
-    schemaConfig,
-    defaultRendererType: resolvedDefaultRendererType,
-    validatorAdapters: [
-      ...(globalConfig.validatorAdapters ?? []),
-      ...(validatorAdapters ?? []),
-    ],
+      configuredOptions.validationRuleRegistry ?? createValidationRuleRegistry(),
+    schemaConfig: configuredOptions.schemaConfig,
+    defaultRendererType: configuredOptions.defaultRendererType,
+    validatorAdapters: configuredOptions.validatorAdapters ?? [],
     onRuleError,
     onFinish: options.onFinish,
     onFinishFailed: options.onFinishFailed,
     onValuesChange: options.onValuesChange,
     onFieldsChange: options.onFieldsChange,
     lifecycleHooks: options.lifecycleHooks,
+  }
+}
+
+/**
+ * 从 Form 创建选项中提取可参与全局配置合并的字段。
+ *
+ * 缺省对象与列表会标准化为空值，使低优先级全局配置仍可被纯合并器继承；
+ * 标量和 Registry 的 `undefined` 则由合并器忽略，不会覆盖全局配置。
+ *
+ * @param options - 当前 Form 的完整创建选项。
+ * @returns 适合传给 {@link mergeAndResolveSchemxConfig} 的 Form 级配置。
+ */
+export function getFormSchemxConfig<TValues extends Values>(
+  options: CreateFormOptions<TValues>
+): SchemxConfig {
+  const {
+    schemaConfig = {},
+    validatorAdapters = [],
+    defaultRendererType = undefined,
+    rendererRegistry = undefined,
+    validationRuleRegistry = undefined,
+  } = options
+
+  return {
+    schemaConfig,
+    defaultRendererType,
+    rendererRegistry,
+    validationRuleRegistry,
+    validatorAdapters,
   }
 }
