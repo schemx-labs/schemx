@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "language": "zh-CN",
+  "monorepo": {
+    "packageRoots": [
+      "packages"
+    ],
+    "publishPackages": [
+      "@schemx/core",
+      "@schemx/vue",
+      "@schemx/vant"
+    ],
+    "includeIndirectPackages": "public-api-only",
+    "tagPattern": "{packageName}@{version}"
+  },
+  "output": {
+    "data": ".release/releases/{package}/{version}.json",
+    "archive": "docs/releases/{package}/{version}.md",
+    "latest": "{packageRoot}/release-notes.md"
+  },
+  "render": {
+    "template": "assets/release-notes.zh-CN.md",
+    "omitEmptySections": true,
+    "includeValidation": true,
+    "includeFullChangelog": true,
+    "includeInternalChanges": false
+  },
+  "validation": {
+    "requireEvidence": true,
+    "requireMigrationForBreaking": true,
+    "publicDependencyChangesOnly": true
+  },
+  "automation": {
+    "collectContext": [
+      "node",
+      "{skillRoot}/scripts/collect-context.mjs"
+    ],
+    "validateData": [
+      "node",
+      "{skillRoot}/scripts/validate-release-data.mjs"
+    ],
+    "renderNotes": [
+      "node",
+      "{skillRoot}/scripts/render-release-notes.mjs"
+    ]
+  }
+}

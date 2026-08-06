@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="#包说明">包说明</a> · <a href="#快速开始">快速开始</a> · <a href="#示例项目">示例项目</a> · <a href="#本地开发">本地开发</a> · <a href="#发布脚本">发布脚本</a>
+  <a href="#包说明">包说明</a> · <a href="#快速开始">快速开始</a> · <a href="#示例项目">示例项目</a> · <a href="#本地开发">本地开发</a> · <a href="#发布脚本">发布脚本</a> · <a href="#按包生成-release-note">Release Note</a>
 </p>
 
 schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、联动、运行时 Schema 更新、可渲染视图投影和 UI 适配边界。业务只描述 Schema，Core 负责将其编译为稳定的运行时结构，上层适配器再把 ViewSchemas 渲染为具体界面。
@@ -286,6 +286,46 @@ SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
 如果设置了 `SCHEMX_RELEASE_NOTES_FILE`，它会覆盖包级默认路径，仅适用于临时单包发布。
 多包发布时，每个包会读取自己的 `packages/<package>/release-notes.md`；若文件不存在，
 则按该包自己的上一个 tag 生成说明。
+
+### 按包生成 Release Note
+
+仓库使用“结构化数据 → 校验 → 渲染”的方式维护发布说明。Agent 的
+`release-notes-generator` Skill 负责分析 Git Diff、公共 API、TypeScript 类型和用户影响；
+仓库脚本只处理可重复的事实收集、数据校验和 Markdown 渲染。
+
+#### 日常使用
+
+日常无需运行 `release:notes:*` 命令，也无需手动创建 JSON。直接向具备
+`release-notes-generator` Skill 的 Agent 说明发布意图即可。
+
+预览当前所有受影响包的发布说明：
+
+```text
+使用 release-notes-generator 分析当前 HEAD，预览所有受影响包的 Release Note。
+```
+
+预览不会写入文件。Agent 会自动收集每个包自己的 Tag、Diff、公开 API、类型和依赖影响，判断
+哪些包有用户可见变更，并展示各包的摘要、Breaking Change 和 Markdown 预览。
+
+确认内容后，明确要求写入：
+
+```text
+确认写入所有受影响包的 Release Note，并生成版本归档。
+```
+
+Skill 会自动完成以下操作：
+
+1. 收集每个受影响发布包的 Git 证据；
+2. 生成并审核各包独立的 Release Data；
+3. 校验证据、分类和 Breaking Change 迁移说明；
+4. 为每个包更新 `packages/<package>/release-notes.md`；
+5. 生成 `docs/releases/<package>/<version>.md` 版本归档。
+
+现有 `pnpm release:publish` 会直接读取包级 `release-notes.md` 创建 GitHub Release，因此生成说明后可
+继续执行既有发布流程。
+
+Skill 内部包含确定性脚本、发布策略、数据 Schema 与 Markdown 模板，分别负责收集证据、校验数据和
+渲染 Markdown。它们不属于仓库日常命令；正常发布只需调用 Skill。
 
 ### 常用命令
 

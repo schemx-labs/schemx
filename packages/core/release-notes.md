@@ -2,135 +2,142 @@
 
 ## 版本信息
 
-- 基准版本：`@schemx/core@0.2.3`（与最近可达 Tag `@schemx/vant@0.2.3` 指向同一基准提交）
-- 比较范围：`@schemx/vant@0.2.3..HEAD`
+- 基准版本：`@schemx/core@0.2.3`
 - 基准提交：`c9b1d20`
-- 目标提交：`0a732d7`
+- 比较范围：`@schemx/core@0.2.3..HEAD`
+- 目标提交：`b2c8dc7`
 - 当前分支：`dev`
-- 生成日期：2026-07-29
+- 生成日期：`2026-08-06`
 
 ## 概览
 
-本版本重构了 Form、Schema Runtime 与校验器的公共契约。校验规则、错误结果和 Registry 统一改用 `Validation*` / `Rule*` 命名；Group 与 Dependency 获得容器状态；Form 新增全局与实例级 `schemaConfig` 配置层。
-
-这是一次包含明确 Breaking Changes 的版本。直接使用 `@schemx/core` 的校验、Schema 类型或 Form 配置 API 的项目应先完成下列迁移再升级。
+本轮重构了 Core 的表单配置、Schema 运行时和校验契约，新增 Group/Dependency 容器状态、统一的 `ValidationResult` 以及可组合的全局配置 API。公共导出、表单实例方法、规则注册方式和容器 Schema 形态均有不兼容变化，升级时需要按下方迁移说明检查调用方。
 
 ## Breaking Changes
 
-### 校验 Registry、规则与结果模型
+### @schemx/core：校验结果、规则注册与表单校验 API
 
-- `createValidatorsRegistry`、`ValidatorsRegistryType`、`ValidatorsRegistryOptions`、`ValidatorsFactory`、`ValidatorsEntry`、`ValidatorsEntryMap` 已移除，分别替换为 `createValidationRuleRegistry`、`ValidationRuleRegistry`、`RegistryOptions`、`ValidationRuleFactory`、`ValidationRuleEntry` 与 `ValidationRuleMap`。
-- Form 选项 `validatorRegistry` 改名为 `validationRuleRegistry`；表单实例方法 `getValidator`、`registerValidator`、`hasValidator` 改为 `getRule`、`registerRule`、`hasRule`。
-- `ValidateResult`、`ValidateError`、`FieldError`、`SchemxRules`、`SchemxRuleDefinition*` 不再从 Core 导出。字段 `rules` 现在采用 `FieldRule` / `FieldRules`，校验结果采用 `ValidationResult`、`ValidationSuccess`、`ValidationFailure`、`ValidationCancelled` 与 `ValidationError`。
-- 旧结果中的 `ok` / `error` 结构不再适用。新结果通过 `valid` 判别：成功结果为 `{ valid: true, values, errors: [] }`；普通失败包含字段或表单级 `errors`；被新一轮校验、规则替换或销毁中止时返回 `{ valid: false, cancelled: true, values, errors: [] }`。
-- 内置 `createRequiredRule`、`createSelectRequiredRule`、`createUploadRequiredRule` 已移除，替换为 `createRequiredValidationRule` 与 `createStandardSchemaValidationRule`。组件专属必填规则应迁移到字段 `required`，第三方规则应使用 Standard Schema 或校验 adapter。
+- 旧的 `ValidatorsRegistry` / `createValidatorsRegistry` 体系改为 `ValidationRuleRegistry` / `createValidationRuleRegistry`，表单配置项 `validatorRegistry` 改为 `validationRuleRegistry`；规则注册、查询和移除方法统一为 `registerRule`、`getRule`、`hasRule`、`setFieldRules` 和 `removeFieldRules`。
+- 旧的 `ValidateResult`、`ValidateError`、`FieldError` 结果模型改为以 `valid` 为判别字段的 `ValidationResult`。成功结果包含 `values`，失败结果包含带 `scope`、`name` 和 `issues` 的结构化错误；被新一轮校验中止的结果使用 `cancelled: true` 表示。
+- `submit()` 从 `Promise<void>` 改为 `Promise<ValidationResult<TValues>>`；`validate()`、`validateField()`、`createValidator().validate()` 也返回同一结果模型。字段实例的 `getError` / `setError` / `clearError` 改为 `getErrors` / `setErrors` / `clearErrors`，规则方法的 `registerRules` / `unregisterRules` 改为 `setRules` / `removeRules`。
+- Core 的校验入口统一接收原生 `ValidationRule` 和 Standard Schema；第三方校验器通过 `ValidationAdapterV1` / `validatorAdapters` 接入，旧的第三方规则注册边界不再作为 Core 当前入口。
 
 #### 迁移说明
 
 ```ts
-// 旧写法
-import { createValidatorsRegistry, createForm } from "@schemx/core"
-
-const validatorRegistry = createValidatorsRegistry()
-const form = createForm({ validatorRegistry })
-form.registerValidator("phone", phoneRule)
-
-// 新写法
-import { createValidationRuleRegistry, createForm } from "@schemx/core"
+import { createForm, createValidationRuleRegistry } from "@schemx/core"
 
 const validationRuleRegistry = createValidationRuleRegistry()
+validationRuleRegistry.register("phone", phoneRule)
+
 const form = createForm({ validationRuleRegistry })
-form.registerRule("phone", phoneRule)
-```
-
-校验返回值应改为判别 `valid` 与 `cancelled`，不要继续读取旧的 `ok` 或 `error` 字段：
-
-```ts
 const result = await form.submit()
 
 if (result.valid) {
-  consume(result.values)
+  save(result.values)
 } else if (!result.cancelled) {
   showErrors(result.errors)
 }
 ```
 
-### 字段与 Form 实例 API
+必填校验应优先使用字段的 `required` 配置，自定义校验应通过 `ValidationRule`、Standard Schema 或 `validatorAdapters` 接入。调用方还应将 `getFieldError` / `setFieldError` 等单数错误 API 更新为对应的复数 API，并区分普通失败与 `cancelled` 结果。
 
-- `SchemxFieldInstance#getError()`、`setError()`、`clearError()`、`registerRules()`、`unregisterRules()` 已分别改为 `getErrors()`、`setErrors()`、`clearErrors()`、`setRules()`、`removeRules()`。`getErrors()` 在无错误时返回只读空数组，而不是 `undefined`。
-- `SchemxInstance#getFieldError()`、`setFieldError()`、`registerRules()`、`unregisterRules()` 已替换为 `getFieldErrors()`、`setFieldErrors()`、`clearFieldErrors()`、`setFieldRules()`、`removeFieldRules()`；`submit()` 从 `Promise<void>` 改为 `Promise<ValidationResult<TValues>>`。
-- `updateDefaultProps()` 已替换为 `updateSchemaConfig()`；表单级字段默认值由平铺选项收敛到 `schemaConfig`。
+### @schemx/core：Renderer Registry 查询与类型 API
 
-#### 迁移说明
-
-```ts
-// 旧写法
-field.getError()
-field.registerRules([rule], "校验失败")
-form.updateDefaultProps({ readonly: true })
-
-// 新写法
-field.getErrors()
-field.setRules([rule])
-form.updateSchemaConfig({ readonly: true })
-```
-
-### Schema 与组件 Props 类型边界
-
-- `SchemxProps` 已从 `@schemx/core` 移除；Vue 组件 Props 请改为从 `@schemx/vue` 导入 `SchemxFormProps`。`modelValue`、`form`、`class`、`style` 等 UI 层属性不再属于 Core 类型。
-- `SchemxDefaultProps` 已由 `SchemxSchemaConfig` 取代。`CreateFormOptions` 拆分为 `FormSchemaOptions`、`FormRegistryOptions`、`FormCallbackOptions` 与 `FormLifecycleOptions`，以 `CreateFormOptions` 作为聚合入口。
-- Group 不再使用 `componentType: "group"`，而以 `children` 识别；Dependency 不再使用 `componentType: "dependency"`，而以 `to` 和 `renderer` 识别。继续保留这两个 `componentType` 会导致类型不兼容。
+- 根入口的 `RendererRegistryType` 改为 `RendererRegistry`；`getRenderer`、`hasRenderer`、`getTypes`、`setDefault`、`getDefault` 分别改为 `resolve` / `get`、`has`、`keys`、`setFallback`、`getFallback`。
+- `get()` 现在是不会回退或告警的纯查询；需要保留旧的默认渲染器回退语义时应改用 `resolve()`。
 
 #### 迁移说明
 
 ```ts
-// 旧 Group / Dependency
-{ componentType: "group", label: "基础信息", children: [] }
-{ componentType: "dependency", to: ["type"], renderer: () => [] }
-
-// 新 Group / Dependency
-{ label: "基础信息", children: [] }
-{ to: ["type"], renderer: () => [] }
+const renderer = rendererRegistry.resolve("text") // 需要回退语义
+const exact = rendererRegistry.get("text") // 只查精确类型
+const hasRenderer = rendererRegistry.has("text")
+rendererRegistry.setFallback("input")
 ```
+
+### @schemx/core：表单配置与框架层类型边界
+
+- 旧的 `SchemxDefaultProps` / `SchemxProps` 统一配置模型被拆分为 `FormSchemaOptions`、`FormRegistryOptions`、`FormCallbackOptions`、`FormLifecycleOptions` 和 `CreateFormOptions`；字段默认呈现配置需放入 `schemaConfig`，`defaultRendererType` 等注册表选项仍位于表单配置顶层。
+- `updateDefaultProps` 改为 `updateSchemaConfig`。Vue 专属的 `modelValue`、`form` 等组件属性由 `@schemx/vue` 的 `SchemxFormProps` 承接，不再依赖 Core 的旧统一属性类型。
+
+#### 迁移说明
+
+```ts
+const form = createForm({
+  schemaConfig: {
+    readonly: true,
+    validationTrigger: "change",
+  },
+  defaultRendererType: "text",
+})
+
+form.updateSchemaConfig({ disabled: true })
+```
+
+### @schemx/core：Group/Dependency Schema 契约
+
+- Group 不再使用 `componentType: "group"`，改用 `children`；Dependency 不再使用 `componentType: "dependency"`，改用 `to` 与 `renderer`。旧容器标记会产生兼容警告并被过滤。
+- Schema 编译会校验字段的 `name`、`label`、`componentType` 以及 Dependency 的 `to`、`renderer` 形状；不满足契约的输入可能抛出 `CompileError`。
+
+#### 迁移说明
+
+```ts
+const schemas = [
+  {
+    label: "个人信息",
+    children: [{ name: "nickname", label: "昵称", componentType: "text" }],
+  },
+  {
+    to: ["showAdvanced"],
+    renderer: (values) =>
+      values.showAdvanced
+        ? [{ name: "remark", label: "备注", componentType: "text" }]
+        : [],
+  },
+]
+```
+
+### @schemx/core：公共 Schema 泛型与依赖类型
+
+- `SchemxBase` 现在按 `<TValues, TName, TKey>` 描述表单值、字段路径和渲染器键；显式使用旧泛型参数顺序的代码需要重新检查类型参数。字段依赖类型也按普通字段、Group 和 Dependency 拆分为 `SchemxFieldDependencies`、`SchemxGroupDependencies` 和 `SchemxDependencyDependencies`。
+
+## Deprecations
+
+- 根入口仍暴露 `schemaConfigKeys`、`excludeSchemaConfigKeys`、`SchemxDependencies` 和 `SchemxDependenciesStaticProps` 等兼容名称；这些名称在源码中已标记弃用，新代码应使用 `defaultSchemxConfigKeys`、`excludeSchemxConfigKeys`、`SchemxFieldDependencies` 和 `SchemxFieldDependenciesStaticProps`。
 
 ## Features
 
-### 配置与校验扩展
-
-- 新增 `configureSchemx()`：可为后续 `createForm()` 调用设置全局 `schemaConfig`、`validatorAdapters`、默认 renderer 类型、共享 `rendererRegistry` 与共享 `validationRuleRegistry`。重复调用采用替换语义，不会与上次全局配置合并。
-- 新增 `ValidationAdapterV1` / `ValidationAdapter` 协议，以及 `validatorAdapters` 配置。adapter 可通过 Form 选项或全局配置注册；Form 级 adapter 会追加在全局 adapter 之后，并可用 `override` 覆盖同 ID adapter。
-- Core 内置 Standard Schema 支持，并提供统一的 `ValidationRuleContext`、`ValidationRuleIssue` 与可区分字段/表单范围的错误模型。
-
-### Group 与 Dependency 容器状态
-
-- Group 新增 `visible`、`readonly`、`disabled`、`dependencies`、`collapsed`、`onCollapsedChange`、`destroyOnCollapse`。隐藏 Group 时，其后代不再参与校验，但字段值会保留。
-- Dependency 新增 `visible`、`readonly`、`disabled` 和 `dependencies`。隐藏 Dependency 时，动态结构仍会响应 `to`，但不会呈现子树。
-- `destroyOnCollapse` 默认值为 `true`；设置为 `false` 时，Group 折叠会隐藏而非卸载后代 Renderer。
-
-### Schema 默认值
-
-- 新增 `schemaConfig`、`schemaConfigKeys` 与内置默认值合并机制。支持 `required`、`readonly`、`disabled`、`visible`、`labelIcon`、`labelAlign`、`labelPosition`、`labelWidth`、`contentAlign`、`validationTrigger`、`colon` 与 `showRequiredMark`。
-- `showRequiredMark` 与 `required` 分离：未显式设置时跟随 `required`；显式设置后仅控制视觉标记，不改变校验逻辑。
+- Group 新增 `visible`、`readonly`、`disabled`、`dependencies`、`collapsible`、`defaultCollapsed`、`collapsed`、`onCollapsedChange` 和 `destroyOnCollapse` 等配置；容器状态会递归约束后代字段，隐藏后代会移出校验范围但保留表单值。
+- Dependency 支持动态子树及 `visible`、`readonly`、`disabled`、`dependencies` 状态；动态渲染器接收当前值、Form API 和 `AbortSignal` 上下文。
+- 新增 `configureSchemx`、`getGlobalSchemxConfig`、`mergeSchemxConfig`、`resolveSchemxConfig` 和 `mergeAndResolveSchemxConfig`。全局配置只影响后续创建的 Form，表单显式配置优先；合并函数可分别执行纯合并、默认值解析或两者组合。
+- 原生规则、Standard Schema 和第三方适配器共享新的校验协议；`ValidationRuleRegistry` 支持注册、批量注册、解析、订阅和动态更新，`ValidationAdapterV1` 提供显式协议版本。
+- `required` 与 `showRequiredMark` 分离：前者控制必填校验，后者只控制视觉标记；未显式配置标记时跟随当前有效的 `required` 值。
 
 ## Fixes
 
-- `submit()` 现在将校验结果返回给调用方；成功后才调用 `onFinish`，失败后通过结构化 `ValidationFailure` 调用 `onFinishFailed`，取消结果不会被当作普通失败处理。
-- 重构 Dependency 的调度链路，缩小动态属性 effect 的订阅范围，避免用户回调读取无关字段时污染依赖订阅。
-- 在规则替换、字段删除或实例销毁时中止过期异步校验，避免陈旧错误写回当前字段状态。
+- 动态依赖计算会隔离用户回调中的响应式读取，仅根据声明的 `triggerFields` 触发，减少无关字段变化造成的重复计算。
+- 异步 Dependency renderer 和字段校验均支持取消与过期结果抑制；旧请求晚于新请求完成时不会覆盖最新状态，取消结果不会被当作普通校验失败提示。
+- Group/Dependency 的可见性、只读和禁用状态会递归同步到后代运行时节点；隐藏字段清理校验规则和错误时仍保留字段值。
 
 ## Improvements
 
-- Form 内部拆分为 Model、Runtime、Controller、Observer、Bindings 与稳定 Facade，运行时模块迁移到 `runtime/` 命名空间；这属于内部组织调整，包根入口和 `package.json#exports` 未增加新的运行时子路径。
-- `SchemxExactBaseField` 将字段名、字段值与 renderer Props 关联，`SchemxBaseField` 保持供运行时更新使用的宽化类型，改善大型 Schema 的类型推导与编译复杂度。
-- 新增 Core 类型测试配置与 `pnpm run type-test` 脚本；发布构建前可额外验证公开类型。
+- 表单装配拆分为 Model、Runtime、Controller、Observer、Bindings 和 Facade，运行时内部进一步拆分为编译、描述、节点、协调和 View 子系统；包的 `exports` 未新增内部运行时子路径，根入口仍是公共边界。
+- 统一泛型参数命名，补充 `SchemxExactBaseField` 等精确类型，并新增 `pnpm run type-test` 覆盖公共类型契约。
+- `@schemx/core` 的版本、`exports` 和运行时依赖在本范围内未改变；新增的是用于公共类型契约检查的 `type-test` 脚本。
+
+## Dependencies and Compatibility
+
+- Core 保持框架无关；Standard Schema 可直接由 Core 处理，`async-validator` 等第三方校验器应通过 `ValidationAdapterV1` 接入，或使用配套的 `@schemx/validator` 适配包。
+- `@schemx/vue`、`@schemx/vant` 和 `@schemx/validator` 在本范围内同步适配了 Core 的配置、Schema 或校验契约；升级 Core 时应同步检查这些包的版本和导入名称。
 
 ## Documentation
 
-- 更新 Core README：覆盖新的校验结果、Form API、字段控制器、配置层与迁移后的规则写法。
+- 更新 Core README，补充新的校验结果、命名规则 Registry、Renderer Registry、全局配置、Schema 容器和表单 API 说明。
 
 ## Affected Packages
 
-- `@schemx/core`（直接修改）
-- `@schemx/vue`（直接依赖 Core Form、Schema 与校验 API）
-- `@schemx/vant`（经 Vue/Core 的类型与 renderer 契约受影响）
-- `@schemx/validator`（为新的 adapter 协议提供实现）
+- `@schemx/core`：Schema、表单实例、配置、Registry 和校验公共契约直接变化。
+- `@schemx/vue`：依赖新的 Core 配置、Schema 和校验结果/字段错误 API。
+- `@schemx/vant`：通过 Vue/Core 导出链继承 Renderer 与表单契约变化。
+- `@schemx/validator`：实现并消费新的 Core `ValidationAdapterV1` 与校验结果契约。
