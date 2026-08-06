@@ -46,6 +46,12 @@ ui_task() {
     fi
     [[ -s "$output_file" ]] && _ui_render_output "$(<"$output_file")"
     rm -f "$output_file"
+  elif [[ "$log" == live ]] && _ui_can_spinner; then
+    if gum spin --spinner dot --title "正在执行 ${title}" --show-output -- "$@"; then
+      exit_code=0
+    else
+      exit_code=$?
+    fi
   else
     if "$@"; then exit_code=0; else exit_code=$?; fi
   fi

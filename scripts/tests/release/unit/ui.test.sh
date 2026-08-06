@@ -93,6 +93,25 @@ if rg -n '^$' "$plain_stderr" >/dev/null; then
   exit 1
 fi
 
+spinner_stdout="$temp_dir/spinner.stdout"
+spinner_stderr="$temp_dir/spinner.stderr"
+(
+  export SCHEMX_UI_FORMAT=plain
+  _ui_can_spinner() { return 0; }
+  gum() {
+    [[ "$1" == spin ]] || return 2
+    printf '[测试] 使用 loading spinner：%s\n' "$*" >&2
+    shift
+    while [[ $# -gt 0 && "$1" != '--' ]]; do shift; done
+    [[ "${1:-}" == '--' ]] || return 2
+    shift
+    "$@"
+  }
+  ui_task --title '带 loading 的任务' --log live -- bash -c 'printf 原始输出'
+) >"$spinner_stdout" 2>"$spinner_stderr"
+assert_contains "$(<"$spinner_stderr")" '使用 loading spinner'
+assert_contains "$(<"$spinner_stdout")" '原始输出'
+
 event_names=''
 while IFS= read -r event_name; do
   event_names+="${event_names:+ }${event_name}"

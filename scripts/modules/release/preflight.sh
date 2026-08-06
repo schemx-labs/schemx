@@ -124,8 +124,13 @@ preflight_next_prerelease_sequence() {
   local package_name="$1"
   local baseline="$2"
   local channel="$3"
+  local registry="${NPM_REGISTRY:-https://registry.npmjs.org/}"
   local versions
-  versions="$(pnpm view "$package_name" versions --json --registry "${NPM_REGISTRY:-https://registry.npmjs.org/}")" || return
+  if _ui_can_spinner; then
+    versions="$(gum spin --spinner dot --title "正在查询 ${package_name} 的 ${channel} 预发布序号" --show-error -- pnpm view "$package_name" versions --json --registry "$registry")" || return
+  else
+    versions="$(pnpm view "$package_name" versions --json --registry "$registry")" || return
+  fi
   node -e '
 const fs = require("node:fs")
 const [baseline, channel] = process.argv.slice(1)

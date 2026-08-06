@@ -31,6 +31,19 @@ pnpm() {
 }
 assert_equals "$(preflight_next_prerelease_sequence '@schemx/core' 1.0.0 beta)" '3'
 
+spinner_marker="$(mktemp)"
+_ui_can_spinner() { return 0; }
+gum() {
+  printf 'spinner\n' >> "$spinner_marker"
+  shift
+  while [[ $# -gt 0 && "$1" != '--' ]]; do shift; done
+  shift
+  "$@"
+}
+assert_equals "$(preflight_next_prerelease_sequence '@schemx/core' 1.0.0 beta)" '3'
+[[ -s "$spinner_marker" ]]
+rm -f "$spinner_marker"
+
 token_config="$(NPM_TOKEN=test-token preflight_create_npm_token_config)"
 [[ -f "$token_config" ]]
 [[ "$(<"$token_config")" == *'//registry.npmjs.org/:_authToken=test-token'* ]]

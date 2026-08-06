@@ -19,6 +19,7 @@ release_publish() {
   channel="$(release_select_channel "$requested_channel")" || { ui_flow_end cancelled '发布配置已取消。'; return 130; }
   target="$(release_select_target "$requested_target")" || { ui_flow_end cancelled '发布目标配置已取消。'; return 130; }
   version_action="$(release_select_version_action "$channel" "$requested_action")" || { ui_flow_end cancelled '版本配置已取消。'; return 130; }
+  ui_flow_group --title '生成发布计划' --description '查询 registry 并冻结各包的版本计划。' || return
   plan_file="$(mktemp "${TMPDIR:-/tmp}/schemx-release-plan.XXXXXX")" || {
     ui_flow_end failed '无法创建发布计划文件。'
     return 1
