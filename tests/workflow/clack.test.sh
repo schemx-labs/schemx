@@ -6,29 +6,29 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../.." && pwd)"
-source "$root_dir/scripts/lib/ui.sh"
+source "$root_dir/scripts/workflow/ui/api.sh"
 
 node -e 'import("@clack/prompts").then((module) => { if (typeof module.select !== "function" || typeof module.groupMultiselect !== "function") process.exit(1) })'
 
 payload_file="$(mktemp)"
 trap 'rm -f "$payload_file"' EXIT
 
-_ui_clack_options_payload select '选择发布通道' "$payload_file" 'beta:::beta · 公开测试' 'latest:::latest'
+ui__clack_options_payload select '选择发布通道' "$payload_file" 'beta:::beta · 公开测试' 'latest:::latest'
 [[ "$(jq -r '.kind' "$payload_file")" == 'select' ]]
 [[ "$(jq -r '.message' "$payload_file")" == '选择发布通道' ]]
 [[ "$(jq -r '.options[0].label' "$payload_file")" == 'beta · 公开测试' ]]
 [[ "$(jq -r '.options[0].value' "$payload_file")" == 'beta' ]]
 [[ "$(jq -r '.options[1].value' "$payload_file")" == 'latest' ]]
 
-_ui_clack_input_payload '输入版本' '例如 1.0.0' "$payload_file"
+ui__clack_input_payload '输入版本' '例如 1.0.0' "$payload_file"
 [[ "$(jq -r '.kind' "$payload_file")" == 'input' ]]
 [[ "$(jq -r '.placeholder' "$payload_file")" == '例如 1.0.0' ]]
 
-_ui_clack_confirm_payload '确认发布？' "$payload_file"
+ui__clack_confirm_payload '确认发布？' "$payload_file"
 [[ "$(jq -r '.kind' "$payload_file")" == 'confirm' ]]
 [[ "$(jq -r '.message' "$payload_file")" == '确认发布？' ]]
 
-_ui_clack_group_payload '选择工作区目标' "$payload_file" \
+ui__clack_group_payload '选择工作区目标' "$payload_file" \
   'group:::packages:::Packages' \
   'packages:::packages/core:::core' \
   'packages:::packages/vue:::vue' \

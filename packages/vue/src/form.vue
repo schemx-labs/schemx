@@ -7,7 +7,7 @@
 -->
 
 <script lang="ts" setup generic="TValues extends Values = Values">
-  import { onUnmounted, reactive, watch, watchEffect } from "vue"
+  import { onUnmounted, reactive, watch } from "vue"
 
   import { createWatch, isSchemxSchemas, defaultSchemxConfigKeys } from "@schemx/core"
   import { pick } from "es-toolkit"
@@ -99,6 +99,8 @@
         },
       })
 
+  const isExternalForm = props.form !== undefined
+
   /**
    * 注册表单上下文。
    *
@@ -150,12 +152,16 @@
     }
   }
 
-  watchEffect(() => {
-    const nextSchemaConfig = pickSchemaConfig()
+  watch(
+    pickSchemaConfig,
+    (nextSchemaConfig) => {
+      console.log(" > ~ nextSchemaConfig:", nextSchemaConfig)
 
-    Object.assign(formSchemaConfig, nextSchemaConfig)
-    form.updateSchemaConfig(nextSchemaConfig)
-  })
+      Object.assign(formSchemaConfig, nextSchemaConfig)
+      form.updateSchemaConfig(nextSchemaConfig)
+    },
+    { deep: false, immediate: isExternalForm }
+  )
 
   defineExpose({
     ...form,

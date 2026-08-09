@@ -11,7 +11,8 @@ pnpm add @schemx/core
 Core 内置支持原生 `ValidationRule` 和 Standard Schema v1。任何实现 Standard Schema v1
 的校验库都可以直接作为字段规则使用，不需要安装 `@schemx/validator` 或 Schemx 的 Zod
 adapter；下方 Schema 示例仅需额外安装 `zod` 本身。`async-validator` 等非 Standard
-Schema 写法则可通过 [`@schemx/validator`](../validator) 或自行实现 `ValidationAdapterV1` 接入。
+Schema 写法则可通过 [`@schemx/validator`](../validator) 或自行实现 `ValidationAdapterV1`
+（兼容别名为 `ValidationAdapter`）接入，并通过 `ValidationAdapterOption` 注册到 Form。
 
 ## 快速开始
 
@@ -60,6 +61,8 @@ if (result.valid) {
 ## Schema
 
 普通字段必须提供 `name`、`label` 与 `componentType`；无可见标签时仍需传入 `label: ""`。公开 TypeScript 类型要求 `componentType` 必填；仅在处理 JavaScript 等未经类型检查的输入时，运行时才会使用显式传给 `createForm` 的 `defaultRendererType` 补齐缺失值。`required` 接受 `boolean` 或配置对象；`rules` 接受命名规则、`ValidationRule`、Standard Schema，或这些规则的只读数组。
+
+常用 Schema 类型包括 `SchemxField`、`SchemxBaseField`、`SchemxExactBaseField`、`SchemxGroupField`、`SchemxDependencyField`、`SchemxResolvedField`、`SchemxSchemaConfig`，以及用于描述动态状态的 `SchemxFieldDependencies`、`SchemxGroupDependencies`、`SchemxDependencyDependencies` 和 `SchemxContainerDependencies`。
 
 ```ts
 import { z } from "zod"
@@ -266,22 +269,38 @@ dispose()
 | 类型                                                       | 用途                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------- |
 | `ValidationRule<TValue, TValues, TName>`                   | 原生规则接口，`validate` 可同步或异步返回规则结果。  |
+| `CreateValidatorOptions<TValues>`                          | 规则执行异常回调配置。                               |
+| `ValidationRuleDefinition`                                 | 自定义命名规则的声明合并接口。                       |
+| `ValidationRuleName<TValue>`                               | 由声明合并推导的规则名称。                           |
+| `RequiredOptions<TValue>`                                  | 必填消息与空值判断配置。                             |
+| `RequiredRule<TValue>`                                     | 布尔必填开关或必填配置对象。                         |
+| `DefinedFieldValue<TValues, TName>`                        | 从表单值和路径提取字段值。                           |
 | `ValidationResult<TValues, TName>`                         | 以 `valid` 判别成功或失败的联合类型。                |
+| `ValidationSuccess<TValues>`                               | `valid: true` 的成功结果。                           |
 | `ValidationFailure<TValues, TName>`                        | `valid: false` 的失败结果及扁平 `errors`。           |
 | `ValidationCancelled<TValues>`                             | 被更新校验或销毁操作中止的结果，`cancelled: true`。  |
 | `ValidationError<TName>`                                   | 字段级与表单级错误联合。                             |
 | `FieldValidationError<TName>`                              | 归属于具体字段的错误。                               |
 | `FormValidationError`                                      | 不归属于具体字段的表单级错误。                       |
 | `ValidationRuleIssue`                                      | 单条规则产生的错误问题，包含 `message`。             |
+| `ValidationRuleResult`                                     | 单条规则的校验结果。                                 |
 | `ValidationRuleRegistry`                                   | 命名规则注册中心实例。                               |
 | `ValidationRuleEntry<TValue>`                              | 原生规则、Standard Schema 或规则工厂。               |
 | `ValidationRuleFactory<TValue>`                            | 根据字段元数据创建规则的工厂。                       |
 | `ValidationAdapterV1<TInput>`                              | 第三方校验器适配协议；负责识别规则并转换为原生规则。 |
+| `ValidationAdapter<TInput>`                                | `ValidationAdapterV1` 的兼容别名。                   |
+| `ValidationAdapterRule<TInput>`                            | adapter 可接收的第三方规则输入类型。                 |
+| `ValidationAdapterID`                                      | adapter 的唯一标识类型。                             |
+| `ValidationAdapterRegistration`                            | adapter 注册及覆盖选项。                             |
+| `ValidationAdapterOption`                                  | 可直接注册 adapter，或附带 `override` 的注册项。     |
+| `AdapterRule`                                              | 由 adapter 创建的品牌规则声明。                      |
 | `FieldRule<TValues, TName>` / `FieldRules<TValues, TName>` | Schema 字段可接受的单条或多条规则。                  |
 
 ## Renderer Registry
 
 `createRendererRegistry()` 保存 `componentType` 到 Renderer 的映射。Core 不约束 Renderer 的框架与组件形态；`register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size` 构成其公开操作。
+
+UI 适配层也可以从 `@schemx/core/adapter` 子路径导入 `createRendererRegistry`、`RendererRegistry` 和 `RendererMap`。该子路径是独立的公开构建入口；业务代码不应依赖 `src` 或 `dist` 内部路径。
 
 ## 其他入口
 
@@ -292,7 +311,11 @@ dispose()
 - `mergeSchemxConfig(...configs)`：按从后到前的优先级纯合并多个配置；首参数优先级最高，保留未设置和显式 `undefined` 值。
 - `resolveSchemxConfig(config)`：为单个已合并配置补齐完整的 `schemaConfig` 内置默认值。
 - `mergeAndResolveSchemxConfig(...configs)`：依次调用上述两个函数，返回可直接供 Runtime 消费的完整配置。
-- `createEffect()`、`createWatch()`、`createWatchField()`、`createWatchFields()`、`createWatchAll()`：构建响应式监听。
+- `createSignalEffect()` / `runSignalUntracked()`：创建 signal effect，或在不追踪 signal 依赖的上下文中执行函数。
+- `createSignalWatch()` / `createDebouncedSignalWatch()`：监听 signal source；后者返回可 `run`、`cancel`、`flush` 和 `dispose` 的 debounce 控制器。
+- `createWatch()`、`createWatchField()`、`createWatchFields()`、`createWatchAll()`：监听表单字段值变化。
+
+对应类型为 `SignalEffectOptions`、`SignalEffectDispose`、`SignalWatchOptions`、`DebouncedSignalWatchOptions` 和 `DebouncedSignalWatchControls`，均从 `@schemx/core` 根入口导出。
 
 `SchemxInstance` 的 `getViewSchemas()` 与 `subscribeViewSchemas()` 向 UI 适配层提供稳定投影；表单实例还提供
 `getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()`、`getInitialValues()`、
@@ -307,10 +330,11 @@ dispose()
 
 | 类型                                        | 用途                                                                      |
 | ------------------------------------------- | ------------------------------------------------------------------------- |
-| `FormSchemaOptions<TValues>`                | Schema 列表、初始值和表单级 `schemaConfig`。                              |
+| `FormSchemaOptions<TValues>`                | Schema 列表、初始值、表单级 `schemaConfig` 和 `debug`。                   |
 | `FormRegistryOptions`                       | Renderer、默认 Renderer、ValidationRule Registry 和 `validatorAdapters`。 |
 | `FormCallbackOptions<TValues, TName>`       | 规则错误、提交和字段值变化回调。                                          |
 | `FormLifecycleOptions<TValues>`             | Runtime 生命周期钩子。                                                    |
+| `SchemxSchemaConfig`                        | 表单级字段默认展示与校验配置。                                            |
 | `CreateFormOptions<TValues, TName>`         | 上述四类配置的聚合入口。                                                  |
 | `ResolvedCreateFormOptions<TValues, TName>` | `createForm()` 内部使用的已归一化配置。                                   |
 | `MergedSchemxConfig`                        | `resolveSchemxConfig()` 返回的、已补齐 `schemaConfig` 默认值的配置。      |

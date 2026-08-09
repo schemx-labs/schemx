@@ -2,7 +2,7 @@
  * Scheduler - 通用任务调度器。
  *
  * Scheduler 不存在 validation/dependency/renderer 业务 channel，
- * 只管理 sync/pre/normal/post 优先级任务。
+ * 只管理 normal/post 两级 keyed 任务。
  *
  * @module core/runtime/scheduler/scheduler
  */
@@ -12,9 +12,9 @@ import type { Scope } from "../node"
 /**
  * 任务优先级。
  *
- * 执行顺序: sync → pre → normal → post
+ * 执行顺序: normal → post
  */
-type TaskPriority = "sync" | "pre" | "normal" | "post"
+type TaskPriority = "normal" | "post"
 
 /**
  * 调度任务。
@@ -86,15 +86,38 @@ export interface Scheduler {
   track<TResult>(promise: Promise<TResult>): Promise<TResult>
 
   /**
+   * 跟踪可提前从 idle 判断中移除的逻辑任务。
+   *
+   * cancel 不会中止原始 Promise；调用方仍需自行中止底层操作。
+   */
+  trackCancellable<TResult>(promise: Promise<TResult>): CancellableTask<TResult>
+
+  /**
    * 释放调度器。
    */
   dispose(): void
 }
 
+/** Scheduler 跟踪的可取消逻辑任务。 */
+export interface CancellableTask<TResult> {
+  /** 原始任务 Promise。 */
+  readonly promise: Promise<TResult>
+  /** 任务失效后将其从 idle 判断中移除。 */
+  cancel(): void
+}
+
+/** 保存等待调度器进入 idle 状态的调用方及其超时句柄。 */
+interface IdleWaiter {
+  /** 等待结果的 resolve 回调。 */
+  readonly resolve: (idle: boolean) => void
+  /** 等待超时句柄。 */
+  timeoutId?: ReturnType<typeof globalThis.setTimeout>
+}
+
 /**
- * 优先级执行顺序。
+ * 队列执行顺序。
  */
-const PRIORITY_ORDER: TaskPriority[] = ["sync", "pre", "normal", "post"]
+const PRIORITY_ORDER: readonly TaskPriority[] = ["normal", "post"]
 
 /**
  * 创建一个 Scheduler 实例。
@@ -123,22 +146,25 @@ const PRIORITY_ORDER: TaskPriority[] = ["sync", "pre", "normal", "post"]
  * ```
  */
 export function createScheduler(): Scheduler {
-  // 四个优先级队列
+  // normal/post 两个 keyed 队列
   const queues = new Map<TaskPriority, Map<string, ScheduledTask>>(
     PRIORITY_ORDER.map((priority) => [priority, new Map()])
   )
 
   // Idle 等待者
-  const idleResolvers = new Set<(idle: boolean) => void>()
+  const idleWaiters = new Set<IdleWaiter>()
 
-  // 飞行中异步任务计数
-  let pendingAsync = 0
+  // 参与 idle 判断的逻辑异步任务。
+  const pendingTasks = new Set<object>()
 
   // 是否已释放
   let disposed = false
 
   // 当前 flush Promise
   let currentFlush: Promise<void> | null = null
+
+  // 是否已安排当前 tick 的 flush microtask
+  let flushScheduled = false
 
   /**
    * 执行所有待执行任务。
@@ -191,7 +217,11 @@ export function createScheduler(): Scheduler {
             await track(result)
           }
         } catch (error) {
-          task.onError?.(error)
+          if (task.onError) {
+            task.onError(error)
+          } else {
+            console.error(`[schemx] 调度任务 "${task.id}" 执行错误`, error)
+          }
         }
       }
     }
@@ -210,14 +240,23 @@ export function createScheduler(): Scheduler {
     }
 
     queues.get(task.priority)?.set(task.id, task)
-    queueMicrotask(() => void flush())
+
+    if (flushScheduled) {
+      return
+    }
+
+    flushScheduled = true
+    queueMicrotask(() => {
+      flushScheduled = false
+      void flush()
+    })
   }
 
   /**
    * 从所有队列取出一批任务。
    *
    * 按优先级顺序遍历队列，取出当前所有已调度的任务并清空队列。
-   * 同一批次内按 sync → pre → normal → post 顺序执行。
+   * 同一批次内按 normal → post 顺序执行。
    */
   const takeBatch = (): ScheduledTask[] => {
     const batch: ScheduledTask[] = []
@@ -243,13 +282,33 @@ export function createScheduler(): Scheduler {
    * 用于确保 whenIdle 能正确等待所有异步任务完成。
    */
   const track = async <TResult>(promise: Promise<TResult>): Promise<TResult> => {
-    pendingAsync += 1
+    return await trackCancellable(promise).promise
+  }
 
-    try {
-      return await promise
-    } finally {
-      pendingAsync -= 1
+  /**
+   * 将异步工作作为可取消的逻辑任务纳入 idle 判断。
+   */
+  const trackCancellable = <TResult>(promise: Promise<TResult>): CancellableTask<TResult> => {
+    const task = {}
+
+    let settled = false
+
+    const settle = (): void => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      pendingTasks.delete(task)
       notifyIdleIfNeeded()
+    }
+
+    pendingTasks.add(task)
+    void promise.then(settle, settle)
+
+    return {
+      promise,
+      cancel: settle,
     }
   }
 
@@ -269,15 +328,13 @@ export function createScheduler(): Scheduler {
     }
 
     return new Promise((resolve) => {
-      const timeoutId = globalThis.setTimeout(() => {
-        idleResolvers.delete(resolve)
-        resolve(false)
+      const waiter: IdleWaiter = { resolve }
+
+      waiter.timeoutId = globalThis.setTimeout(() => {
+        settleIdleWaiter(waiter, false)
       }, timeout)
 
-      idleResolvers.add((idle) => {
-        globalThis.clearTimeout(timeoutId)
-        resolve(idle)
-      })
+      idleWaiters.add(waiter)
     })
   }
 
@@ -287,7 +344,7 @@ export function createScheduler(): Scheduler {
    * 空闲条件：无正在执行的 flush、无飞行中异步任务、队列为空。
    */
   const isIdle = (): boolean => {
-    return !currentFlush && pendingAsync === 0 && !hasQueuedTasks()
+    return !currentFlush && pendingTasks.size === 0 && !hasQueuedTasks()
   }
 
   /**
@@ -305,10 +362,24 @@ export function createScheduler(): Scheduler {
       return
     }
 
-    const resolvers = Array.from(idleResolvers)
+    const waiters = Array.from(idleWaiters)
 
-    idleResolvers.clear()
-    resolvers.forEach((resolve) => resolve(true))
+    waiters.forEach((waiter) => settleIdleWaiter(waiter, true))
+  }
+
+  /**
+   * 结束一个 idle waiter，并清理其 timeout。
+   */
+  const settleIdleWaiter = (waiter: IdleWaiter, idle: boolean): void => {
+    if (!idleWaiters.delete(waiter)) {
+      return
+    }
+
+    if (waiter.timeoutId !== undefined) {
+      globalThis.clearTimeout(waiter.timeoutId)
+    }
+
+    waiter.resolve(idle)
   }
 
   /**
@@ -320,7 +391,11 @@ export function createScheduler(): Scheduler {
   const dispose = (): void => {
     disposed = true
     queues.forEach((queue) => queue.clear())
-    notifyIdleIfNeeded()
+    pendingTasks.clear()
+
+    const waiters = Array.from(idleWaiters)
+
+    waiters.forEach((waiter) => settleIdleWaiter(waiter, false))
   }
 
   return {
@@ -328,6 +403,7 @@ export function createScheduler(): Scheduler {
     flush,
     whenIdle,
     track,
+    trackCancellable,
     dispose,
   }
 }

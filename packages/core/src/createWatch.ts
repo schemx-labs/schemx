@@ -219,25 +219,24 @@ export const createWatchField = <
   callback: WatchFieldCallback<TValues, TName>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
-  // Field value observed during the previous effect execution.
+  // 保存上一次 effect 执行时观察到的字段值。
   let prev = form.getFieldSnapshot(name)
 
-  // Distinguishes dependency collection from subsequent change notifications.
+  // 区分首次依赖收集与后续变更通知。
   let isFirst = true
 
   /**
-   * Disposes the reactive effect that tracks the requested field.
+   * 释放用于追踪目标字段的响应式 effect。
    */
   const dispose = form.effect(() => {
-    // Latest value read to establish the field dependency.
+    // 读取最新值以建立字段依赖。
     const current = form.getFieldValue(name)
-
-    // Full snapshot delivered to the public callback.
-    const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
       isFirst = false
       if (options.immediate) {
+        const latestSnapshot = form.getFieldsSnapshot()
+
         callback(latestSnapshot, { value: current, prevValue: undefined })
       }
 
@@ -247,6 +246,8 @@ export const createWatchField = <
     }
 
     if (options.inequality && isEqual(current, prev)) return
+
+    const latestSnapshot = form.getFieldsSnapshot()
 
     callback(latestSnapshot, { value: current, prevValue: prev })
 
@@ -286,26 +287,25 @@ export const createWatchFields = <
   callback: WatchFieldsCallback<TValues>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
-  // Snapshot of the watched fields from the previous effect execution.
+  // 保存上一次 effect 执行时监听字段的快照。
   let prevValues: Partial<TValues> = form.getFieldsSnapshot(names)
 
-  // Distinguishes dependency collection from subsequent change notifications.
+  // 区分首次依赖收集与后续变更通知。
   let isFirst = true
 
   /**
-   * Disposes the reactive effect that tracks all requested fields.
+   * 释放用于追踪全部目标字段的响应式 effect。
    */
   const dispose = form.effect(() => {
-    // Current values read to establish dependencies for every requested field.
+    // 读取当前值以建立每个目标字段的依赖。
     const currentValues: Partial<TValues> = form.getFieldsValue(names)
-
-    // Full snapshot delivered to the public callback.
-    const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
       isFirst = false
 
       if (options.immediate) {
+        const latestSnapshot = form.getFieldsSnapshot()
+
         callback(latestSnapshot, {
           changedPaths: names,
           changedValues: currentValues,
@@ -320,11 +320,13 @@ export const createWatchFields = <
 
     if (options.inequality && isEqual(currentValues, prevValues)) return
 
-    // Partial snapshot containing only values that changed since the previous run.
+    // 仅包含相对上一次执行发生变化的部分快照。
     const changedValues = diff<Partial<TValues>>(currentValues, prevValues)
 
-    // Leaf paths represented by the partial change snapshot.
+    // 部分变更快照中包含的叶子路径。
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
+
+    const latestSnapshot = form.getFieldsSnapshot()
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })
 
@@ -362,19 +364,19 @@ export const createWatchAll = <
   callback: WatchAllCallback<TValues>,
   options: CreateWatchOptions
 ): CreateWatchReturn => {
-  // Distinguishes dependency collection from subsequent change notifications.
+  // 区分首次依赖收集与后续变更通知。
   let isFirst = true
 
-  // Full snapshot captured by the previous effect execution.
+  // 保存上一次 effect 执行时捕获的完整快照。
   let prevValues: TValues = form.getFieldsSnapshot()
 
   /**
-   * Disposes the reactive effect that tracks the complete form snapshot.
+   * 释放用于追踪完整表单快照的响应式 effect。
    */
   const dispose = form.effect(() => {
     form.getFieldsValue()
 
-    // Full snapshot delivered to the public callback.
+    // 传递给公开回调的完整快照。
     const latestSnapshot = form.getFieldsSnapshot()
 
     if (isFirst) {
@@ -394,10 +396,10 @@ export const createWatchAll = <
 
     if (options.inequality && isEqual(latestSnapshot, prevValues)) return
 
-    // Partial snapshot containing only values that changed since the previous run.
+    // 仅包含相对上一次执行发生变化的部分快照。
     const changedValues = diff<Partial<TValues>>(latestSnapshot, prevValues)
 
-    // Leaf paths represented by the partial change snapshot.
+    // 部分变更快照中包含的叶子路径。
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
     callback(latestSnapshot, { changedPaths, changedValues, prevValues })

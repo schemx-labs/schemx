@@ -16,7 +16,9 @@
   "output": {
     "data": ".release/releases/{package}/{version}.json",
     "archive": "docs/releases/{package}/{version}.md",
-    "latest": "{packageRoot}/release-notes.md"
+    "latest": "{packageRoot}/release-notes.md",
+    "repositoryLatest": "release-notes.md",
+    "repositoryArchive": "docs/releases/{version}.md"
   },
   "render": {
     "template": "assets/release-notes.zh-CN.md",

@@ -10,7 +10,7 @@
 import type { NamePath, Values } from "./form"
 import type { ValidationRule } from "./validation"
 
-// Namespace keeps the versioned adapter protocol and its nested contracts together.
+// 将版本化 adapter 协议及其嵌套契约集中在同一命名空间中。
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace ValidationAdapterV1 {
   /**
@@ -48,7 +48,9 @@ export declare namespace ValidationAdapterV1 {
     TValues extends Values = Values,
     TName extends NamePath<TValues> = NamePath<TValues>,
   > {
+    /** 当前正在解析的字段路径。 */
     readonly name: TName
+    /** 当前字段显示标签。 */
     readonly label: string
   }
 

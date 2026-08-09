@@ -1,13 +1,12 @@
 /**
  * RuntimeNodeManager - runtime tree 结构管理器。
  *
- * 该模块只维护 RuntimeNode tree 和 `nodes` Map 的一致性，不挂载 descriptor、
+ * 该模块只维护 RuntimeNode tree 的结构一致性，不挂载配置、
  * field state、dependency effect、validation effect 或 view state。
  *
  * @module core/runtime/node/runtimeNodeManager
  */
 
-import { deleteNodeResources } from "./resources"
 import {
   createDependencyRuntimeNode,
   createFieldRuntimeNode,
@@ -18,21 +17,19 @@ import { createScope } from "./scope"
 
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FormDescriptor } from "../descriptor"
 import type {
-  ContainerRuntimeNode,
   CreateRuntimeNodeOptions,
-  DescribedRuntimeNode,
+  ParentRuntimeNode,
   RootRuntimeNode,
   RuntimeNode,
   RuntimeNodeManager,
-  RuntimeNodeResourceContext,
+  SchemaRuntimeNode,
 } from "./types"
 
 /**
  * 创建 RuntimeNodeManager 实例。
  *
- * Manager 通过 SchemaRuntimeContext 中的 nodeResources 管理所有节点的生命周期和树结构。
+ * Manager 通过 SchemaRuntimeContext 中的 runtimeRegistry 管理节点索引和树结构。
  * 内部维护自增 ID，确保每个节点有唯一的 RuntimeNodeId。
  *
  * @typeParam TValues - 表单值类型
@@ -42,7 +39,7 @@ import type {
 export function createRuntimeNodeManager<TValues extends Values = Values>(
   context: SchemaRuntimeContext<TValues>
 ): RuntimeNodeManager<TValues> {
-  const resources = context.nodeResources
+  const registry = context.runtimeRegistry
 
   let nextId = 1
 
@@ -54,35 +51,6 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
       dispose: createScope(),
     })
 
-    registerNode(resources, node)
-
-    return node
-  }
-
-  /**
-   * 根据 descriptor 创建节点，并将节点挂载到指定父节点。
-   *
-   * 从 descriptor.type 推断节点类型，自动继承父节点 scope 作为 dispose。
-   *
-   * @param descriptor - 表单描述符
-   * @param parent - 目标父容器节点
-   * @returns 新创建的描述节点
-   */
-  function create(
-    descriptor: FormDescriptor<TValues>,
-    parent: ContainerRuntimeNode<TValues>
-  ): DescribedRuntimeNode<TValues> {
-    assertNodeAvailable(parent)
-
-    const node = createNode({
-      type: descriptor.type,
-      key: descriptor.key,
-      parent,
-      dispose: parent.dispose.child(),
-    })
-
-    insertChild(parent, node)
-
     return node
   }
 
@@ -90,57 +58,53 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * 创建并注册一个尚未挂载的描述节点。
    *
    * 根据 type 创建对应的节点类型（field / group / dependency），
-   * 分配自增 ID，注册到 resources.nodes Map 后返回。
+   * 分配自增 ID 后返回。
    *
    * @param createOptions - 创建选项
    * @returns 新创建的描述节点（尚未挂载到父节点）
    */
   function createNode(
     createOptions: CreateRuntimeNodeOptions<TValues>
-  ): DescribedRuntimeNode<TValues> {
+  ): SchemaRuntimeNode<TValues> {
     const nodeId = nextId++
 
     const dispose = createOptions.dispose ?? createScope()
 
-    const baseOptions = {
-      id: nodeId,
-      key: createOptions.key,
-      parent: createOptions.parent,
-      dispose,
-    }
+    let node: SchemaRuntimeNode<TValues>
 
-    let node: DescribedRuntimeNode<TValues>
-
-    switch (createOptions.type) {
+    switch (createOptions.input.type) {
       case "field":
-        node = createFieldRuntimeNode<TValues>(baseOptions)
+        node = createFieldRuntimeNode<TValues>({
+          id: nodeId,
+          input: createOptions.input,
+          parent: createOptions.parent,
+          dispose,
+        })
         break
 
       case "group":
-        node = createGroupRuntimeNode<TValues>(baseOptions)
+        node = createGroupRuntimeNode<TValues>({
+          id: nodeId,
+          input: createOptions.input,
+          parent: createOptions.parent,
+          dispose,
+        })
         break
 
       case "dependency":
-        node = createDependencyRuntimeNode<TValues>(baseOptions)
+        node = createDependencyRuntimeNode<TValues>({
+          id: nodeId,
+          input: createOptions.input,
+          parent: createOptions.parent,
+          dispose,
+        })
         break
 
       default:
-        return assertNever(createOptions.type)
+        return assertNever(createOptions.input)
     }
 
-    registerNode(resources, node)
-
     return node
-  }
-
-  /**
-   * 根据节点 ID 获取 RuntimeNode。
-   *
-   * @param nodeId - 节点 ID
-   * @returns RuntimeNode 实例，不存在时返回 undefined
-   */
-  function getNode(nodeId: number): RuntimeNode<TValues> | undefined {
-    return resources.nodes.get(nodeId)
   }
 
   /**
@@ -196,8 +160,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @param index - 插入位置索引，默认末尾
    */
   function insertChild(
-    parent: ContainerRuntimeNode<TValues>,
-    child: DescribedRuntimeNode<TValues>,
+    parent: ParentRuntimeNode<TValues>,
+    child: SchemaRuntimeNode<TValues>,
     index = parent.childNodes.value.length
   ): void {
     assertNodeAvailable(parent)
@@ -231,16 +195,16 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @param children - 新的子节点列表
    */
   function replaceChildren(
-    parent: ContainerRuntimeNode<TValues>,
-    children: readonly DescribedRuntimeNode<TValues>[]
+    parent: ParentRuntimeNode<TValues>,
+    children: readonly SchemaRuntimeNode<TValues>[]
   ): void {
     assertNodeAvailable(parent)
 
     const previousChildren = parent.childNodes.value
 
-    const nextChildren: DescribedRuntimeNode<TValues>[] = []
+    const nextChildren: SchemaRuntimeNode<TValues>[] = []
 
-    const nextChildrenSet = new Set<DescribedRuntimeNode<TValues>>()
+    const nextChildrenSet = new Set<SchemaRuntimeNode<TValues>>()
 
     /*
      * 先完成参数校验和去重。
@@ -298,8 +262,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @param child - 要移除的子节点
    */
   function removeChild(
-    parent: ContainerRuntimeNode<TValues>,
-    child: DescribedRuntimeNode<TValues>
+    parent: ParentRuntimeNode<TValues>,
+    child: SchemaRuntimeNode<TValues>
   ): void {
     detachChild(parent, child)
   }
@@ -312,7 +276,6 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * - 递归释放子节点；
    * - 释放节点 scope；
    * - 删除节点相关资源；
-   * - 从 nodes Map 中移除节点。
    *
    * @param node - 要删除的子树根节点
    */
@@ -353,7 +316,7 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
       const parent = current.parent
 
       if (parent) {
-        detachChild(parent, current as DescribedRuntimeNode<TValues>)
+        detachChild(parent, current as SchemaRuntimeNode<TValues>)
       }
 
       current.parent = null
@@ -367,7 +330,6 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
        */
       current.dispose.dispose()
 
-      deleteNodeResources(resources, current.id)
     }
 
     remove(node)
@@ -383,8 +345,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @param child - 要解除关系的子节点
    */
   function detachChild(
-    parent: ContainerRuntimeNode<TValues>,
-    child: DescribedRuntimeNode<TValues>
+    parent: ParentRuntimeNode<TValues>,
+    child: SchemaRuntimeNode<TValues>
   ): void {
     const currentChildren = parent.childNodes.value
 
@@ -408,8 +370,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @param children - 新的子节点列表
    */
   function setChildren(
-    node: ContainerRuntimeNode<TValues>,
-    children: readonly DescribedRuntimeNode<TValues>[]
+    node: ParentRuntimeNode<TValues>,
+    children: readonly SchemaRuntimeNode<TValues>[]
   ): void {
     node.childNodes.value = [...children]
   }
@@ -427,8 +389,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
    * @throws 如果形成循环引用则抛出
    */
   function assertCanAttach(
-    parent: ContainerRuntimeNode<TValues>,
-    child: DescribedRuntimeNode<TValues>
+    parent: ParentRuntimeNode<TValues>,
+    child: SchemaRuntimeNode<TValues>
   ): void {
     const visited = new Set<RuntimeNode<TValues>>()
 
@@ -465,12 +427,8 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
   }
 
   return {
-    resources,
-    nodes: resources.nodes,
     createRoot,
-    create,
     createNode,
-    getNode,
     traverse,
     insertChild,
     replaceChildren,
@@ -480,24 +438,6 @@ export function createRuntimeNodeManager<TValues extends Values = Values>(
 }
 
 /**
- * 将节点注册到 RuntimeNode 资源容器。
- *
- * @typeParam TValues - 表单值类型
- * @param resources - 资源注册表
- * @param node - 要注册的节点
- * @throws 如果节点 ID 已存在则抛出
- */
-function registerNode<TValues extends Values>(
-  resources: RuntimeNodeResourceContext<TValues>,
-  node: RuntimeNode<TValues>
-): void {
-  if (resources.nodes.has(node.id)) {
-    throw new Error(`Runtime node ID already exists: ${node.id}.`)
-  }
-
-  resources.nodes.set(node.id, node)
-}
-
 /**
  * 将索引限制在有效的数组插入范围内。
  *

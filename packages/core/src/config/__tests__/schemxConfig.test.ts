@@ -10,6 +10,7 @@ import type {
   ValidationRule,
 } from "../../validator/types"
 import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
+import type { Values } from "../../types"
 
 function createTestAdapter<TInput>(
   id: string,
@@ -33,13 +34,13 @@ function createTestAdapter<TInput>(
 
 afterEach(() => configureSchemx())
 
-function findField(
-  form: { getViewSchemas: () => readonly SchemxViewSchema[] },
+function findField<TValues extends Values>(
+  form: { getViewSchemas: () => readonly SchemxViewSchema<TValues>[] },
   name: string
-): SchemxViewFieldSchema | undefined {
+): SchemxViewFieldSchema<TValues> | undefined {
   return form
     .getViewSchemas()
-    .find((s): s is SchemxViewFieldSchema => "name" in s && s.name === name)
+    .find((s): s is SchemxViewFieldSchema<TValues> => "name" in s && s.name === name)
 }
 
 describe("configureSchemx", () => {
@@ -58,7 +59,7 @@ describe("configureSchemx", () => {
           name: "email",
           label: "邮箱",
           componentType: "input",
-          rules: [globalAdapter.rule("x")],
+          rules: [globalAdapter.rule!("x")],
         },
       ],
     })
@@ -69,18 +70,18 @@ describe("configureSchemx", () => {
           name: "email",
           label: "邮箱",
           componentType: "input",
-          rules: [formAdapter.rule("x")],
+          rules: [formAdapter.rule!("x")],
         },
       ],
     })
     configureSchemx({ validatorAdapters: [] })
 
     await expect(
-      globalForm.validateField("email", { email: "x" })
+      globalForm.validateField("email")
     ).resolves.toMatchObject({
       errors: [{ issues: [{ message: "全局" }] }],
     })
-    await expect(form.validateField("email", { email: "x" })).resolves.toMatchObject({
+    await expect(form.validateField("email")).resolves.toMatchObject({
       errors: [{ issues: [{ message: "表单" }] }],
     })
   })

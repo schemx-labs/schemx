@@ -70,6 +70,20 @@ describe("Scope", () => {
     expect(cleanup).toHaveBeenCalledTimes(1)
   })
 
+  it("disposed 后创建的 child 会立即处于已释放状态", () => {
+    const scope = createScope()
+
+    scope.dispose()
+
+    const childScope = scope.child()
+    const cleanup = vi.fn()
+
+    childScope.add(cleanup)
+
+    expect(childScope.disposed).toBe(true)
+    expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
   it("同一个 cleanup 函数重复注册时应按注册次数执行", () => {
     const scope = createScope()
     const cleanup = vi.fn()

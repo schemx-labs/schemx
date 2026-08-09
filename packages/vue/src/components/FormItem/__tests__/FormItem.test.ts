@@ -130,6 +130,68 @@ const DictionaryRenderer = defineComponent({
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("FormItem 集成测试", () => {
+  it("字段整体插槽应接收并更新当前字段值", async () => {
+    const schema: SchemxBaseField = {
+      name: "website",
+      label: "个人网站",
+      componentType: "input" as any,
+    }
+    const form: SchemxInstance = createForm({
+      initialValues: { website: "schemx.dev" },
+      schemas: [schema as any],
+    })
+
+    form.registerRenderer("input" as any, InputRenderer)
+
+    const wrapper = mount(FormItem, {
+      props: { schema: form.getViewSchemas()[0] },
+      slots: {
+        website: (slotProps: { value?: string }) =>
+          h("span", { "data-testid": "website-slot" }, slotProps.value),
+      },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schemx.dev")
+
+    form.setFieldValue("website", "schema-form.dev")
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schema-form.dev")
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("Dictionary HOC 支持直接传入 api 函数", async () => {
+    const api = vi.fn().mockResolvedValue([])
+    const form: SchemxInstance = createForm({ initialValues: {} })
+
+    const wrapper = mount(DictionaryRendererWithRemoteOptions, {
+      props: {
+        fieldName: "city",
+        dict: api,
+      },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+        },
+      },
+    })
+
+    await nextTick()
+
+    expect(api).toHaveBeenCalledWith({}, form)
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
   it("Dictionary HOC 脱离 FormItem 时仍可使用显式 fieldName", async () => {
     const form: SchemxInstance = createForm({
       initialValues: { province: "GD", city: "Guangzhou" },

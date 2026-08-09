@@ -34,6 +34,16 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./adapter": {
+      "import": {
+        "types": "./dist/adapter.d.ts",
+        "default": "./dist/adapter.mjs"
+      },
+      "require": {
+        "types": "./dist/adapter.d.ts",
+        "default": "./dist/adapter.cjs"
+      }
     }
   },
   "files": [
@@ -47,20 +57,21 @@
   },
   "scripts": {
     "build": "vite build",
-    "build:analyze": "vite build",
+    "build:analyze": "vite build --mode analyze",
     "test": "vitest run",
-    "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --ignore-pattern \"**/__tests__/**\" --ignore-pattern \"**/*.test.*\" --ignore-pattern \"**/*.spec.*\"",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --ignore-pattern \"**/__tests__/**\" --ignore-pattern \"**/*.test.*\" --ignore-pattern \"**/*.spec.*\" --fix",
+    "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-test": "tsc -p tsconfig.type-tests.json --noEmit",
-    "type-check": "tsc -p tsconfig.json --noEmit",
+    "type-test": "pnpm run test:type-check",
+    "test:type-check": "tsc -p tsconfig.test.json --noEmit",
+    "type-check": "tsc -p tsconfig.json --noEmit && pnpm run test:type-check",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/core"
   },
   "license": "MIT",
   "devDependencies": {
-    "fast-check": "^4.6.0",
-    "vue": "catalog:"
+    "fast-check": "^4.6.0"
   }
 }

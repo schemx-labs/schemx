@@ -25,6 +25,7 @@ import { get, set, toPath } from "es-toolkit/compat"
 
 import type { FieldValue, NamePath, Values } from "../types"
 
+/** es-toolkit 路径函数接受的运行时路径形态。 */
 type RuntimePath = string | number | readonly (string | number)[]
 
 /**
@@ -242,6 +243,7 @@ export function createFieldKey<TValues extends Values = Values>(
  * @param path - 字段路径（字符串或数组）
  * @returns 标准化后的运行时路径，适配 es-toolkit 的 get/set 接口
  */
+/** 将类型安全的 NamePath 转换为路径库可消费的运行时路径。 */
 const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   if (Array.isArray(path)) {
     return path.map((part) => (typeof part === "number" ? part : String(part)))
@@ -250,6 +252,7 @@ const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   return path as string | number
 }
 
+/** 比较两个字段路径的段数、顺序和每一段内容。 */
 function isNamePathEqual<TValues extends Values>(
   previous: NamePath<TValues>,
   next: NamePath<TValues> | undefined

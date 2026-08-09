@@ -106,6 +106,10 @@ export interface RuntimeFormModelPort<TValues extends Values> {
    * 移除指定字段的校验配置。
    */
   removeValidationField(name: NamePath<TValues>): void
+  /**
+   * 停止 Schema 规则注册，但保留运行时规则覆盖。
+   */
+  removeSchemaValidationField(name: NamePath<TValues>): void
 }
 
 /**
@@ -119,20 +123,23 @@ export function createRuntimeFormModelPort<TValues extends Values>(
   model: FormModel<TValues>
 ): RuntimeFormModelPort<TValues> {
   // 绑定方法以隔离 Runtime 与 Store/ValidationController 的具体实现。
-  // Runtime-safe binding for reading one field value.
+  // 为 Runtime 安全绑定单字段值读取方法。
   const getFieldValue = model.store.getFieldValue.bind(model.store)
 
-  // Runtime-safe binding for updating one field value.
+  // 为 Runtime 安全绑定单字段值更新方法。
   const setFieldValue = model.store.setFieldValue.bind(model.store)
 
-  // Runtime-safe binding for updating initial field values.
+  // 为 Runtime 安全绑定初始字段值更新方法。
   const setInitialValues = model.store.setInitialValues.bind(model.store)
 
-  // Runtime-safe binding for synchronizing a field validation configuration.
+  // 为 Runtime 安全绑定字段校验配置同步方法。
   const syncValidationField = model.validation.syncField.bind(model.validation)
 
-  // Runtime-safe binding for removing a field validation configuration.
+  // 为 Runtime 安全绑定字段校验配置移除方法。
   const removeValidationField = model.validation.removeField.bind(model.validation)
+
+  // 为 Runtime 安全绑定临时移除 Schema 规则的方法。
+  const removeSchemaValidationField = model.validation.removeSchemaField.bind(model.validation)
 
   return {
     getFieldValue,
@@ -140,6 +147,7 @@ export function createRuntimeFormModelPort<TValues extends Values>(
     setInitialValues,
     syncValidationField,
     removeValidationField,
+    removeSchemaValidationField,
   }
 }
 
@@ -173,7 +181,7 @@ export function createFormModel<TValues extends Values>(
   const effectDisposers = new Set<() => void>()
 
   /**
-   * Resets field values and clears all validation errors.
+   * 重置字段值并清空全部校验错误。
    */
   const reset: FormModel<TValues>["reset"] = () => {
     store.reset()
@@ -181,7 +189,7 @@ export function createFormModel<TValues extends Values>(
   }
 
   /**
-   * Registers and tracks an effect for the Model lifetime.
+   * 注册并在 Model 生命周期内跟踪一个 effect。
    */
   const effect: FormModel<TValues>["effect"] = (fn) => {
     // 先执行一次副作用以建立响应式依赖，再由 Model 统一管理其生命周期。
@@ -206,14 +214,14 @@ export function createFormModel<TValues extends Values>(
   }
 
   /**
-   * Groups state updates into a single reactive batch.
+   * 将状态更新合并到一次响应式 batch 中。
    */
   const batch: FormModel<TValues>["batch"] = (fn) => {
     batchUpdates(fn)
   }
 
   /**
-   * Releases every resource owned by the Model exactly once.
+   * 仅执行一次并释放 Model 持有的全部资源。
    */
   const dispose: FormModel<TValues>["dispose"] = () => {
     if (disposed) {

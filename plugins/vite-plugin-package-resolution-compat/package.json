@@ -21,7 +21,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "pack:local": "bash ../../scripts/modules/packages/pack-vite-plugin.sh vite-plugin-package-resolution-compat"
+    "pack:local": "bash ../../scripts/workflow/commands/packages/pack-vite-plugin.sh vite-plugin-package-resolution-compat"
   },
   "dependencies": {
     "@schemx/vite-plugin-realpath-fallback": "workspace:*"

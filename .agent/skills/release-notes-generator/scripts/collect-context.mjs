@@ -389,6 +389,7 @@ async function main() {
       ref: options.to,
       commit: targetCommit,
     },
+    branch: runGit(['branch', '--show-current']) || 'detached HEAD',
     directPackages,
   }
 

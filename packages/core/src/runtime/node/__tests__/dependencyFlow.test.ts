@@ -1,8 +1,7 @@
 /**
  * Dependency 节点的运行时流程测试。
  *
- * 覆盖 dependencyIndex 的维护、effect 的创建/重建/销毁，以及 trigger 变化
- * 时 effect 的切换与 descriptor 更新。
+ * 覆盖 renderer effect 的创建、重建、销毁，以及 trigger 变化时的切换。
  *
  * @module core/runtime/node/__tests__/dependencyFlow.test
  */
@@ -11,10 +10,10 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createRuntimeGraphHarness, flushRuntimeGraph } from "./runtimeGraphTestUtils"
 
-// dependency 节点的挂载/更新/卸载流程：索引维护、effect 生命周期、竞态保障
+// dependency 节点的挂载/更新/卸载流程：renderer effect 生命周期与竞态保障。
 describe("dependency flow", () => {
-  it("dependencyIndex 跟随 dependency mount/update/unmount 维护触发字段反向查询", async () => {
-    const { commitSchemas, context, root, scheduler } = createRuntimeGraphHarness()
+  it("dependency mount/update/unmount 正确维护 renderer effect", async () => {
+    const { commitSchemas, root, scheduler } = createRuntimeGraphHarness()
 
     commitSchemas(root, [
       {
@@ -30,11 +29,7 @@ describe("dependency flow", () => {
       throw new Error("expected dependency node")
     }
 
-    expect(
-      context.nodeResources.dependencyIndex.getByTriggerField("mode" as any)
-    ).toEqual([dependency])
-    expect(dependency.effectState).toBeDefined()
-    expect(dependency.dependencyDispose).toBeDefined()
+    expect(dependency.rendererEffect).toBeDefined()
 
     commitSchemas(root, [
       {
@@ -45,19 +40,12 @@ describe("dependency flow", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    expect(
-      context.nodeResources.dependencyIndex.getByTriggerField("mode" as any)
-    ).toEqual([])
-    expect(
-      context.nodeResources.dependencyIndex.getByTriggerField("kind" as any)
-    ).toEqual([dependency])
+    expect(dependency.rendererEffect).toBeDefined()
 
     commitSchemas(root, [])
     await flushRuntimeGraph(scheduler)
 
-    expect(
-      context.nodeResources.dependencyIndex.getByTriggerField("kind" as any)
-    ).toEqual([])
+    expect(dependency.rendererEffect).toBeNull()
   })
 
   it("trigger 不变时保留 dependency effect，trigger 变化时重建", async () => {
@@ -78,12 +66,9 @@ describe("dependency flow", () => {
       throw new Error("expected dependency node")
     }
 
-    const firstEffect = dependency.effectState
-    const firstDispose = dependency.dependencyDispose
+    const firstEffect = dependency.rendererEffect
     expect(firstEffect).toBeDefined()
-    expect(dependency.effectState).toBe(firstEffect)
-    expect(firstDispose).toBeDefined()
-    expect(firstDispose?.disposed).toBe(false)
+    expect(dependency.rendererEffect).toBe(firstEffect)
 
     commitSchemas(root, [
       {
@@ -94,8 +79,7 @@ describe("dependency flow", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    expect(dependency.effectState).toBe(firstEffect)
-    expect(dependency.dependencyDispose).toBe(firstDispose)
+    expect(dependency.rendererEffect).toBe(firstEffect)
 
     commitSchemas(root, [
       {
@@ -106,10 +90,7 @@ describe("dependency flow", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    expect(dependency.effectState).not.toBe(firstEffect)
-    expect(firstDispose?.disposed).toBe(true)
-    expect(dependency.dependencyDispose).not.toBe(firstDispose)
-    expect(dependency.dependencyDispose?.disposed).toBe(false)
+    expect(dependency.rendererEffect).not.toBe(firstEffect)
   })
 
   it("dependency unmount 会清空 node-local effect 资源", async () => {
@@ -129,19 +110,15 @@ describe("dependency flow", () => {
       throw new Error("expected dependency node")
     }
 
-    const effectState = dependency.effectState
-    const dependencyDispose = dependency.dependencyDispose
+    const rendererEffect = dependency.rendererEffect
 
-    expect(effectState).toBeDefined()
-    expect(dependencyDispose).toBeDefined()
+    expect(rendererEffect).toBeDefined()
 
     commitSchemas(root, [])
     await flushRuntimeGraph(scheduler)
 
     expect(dependency.disposed.value).toBe(true)
-    expect(dependency.effectState).toBeNull()
-    expect(dependency.dependencyDispose).toBeNull()
-    expect(dependencyDispose?.disposed).toBe(true)
+    expect(dependency.rendererEffect).toBeNull()
   })
 
   it("trigger 不变但 renderer 变化时，下一次执行使用最新 descriptor", async () => {

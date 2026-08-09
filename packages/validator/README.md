@@ -14,61 +14,29 @@ Zod 等实现 Standard Schema V1 的校验器可以直接作为 Core 字段规�
 pnpm add @schemx/core @schemx/validator async-validator
 ```
 
-`async-validator` 是可选 peer dependency。`@schemx/validator` 根入口只导出类型，不会加载第三方库；运行时实现应从对应子路径导入。
+`async-validator` 是可选 peer dependency。包仅提供一个 adapter 工厂，由宿主应用决定如何注册它。
 
-## async-validator
-
-```ts
-import { createForm } from "@schemx/core"
-import { createAsyncValidatorAdapter } from "@schemx/validator/async-validator"
-
-const asyncValidator = createAsyncValidatorAdapter()
-const emailRule = {
-  type: "email",
-  message: "邮箱格式错误",
-}
-
-const form = createForm({
-  validatorAdapters: [asyncValidator],
-  initialValues: { email: "" },
-  schemas: [
-    {
-      name: "email",
-      label: "邮箱",
-      componentType: "input",
-      rules: [emailRule],
-    },
-  ],
-})
-```
-
-descriptor 可以是单个 `RuleItem`，也可以是只读数组。适配器会把当前字段值写回完整表单快照，因此自定义 validator 可以读取关联字段；校验被新一轮校验或销毁操作取消时，过期结果不会写入错误状态。
-
-## 预设
-
-需要快速启用 `async-validator` 时，可使用 `/preset`：
+## 使用
 
 ```ts
 import { createForm } from "@schemx/core"
-import { createValidationAdapterPreset } from "@schemx/validator/preset"
+import { createAsyncValidatorAdapter } from "@schemx/validator"
 
-const validation = createValidationAdapterPreset()
+const asyncValidatorAdapter = createAsyncValidatorAdapter()
 
 const form = createForm({
-  validatorAdapters: validation.validatorAdapters,
+  validatorAdapters: [asyncValidatorAdapter],
   // schemas、initialValues 等其他配置
 })
 ```
 
-预设只负责注册 adapter；业务代码可直接将 async-validator descriptor 放入字段 `rules`。
+业务代码可直接将 async-validator descriptor 放入字段 `rules`。descriptor 可以是单个 `RuleItem`，也可以是只读数组。适配器会把当前字段值写回完整表单快照，因此自定义 validator 可以读取关联字段；校验被新一轮校验或销毁操作取消时，过期结果不会写入错误状态。
 
 ## API 与导出
 
-| 入口                                | 运行时导出                      | 说明                                                                                   |
-| ----------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------- |
-| `@schemx/validator`                 | 无（仅类型）                    | `AsyncValidatorValidationAdapter`、`ValidationAdapterPreset`。                       |
-| `@schemx/validator/async-validator` | `createAsyncValidatorAdapter`   | 适配 `RuleItem` descriptor。                                                           |
-| `@schemx/validator/preset`          | `createValidationAdapterPreset` | 创建 async-validator 适配器集合。                                                     |
+| 入口                | 运行时导出                       | 说明                                     |
+| ------------------- | -------------------------------- | ---------------------------------------- |
+| `@schemx/validator` | `createAsyncValidatorAdapter`   | 创建可直接注册的 async-validator adapter。 |
 
 适配器需要通过 `createForm({ validatorAdapters })`、`configureSchemx({ validatorAdapters })` 或其他 Core 表单创建入口注册。Core 内置的原生 `ValidationRule` 与 Standard Schema 不需要额外适配器。完整的结果类型和错误模型见 [`@schemx/core`](../core)。
 

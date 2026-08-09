@@ -330,6 +330,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
         }
       } catch (error) {
         if (context.signal.aborted) return undefined
+        console.error(`[schemx] 字段 "${String(context.name)}" 校验规则执行错误`, error)
         issues.push(this.getRuleErrorIssue(error, context))
       }
     }
@@ -354,6 +355,11 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
       return { message, code: "rule_execution", cause: error }
     } catch (handlerError) {
+      console.error(
+        `[schemx] 字段 "${String(context.name)}" 校验规则错误处理器执行错误`,
+        handlerError
+      )
+
       return { message: "校验执行失败", code: "rule_execution", cause: handlerError }
     }
   }

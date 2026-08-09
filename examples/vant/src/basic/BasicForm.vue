@@ -139,7 +139,7 @@
             placeholder: "请输入手机号",
             clearable: true,
             hideOnBlur: false,
-            maskFormatter: (value) => value.replace(/^(\d{3})\d{4}(\d+)$/, "$1****$2"),
+            // maskFormatter: (value) => value.replace(/^(\d{3})\d{4}(\d+)$/, "$1****$2"),
             formatter: (value) => value.replace(/^(\d{3})(\d{4})(\d+)$/, "$1 $2 $3"),
           },
           required: true,

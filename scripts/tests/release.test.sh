@@ -5,7 +5,7 @@
 set -euo pipefail
 
 workflow_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$workflow_root/scripts/modules/release/tests.sh"
+source "$workflow_root/scripts/workflow/domains/release/tests.sh"
 
 while IFS=$'\t' read -r label test_file; do
   [[ -n "$label" && -n "$test_file" ]] || continue

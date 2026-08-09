@@ -45,15 +45,21 @@ export interface FormSchemaOptions<TValues extends Values = Values> {
    * 表单级 Schema 默认配置。
    */
   schemaConfig?: Partial<SchemxSchemaConfig>
+  /** 是否生成 Runtime diagnostics 与 View debug DTO，默认关闭。 */
+  debug?: boolean
 }
 
 /**
  * `createForm` 的 Registry 配置。
  */
 export interface FormRegistryOptions {
+  /** 自定义渲染器注册表。 */
   rendererRegistry?: RendererRegistry
+  /** 未显式指定 componentType 时使用的默认渲染器类型。 */
   defaultRendererType?: SchemxRendererKey
+  /** 自定义校验规则注册表。 */
   validationRuleRegistry?: ValidationRuleRegistry
+  /** 第三方校验器适配器列表。 */
   validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
@@ -184,6 +190,7 @@ export function mergeCreateFormOptions<TValues extends Values>(
     onValuesChange: options.onValuesChange,
     onFieldsChange: options.onFieldsChange,
     lifecycleHooks: options.lifecycleHooks,
+    debug: options.debug ?? false,
   }
 }
 

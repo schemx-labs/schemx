@@ -89,10 +89,13 @@ export default defineConfig(({ mode }) => {
   return {
     resolve: {
       alias: useSource
-        ? [
-            { find: "@schemx/core", replacement: resolve(pkgRoots.core, "index.ts") },
-            { find: "@schemx/vue", replacement: resolve(pkgRoots.vue, "index.ts") },
-            { find: "@schemx/vant", replacement: resolve(pkgRoots.vant, "index.ts") },
+          ? [
+            { find: /^@schemx\/core\/(.+)$/, replacement: `${pkgRoots.core}/$1` },
+            { find: /^@schemx\/core$/, replacement: resolve(pkgRoots.core, "index.ts") },
+            { find: /^@schemx\/vue\/(.+)$/, replacement: `${pkgRoots.vue}/$1` },
+            { find: /^@schemx\/vue$/, replacement: resolve(pkgRoots.vue, "index.ts") },
+            { find: /^@schemx\/vant\/(.+)$/, replacement: `${pkgRoots.vant}/$1` },
+            { find: /^@schemx\/vant$/, replacement: resolve(pkgRoots.vant, "index.ts") },
           ]
         : [],
     },

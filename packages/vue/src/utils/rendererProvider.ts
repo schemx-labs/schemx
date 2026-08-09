@@ -11,8 +11,9 @@
 import {
   createRendererRegistry,
   type RendererRegistry,
-  type SchemxRendererKey,
-} from "@schemx/core"
+} from "@schemx/core/adapter"
+
+import type { SchemxRendererKey } from "@schemx/core"
 
 /**
  * 全局渲染器注册实例

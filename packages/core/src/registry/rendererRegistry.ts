@@ -136,7 +136,7 @@ export class RendererRegistry<
   register(type: TKey, renderer: TRenderer, options?: RegistryOptions): void {
     if (this.renderers.has(type) && options?.override === false) {
       console.warn(
-        `[RendererRegistry] Renderer "${type}" already exists, skipping registration`
+        `[schemx] 渲染器 "${type}" 已存在，跳过注册`
       )
 
       return
@@ -204,7 +204,7 @@ export class RendererRegistry<
 
     if (!renderer) {
       console.warn(
-        `[RendererRegistry] Renderer "${type}" not found, falling back to "${this.fallbackType}"`
+        `[schemx] 未找到渲染器 "${type}"，回退到 "${this.fallbackType}"`
       )
 
       if (this.fallbackType) renderer = this.renderers.get(this.fallbackType)
@@ -254,7 +254,7 @@ export class RendererRegistry<
 
       if (firstKey) {
         console.warn(
-          `[RendererRegistry] Fallback renderer was removed, Please reset the fallback renderer.`
+          `[schemx] 回退渲染器已移除，已自动重置为 "${String(firstKey)}"`
         )
 
         this.fallbackType = firstKey
@@ -295,7 +295,7 @@ export class RendererRegistry<
   setFallback(type: TKey): void {
     if (!this.renderers.has(type)) {
       console.warn(
-        `[RendererRegistry] Cannot set fallback to "${type}": renderer not registered`
+        `[schemx] 无法将未注册的渲染器 "${type}" 设为回退渲染器`
       )
 
       return

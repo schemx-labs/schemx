@@ -31,26 +31,6 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.cjs"
       }
-    },
-    "./async-validator": {
-      "import": {
-        "types": "./dist/async-validator.d.ts",
-        "default": "./dist/async-validator.mjs"
-      },
-      "require": {
-        "types": "./dist/async-validator.d.ts",
-        "default": "./dist/async-validator.cjs"
-      }
-    },
-    "./preset": {
-      "import": {
-        "types": "./dist/preset.d.ts",
-        "default": "./dist/preset.mjs"
-      },
-      "require": {
-        "types": "./dist/preset.d.ts",
-        "default": "./dist/preset.cjs"
-      }
     }
   },
   "files": [
@@ -75,9 +55,12 @@
     "lint:fix": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
-    "type-check": "tsc -p tsconfig.json --noEmit",
+    "type-test": "pnpm run test:type-check",
+    "test:type-check": "tsc -p tsconfig.test.json --noEmit",
+    "type-check": "tsc -p tsconfig.json --noEmit && pnpm run test:type-check",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/validator"
   },
   "license": "MIT",
   "devDependencies": {

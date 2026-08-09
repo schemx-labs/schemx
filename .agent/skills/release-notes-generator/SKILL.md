@@ -50,6 +50,8 @@ output:
   data: .release/releases/{version}.json
   archive: docs/releases/{version}.md
   latest: "{packageRoot}/release-notes.md"
+  repositoryLatest: release-notes.md
+  repositoryArchive: docs/releases/{version}.md
 
 monorepo:
   packageReleaseMode: changed-packages
@@ -186,17 +188,17 @@ Security 不得混入普通 Fix。仅在有证据时标为安全修复；避免�
 按以下顺序渲染，并省略空章节：
 
 ```text
-版本标题与摘要
-重要提示
-不兼容变更
-安全修复
-按包分组的新增功能 / 优化与调整 / 问题修复 / API 变更
-跨包 TypeScript 变更
-依赖与兼容性
-升级指南
-验证
-已知问题
-完整变更
+Release Notes、版本信息与概览
+Important Notices
+Breaking Changes
+Security
+Deprecations / Features / Fixes / Improvements / Documentation（按包分组）
+TypeScript Changes
+Dependencies and Compatibility
+Validation
+Known Issues
+Full Changelog
+Affected Packages
 ```
 
 - 版本标题、摘要与版本元数据默认存在；其余章节按数据动态输出。
@@ -204,7 +206,7 @@ Security 不得混入普通 Fix。仅在有证据时标为安全修复；避免�
 - 将迁移说明直接放在对应的 Breaking Change 后；只有多个变更需要组合操作时，才生成全局“升级指南”。
 - API 与 TypeScript 章节使用 `facets` 形成简短索引；不得复制 Breaking Change 的完整描述。
 - Patch Release 以简短修复说明为主；Minor Release 通常包含新增、优化、修复和 API 变化；Major Release 将不兼容变更和迁移信息置于新增功能之前。
-- 输出中文；保留包名、API、命令、代码、依赖名称和版本号原文。
+- 叙述性文字输出简体中文；固定章节名使用英文，不添加 Emoji。保留包名、API、命令、代码、依赖名称和版本号原文。
 
 没有仓库模板时，使用以下默认骨架：
 
@@ -216,32 +218,42 @@ previous: <tag 或 commit>
 packages: [<package>]
 ---
 
-# v<version>
+# Release Notes
+
+## 版本信息
+
+- 基准版本：<tag 或“无 Tag”>
+- 比较范围：<range>
+- 目标提交：<short sha>
+- 当前分支：<branch 或 detached HEAD>
+- 生成日期：<YYYY-MM-DD>
+
+## 概览
 
 <1—3 句用户视角摘要>
 
-## ⚠️ 重要提示
-## 💥 不兼容变更
-## 🔒 安全修复
-## 📦 包变更
+## Important Notices
+## Breaking Changes
+## Security
+## Deprecations
+## Features
 ### <package>
-#### ✨ 新增功能
-#### 🚀 优化与调整
-#### 🐛 问题修复
-#### 🔌 API 变更
-## TypeScript 变更
-## 📦 依赖与兼容性
-## 🔄 升级指南
-## ✅ 验证
-## 🚧 已知问题
-## 完整变更
+## Fixes
+## Improvements
+## Documentation
+## TypeScript Changes
+## Dependencies and Compatibility
+## Validation
+## Known Issues
+## Full Changelog
+## Affected Packages
 ```
 
 ## 写入与失败处理
 
 - 在 `preview` 和 `review` 模式中，不得写入或覆盖文件。
 - 在 `write` 模式中，先验证内存中的 Release Data 和渲染结果，再通过同一文件系统内的临时文件原子替换目标文件。
-- 仓库配置存在时，优先写入版本化 JSON 和 Markdown 归档；仅在配置启用或用户明确要求时更新 `release-notes.md` 最新镜像。
+- 仓库配置存在时，优先写入版本化 JSON 和 Markdown 归档；仅在配置启用或用户明确要求时更新 `release-notes.md` 最新镜像。仓库级模式使用 `output.repositoryLatest` 与 `output.repositoryArchive`；包级模式使用 `output.latest` 与 `output.archive`。
 - 在 `packages` 模式中，为所有通过验证的包分别写入 `<package-root>/release-notes.md`，或配置的 `output.latest` 路径；不得写入仓库根目录的单一说明替代包级输出。
 - 在批量写入前先完成所有候选包的数据与渲染校验；任一需要写入的包校验失败时，默认不写入任何包的正式 Release Note，并报告失败包与原因。
 - 未配置版本化路径但用户明确要求更新 `release-notes.md` 时，兼容旧行为：仓库级写入 Git 根目录，单包或批量包级写入对应包根目录。

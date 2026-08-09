@@ -94,6 +94,20 @@ export interface ValidationController<TValues extends Values> {
     config: FieldValidationConfig<TValues, TName>
   ): boolean
   /**
+   * 覆盖字段的 Schema rules；覆盖存在期间优先于 Schema 声明。
+   */
+  setFieldRules<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): boolean
+  /**
+   * 删除运行时 rules 覆盖，并恢复当前 Schema rules。
+   */
+  removeFieldRules(name: NamePath<TValues>): void
+  /**
+   * 停止 Schema 规则注册，但保留运行时规则覆盖。
+   */
+  removeSchemaField(name: NamePath<TValues>): void
+  /**
    * 移除字段规则及其已有错误消息。
    *
    * @param name - 要移除的字段路径。
@@ -145,6 +159,8 @@ class ValidationControllerImpl<
     string,
     FieldValidationConfig<TValues, NamePath<TValues>>
   >()
+  // 运行时 API 写入的 rules 覆盖；不参与 Registry 反向索引。
+  private readonly ruleOverrides = new Map<string, FieldRules<TValues, NamePath<TValues>>>()
   // 从命名规则反查受影响字段的索引。
   private readonly fieldsByRuleName = new Map<string, Set<string>>()
   // 销毁时释放 Registry 订阅的函数。
@@ -181,7 +197,7 @@ class ValidationControllerImpl<
 
     try {
       // 在替换 Validator 规则前完成全量解析，避免部分规则泄漏。
-      const rules = this.normalizeRules(config)
+      const rules = this.normalizeRules(this.getEffectiveConfig(config))
 
       this.options.validator.clearFieldConfigurationIssues(config.name)
       this.options.validator.setFieldRules(config.name, rules)
@@ -196,8 +212,74 @@ class ValidationControllerImpl<
           cause: error,
         },
       ])
+      console.error(`[schemx] 字段 "${String(config.name)}" 校验配置错误`, error)
 
       return false
+    }
+  }
+
+  /**
+   * 覆盖字段 Schema rules，并立即应用当前有效配置。
+   */
+  public setFieldRules<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): boolean {
+    const key = createFieldKey(config.name)
+
+    this.ruleOverrides.set(key, config.rules as FieldRules<TValues, NamePath<TValues>>)
+
+    const schemaConfig = this.configs.get(key)
+
+    if (schemaConfig) {
+      return this.syncField(schemaConfig)
+    }
+
+    return this.applyConfig(config)
+  }
+
+  /**
+   * 删除运行时规则覆盖；字段仍有 Schema 配置时立即恢复该配置。
+   */
+  public removeFieldRules(name: NamePath<TValues>): void {
+    const key = createFieldKey(name)
+
+    if (!this.ruleOverrides.delete(key)) return
+
+    const schemaConfig = this.configs.get(key)
+
+    if (schemaConfig) {
+      this.syncField(schemaConfig)
+
+      return
+    }
+
+    this.options.validator.removeFieldRules(name)
+  }
+
+  /**
+   * 停止当前 Schema 的规则注册；运行时覆盖仍由同一字段继续持有。
+   */
+  public removeSchemaField(name: NamePath<TValues>): void {
+    const key = createFieldKey(name)
+
+    if (!this.ruleOverrides.has(key)) {
+      this.options.validator.removeFieldRules(name)
+
+      return
+    }
+
+    const schemaConfig = this.configs.get(key)
+
+    if (schemaConfig) {
+      this.applyConfig(this.getEffectiveConfig(schemaConfig))
+
+      return
+    }
+
+    const rules = this.ruleOverrides.get(key)
+
+    if (rules) {
+      this.applyConfig({ name, label: "", required: undefined, rules })
     }
   }
 
@@ -208,6 +290,7 @@ class ValidationControllerImpl<
    */
   public removeField(name: NamePath<TValues>): void {
     this.untrackConfig(name)
+    this.ruleOverrides.delete(createFieldKey(name))
     this.options.validator.removeFieldRules(name)
   }
 
@@ -217,6 +300,7 @@ class ValidationControllerImpl<
   public destroy(): void {
     this.unsubscribeRegistry()
     this.configs.clear()
+    this.ruleOverrides.clear()
     this.fieldsByRuleName.clear()
   }
 
@@ -246,6 +330,50 @@ class ValidationControllerImpl<
     }
 
     return normalized
+  }
+
+  /**
+   * 使用当前覆盖规则构造要写入 Validator 的有效字段配置。
+   */
+  private getEffectiveConfig<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): FieldValidationConfig<TValues, TName> {
+    const override = this.ruleOverrides.get(createFieldKey(config.name))
+
+    if (override === undefined) return config
+
+    return {
+      ...config,
+      rules: override as FieldRules<TValues, TName>,
+    }
+  }
+
+  /**
+   * 将未挂载在 Schema Runtime 中的运行时规则直接应用到 Validator。
+   */
+  private applyConfig<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): boolean {
+    try {
+      const rules = this.normalizeRules(config)
+
+      this.options.validator.clearFieldConfigurationIssues(config.name)
+      this.options.validator.setFieldRules(config.name, rules)
+
+      return true
+    } catch (error) {
+      this.options.validator.setFieldRules(config.name, [])
+      this.options.validator.setFieldConfigurationIssues(config.name, [
+        {
+          message: "字段校验配置错误",
+          code: "validation_config",
+          cause: error,
+        },
+      ])
+      console.error(`[schemx] 字段 "${String(config.name)}" 校验配置错误`, error)
+
+      return false
+    }
   }
 
   /**

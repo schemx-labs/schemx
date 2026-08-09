@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import * as Core from "../../index"
 import { createValidationRuleRegistry } from "../../registry"
@@ -48,6 +48,14 @@ const fieldConfig = {
 }
 
 describe("ValidationController", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("不从 Core 公共入口导出品牌规则工厂", () => {
     expect("createAdapterRule" in Core).toBe(false)
   })
@@ -89,7 +97,7 @@ describe("ValidationController", () => {
       name: "email",
       label: "邮箱",
       required: false,
-      rules: ["missing"],
+      rules: ["missing" as never],
     })
 
     expect(warn).toHaveBeenCalledTimes(1)
@@ -99,7 +107,7 @@ describe("ValidationController", () => {
         errors: [{ issues: [{ code: "validation_config" }] }],
       }
     )
-    registry.register("missing", { validate: () => ({ valid: true }) })
+    registry.register("missing" as never, { validate: () => ({ valid: true }) })
     await expect(validator.validateField("email", { email: "x" })).resolves.toEqual({
       valid: true,
       values: { email: "x" },
@@ -127,11 +135,38 @@ describe("ValidationController", () => {
     expect(validator.getFieldErrors("email")).toEqual([])
   })
 
+  it("运行时规则覆盖优先于 Schema 规则，移除后恢复 Schema 规则", async () => {
+    const validator = createValidator<FormValues>()
+    const controller = createValidationController({
+      validator,
+      registry: createValidationRuleRegistry(),
+    })
+    const schemaRule: ValidationRule = {
+      validate: () => ({ valid: false as const, issues: [{ message: "Schema 规则" }] }),
+    }
+    const overrideRule: ValidationRule = {
+      validate: () => ({ valid: false as const, issues: [{ message: "运行时规则" }] }),
+    }
+
+    controller.syncField({ ...fieldConfig, rules: schemaRule })
+    controller.setFieldRules({ ...fieldConfig, rules: overrideRule })
+
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
+      errors: [{ issues: [{ message: "运行时规则" }] }],
+    })
+
+    controller.removeFieldRules("email")
+
+    await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject({
+      errors: [{ issues: [{ message: "Schema 规则" }] }],
+    })
+  })
+
   it("按品牌 adapter 解析并执行规则", async () => {
     const adapter = createTestAdapter("test", (rule) => [
       {
         validate: () =>
-          rule.payload === "invalid"
+          (rule as { payload: string }).payload === "invalid"
             ? { valid: false as const, issues: [{ message: "无效" }] }
             : { valid: true as const },
       },
@@ -143,7 +178,7 @@ describe("ValidationController", () => {
       validatorAdapters: [adapter],
     })
 
-    controller.syncField({ ...fieldConfig, rules: adapter.rule("invalid") })
+    controller.syncField({ ...fieldConfig, rules: adapter.rule!("invalid") })
 
     await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
       {
@@ -279,7 +314,7 @@ describe("ValidationController", () => {
       validatorAdapters: [badAdapter],
     })
 
-    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule(null) })).toBe(
+    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule!(null) })).toBe(
       false
     )
     await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(

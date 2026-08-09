@@ -69,6 +69,7 @@ dist/
 build/
 out/
 docs/*
+!docs/core-major-refactor-plan.md
 !docs/group-state-extension-design.md
 !docs/release-version-selection-design.md
 unpackage/
@@ -81,6 +82,7 @@ build/Release
 *.tgz
 
 **/tsconfig.tsbuildinfo
+*.timestamp*.mjs
 
 # ===================================
 # 环境和配置
@@ -182,3 +184,6 @@ bower_components
 # typings/
 
 .turbo
+
+.release
+*/release-notes.md

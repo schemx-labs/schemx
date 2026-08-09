@@ -83,11 +83,18 @@ export interface SchemxFieldInstance<
   getValues: () => Readonly<TValues>
 
   /**
+   * 获取表单字段快照。
+   *
+   * @returns 当前表单值快照。
+   */
+  getSnapshot: () => FieldValue<TValues, TName> | undefined
+
+  /**
    * 获取表单全量快照。
    *
    * @returns 当前表单值快照。
    */
-  getSnapshot: () => TValues
+  getSnapshots: () => TValues
 
   /**
    * 校验当前字段。
@@ -247,9 +254,15 @@ export function createField<
   const getValues = (): Readonly<TValues> => form.getFieldsValue()
 
   /**
+   * 读取 name 当前无追踪快照。
+   */
+  const getSnapshot = (): FieldValue<TValues, TName> | undefined =>
+    form.getFieldSnapshot(name)
+
+  /**
    * 读取表单当前无追踪快照。
    */
-  const getSnapshot = (): TValues => form.getFieldsSnapshot()
+  const getSnapshots = (): TValues => form.getFieldsSnapshot()
 
   /**
    * 触发当前字段校验。
@@ -329,6 +342,7 @@ export function createField<
     setInitialValue,
     getValues,
     getSnapshot,
+    getSnapshots,
     validate,
     getErrors,
     setErrors,

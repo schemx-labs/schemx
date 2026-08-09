@@ -31,8 +31,11 @@ export interface FieldSignalMapOptions<TKey> {
   normalizeKey?: (key: TKey | unknown) => string
 }
 
+/** 保存原始字段路径及其对应 signal 的内部记录。 */
 interface FieldSignalRecord<TKey, TValue> {
+  /** 调用方传入的原始字段路径。 */
   readonly key: TKey
+  /** 字段对应的响应式 signal。 */
   readonly value: FieldSignal<TValue>
 }
 
@@ -43,12 +46,16 @@ interface FieldSignalRecord<TKey, TValue> {
  * @typeParam TValue - 字段值类型
  */
 class FieldSignalMapImpl<TKey, TValue> {
+  /** 按标准化路径保存字段 signal 记录。 */
   private readonly records = new Map<string, FieldSignalRecord<TKey, TValue>>()
 
+  /** 结构版本，用于追踪字段新增与删除。 */
   private readonly version = createSignal(0)
 
+  /** 将外部路径转换为内部字符串 key。 */
   private readonly normalizeKey: (key: TKey | unknown) => string
 
+  /** 创建字段 signal 映射并设置路径标准化函数。 */
   constructor(options: FieldSignalMapOptions<TKey> = {}) {
     this.normalizeKey = options.normalizeKey ?? defaultNormalizeFieldKey
   }

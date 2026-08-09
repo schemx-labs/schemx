@@ -9,7 +9,6 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createCompile } from "../../compiler"
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
 
 import type { RuntimeNode } from "../types"
@@ -77,7 +76,7 @@ describe("runtime node flow", () => {
   })
 
   it("removed-node cleanup 观察到的是已经提交的新 parent.children", () => {
-    let rootRef: RuntimeNode | undefined
+    let rootRef: Extract<RuntimeNode, { childNodes: unknown }> | undefined
     const beforeUnmount = vi.fn(() => {
       expect(rootRef?.childNodes.value.map((child) => child.key)).toEqual(["next"])
     })
@@ -90,13 +89,10 @@ describe("runtime node flow", () => {
     expect(beforeUnmount).toHaveBeenCalledTimes(1)
   })
 
-  it("reconciler 只读取 parent.children，不接受外部 previous 结构", () => {
+  it("reconciler 直接接收原始 schema，不接受外部 previous 结构", () => {
     const { reconciler, root } = createRuntimeGraphHarness()
-    const descriptors = createCompile().toDescriptors([
-      createRawFieldSchema("field", "field"),
-    ])
 
-    reconciler.reconcileChildren(root, descriptors)
+    reconciler.reconcileChildren(root, [createRawFieldSchema("field", "field")])
 
     expect(root.childNodes.value[0]?.key).toBe("field")
   })

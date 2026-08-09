@@ -19,9 +19,6 @@ export { createFieldContext, useFieldContext } from "./provideFieldContext"
 /** useWatch - 字段变化监听 */
 export { useWatch, useWatchField, useWatchFields, useWatchAll } from "./useWatch"
 
-/** useEffect - 通用 Signal effect */
-export { useEffect } from "./useEffect"
-
 /** useDictionary - 字典选项加载 */
 export { useDictionary, type UseDictionaryReturn } from "./useDictionary"
 

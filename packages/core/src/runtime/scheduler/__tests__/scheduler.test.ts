@@ -9,9 +9,28 @@ import { describe, expect, it, vi } from "vitest"
 import { createRuntimeScope } from "../../node/scope"
 import { createScheduler } from "../scheduler"
 
-// 验证 schedule 按 sync/pre/normal/post 优先级顺序执行任务
+// 验证 schedule 按 normal/post 队列顺序执行任务
 describe("schedule", () => {
-  it("应该调度 sync/pre/normal/post 任务", async () => {
+  it("同一 tick 内只安排一次 flush microtask", async () => {
+    const scheduler = createScheduler()
+    const queueMicrotask = vi.spyOn(globalThis, "queueMicrotask")
+
+    for (let index = 0; index < 1000; index++) {
+      scheduler.schedule({
+        id: `task-${index}`,
+        priority: "normal",
+        run: () => {},
+      })
+    }
+
+    expect(queueMicrotask).toHaveBeenCalledTimes(1)
+
+    await scheduler.flush()
+
+    queueMicrotask.mockRestore()
+  })
+
+  it("应该按 normal/post 顺序调度任务", async () => {
     const scheduler = createScheduler()
 
     const order: string[] = []
@@ -19,64 +38,48 @@ describe("schedule", () => {
     scheduler.schedule({
       id: "post-1",
       priority: "post",
-      run: () => order.push("post"),
+      run: () => {
+        order.push("post")
+      },
     })
 
     scheduler.schedule({
       id: "normal-1",
       priority: "normal",
-      run: () => order.push("normal"),
-    })
-
-    scheduler.schedule({
-      id: "pre-1",
-      priority: "pre",
-      run: () => order.push("pre"),
-    })
-
-    scheduler.schedule({
-      id: "sync-1",
-      priority: "sync",
-      run: () => order.push("sync"),
+      run: () => {
+        order.push("normal")
+      },
     })
 
     await scheduler.flush()
 
-    expect(order).toEqual(["sync", "pre", "normal", "post"])
+    expect(order).toEqual(["normal", "post"])
   })
 
-  it("应该按优先级顺序执行任务", async () => {
+  it("相同队列与任务 ID 只执行最后一次任务", async () => {
     const scheduler = createScheduler()
 
     const order: string[] = []
 
     scheduler.schedule({
-      id: "1",
+      id: "same",
       priority: "normal",
-      run: () => order.push("normal-1"),
+      run: () => {
+        order.push("first")
+      },
     })
 
     scheduler.schedule({
-      id: "2",
-      priority: "sync",
-      run: () => order.push("sync-1"),
-    })
-
-    scheduler.schedule({
-      id: "3",
-      priority: "post",
-      run: () => order.push("post-1"),
-    })
-
-    scheduler.schedule({
-      id: "4",
-      priority: "pre",
-      run: () => order.push("pre-1"),
+      id: "same",
+      priority: "normal",
+      run: () => {
+        order.push("last")
+      },
     })
 
     await scheduler.flush()
 
-    expect(order).toEqual(["sync-1", "pre-1", "normal-1", "post-1"])
+    expect(order).toEqual(["last"])
   })
 })
 
@@ -195,6 +198,18 @@ describe("whenIdle", () => {
 
     expect(result).toBe(false)
   })
+
+  it("dispose 会结束等待中的 idle waiter", async () => {
+    const scheduler = createScheduler()
+
+    void scheduler.track(new Promise<void>(() => {}))
+
+    const idleResult = scheduler.whenIdle()
+
+    scheduler.dispose()
+
+    await expect(idleResult).resolves.toBe(false)
+  })
 })
 
 // 验证 track 追踪外部 Promise，whenIdle 等待其完成，支持链式调用
@@ -251,7 +266,7 @@ describe("scope cancellation", () => {
     expect(task).not.toHaveBeenCalled()
   })
 
-  it("应该在 scope disposed 后取消关联异步任务", async () => {
+  it("任务已开始后由任务自身负责响应 scope dispose", async () => {
     const scheduler = createScheduler()
     const scope = createRuntimeScope()
 
@@ -272,8 +287,7 @@ describe("scope cancellation", () => {
 
     await scheduler.flush()
 
-    // 任务可能已开始，但应该在 scope disposed 后不执行后续逻辑
-    // 这里主要验证不会崩溃
+    expect(task).toHaveBeenCalledTimes(1)
   })
 })
 

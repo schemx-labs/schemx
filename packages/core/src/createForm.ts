@@ -41,10 +41,10 @@ export type {
 export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
-  // Normalized configuration shared by every Form subsystem.
+  // 所有 Form 子系统共享的标准化配置。
   const merged = mergeCreateFormOptions(options)
 
-  // State, value storage, and validation model owned by the Form.
+  // Form 持有的状态、值存储和校验模型。
   const model = createFormModel<TValues>({
     initialValues: merged.initialValues ?? ({} as TValues),
     validationRuleRegistry:
@@ -53,13 +53,13 @@ export function createForm<TValues extends Values>(
     onRuleError: merged.onRuleError,
   })
 
-  // One-time connection container shared by the public facade and services.
+  // 由公开门面与服务共享、只连接一次的绑定容器。
   const bindings = createFormBindings<TValues>()
 
-  // Lightweight API passed to dynamic renderer implementations.
+  // 传递给动态渲染器实现的轻量 API。
   const formApi = createFormApi(model, bindings)
 
-  // Stable public facade returned to the caller.
+  // 返回给调用方的稳定公开门面。
   const instance = createFormFacade({
     model,
     bindings,
@@ -69,7 +69,7 @@ export function createForm<TValues extends Values>(
       merged.validationRuleRegistry ?? createValidationRuleRegistry(),
   })
 
-  // Runtime responsible for compiling and reconciling the current schemas.
+  // 负责编译并协调当前 Schema 的 Runtime。
   const runtime = createSchemaRuntime({
     model: createRuntimeFormModelPort(model),
     instance,
@@ -77,9 +77,10 @@ export function createForm<TValues extends Values>(
     schemaConfig: merged.schemaConfig,
     defaultRendererType: merged.defaultRendererType,
     lifecycleHooks: merged.lifecycleHooks,
+    debug: merged.debug,
   })
 
-  // Controller responsible for dependency-aware validation and submission.
+  // 负责依赖感知校验与提交的 Controller。
   const controller = createFormController({
     model,
     runtime,
@@ -91,10 +92,10 @@ export function createForm<TValues extends Values>(
 
   bindings.connect({ runtime, controller })
 
-  // Guards the idempotent disposal callback.
+  // 防止销毁回调被重复执行。
   let disposed = false
 
-  // Observer disposer assigned after the initial Runtime mount succeeds.
+  // 初始 Runtime 挂载成功后才会赋值的观察器清理函数。
   let disposeObserver = () => {}
 
   bindings.setDestroy(() => {

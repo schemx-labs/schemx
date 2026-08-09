@@ -4,7 +4,7 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../../../.." && pwd)"
-source "$root_dir/scripts/lib/ui.sh"
+source "$root_dir/scripts/workflow/ui/api.sh"
 
 assert_contains() {
   local value="$1"
@@ -55,6 +55,22 @@ SCHEMX_UI_FORMAT=plain ui_note '说明文本' >"$plain_stdout" 2>"$plain_stderr"
 [[ ! -s "$plain_stdout" ]]
 assert_contains "$(<"$plain_stderr")" '[说明] 说明文本'
 
+copyable_summary_stderr="$temp_dir/copyable-summary.stderr"
+copyable_command='pnpm i /tmp/core.tgz /tmp/vue.tgz'
+SCHEMX_UI_FORMAT=plain ui_copyable_summary --title '安装命令' --tone success --content '已生成 2 个 tarball。' --copy "$copyable_command" >/dev/null 2>"$copyable_summary_stderr"
+assert_contains "$(<"$copyable_summary_stderr")" '--- 安装命令 ---'
+rg -qxF "$copyable_command" "$copyable_summary_stderr"
+copyable_command_gaps="$(awk -v command="$copyable_command" '
+  $0 == command { print gaps; exit }
+  $0 == "│" { gaps += 1; next }
+  { gaps = 0 }
+' "$copyable_summary_stderr")"
+[[ "$copyable_command_gaps" -eq 2 ]] || {
+  printf '断言失败：可复制命令前应有两条导轨间隔行。\n' >&2
+  sed -n l "$copyable_summary_stderr" >&2
+  exit 1
+}
+
 events_file="$temp_dir/events.jsonl"
 (
   export SCHEMX_UI_FORMAT=plain SCHEMX_UI_EVENTS_FILE="$events_file"
@@ -97,7 +113,7 @@ spinner_stdout="$temp_dir/spinner.stdout"
 spinner_stderr="$temp_dir/spinner.stderr"
 (
   export SCHEMX_UI_FORMAT=plain
-  _ui_can_spinner() { return 0; }
+  ui__can_spinner() { return 0; }
   gum() {
     [[ "$1" == spin ]] || return 2
     printf '[测试] 使用 loading spinner：%s\n' "$*" >&2
@@ -112,6 +128,28 @@ spinner_stderr="$temp_dir/spinner.stderr"
 assert_contains "$(<"$spinner_stderr")" '使用 loading spinner'
 assert_contains "$(<"$spinner_stdout")" '原始输出'
 
+spinner_failure_stdout="$temp_dir/spinner-failure.stdout"
+spinner_failure_stderr="$temp_dir/spinner-failure.stderr"
+set +e
+(
+  export SCHEMX_UI_FORMAT=plain
+  ui__can_spinner() { return 0; }
+  gum() {
+    [[ "$1" == spin ]] || return 2
+    shift
+    while [[ $# -gt 0 && "$1" != '--' ]]; do shift; done
+    [[ "${1:-}" == '--' ]] || return 2
+    shift
+    "$@"
+  }
+  ui_task --title '带 loading 的失败任务' --log live -- bash -c 'printf "真实错误\\n" >&2; exit 7'
+) >"$spinner_failure_stdout" 2>"$spinner_failure_stderr"
+spinner_failure_code=$?
+set -e
+[[ "$spinner_failure_code" -eq 7 ]]
+assert_contains "$(<"$spinner_failure_stderr")" '真实错误'
+assert_contains "$(<"$spinner_failure_stderr")" '退出码 7'
+
 event_names=''
 while IFS= read -r event_name; do
   event_names+="${event_names:+ }${event_name}"
@@ -120,9 +158,10 @@ done < <(jq -r '.event' "$events_file")
 jq -se 'all(.[]; .schema == "schemx.ui/v1")' "$events_file" >/dev/null
 jq -se 'any(.[]; .event == "task.finished" and .status == "success" and .exitCode == 0)' "$events_file" >/dev/null
 jq -se 'any(.[]; .event == "task.finished" and (.durationSeconds | type) == "number")' "$events_file" >/dev/null
+jq -se 'any(.[]; .event == "task.started" and .command == "bash -c '\''printf 原始输出'\''" and .argv == ["bash", "-c", "printf 原始输出"])' "$events_file" >/dev/null
 
-_ui_is_interactive() { [[ "${_UI_TEST_NONINTERACTIVE:-}" != true ]]; }
-_ui_prompt_clack() {
+ui__is_interactive() { [[ "${_UI_TEST_NONINTERACTIVE:-}" != true ]]; }
+ui__prompt_clack() {
   if [[ "$1" == confirm ]]; then
     printf 'true\n'
   else
@@ -145,7 +184,7 @@ prompt_layout="$temp_dir/prompt-layout.stderr"
 (
   export SCHEMX_UI_FORMAT=plain
   ui_flow_begin --domain workspace --title 'Prompt 布局' >/dev/null 2>/dev/null
-  _ui_prompt_clack() {
+  ui__prompt_clack() {
     printf '提示视觉输出\n' >&2
     printf 'true\n'
   }
@@ -185,5 +224,12 @@ usage_code=$?
 set -e
 [[ "$usage_code" -eq 2 ]]
 assert_contains "$(<"$plain_stderr")" '未知任务日志策略'
+
+set +e
+SCHEMX_UI_FORMAT=plain ui_task --title '禁止伪造命令' --display 'pnpm build' -- true >"$plain_stdout" 2>"$plain_stderr"
+display_code=$?
+set -e
+[[ "$display_code" -eq 2 ]]
+assert_contains "$(<"$plain_stderr")" 'ui_task 用法错误'
 
 printf 'ui.test.sh: 通过\n'

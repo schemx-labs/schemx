@@ -47,14 +47,14 @@ export interface FormController<TValues extends Values> {
    */
   submit(): Promise<ValidationResult<TValues>>
   /**
-   * 设置字段校验规则，并安排一次 Runtime 空闲后的同步。
+   * 设置字段校验规则覆盖。
    */
   setFieldRules<TName extends NamePath<TValues>>(
     path: TName,
     rules: FieldRules<TValues, TName>
   ): void
   /**
-   * 移除字段校验规则，并安排一次 Runtime 空闲后的同步。
+   * 移除字段校验规则覆盖。
    */
   removeFieldRules<TName extends NamePath<TValues>>(path: TName): void
 }
@@ -84,16 +84,9 @@ export function createFormController<TValues extends Values>(options: {
   }
 
   /**
-   * 带并发锁的整表校验流程。
+   * 在 Runtime 已空闲时执行整表校验。
    */
-  const validate = withLock(async (): Promise<ValidationResult<TValues>> => {
-    // 依赖解析是否在超时前完成。
-    const depsReady = await runtime.waitForIdle()
-
-    if (!depsReady) {
-      return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
-    }
-
+  const validateAfterIdle = async (): Promise<ValidationResult<TValues>> => {
     // 当前仍处于异步操作中的字段。
     const pendingFields = model.store.getPendingFields()
 
@@ -125,6 +118,20 @@ export function createFormController<TValues extends Values>(options: {
     }
 
     return model.validator.validate(model.store.getFieldsValue())
+  }
+
+  /**
+   * 带并发锁的整表校验流程。
+   */
+  const validate = withLock(async (): Promise<ValidationResult<TValues>> => {
+    // 依赖解析是否在超时前完成。
+    const depsReady = await runtime.waitForIdle()
+
+    if (!depsReady) {
+      return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
+    }
+
+    return validateAfterIdle()
   })
 
   /**
@@ -138,8 +145,8 @@ export function createFormController<TValues extends Values>(options: {
       return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
     }
 
-    // 复用整表校验结果决定提交回调。
-    const result = await validate()
+    // 提交已经等待过 Runtime 空闲，直接执行校验，避免重复等待。
+    const result = await validateAfterIdle()
 
     if (result.valid) {
       await callbacks.onFinish?.(result.values)
@@ -151,13 +158,11 @@ export function createFormController<TValues extends Values>(options: {
   })
 
   /**
-   * Synchronizes a field's public rule declaration with validation state.
+   * 将字段公开规则声明同步到校验状态。
    */
   const setFieldRules: FormController<TValues>["setFieldRules"] = (path, rules) => {
-    // 从 Runtime 获取当前字段的 label/required，组成 Validator 配置。
     const effective = runtime.getEffectiveFieldSchema(path)
 
-    // 将公开的字段规则转换为 ValidationController 的配置格式。
     const config: FieldValidationConfig<TValues, typeof path> = {
       name: path,
       label: effective?.label ?? "",
@@ -168,20 +173,14 @@ export function createFormController<TValues extends Values>(options: {
       rules,
     }
 
-    model.validation.syncField(config)
-    runtime.deferPostTask(`validation:${String(path)}`, () => {
-      model.validation.syncField(config)
-    })
+    model.validation.setFieldRules(config)
   }
 
   /**
-   * Removes a field's validation configuration and deferred synchronization.
+   * 移除字段校验配置及延迟同步任务。
    */
   const removeFieldRules: FormController<TValues>["removeFieldRules"] = (path) => {
-    model.validation.removeField(path)
-    runtime.deferPostTask(`validation:${String(path)}`, () => {
-      model.validation.removeField(path)
-    })
+    model.validation.removeFieldRules(path)
   }
 
   return {

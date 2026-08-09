@@ -101,6 +101,31 @@ describe("createAbortableTaskRunner", () => {
     expect(onSuccess).toHaveBeenCalledWith("second")
   })
 
+  it("被替代但永不 settle 的旧任务不会阻塞 scheduler idle", async () => {
+    const scope = createRuntimeScope()
+    const scheduler = createScheduler()
+    let runCount = 0
+
+    const runner = createAbortableTaskRunner({
+      scope,
+      scheduler,
+      run: () => {
+        runCount += 1
+
+        if (runCount === 1) {
+          return new Promise<string>(() => {})
+        }
+
+        return "latest"
+      },
+    })
+
+    void runner.run()
+    await expect(runner.run()).resolves.toBe("latest")
+
+    await expect(scheduler.whenIdle(20)).resolves.toBe(true)
+  })
+
   it("scope dispose 后不应提交成功或错误结果", async () => {
     const scope = createRuntimeScope()
     const scheduler = createScheduler()

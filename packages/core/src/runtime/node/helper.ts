@@ -8,13 +8,13 @@
  */
 
 import {
-  ContainerRuntimeNode,
   DependencyRuntimeNode,
-  DescribedRuntimeNode,
   FieldRuntimeNode,
   GroupRuntimeNode,
+  ParentRuntimeNode,
   RootRuntimeNode,
   RuntimeNode,
+  SchemaRuntimeNode,
 } from "./types"
 
 import type { Values } from "../../types"
@@ -72,41 +72,41 @@ export function isDependencyRuntimeNode<TValues extends Values>(
 }
 
 /**
- * 判断 RuntimeNode 是否为带 descriptor 的节点。
+ * 判断 RuntimeNode 是否由 schema 创建。
  *
- * 所有非 root 节点（field、group、dependency）都带有 descriptor，
- * 可通过此类型守卫安全地访问 descriptor 属性。
+ * 所有非 root 节点（field、group、dependency）都由 schema 创建，
+ * 并直接持有已解析的运行时配置。
  *
  * @typeParam TValues - 表单值类型
  * @param node - 要判断的 RuntimeNode
- * @returns 是否为 DescribedRuntimeNode
+ * @returns 是否为 SchemaRuntimeNode
  */
-export function isDescribedRuntimeNode<TValues extends Values>(
+export function isSchemaRuntimeNode<TValues extends Values>(
   node: RuntimeNode<TValues>
-): node is DescribedRuntimeNode<TValues> {
+): node is SchemaRuntimeNode<TValues> {
   return node.type !== "root"
 }
 
 /**
- * 判断 RuntimeNode 是否为容器节点。
+ * 判断 RuntimeNode 是否可承载子节点。
  *
- * 容器节点（root、group、dependency）可以承载子节点。
+ * Root、Group、Dependency 节点可以承载子节点。
  * field 节点没有子节点。
  *
  * @typeParam TValues - 表单值类型
  * @param node - 要判断的 RuntimeNode
- * @returns 是否为 ContainerRuntimeNode
+ * @returns 是否为 ParentRuntimeNode
  */
-export function isContainerRuntimeNode<TValues extends Values>(
+export function isParentRuntimeNode<TValues extends Values>(
   node: RuntimeNode<TValues>
-): node is ContainerRuntimeNode<TValues> {
+): node is ParentRuntimeNode<TValues> {
   return node.type === "root" || node.type === "group" || node.type === "dependency"
 }
 
 /**
  * 获取 RuntimeNode 的子节点列表。
  *
- * 对容器节点返回其 childNodes signal 的当前值；
+ * 对可承载子节点的 RuntimeNode 返回其 childNodes signal 的当前值；
  * 对 field 节点返回空数组。
  *
  * @typeParam TValues - 表单值类型
@@ -115,6 +115,6 @@ export function isContainerRuntimeNode<TValues extends Values>(
  */
 export function getRuntimeNodeChildren<TValues extends Values>(
   node: RuntimeNode<TValues>
-): readonly DescribedRuntimeNode<TValues>[] {
-  return isContainerRuntimeNode(node) ? node.childNodes.value : []
+): readonly SchemaRuntimeNode<TValues>[] {
+  return isParentRuntimeNode(node) ? node.childNodes.value : []
 }

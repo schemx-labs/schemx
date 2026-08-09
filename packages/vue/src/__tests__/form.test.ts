@@ -1,5 +1,5 @@
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
-import { defineComponent, h, markRaw, nextTick } from "vue"
+import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
 import {
   createRendererRegistry,
@@ -89,6 +89,84 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
 }
 
 describe("SchemxForm 动态 schemas", () => {
+  it("受控 modelValue 原地更新字段后应同步到字段整体插槽", async () => {
+    const rendererRegistry = createRendererRegistry()
+    const modelValue = ref<{ age: string; username?: string }>({ age: "1" })
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const ControlledForm = defineComponent({
+      setup() {
+        return () =>
+          h(
+            SchemxForm,
+            {
+              rendererRegistry,
+              modelValue: modelValue.value,
+              schemas: [
+                {
+                  name: "username",
+                  label: "用户名",
+                  componentType: "input",
+                },
+              ],
+              "onUpdate:modelValue": (nextValues) => {
+                modelValue.value = nextValues
+              },
+            },
+            {
+              username: (slotProps: { value?: string }) =>
+                h("span", { "data-testid": "username-slot" }, slotProps.value),
+            }
+          )
+      },
+    })
+
+    const wrapper = mount(ControlledForm)
+
+    expect(wrapper.get('[data-testid="username-slot"]').text()).toBe("")
+
+    modelValue.value.username = "Alice"
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="username-slot"]').text()).toBe("Alice")
+
+    wrapper.unmount()
+  })
+
+  it("应将字段值转发给字段整体插槽并保持更新", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        modelValue: { username: "Alice" },
+        schemas: [
+          {
+            name: "username",
+            label: "用户名",
+            componentType: "input",
+          },
+        ],
+      },
+      slots: {
+        username: (slotProps: { value?: string }) =>
+          h("span", { "data-testid": "username-slot" }, slotProps.value),
+      },
+    })
+
+    expect(wrapper.get('[data-testid="username-slot"]').text()).toBe("Alice")
+
+    ;(wrapper.vm as any).setFieldValue("username", "Bob")
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="username-slot"]').text()).toBe("Bob")
+
+    wrapper.unmount()
+  })
+
   it("将 validatorAdapters Prop 传递给内部 Form 并执行 adapter", async () => {
     const rendererRegistry = createRendererRegistry()
 

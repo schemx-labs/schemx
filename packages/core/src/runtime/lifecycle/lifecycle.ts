@@ -1,8 +1,8 @@
 /**
- * Lifecycle - RuntimeNode 生命周期事件总线。
+ * Lifecycle - RuntimeNode 生命周期 hooks dispatcher。
  *
  * Reconciler 负责决定 RuntimeNode 的创建、复用和销毁，RuntimeNodeManager 负责执行单个
- * RuntimeNode 的生命周期动作。LifecycleBus 只观察 RuntimeNode 生命周期，不参与内部资源挂载。
+ * RuntimeNode 的生命周期动作。LifecycleBus 只分发创建 Runtime 时固定的 hooks，不参与内部资源挂载。
  *
  * @module core/runtime/lifecycle
  *
@@ -10,34 +10,18 @@
  * ```ts
  * import { createLifecycleBus } from '@schemx/core'
  *
- * // 创建生命周期总线
- * const bus = createLifecycleBus()
- *
- * // 订阅生命周期事件
- * const dispose = bus.on({
- *   beforeMount: (node) => console.log('即将挂载:', node),
+ * const bus = createLifecycleBus({
  *   mounted: (node) => console.log('已挂载:', node),
- *   beforeUpdate: (node, prev) => console.log('即将更新:', node),
- *   updated: (node, prev) => console.log('已更新:', node),
- *   beforeUnmount: (node) => console.log('即将卸载:', node),
- *   unmounted: (node) => console.log('已卸载:', node)
  * })
  *
- * // 发布事件（通常由内部调用）
+ * // 分发生命周期事件（仅 Runtime 内部调用）
  * bus.emitMount(someNode)
  * bus.emitBeforeMount(someNode)
- * bus.emitUpdate(someNode, prevNode)
  * bus.emitBeforeUpdate(someNode, prevNode)
  * bus.emitUpdated(someNode, prevNode)
  * bus.emitBeforeUnmount(someNode)
  * bus.emitUnmount(someNode)
  *
- * // 检查是否有监听器
- * // 清理所有监听器
- * bus.clear()
- *
- * // 取消订阅
- * dispose()
  * ```
  *
  * @example
@@ -107,48 +91,32 @@ export interface LifecycleHooks<TNode> {
 }
 
 /**
- * 生命周期事件监听器。
+ * Runtime 创建时提供的生命周期 hooks。
  *
  * 监听器允许只实现关心的事件。
  */
 export type LifecycleListener<TNode> = Partial<LifecycleHooks<TNode>>
 
 /**
- * 生命周期事件总线。
+ * 生命周期 hooks dispatcher。
  *
  * @example
  * ```ts
- * const bus: LifecycleBus<MyNode> = createLifecycleBus()
- *
- * // 订阅
- * const dispose = bus.on({
+ * const bus: LifecycleBus<MyNode> = createLifecycleBus({
  *   mounted: (node) => console.log('Mounted:', node),
- *   unmounted: (node) => console.log('Unmounted:', node)
  * })
  *
- * // 发布
+ * // 仅 Runtime 内部发布
  * bus.emitMount(node)
  * bus.emitBeforeMount(node)
- * bus.emitUpdate(node, prev)
  * bus.emitBeforeUpdate(node, prev)
  * bus.emitUpdated(node, prev)
  * bus.emitBeforeUnmount(node)
  * bus.emitUnmount(node)
  *
- * // 清理
- * bus.clear()
- * dispose()
  * ```
  */
 export interface LifecycleBus<TNode> {
-  /**
-   * 订阅生命周期事件。
-   *
-   * @param listener - 生命周期事件监听器。
-   * @returns 取消订阅函数
-   */
-  on(listener: LifecycleListener<TNode>): () => void
-
   /**
    * 发布 mount 事件。
    *
@@ -162,14 +130,6 @@ export interface LifecycleBus<TNode> {
    * @param node - 即将挂载的节点。
    */
   emitBeforeMount(node: TNode): void
-
-  /**
-   * 发布 update 事件。
-   *
-   * @param node - 被更新的节点。
-   * @param previousNode - 更新前的节点快照。
-   */
-  emitUpdate(node: TNode, previousNode: TNode): void
 
   /**
    * 发布 beforeUpdate 事件。
@@ -201,66 +161,41 @@ export interface LifecycleBus<TNode> {
    */
   emitUnmount(node: TNode): void
 
-  /**
-   * 移除所有监听器。
-   */
-  clear(): void
 }
 
 /**
  * 创建生命周期事件总线。
  *
- * listener 按订阅顺序执行。发布事件前会复制 listener 快照，避免某个 listener
- * 在回调中订阅/取消订阅影响当前事件分发。
+ * hooks 在 Runtime 创建时固定。单个 hook 的异常会被隔离，不能中断节点事务或资源释放。
  *
  * @param initialListener - 可选的初始监听器。
  * @returns 新的生命周期事件总线。
  *
  * @example
  * ```ts
- * // 创建空总线
- * const bus = createLifecycleBus()
- *
- * // 创建并立即订阅
  * const bus = createLifecycleBus({
  *   mounted: (node) => console.log('Node mounted:', node)
- * })
- *
- * // 后续再订阅
- * const dispose = bus.on({
- *   unmounted: (node) => console.log('Node unmounted:', node)
  * })
  * ```
  */
 export function createLifecycleBus<TNode>(
   initialListener?: LifecycleListener<TNode>
 ): LifecycleBus<TNode> {
-  const listeners = new Set<LifecycleListener<TNode>>()
-
-  if (initialListener) {
-    listeners.add(initialListener)
-  }
-
   /**
-   * 按监听器快照分发生命周期事件。
+   * 隔离 hook 异常，避免观察性代码中断 Runtime 事务。
    */
-  const emit = <TArgs extends unknown[]>(
-    run: (listener: LifecycleListener<TNode>, ...args: TArgs) => void,
+  const dispatch = <TArgs extends unknown[]>(
+    hook: ((...args: TArgs) => void) | undefined,
     ...args: TArgs
   ): void => {
-    for (const listener of Array.from(listeners)) {
-      run(listener, ...args)
+    if (!hook) {
+      return
     }
-  }
 
-  /**
-   * 订阅生命周期事件。
-   */
-  const on = (listener: LifecycleListener<TNode>) => {
-    listeners.add(listener)
-
-    return () => {
-      listeners.delete(listener)
+    try {
+      hook(...args)
+    } catch (error) {
+      console.error("[schemx] Runtime lifecycle hook 执行错误", error)
     }
   }
 
@@ -268,88 +203,50 @@ export function createLifecycleBus<TNode>(
    * 发布 mount 事件。
    */
   const emitMount = (node: TNode) => {
-    emit((listener, currentNode) => {
-      listener.mounted?.(currentNode)
-    }, node)
+    dispatch(initialListener?.mounted, node)
   }
 
   /**
    * 发布 beforeMount 事件。
    */
   const emitBeforeMount = (node: TNode) => {
-    emit((listener, currentNode) => {
-      listener.beforeMount?.(currentNode)
-    }, node)
-  }
-
-  /**
-   * 发布 update 事件。
-   */
-  const emitUpdate = (node: TNode, previousNode: TNode) => {
-    void node
-    void previousNode
+    dispatch(initialListener?.beforeMount, node)
   }
 
   /**
    * 发布 beforeUpdate 事件。
    */
   const emitBeforeUpdate = (node: TNode, previousNode: TNode) => {
-    emit(
-      (listener, currentNode, currentPreviousNode) => {
-        listener.beforeUpdate?.(currentNode, currentPreviousNode)
-      },
-      node,
-      previousNode
-    )
+    dispatch(initialListener?.beforeUpdate, node, previousNode)
   }
 
   /**
    * 发布 updated 事件。
    */
   const emitUpdated = (node: TNode, previousNode: TNode) => {
-    emit(
-      (listener, currentNode, currentPreviousNode) => {
-        listener.updated?.(currentNode, currentPreviousNode)
-      },
-      node,
-      previousNode
-    )
+    dispatch(initialListener?.updated, node, previousNode)
   }
 
   /**
    * 发布 beforeUnmount 事件。
    */
   const emitBeforeUnmount = (node: TNode) => {
-    emit((listener, currentNode) => {
-      listener.beforeUnmount?.(currentNode)
-    }, node)
+    dispatch(initialListener?.beforeUnmount, node)
   }
 
   /**
    * 发布 unmount 事件。
    */
   const emitUnmount = (node: TNode) => {
-    emit((listener, currentNode) => {
-      listener.unmounted?.(currentNode)
-    }, node)
-  }
-
-  /**
-   * 移除所有监听器。
-   */
-  const clear = () => {
-    listeners.clear()
+    dispatch(initialListener?.unmounted, node)
   }
 
   return {
-    on,
     emitMount,
     emitBeforeMount,
-    emitUpdate,
     emitBeforeUpdate,
     emitUpdated,
     emitBeforeUnmount,
     emitUnmount,
-    clear,
   }
 }

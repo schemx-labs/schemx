@@ -17,11 +17,11 @@ const defaultConfigPath = path.join(skillRoot, 'references', 'schemaform-release
 
 // Ordered category labels for package-scoped user-facing changes.
 const packageSectionDefinitions = [
-  { category: 'feature', title: '#### ✨ 新增功能' },
-  { category: 'improvement', title: '#### 🚀 优化与调整' },
-  { category: 'fix', title: '#### 🐛 问题修复' },
-  { category: 'deprecation', title: '#### ⏳ 已废弃功能' },
-  { category: 'documentation', title: '#### 📚 文档' },
+  { category: 'deprecation', title: 'Deprecations' },
+  { category: 'feature', title: 'Features' },
+  { category: 'fix', title: 'Fixes' },
+  { category: 'improvement', title: 'Improvements' },
+  { category: 'documentation', title: 'Documentation' },
 ]
 
 /**
@@ -217,29 +217,20 @@ function renderMigrationExamples(migration) {
  * @param {Record<string, unknown>} data - Validated Release Data.
  * @returns {string | undefined} Markdown section when relevant changes exist.
  */
-function renderPackageChanges(data) {
+function renderPackageCategory(data, definition) {
   // Individual package sections in stable package order.
   const packageSections = []
 
   for (const packageName of stringList(data.packages)) {
-    // Category subsections owned by the current package.
-    const categorySections = []
+    // Changes belonging to both the current package and category.
+    const changes = changesForCategory(data, definition.category).filter(change => change.package === packageName)
 
-    for (const definition of packageSectionDefinitions) {
-      // Changes belonging to both the current package and category.
-      const changes = changesForCategory(data, definition.category).filter(change => change.package === packageName)
-
-      if (changes.length > 0) {
-        categorySections.push(`${definition.title}\n\n${changes.map(renderListItem).join('\n')}`)
-      }
-    }
-
-    if (categorySections.length > 0) {
-      packageSections.push(`### ${packageName}\n\n${categorySections.join('\n\n')}`)
+    if (changes.length > 0) {
+      packageSections.push(`### ${packageName}\n\n${changes.map(renderListItem).join('\n')}`)
     }
   }
 
-  return packageSections.length > 0 ? `## 📦 包变更\n\n${packageSections.join('\n\n')}` : undefined
+  return packageSections.length > 0 ? `## ${definition.title}\n\n${packageSections.join('\n\n')}` : undefined
 }
 
 /**
@@ -282,7 +273,7 @@ function renderValidation(data) {
     skipped: '跳过',
   }
 
-  return `## ✅ 验证\n\n${results.map(result => `- ${result.name}：${labels[result.status] ?? result.status}${typeof result.environment === 'string' && result.environment.trim().length > 0 ? `（${result.environment.trim()}）` : ''}`).join('\n')}`
+  return `## Validation\n\n${results.map(result => `- ${result.name}：${labels[result.status] ?? result.status}${typeof result.environment === 'string' && result.environment.trim().length > 0 ? `（${result.environment.trim()}）` : ''}`).join('\n')}`
 }
 
 /**
@@ -299,7 +290,7 @@ function renderKnownIssues(data) {
     return undefined
   }
 
-  return `## 🚧 已知问题\n\n${issues.map(issue => {
+  return `## Known Issues\n\n${issues.map(issue => {
     // Optional scope for the known issue.
     const affected = typeof issue.affected === 'string' && issue.affected.trim().length > 0 ? `（影响范围：${issue.affected.trim()}）` : ''
     // Optional documented workaround.
@@ -331,33 +322,34 @@ function renderSections(data, config) {
   const renderOptions = isRecord(config.render) ? config.render : {}
 
   if (notices.length > 0) {
-    sections.push(`## ⚠️ 重要提示\n\n${notices.map(notice => `- ${notice}`).join('\n')}`)
+    sections.push(`## Important Notices\n\n${notices.map(notice => `- ${notice}`).join('\n')}`)
   }
 
   if (breakingChanges.length > 0) {
-    sections.push(`## 💥 不兼容变更\n\n${breakingChanges.map(renderBreakingChange).join('\n\n')}`)
+    sections.push(`## Breaking Changes\n\n${breakingChanges.map(renderBreakingChange).join('\n\n')}`)
   }
 
   if (securityChanges.length > 0) {
-    sections.push(`## 🔒 安全修复\n\n${securityChanges.map(renderListItem).join('\n')}`)
+    sections.push(`## Security\n\n${securityChanges.map(renderListItem).join('\n')}`)
   }
 
-  // Package changes remain grouped by the package declaration in Release Data.
-  const packageChanges = renderPackageChanges(data)
+  for (const definition of packageSectionDefinitions) {
+    const packageCategory = renderPackageCategory(data, definition)
 
-  if (packageChanges) {
-    sections.push(packageChanges)
+    if (packageCategory) {
+      sections.push(packageCategory)
+    }
   }
 
   // Cross-cutting type changes are indexed after package-specific details.
-  const typeScriptChanges = renderFacetIndex(data, 'typescript', '## TypeScript 变更')
+  const typeScriptChanges = renderFacetIndex(data, 'typescript', '## TypeScript Changes')
 
   if (typeScriptChanges) {
     sections.push(typeScriptChanges)
   }
 
   if (dependencyChanges.length > 0) {
-    sections.push(`## 📦 依赖与兼容性\n\n${dependencyChanges.map(renderListItem).join('\n')}`)
+    sections.push(`## Dependencies and Compatibility\n\n${dependencyChanges.map(renderListItem).join('\n')}`)
   }
 
   if (renderOptions.includeValidation !== false) {
@@ -377,8 +369,10 @@ function renderSections(data, config) {
   }
 
   if (renderOptions.includeFullChangelog !== false && typeof data.fullChangelog === 'string' && data.fullChangelog.trim().length > 0) {
-    sections.push(`## 完整变更\n\n${data.fullChangelog.trim()}`)
+    sections.push(`## Full Changelog\n\n${data.fullChangelog.trim()}`)
   }
+
+  sections.push(renderAffectedPackages(data))
 
   return sections.join('\n\n')
 }
@@ -389,13 +383,25 @@ function renderSections(data, config) {
  * @param {Record<string, unknown>} data - Validated Release Data.
  * @returns {string} YAML frontmatter block.
  */
-function renderFrontmatter(data) {
-  // Previous release tag preferred over a raw commit for reader-facing metadata.
-  const previous = isRecord(data.from) && typeof data.from.tag === 'string' ? data.from.tag : data.from.commit
-  // JSON array notation is also valid YAML and safely quotes scoped package names.
-  const packages = JSON.stringify(data.packages)
+function renderMetadata(data) {
+  // Package tag is the preferred public baseline; first releases explicitly state its absence.
+  const previous = isRecord(data.from) && typeof data.from.tag === 'string' && data.from.tag.trim().length > 0 ? data.from.tag : '无 Tag'
+  // A short SHA is enough for reader-facing release metadata.
+  const targetCommit = isRecord(data.to) && typeof data.to.commit === 'string' ? data.to.commit.slice(0, 7) : ''
 
-  return `---\nversion: ${data.version}\ndate: ${data.date}\nprevious: ${previous}\npackages: ${packages}\n---`
+  const branch = typeof data.branch === 'string' && data.branch.trim().length > 0 ? data.branch.trim() : 'unknown'
+
+  return `## 版本信息\n\n- 基准版本：${previous}\n- 比较范围：${data.range}\n- 目标提交：${targetCommit}\n- 当前分支：${branch}\n- 生成日期：${data.date}`
+}
+
+/**
+ * Renders the affected publishable packages as a stable reader-facing index.
+ *
+ * @param {Record<string, unknown>} data - Validated Release Data.
+ * @returns {string} Markdown section.
+ */
+function renderAffectedPackages(data) {
+  return `## Affected Packages\n\n${stringList(data.packages).map(packageName => `- ${packageName}`).join('\n')}`
 }
 
 /**
@@ -409,13 +415,12 @@ function renderFrontmatter(data) {
 function renderTemplate(template, data, config) {
   // Supported placeholder values for the intentionally small template contract.
   const replacements = {
-    frontmatter: renderFrontmatter(data),
-    version: data.version,
+    metadata: renderMetadata(data),
     summary: data.summary,
     sections: renderSections(data, config),
   }
 
-  return template.replace(/\{\{(frontmatter|version|summary|sections)\}\}/g, (_, key) => replacements[key]).replace(/\n{3,}/g, '\n\n').trimEnd() + '\n'
+  return template.replace(/\{\{(metadata|summary|sections)\}\}/g, (_, key) => replacements[key]).replace(/\n{3,}/g, '\n\n').trimEnd() + '\n'
 }
 
 /**
@@ -434,6 +439,17 @@ function interpolateOutputPath(pattern, values) {
     .replaceAll('{packageName}', values.packageName)
     .replaceAll('{packageRoot}', values.packageRoot)
     .replaceAll('{version}', values.version)
+}
+
+/**
+ * Resolves a repository-level output pattern without package substitutions.
+ *
+ * @param {string} pattern - Configured repository output path pattern.
+ * @param {string} version - Release version.
+ * @returns {string} Repository-relative resolved path.
+ */
+function interpolateRepositoryOutputPath(pattern, version) {
+  return pattern.replaceAll('{version}', version)
 }
 
 /**
@@ -489,14 +505,36 @@ async function resolveOutputPaths(options, data, config) {
     return [path.resolve(repositoryRoot, options.output)]
   }
 
-  if (data.scope !== 'package' || !Array.isArray(data.packages) || data.packages.length !== 1 || typeof data.packages[0] !== 'string') {
-    throw new Error('未指定 --output 时，Release Data 必须是仅包含一个包的 package 作用域。')
-  }
-
-  // Output settings that define package-level latest and archive paths.
+  // Output settings that define repository and package-level destinations.
   const output = isRecord(config.output) ? config.output : undefined
 
-  if (!output || typeof output.latest !== 'string') {
+  if (!output) {
+    throw new Error('.release/config.json 缺少 output 配置。')
+  }
+
+  if (data.scope === 'repository') {
+    if (typeof output.repositoryLatest !== 'string') {
+      throw new Error('.release/config.json 缺少 output.repositoryLatest。')
+    }
+
+    const outputs = [path.resolve(repositoryRoot, interpolateRepositoryOutputPath(output.repositoryLatest, data.version))]
+
+    if (options.archive) {
+      if (typeof output.repositoryArchive !== 'string') {
+        throw new Error('.release/config.json 缺少 output.repositoryArchive。')
+      }
+
+      outputs.push(path.resolve(repositoryRoot, interpolateRepositoryOutputPath(output.repositoryArchive, data.version)))
+    }
+
+    return [...new Set(outputs)]
+  }
+
+  if (data.scope !== 'package' || !Array.isArray(data.packages) || data.packages.length !== 1 || typeof data.packages[0] !== 'string') {
+    throw new Error('未指定 --output 时，Release Data 必须是 repository 或仅包含一个包的 package 作用域。')
+  }
+
+  if (typeof output.latest !== 'string') {
     throw new Error('.release/config.json 缺少 output.latest。')
   }
 

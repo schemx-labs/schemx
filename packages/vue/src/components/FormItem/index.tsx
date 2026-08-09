@@ -9,7 +9,7 @@
  */
 
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, h, PropType, toRef } from "vue"
+import { computed, defineComponent, h, PropType, toRef, getCurrentInstance } from "vue"
 import type { VNodeChild } from "vue"
 
 import classnames from "classnames"
@@ -90,15 +90,15 @@ const FieldFormItem = defineComponent({
 
     const formContext = useFormConfigContext()
 
-    const schema = () => schemaRef.value
-
-    const field = useField(schema().name)
+    const field = useField(schemaRef.value.name)
 
     createFieldContext(field)
 
+    const uid = getCurrentInstance()?.uid
+
     const trigger = computed<TriggerConfig>(() =>
       mergeTrigger(
-        schema().validationTrigger,
+        schemaRef.value.validationTrigger,
         formContext.schemaConfig.validationTrigger,
         "onChange"
       )
@@ -110,19 +110,20 @@ const FieldFormItem = defineComponent({
      * 当字段不可见、详情展示、只读或禁用时，无需进行校验。
      */
     const canVerified = computed(() => {
-      const isOperate = schema().visible && !schema().readonly && !schema().disabled
+      const isOperate =
+        schemaRef.value.visible && !schemaRef.value.readonly && !schemaRef.value.disabled
 
-      const rules = schema().rules
+      const rules = schemaRef.value.rules
 
-      const hasRules = Array.isArray(rules) ? rules?.length > 0 : !!schema().rules
+      const hasRules = Array.isArray(rules) ? rules?.length > 0 : !!schemaRef.value.rules
 
-      return isOperate && (Boolean(schema().required) || hasRules)
+      return isOperate && (Boolean(schemaRef.value.required) || hasRules)
     })
 
     /** 值变化处理，设置值后根据触发时机决定是否校验 */
     const handleChange = (v: FieldValue<Values, NamePath<Values>>) => {
       field.setValue(v)
-      schema().componentProps?.onChange?.(v)
+      schemaRef.value.componentProps?.onChange?.(v)
 
       if (canVerified.value && shouldValidateOn("change", trigger.value)) {
         field.validate()
@@ -131,31 +132,45 @@ const FieldFormItem = defineComponent({
 
     /** 失焦处理，根据触发时机决定是否校验 */
     const handleBlur = (v: FieldValue<Values, NamePath<Values>>) => {
-      schema().componentProps?.onBlur?.(v)
+      schemaRef.value.componentProps?.onBlur?.(v)
 
       if (canVerified.value && shouldValidateOn("blur", trigger.value)) {
         field.validate()
       }
     }
 
+    const handleValueUpdate = (v: FieldValue<Values, NamePath<Values>>) => {
+      field.setValue(v)
+    }
+
     // 使用 useStableRef 避免每次生成新对象引用
     const componentProps = useStableRef<SchemxComponentProps<Values>>(
       (): SchemxComponentProps<Values> => {
-        const currentSchema = schema()
+        const currentSchema = schemaRef.value
 
         return {
           ...currentSchema.componentProps,
-          readonly: currentSchema.readonly,
-          disabled: currentSchema.disabled,
-          placeholder: currentSchema.placeholder,
-          formItemProps: currentSchema,
-          value: field.getValue(),
+          value: field.value.value,
           onChange: handleChange,
           onBlur: handleBlur,
-          "onUpdate:value": (v) => field.setValue(v),
+          "onUpdate:value": handleValueUpdate,
         }
       }
     )
+
+    /**
+     * 创建插槽参数。
+     *
+     * 插槽渲染时直接读取字段 Ref，确保插槽始终订阅当前字段值，
+     * 不依赖 componentProps 的引用更新时机。
+     */
+    const createSlotProps = (additionalProps: Record<string, unknown> = {}) => {
+      return {
+        ...componentProps.value,
+        value: field.getSnapshot(),
+        ...additionalProps,
+      }
+    }
 
     /**
      * 渲染 required 星号。
@@ -166,9 +181,10 @@ const FieldFormItem = defineComponent({
      * @returns 星号 VNode 或空片段
      */
     const renderRequired = (): VNodeChild => {
-      const showRequiredMark = schema().showRequiredMark ?? Boolean(schema().required)
+      const showRequiredMark =
+        schemaRef.value.showRequiredMark ?? Boolean(schemaRef.value.required)
 
-      if (!showRequiredMark || schema().disabled || schema().readonly) {
+      if (!showRequiredMark || schemaRef.value.disabled || schemaRef.value.readonly) {
         return null
       }
 
@@ -184,17 +200,17 @@ const FieldFormItem = defineComponent({
      * @returns label VNode
      */
     const renderLabel = (): VNodeChild => {
-      const labelSlot = resolveSlot(slots, `${schema().name}Label`)
+      const labelSlot = resolveSlot(slots, `${schemaRef.value.name}Label`)
 
       if (labelSlot) {
-        return labelSlot(schema())
+        return labelSlot(schemaRef.value)
       }
 
-      const labelAlign = schema().labelAlign || formContext.schemaConfig.labelAlign
+      const labelAlign = schemaRef.value.labelAlign || formContext.schemaConfig.labelAlign
 
-      const labelWidth = schema().labelWidth || formContext.schemaConfig.labelWidth
+      const labelWidth = schemaRef.value.labelWidth || formContext.schemaConfig.labelWidth
 
-      const colon = schema().colon ?? formContext.schemaConfig.colon
+      const colon = schemaRef.value.colon ?? formContext.schemaConfig.colon
 
       return (
         <label
@@ -203,7 +219,7 @@ const FieldFormItem = defineComponent({
         >
           {renderRequired()}
           <span class="schemx-item__label-text">
-            {schema().label}
+            {schemaRef.value.label}
             {colon ? ":" : ""}
           </span>
         </label>
@@ -220,26 +236,27 @@ const FieldFormItem = defineComponent({
      * @returns content VNode
      */
     const renderContent = (): VNodeChild => {
-      const component = form.getRenderer(schema().componentType)
+      const component = form.getRenderer(schemaRef.value.componentType)
 
       if (!component) {
         throw new Error(
-          `[schemx] Can not find component renderer of "${schema().componentType}".`
+          `[schemx] Can not find component renderer of "${schemaRef.value.componentType}".`
         )
       }
 
       // 提取子渲染器插槽（fieldName:slotName 格式）
-      const childSlots = extractChildSlots(normalizeNameKey(schema().name), slots)
+      const childSlots = extractChildSlots(normalizeNameKey(schemaRef.value.name), slots)
 
       const columnElement = h(component, componentProps.value, childSlots)
 
-      const contentSlot = resolveSlot(slots, `${schema().name}Content`)
+      const contentSlot = resolveSlot(slots, `${schemaRef.value.name}Content`)
 
       if (contentSlot) {
-        return contentSlot({
-          ...schema(),
-          columnElement,
-        })
+        return contentSlot(
+          createSlotProps({
+            columnElement,
+          })
+        )
       }
 
       return <div class="schemx-item__control">{columnElement}</div>
@@ -255,13 +272,14 @@ const FieldFormItem = defineComponent({
      * @returns error VNode 或 null
      */
     const renderError = (): VNodeChild => {
-      const errorSlot = resolveSlot(slots, `${schema().name}Error`)
+      const errorSlot = resolveSlot(slots, `${schemaRef.value.name}Error`)
 
       if (errorSlot) {
-        return errorSlot({
-          ...schema(),
-          errors: field.errors.value,
-        })
+        return errorSlot(
+          createSlotProps({
+            errors: field.errors.value,
+          })
+        )
       }
 
       if (field.errors.value.length === 0) {
@@ -272,33 +290,33 @@ const FieldFormItem = defineComponent({
     }
 
     return (): VNodeChild => {
-      if (!schema().visible) {
+      if (!schemaRef.value.visible) {
         return null
       }
 
       // 整体插槽：完全接管渲染，不包裹任何默认结构
-      const itemSlot = resolveSlot(slots, normalizeNameKey(schema().name))
+      const itemSlot = resolveSlot(slots, normalizeNameKey(schemaRef.value.name))
 
       if (itemSlot) {
-        return itemSlot(schema())
+        return itemSlot(createSlotProps())
       }
 
       const labelPosition =
-        schema().labelPosition || formContext.schemaConfig.labelPosition
+        schemaRef.value.labelPosition || formContext.schemaConfig.labelPosition
 
       return (
-        <div class={classnames("schemx-item-wrapper")} style={schema().style}>
+        <div class={classnames("schemx-item-wrapper")} style={schemaRef.value.style}>
           <div
             class={classnames(
               "schemx-item",
               `schemx-item--label-${labelPosition}`,
-              schema().class,
+              schemaRef.value.class,
               {
-                "is-readonly": schema().readonly,
-                "is-disabled": schema().disabled,
+                "is-readonly": schemaRef.value.readonly,
+                "is-disabled": schemaRef.value.disabled,
               }
             )}
-            style={{ ...((schema().style ?? {}) as CSSStyleValue) }}
+            style={{ ...((schemaRef.value.style ?? {}) as CSSStyleValue) }}
           >
             {renderLabel()}
 

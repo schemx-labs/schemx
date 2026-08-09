@@ -23,11 +23,9 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      // 每个子路径入口单独构建，使 async-validator 等可选 peer 仅在使用方按需导入时加载。
+      // 仅构建根入口，对外只提供 async-validator adapter 工厂。
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "async-validator": resolve(__dirname, "src/async-validator.ts"),
-        preset: resolve(__dirname, "src/preset.ts"),
       },
       formats: ["es", "cjs"],
       fileName: (format, entryName) =>

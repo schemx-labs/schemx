@@ -9,10 +9,5 @@ coverage/*
 # 忽略压缩产物
 *.min.js
 
-# 忽略特定的测试文件
-# **/__tests__/**
-# **/*.test.*
-# **/*.spec.*
-
 # 忽略指定文件
 scripts/fix.js

@@ -68,7 +68,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/vant"
   },
   "license": "MIT",
   "devDependencies": {

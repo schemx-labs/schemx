@@ -90,7 +90,7 @@ describe("resolveSchemxConfig", () => {
       labelWidth: "120px",
     })
     expect(config.schemaConfig.readonly).toBeUndefined()
-    expect(config.schemaConfig.disabled).toBeUndefined()
+    expect(config.schemaConfig).not.toHaveProperty("disabled")
   })
 })
 

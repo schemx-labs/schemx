@@ -9,7 +9,7 @@
  */
 
 import type { Scope } from "../node"
-import type { Scheduler } from "./scheduler"
+import type { CancellableTask, Scheduler } from "./scheduler"
 
 /**
  * 可中止异步任务运行器的接口。
@@ -141,6 +141,9 @@ export function createAbortableTaskRunner<TValue = void>(
   // 当前正在执行的任务的 AbortController
   let controller: AbortController | null = null
 
+  // 当前参与 idle 判断的逻辑任务。
+  let activeTask: CancellableTask<TValue | undefined> | null = null
+
   /**
    * 判断当前版本的任务是否已过期（应被忽略）。
    *
@@ -192,7 +195,12 @@ export function createAbortableTaskRunner<TValue = void>(
         return
       }
 
-      options.onError?.(error)
+      if (options.onError) {
+        options.onError(error)
+      } else {
+        console.error("[schemx] 可中止任务执行错误", error)
+      }
+
       options.onSettled?.()
 
       if (options.throwOnError) {
@@ -214,11 +222,24 @@ export function createAbortableTaskRunner<TValue = void>(
 
     const currentVersion = ++version
 
+    activeTask?.cancel()
     controller?.abort()
     controller = new AbortController()
     options.onStart?.(controller)
 
-    return await options.scheduler.track(runCurrentTask(currentVersion, controller))
+    const task = options.scheduler.trackCancellable(
+      runCurrentTask(currentVersion, controller)
+    )
+
+    activeTask = task
+
+    try {
+      return await task.promise
+    } finally {
+      if (activeTask === task) {
+        activeTask = null
+      }
+    }
   }
 
   /**
@@ -229,6 +250,8 @@ export function createAbortableTaskRunner<TValue = void>(
    */
   const dispose = (): void => {
     version += 1
+    activeTask?.cancel()
+    activeTask = null
     controller?.abort()
     ownScope.dispose()
   }

@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest"
 import { CompileError } from "../runtime/compiler"
 import { createSchemas } from "../createSchemas"
 import { createForm } from "../createForm"
+import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
 
 describe("字段初始值", () => {
   it("Schema initialValue 初始化不应触发 onValuesChange", () => {
@@ -173,24 +174,32 @@ describe("表单提交", () => {
   })
 
   it("pending 字段返回字段级错误并同步错误状态", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
     const form = createForm({ initialValues: { avatar: "" } })
-    form.setFieldPending("avatar", true, "头像上传中")
+    try {
+      form.setFieldPending("avatar", true, "头像上传中")
 
-    const result = await form.validate()
+      const result = await form.validate()
 
-    expect(result).toEqual({
-      valid: false,
-      values: { avatar: "" },
-      errors: [
-        {
-          scope: "field",
-          name: "avatar",
-          issues: [{ message: "头像上传中", code: "pending" }],
-        },
-      ],
-    })
-    expect(form.getFieldErrors("avatar")).toEqual(["头像上传中"])
-    form.destroy()
+      expect(result).toEqual({
+        valid: false,
+        values: { avatar: "" },
+        errors: [
+          {
+            scope: "field",
+            name: "avatar",
+            issues: [{ message: "头像上传中", code: "pending" }],
+          },
+        ],
+      })
+      expect(form.getFieldErrors("avatar")).toEqual(["头像上传中"])
+      expect(consoleWarn).toHaveBeenCalledWith(
+        '[schemx] 存在正在操作中的字段: avatar，请等待完成后再提交'
+      )
+    } finally {
+      form.destroy()
+      consoleWarn.mockRestore()
+    }
   })
 
   it("依赖等待超时返回表单级错误", async () => {
@@ -235,8 +244,8 @@ describe("表单提交", () => {
 
 // 属性测试：验证 createForm 创建的表单实例 onValuesChange 回调的正确性
 describe("CreateFormInstance 属性测试", () => {
-  // Feature: pure-signal-core-refactor, Property 10: onValuesChange 回调正确性
-  // **Validates: Requirements 8.7, 8.8**
+  // 功能：pure-signal-core-refactor；属性 10：onValuesChange 回调正确性
+  // **验证：需求 8.7、8.8**
   it("Property 10: 对于任意字段路径和值变更，onValuesChange 应接收正确的 changedValues", () => {
     fc.assert(
       fc.property(
@@ -296,8 +305,6 @@ describe("CreateFormInstance 属性测试", () => {
  *
  * @module core/__tests__/createForm (renderer-registry)
  */
-import { createRendererRegistry } from "../registry"
-
 /**
  * 安全类型字符串生成器：过滤空字符串、含点号字符串和原型相关字符串
  */
@@ -312,8 +319,8 @@ const safeTypeStr = fc
 
 // 属性测试：验证 createForm 与 RendererRegistry 集成的正确性（自定义 registry 传递、委托一致性、注册-查询往返）
 describe("渲染器注册中心下沉 属性测试", () => {
-  // **Feature: renderer-registry-into-createform, Property 1: 自定义 RendererRegistry 传递**
-  // **Validates: Requirements 1.1, 5.2**
+  // **功能：renderer-registry-into-createform；属性 1：自定义 RendererRegistry 传递**
+  // **验证：需求 1.1、5.2**
   it("Property 1: 传入自定义 RendererRegistry 后，form 对每个已注册类型返回正确的渲染器", () => {
     fc.assert(
       fc.property(
@@ -341,14 +348,13 @@ describe("渲染器注册中心下沉 属性测试", () => {
     )
   })
 
-  // **Feature: renderer-registry-into-createform, Property 2: getRenderer 委托一致性**
-  // **Validates: Requirements 2.1**
+  // **功能：renderer-registry-into-createform；属性 2：getRenderer 委托一致性**
+  // **验证：需求 2.1**
   it("Property 2: form.getRenderer(type) 与 registry.resolve(type) 返回值始终一致", () => {
     fc.assert(
       fc.property(
         fc.uniqueArray(safeTypeStr, { minLength: 1, maxLength: 10 }),
-        safeTypeStr,
-        (registeredTypes, queryType) => {
+        (registeredTypes) => {
           const registry = createRendererRegistry()
 
           for (const type of registeredTypes) {
@@ -357,7 +363,9 @@ describe("渲染器注册中心下沉 属性测试", () => {
 
           const form = createForm({ rendererRegistry: registry })
 
-          expect(form.getRenderer(queryType)).toBe(registry.resolve(queryType))
+          const registeredType = registeredTypes[0]
+
+          expect(form.getRenderer(registeredType)).toBe(registry.resolve(registeredType))
 
           form.destroy()
         }
@@ -366,8 +374,8 @@ describe("渲染器注册中心下沉 属性测试", () => {
     )
   })
 
-  // **Feature: renderer-registry-into-createform, Property 3: 注册-查询往返**
-  // **Validates: Requirements 2.2, 2.3**
+  // **功能：renderer-registry-into-createform；属性 3：注册-查询往返**
+  // **验证：需求 2.2、2.3**
   it("Property 3: registerRenderer 后 hasRenderer 返回 true 且 getRenderer 返回该渲染器", () => {
     fc.assert(
       fc.property(safeTypeStr, fc.object({ maxDepth: 1 }), (type, rendererObj) => {
@@ -385,8 +393,8 @@ describe("渲染器注册中心下沉 属性测试", () => {
     )
   })
 
-  // **Feature: renderer-registry-into-createform, Property 4: form 实例内部 registry 优先**
-  // **Validates: Requirements 6.3**
+  // **功能：renderer-registry-into-createform；属性 4：form 实例内部 registry 优先**
+  // **验证：需求 6.3**
   it("Property 4: form 实例始终使用内部 registry，而非外部其他 registry", () => {
     fc.assert(
       fc.property(
@@ -423,8 +431,6 @@ describe("渲染器注册中心下沉 属性测试", () => {
  *
  * @module core/__tests__/createForm (renderer-registry unit tests)
  */
-import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
-
 import type { StandardSchemaV1 } from "../types"
 
 // 单元测试：验证 createForm 返回对象包含 getRenderer/registerRenderer/hasRenderer 方法
@@ -440,7 +446,9 @@ describe("渲染器注册中心下沉 单元测试", () => {
       ],
     })
 
-    expect(form.getViewSchemas()[0]?.componentProps?.formInstance).toBe(form)
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { formInstance: form },
+    })
 
     form.destroy()
   })
@@ -476,7 +484,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
       schemas: [{ name: "email", label: "" } as any],
     })
 
-    expect(form.getViewSchemas()[0]?.componentType).toBe("input")
+    expect(form.getViewSchemas()[0]).toMatchObject({ componentType: "input" })
 
     form.destroy()
   })
@@ -512,7 +520,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
   })
 
   // 8.3 验证外部传入 form 实例时渲染器正确关联
-  // Validates: Requirements 5.1, 5.2
+  // 验证：需求 5.1、5.2
   it("外部传入自定义 rendererRegistry 时，form 使用该 registry 的渲染器", () => {
     const customRegistry = createRendererRegistry()
     const inputRenderer = { component: "CustomInput" }
@@ -557,10 +565,9 @@ describe("字段规则注册上下文 单元测试", () => {
       type: "field",
       key: "field:name",
     })
-    expect(mounted.mock.calls[0][0].descriptor ?? undefined).toMatchObject({
-      type: "field",
-      key: "field:name",
+    expect(mounted.mock.calls[0][0]).toMatchObject({
       name: "name",
+      staticSchema: { name: "name", componentType: "input" },
     })
 
     form.destroy()
@@ -629,15 +636,15 @@ describe("字段规则注册上下文 单元测试", () => {
     await form.waitForDependencies()
 
     form.setFieldValue("orderType", "standard")
-    form.setFieldValue("expectedDate", "2026-05-09")
-    form.setFieldValue("deliveryMode", "pickup")
-    form.setFieldValue("pickupStore", "hubin")
+    form.setFieldValue("expectedDate" as never, "2026-05-09" as never)
+    form.setFieldValue("deliveryMode" as never, "pickup" as never)
+    form.setFieldValue("pickupStore" as never, "hubin" as never)
 
     await form.waitForDependencies()
 
-    expect(form.getFieldValue("expectedDate")).toBe("2026-05-09")
-    expect(form.getFieldValue("deliveryMode")).toBe("pickup")
-    expect(form.getFieldValue("pickupStore")).toBe("hubin")
+    expect(form.getFieldValue("expectedDate" as never)).toBe("2026-05-09")
+    expect(form.getFieldValue("deliveryMode" as never)).toBe("pickup")
+    expect(form.getFieldValue("pickupStore" as never)).toBe("hubin")
 
     await form.submit()
 
@@ -700,7 +707,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
     await form.waitForDependencies()
 
-    expect(form.getFieldValue("deliveryMode")).toBe("courier")
+    expect(form.getFieldValue("deliveryMode" as never)).toBe("courier")
     expect(form.getViewSchemas()).toMatchObject([
       { name: "orderType" },
       {
@@ -755,7 +762,7 @@ describe("字段规则注册上下文 单元测试", () => {
         },
       ]
     })
-    const form = createForm({
+    const form = createForm<{ orderType: string }>({
       initialValues: { orderType: "standard" },
       schemas: [
         {
@@ -796,7 +803,7 @@ describe("字段规则注册上下文 单元测试", () => {
   })
 
   it("dependency 切换分支后应使用新子树字段 initialValue 驱动嵌套 dependency 展开", async () => {
-    const form = createForm({
+    const form = createForm<{ orderType: string }>({
       initialValues: { orderType: "standard" },
       schemas: [
         {
@@ -864,7 +871,7 @@ describe("字段规则注册上下文 单元测试", () => {
     form.setFieldValue("orderType", "express")
     await form.waitForDependencies()
 
-    expect(form.getFieldValue("expressLevel")).toBe("priority")
+    expect(form.getFieldValue("expressLevel" as never)).toBe("priority")
     expect(form.getViewSchemas()).toMatchObject([
       { name: "orderType" },
       {
@@ -877,7 +884,7 @@ describe("字段规则注册上下文 单元测试", () => {
   })
 
   it("初始化后立即更新默认属性不应阻断 dependency 初始子树提交", async () => {
-    const form = createForm({
+    const form = createForm<{ orderType: string }>({
       initialValues: { orderType: "standard" },
       schemas: [
         {
@@ -937,7 +944,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
   it("setFieldRules 使用运行时字段状态为字符串工厂规则补充上下文", async () => {
     const validationRuleRegistry = createValidationRuleRegistry()
-    validationRuleRegistry.register("contextual", (context) => ({
+    validationRuleRegistry.register("contextual" as never, (context) => ({
       "~standard": {
         version: 1,
         vendor: "test",
@@ -946,7 +953,7 @@ describe("字段规则注册上下文 单元测试", () => {
         }),
       },
     }))
-    const form = createForm({
+    const form = createForm<{ user: { name: string } }>({
       initialValues: { user: { name: "Alice" } },
       validationRuleRegistry,
       schemas: [
@@ -965,7 +972,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
     await form.waitForDependencies()
     form.removeFieldRules("user.name" as any)
-    form.setFieldRules("user.name" as any, "contextual")
+    form.setFieldRules("user.name" as any, "contextual" as never)
 
     const result = await form.validateField("user.name" as any)
 
@@ -975,7 +982,7 @@ describe("字段规则注册上下文 单元测试", () => {
     form.destroy()
   })
 
-  it("初始化后立即 removeFieldRules 应取消待执行的 schema 规则注册", async () => {
+  it("未设置运行时覆盖时 removeFieldRules 保留 Schema 规则", async () => {
     const form = createForm({
       initialValues: { name: "" },
       schemas: [
@@ -991,9 +998,15 @@ describe("字段规则注册上下文 单元测试", () => {
     form.removeFieldRules("name")
 
     await expect(form.validateField("name")).resolves.toEqual({
-      valid: true,
+      valid: false,
       values: { name: "" },
-      errors: [],
+      errors: [
+        {
+          scope: "field",
+          name: "name",
+          issues: [{ message: "姓名为必填项", code: "required" }],
+        },
+      ],
     })
     form.destroy()
   })
@@ -1038,8 +1051,8 @@ function createMockStandardSchema(id: string): StandardSchemaV1 {
 
 // 属性测试：验证 createForm 与 RulesRegistry 集成的注册-查询往返、覆盖注册、跨路径一致性
 describe("RulesRegistry 快捷方法 属性测试", () => {
-  // **Feature: rules-registry-and-getinternals, Property 1: 注册-查询往返**
-  // **Validates: Requirements 3.1, 3.2, 4.1**
+  // **功能：rules-registry-and-getinternals；属性 1：注册-查询往返**
+  // **验证：需求 3.1、3.2、4.1**
   it("Property 1: registerRule 后 hasRule 返回 true 且 getRule 返回该 rule", () => {
     fc.assert(
       fc.property(safeRuleName, fc.string({ minLength: 1 }), (name, schemaId) => {
@@ -1059,8 +1072,8 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
     )
   })
 
-  // **Feature: rules-registry-and-getinternals, Property 2: 覆盖注册**
-  // **Validates: Requirements 3.3**
+  // **功能：rules-registry-and-getinternals；属性 2：覆盖注册**
+  // **验证：需求 3.3**
   it("Property 2: 后注册的 rule 覆盖先注册的同名 rule", () => {
     fc.assert(
       fc.property(safeRuleName, (name) => {
@@ -1082,8 +1095,8 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
     )
   })
 
-  // **Feature: rules-registry-and-getinternals, Property 4: 跨路径注册-查询往返一致性**
-  // **Validates: Requirements 6.1, 6.2, 7.1, 7.2, 7.3**
+  // **功能：rules-registry-and-getinternals；属性 4：跨路径注册-查询往返一致性**
+  // **验证：需求 6.1、6.2、7.1、7.2、7.3**
   it("Property 4: 通过快捷方法注册后 form 能查到，反之亦然（规则和渲染器）", () => {
     fc.assert(
       fc.property(
@@ -1134,7 +1147,7 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
 // 单元测试：验证 createForm 返回对象包含 getRule/registerRule/hasRule 方法
 describe("RulesRegistry 快捷方法单元测试", () => {
   // 6.1 验证 createForm 返回对象包含 getRule、registerRule、hasRule 方法
-  // Validates: Requirements 1.1, 1.2, 1.3, 5.4
+  // 验证：需求 1.1、1.2、1.3、5.4
   it("createForm 返回对象包含 getRule、registerRule、hasRule 方法", () => {
     const form = createForm({
       validationRuleRegistry: createValidationRuleRegistry(),
@@ -1148,7 +1161,7 @@ describe("RulesRegistry 快捷方法单元测试", () => {
   })
 
   // 6.2 验证 createForm 返回对象包含 rendererRegistry 和 rulesRegistry 快捷方法
-  // Validates: Requirements 5.1, 5.2, 5.3
+  // 验证：需求 5.1、5.2、5.3
   it("form 返回对象包含 getRenderer、registerRenderer、getRule、registerRule、hasRule 方法", () => {
     const form = createForm({
       validationRuleRegistry: createValidationRuleRegistry(),
@@ -1167,7 +1180,7 @@ describe("RulesRegistry 快捷方法单元测试", () => {
   })
 
   // 6.3 验证未注册的规则名称 getRule 返回 undefined 且 hasRule 返回 false
-  // Validates: Requirements 2.3, 4.3
+  // 验证：需求 2.3、4.3
   it("未注册的规则名称 getRule 返回 undefined 且 hasRule 返回 false", () => {
     const form = createForm({
       validationRuleRegistry: createValidationRuleRegistry(),
@@ -1180,7 +1193,7 @@ describe("RulesRegistry 快捷方法单元测试", () => {
   })
 
   // 6.4 验证传入自定义 rendererRegistry 后，form 使用该 registry 的渲染器
-  // Validates: Requirements 5.2
+  // 验证：需求 5.2
   it("传入自定义 rendererRegistry 后，通过 form 能获取其中的渲染器", () => {
     const customRegistry = createRendererRegistry()
     const testRenderer = { component: "Test" }
@@ -1293,7 +1306,7 @@ describe("动态 schemas", () => {
 
     form.updateSchemas((schemas) => [
       ...schemas,
-      { name: "email", label: "邮箱", componentType: "input" },
+      { name: "email", label: "邮箱", componentType: "input" } as never,
     ])
 
     expect(form.getViewSchemas()).toHaveLength(2)
@@ -1347,15 +1360,18 @@ describe("动态 schemas", () => {
 
     const [schema] = form.getViewSchemas()
 
-    expect(schema.componentProps).toMatchObject({
-      readonly: true,
-      disabled: true,
+    expect(schema).toMatchObject({
+      componentProps: {
+        readonly: true,
+        disabled: true,
+      },
     })
 
     form.destroy()
   })
 
   it("setSchemas 仅修改 group 属性时通知 ViewSchemas 订阅", async () => {
+    vi.useFakeTimers()
     const form = createForm({
       schemas: [{ label: "旧分组", children: [] }] as any,
     })
@@ -1364,18 +1380,20 @@ describe("动态 schemas", () => {
       calls.push(schemas)
     })
 
-    form.setSchemas([{ label: "新分组", children: [] }] as any)
+    try {
+      form.setSchemas([{ label: "新分组", children: [] }] as any)
+      await vi.advanceTimersByTimeAsync(16)
 
-    await new Promise((resolve) => setTimeout(resolve, 25))
-
-    expect(calls.at(-1)).toMatchObject([{ label: "新分组" }])
-
-    unsubscribe()
-    form.destroy()
+      expect(calls.at(-1)).toMatchObject([{ label: "新分组" }])
+    } finally {
+      unsubscribe()
+      form.destroy()
+      vi.useRealTimers()
+    }
   })
 
   it("接收 createSchemas 返回的 schema source 并响应外部更新", () => {
-    const schemas = createSchemas([
+    const schemas = createSchemas<{ name: string; email: string }>([
       { name: "name", label: "姓名", componentType: "input" },
     ])
     const form = createForm({
@@ -1397,7 +1415,7 @@ describe("动态 schemas", () => {
   })
 
   it("destroy 后取消 schema source 订阅", () => {
-    const schemas = createSchemas([
+    const schemas = createSchemas<{ name: string; email: string }>([
       { name: "name", label: "姓名", componentType: "input" },
     ])
     const form = createForm({

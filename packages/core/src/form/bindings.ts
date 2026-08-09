@@ -65,7 +65,7 @@ export function createFormBindings<TValues extends Values>(): FormBindings<TValu
   let connected = false
 
   /**
-   * Connects the Runtime and Controller exactly once.
+   * 仅连接一次 Runtime 与 Controller。
    */
   const connect: FormBindings<TValues>["connect"] = (services) => {
     if (connected) {
@@ -78,7 +78,7 @@ export function createFormBindings<TValues extends Values>(): FormBindings<TValu
   }
 
   /**
-   * Returns the required connected Runtime.
+   * 返回已连接且必须存在的 Runtime。
    */
   const getRuntime: FormBindings<TValues>["getRuntime"] = () => {
     if (!runtime) {
@@ -89,12 +89,12 @@ export function createFormBindings<TValues extends Values>(): FormBindings<TValu
   }
 
   /**
-   * Returns the Runtime only while it remains connected.
+   * 仅在 Runtime 仍连接时返回它。
    */
   const getConnectedRuntime: FormBindings<TValues>["getConnectedRuntime"] = () => runtime
 
   /**
-   * Returns the required connected Controller.
+   * 返回已连接且必须存在的 Controller。
    */
   const getController: FormBindings<TValues>["getController"] = () => {
     if (!controller) {
@@ -105,27 +105,27 @@ export function createFormBindings<TValues extends Values>(): FormBindings<TValu
   }
 
   /**
-   * Returns the Controller only while it remains connected.
+   * 仅在 Controller 仍连接时返回它。
    */
   const getConnectedController: FormBindings<TValues>["getConnectedController"] = () =>
     controller
 
   /**
-   * Registers the callback invoked by the public destroy operation.
+   * 注册公开销毁操作需要调用的回调。
    */
   const setDestroy: FormBindings<TValues>["setDestroy"] = (nextDestroy) => {
     destroy = nextDestroy
   }
 
   /**
-   * Runs the registered destroy callback when present.
+   * 在存在已注册回调时执行销毁回调。
    */
   const destroyBindings: FormBindings<TValues>["destroy"] = () => {
     destroy?.()
   }
 
   /**
-   * Releases service references after Form teardown.
+   * Form 结束后释放服务引用。
    */
   const disconnect: FormBindings<TValues>["disconnect"] = () => {
     runtime = undefined

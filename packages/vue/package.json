@@ -66,7 +66,8 @@
     "type-test": "tsc -p tsconfig.type-tests.json --noEmit",
     "type-check": "tsc -p tsconfig.json --noEmit && pnpm run type-test",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/vue"
   },
   "license": "MIT",
   "devDependencies": {

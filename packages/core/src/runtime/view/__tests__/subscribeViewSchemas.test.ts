@@ -9,26 +9,22 @@
 import { describe, expect, it, vi } from "vitest"
 
 import createForm from "../../../createForm"
-import { createRuntimeResources } from "../../node/resources"
 import { createRootRuntimeNode } from "../../node/runtimeNode"
 import { createScope } from "../../node/scope"
 import { createRootRuntimeViewState } from "../createViewState"
 import { subscribeViewSchemas } from "../subscribeViewSchemas"
 
-import type { DescribedRuntimeNode, RootRuntimeNode } from "../../node"
-import type { RuntimeNodeResourceContext } from "../../node/types"
+import type { RootRuntimeNode } from "../../node"
 import type { SchemxViewSchema } from "../types"
 
 function createRootWithViewState(): {
   root: RootRuntimeNode
-  resources: RuntimeNodeResourceContext
 } {
   const root = createRootRuntimeNode({ dispose: createScope() })
-  const resources = createRuntimeResources()
 
-  createRootRuntimeViewState(root, resources)
+  createRootRuntimeViewState(root)
 
-  return { root, resources }
+  return { root }
 }
 
 // 验证 subscribeViewSchemas 的订阅回调、取消订阅、dependencies 更新 ViewSchema、root dispose 等行为
@@ -44,7 +40,7 @@ describe("subscribeViewSchemas", () => {
       ],
     })
 
-    const updates: readonly SchemxViewSchema[][] = []
+    const updates: unknown[] = []
 
     const dispose = form.subscribeViewSchemas((schemas) => {
       updates.push(schemas)
@@ -62,7 +58,7 @@ describe("subscribeViewSchemas", () => {
   })
 
   it("dependencies 更新 visible 时 ViewSchema 应读取 effectiveSchema", async () => {
-    const form = createForm({
+    const form = createForm<{ country: string; province?: string }>({
       schemas: [
         {
           name: "country",
@@ -102,10 +98,10 @@ describe("subscribeViewSchemas", () => {
   })
 
   it("应该返回取消订阅函数并立即回调", async () => {
-    const { root, resources } = createRootWithViewState()
+    const { root } = createRootWithViewState()
     const onChange = vi.fn()
 
-    const unsubscribe = subscribeViewSchemas(root, resources, onChange)
+    const unsubscribe = subscribeViewSchemas(root, onChange)
 
     expect(typeof unsubscribe).toBe("function")
     expect(onChange).toHaveBeenCalled()
@@ -115,10 +111,10 @@ describe("subscribeViewSchemas", () => {
 
   it("取消订阅后不再回调", async () => {
     vi.useFakeTimers()
-    const { root, resources } = createRootWithViewState()
+    const { root } = createRootWithViewState()
     const onChange = vi.fn()
 
-    const unsubscribe = subscribeViewSchemas(root, resources, onChange)
+    const unsubscribe = subscribeViewSchemas(root, onChange)
     const callCountAfterFirst = onChange.mock.calls.length
 
     unsubscribe()
@@ -130,20 +126,20 @@ describe("subscribeViewSchemas", () => {
   })
 
   it("onChange 回调抛出错误不应中断订阅", async () => {
-    const { root, resources } = createRootWithViewState()
+    const { root } = createRootWithViewState()
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
     const onChange = vi.fn(() => {
       throw new Error("onChange error")
     })
 
     expect(() => {
-      subscribeViewSchemas(root, resources, onChange)
+      subscribeViewSchemas(root, onChange)
     }).not.toThrow()
 
     errorSpy.mockRestore()
   })
 
-  it("root dispose 后应回调空 ViewSchemas (使用 createForm)", async () => {
+  it("root dispose 自动释放订阅，不再调用 onChange", async () => {
     vi.useFakeTimers()
     const form = createForm({
       schemas: [
@@ -161,9 +157,12 @@ describe("subscribeViewSchemas", () => {
     await Promise.resolve()
     expect(onChange).toHaveBeenCalled()
     expect(onChange.mock.calls.some((call) => call[0].length > 0)).toBe(true)
+    const callCountBeforeDestroy = onChange.mock.calls.length
 
     form.destroy()
     vi.advanceTimersByTime(20)
+
+    expect(onChange).toHaveBeenCalledTimes(callCountBeforeDestroy)
 
     unsubscribe()
     vi.useRealTimers()

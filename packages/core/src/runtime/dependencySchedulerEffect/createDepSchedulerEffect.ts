@@ -4,7 +4,7 @@
  * @module core/runtime/dependencySchedulerEffect/createDepSchedulerEffect
  */
 
-import { createSignalEffect, runUntracked } from "../../reactivity"
+import { createSignalEffect, runSignalUntracked } from "../../reactivity"
 import { createAbortableTaskRunner } from "../scheduler/abortableTaskRunner"
 
 import type { NamePath, Values } from "../../types"
@@ -180,7 +180,7 @@ export function createDepSchedulerEffect<TValues extends Values, TResult>(
 
         if (options.immediate !== false) {
           // 首次任务直接执行，以保持依赖资源挂载后的初始化时机。
-          runUntracked(() => {
+          runSignalUntracked(() => {
             void run()
           })
         }
@@ -189,7 +189,7 @@ export function createDepSchedulerEffect<TValues extends Values, TResult>(
       }
 
       // 调度过程不应把任务内部读取的字段纳入当前 effect。
-      runUntracked(schedule)
+      runSignalUntracked(schedule)
     })
 
     effectScope.add(disposeSubscription)

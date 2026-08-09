@@ -6,9 +6,9 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../../../.." && pwd)"
-source "$root_dir/scripts/modules/release/targets.sh"
-source "$root_dir/scripts/modules/release/versions.sh"
-source "$root_dir/scripts/modules/release/inputs.sh"
+source "$root_dir/scripts/workflow/domains/release/targets.sh"
+source "$root_dir/scripts/workflow/domains/release/versions.sh"
+source "$root_dir/scripts/workflow/domains/release/inputs.sh"
 
 assert_equals() {
   local actual="$1"

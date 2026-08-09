@@ -1,7 +1,7 @@
 /**
  * Schema compiler 类型定义。
  *
- * 定义 Compile 门面接口和 CompileCache 缓存结构，以及编译错误类型。
+ * 定义 Compile 门面接口、编译选项和编译错误类型。
  *
  * @module core/runtime/compiler/types
  */
@@ -14,7 +14,7 @@ import type {
   SchemxRendererKey,
   Values,
 } from "../../types"
-import type { FormDescriptor } from "../descriptor/types"
+import type { RuntimeNodeInput } from "../node/input"
 
 /**
  * 编译器选项。
@@ -46,58 +46,25 @@ export interface CompileOptions<TValues extends Values> {
 }
 
 /**
- * Schema 编译缓存。
- *
- * 以 schema 对象引用和编译位置共同缓存 descriptor，让未变化的 schema 在相同位置
- * 多次编译时复用 descriptor。编译位置参与缓存键，因为生成 key 依赖 parentKey 和 index。
- *
- * 缓存通过 `version` 失效：schemaConfig 等编译选项变化时调用方 bump version，
- * 后续编译会跳过所有缓存条目。
- */
-export interface CompileCache<TValues extends Values = Values> {
-  /**
-   * 当前缓存版本号，递增后所有缓存条目失效。
-   */
-  version: number
-  /**
-   * 以 schema 对象引用和编译位置为键的 descriptor 缓存表。
-   */
-  entries: WeakMap<
-    SchemxField<TValues>,
-    Map<string, { version: number; descriptor: FormDescriptor<TValues> }>
-  >
-}
-
-/**
  * Schema compiler 门面。
  *
- * 封装 descriptor cache 与失效版本，让调用方不直接操作 cache 结构。
- * 提供编译 schema 列表、获取缓存版本号和失效缓存的入口。
+ * 封装节点输入缓存；缓存生命周期是 compiler 私有实现。
  */
 export interface Compile<TValues extends Values = Values> {
   /**
-   * 当前 compiler 实例持有的 descriptor 引用缓存。
-   */
-  readonly cache: CompileCache<TValues>
-  /**
-   * 将 schema 列表编译为 descriptor 列表，并复用未失效的缓存条目。
+   * 编译单个 schema 为创建或更新 RuntimeNode 所需的短生命周期输入。
    *
-   * @param schemas - 待编译的 schema 列表。
-   * @param parentKey - 父级 descriptor key，用于生成嵌套 key。
-   * @returns 编译后的 descriptor 列表。
+   * 输入不持有子树，也不会挂载到 RuntimeNode；节点创建后只保留其直接配置字段。
    */
-  toDescriptors(
-    schemas: readonly SchemxField<TValues>[],
-    parentKey?: string
-  ): FormDescriptor<TValues>[]
+  compileNode(
+    schema: SchemxField<TValues>,
+    parentKey: string,
+    index: number
+  ): RuntimeNodeInput<TValues>
   /**
    * 失效当前 compiler 实例的缓存。
    */
   invalidate(): void
-  /**
-   * 获取当前缓存版本号。
-   */
-  getVersion(): number
 }
 
 /**

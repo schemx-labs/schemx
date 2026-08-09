@@ -1,6 +1,8 @@
-{{frontmatter}}
+# Release Notes
 
-# v{{version}}
+{{metadata}}
+
+## 概览
 
 {{summary}}
 

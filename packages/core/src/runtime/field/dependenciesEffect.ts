@@ -17,8 +17,7 @@ import { type FieldRuntimeState, setFieldDynamicOverrides } from "./runtimeState
 
 import type { SchemxResolvedBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FieldDescriptor } from "../descriptor"
-import type { Scope } from "../node"
+import type { FieldRuntimeNode, Scope } from "../node"
 
 /**
  * 可通过 dependencies 动态配置的字段属性 key 列表。
@@ -38,6 +37,7 @@ export const FIELD_DEPENDENCIES_PROP_KEYS = [
   "rules",
 ] as const
 
+/** 动态依赖可以覆盖的字段属性 key。 */
 type DependenciesPropKey = (typeof FIELD_DEPENDENCIES_PROP_KEYS)[number]
 
 /**
@@ -73,7 +73,7 @@ export interface CreateDependenciesEffectOptions<TValues extends Values = Values
   /**
    * 字段 descriptor，提供静态 schema、validation 和 dependencies 配置。
    */
-  descriptor: Readonly<FieldDescriptor<TValues>>
+  node: FieldRuntimeNode<TValues>
   /**
    * 字段运行态（Signal Graph 阶段），dependencies 结果会写入 dynamicOverrides。
    */
@@ -93,10 +93,10 @@ export function createDependenciesEffect<TValues extends Values = Values>(
   options: CreateDependenciesEffectOptions<TValues>
 ): void {
   // 字段 dependencies effect 使用的运行时资源。
-  const { context, taskId, descriptor, runtimeState, scope } = options
+  const { context, taskId, node, runtimeState, scope } = options
 
   // 字段 descriptor 中编译后的动态属性描述。
-  const dynamicProps = descriptor.dynamicProps
+  const dynamicProps = node.dynamicProps
 
   // 原始字段 dependencies 配置。
   const dependencies = dynamicProps?.dependencies
@@ -117,7 +117,8 @@ export function createDependenciesEffect<TValues extends Values = Values>(
       resolveDependencyProps<TValues, DependenciesResolvedProps<TValues>>(
         dependencies,
         FIELD_DEPENDENCIES_PROP_KEYS,
-        context.formApi
+        context.formApi,
+        `字段 "${String(node.name)}"`
       ),
     onSuccess: (resolvedProps) => {
       setFieldDynamicOverrides(runtimeState, resolvedProps, {
@@ -126,7 +127,7 @@ export function createDependenciesEffect<TValues extends Values = Values>(
       })
     },
     onError: (error) => {
-      console.error("[schemx] 字段 dependencies 执行错误:", error)
+      console.error(`[schemx] 字段 "${String(node.name)}" dependencies 执行错误`, error)
     },
   })
 }

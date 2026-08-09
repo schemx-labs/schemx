@@ -46,3 +46,10 @@ export {
   shouldValidateOn,
   mergeTrigger,
 } from "./validation"
+
+export {
+  type DebounceEdge,
+  type DebouncedFnOptions,
+  type DebouncedFnControls,
+  createDebouncedFn,
+} from "./createDebouncedFn"

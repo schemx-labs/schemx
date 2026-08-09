@@ -9,8 +9,16 @@
 export { createValidator, type Validator, type CreateValidatorOptions } from "./validator"
 
 export {
+  createValidationRuleRegistry,
   createRendererRegistry,
+  ValidationRuleRegistry,
   RendererRegistry,
+  type ValidationRuleFactoryContext,
+  type ValidationRuleFactory,
+  type ValidationRuleEntry,
+  type ValidationRuleMap,
+  type ValidationRuleRegistryChange,
+  type ValidationRuleRegistryListener,
   type RegistryOptions,
   type RendererMap,
 } from "./registry"
@@ -42,8 +50,6 @@ export {
   type ExcludeSchemxConfigKeys,
 } from "./config"
 
-export { type SchemxContext } from "./runtime/context"
-
 export {
   createSchemas,
   isSchemxSchemas,
@@ -62,13 +68,6 @@ export type {
 export { createField, type SchemxFieldInstance } from "./createField"
 
 export {
-  createEffect,
-  type CleanupFn,
-  type EffectCallback,
-  type CreateEffectReturn,
-} from "./createEffect"
-
-export {
   createWatch,
   createWatchField,
   createWatchFields,
@@ -81,15 +80,16 @@ export {
 } from "./createWatch"
 
 export {
-  createValidationRuleRegistry,
-  ValidationRuleRegistry,
-  type ValidationRuleFactoryContext,
-  type ValidationRuleFactory,
-  type ValidationRuleEntry,
-  type ValidationRuleMap,
-  type ValidationRuleRegistryChange,
-  type ValidationRuleRegistryListener,
-} from "./registry"
+  createSignalEffect,
+  runSignalUntracked,
+  createSignalWatch,
+  createDebouncedSignalWatch,
+  type SignalEffectOptions,
+  type SignalEffectDispose,
+  type SignalWatchOptions,
+  type DebouncedSignalWatchOptions,
+  type DebouncedSignalWatchControls,
+} from "./reactivity"
 
 export {
   isBaseSchema,

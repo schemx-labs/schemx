@@ -19,6 +19,7 @@
 
 - 根入口中的 `validatorRegistry` 统一改为 `validationRuleRegistry`；旧的 `createValidatorsRegistry` 等名称也不再作为当前公共入口。`useForm`、`SchemxForm` 配置和校验规则注册统一使用新的命名。
 - `FieldInstance.error` 改为只读的 `FieldInstance.errors` 计算值；错误读取使用 `getErrors()`，不再使用旧的单数错误 API。`errors` 始终提供只读字符串数组。
+- @schemx/vue 不再构建或从 Hooks 入口导出 useEffect；该 Hook 原先负责创建 Core effect 并在组件卸载时自动 dispose。
 
 #### 迁移说明
 
@@ -98,6 +99,57 @@ const dictionary: SchemxDictionary<FormValues, CityResponse, CityOption> = {
 }
 ```
 
+#### 迁移说明
+
+1. 从 @schemx/core 导入 createSignalEffect，从 vue 导入 onUnmounted。
+2. 使用 createSignalEffect 创建 effect，并将返回的 disposer 交给 onUnmounted；仍可手动提前调用 disposer。
+3. 需要 source/callback 监听时，可改用 @schemx/core 的 createSignalWatch。
+
+替代方案：@schemx/core 的 createSignalEffect（配合 Vue onUnmounted）或 createSignalWatch
+
+升级前：
+
+```ts
+const stop = useEffect(() => {
+  readSignal()
+})
+```
+
+升级后：
+
+```ts
+const stop = createSignalEffect(() => {
+  readSignal()
+})
+onUnmounted(stop)
+```
+
+### FormItem 插槽参数改为 Renderer Props
+
+{name}Content、{name}Error 和字段整体插槽不再展开传入 ViewSchema；现在传入实际的 componentProps，并通过 formItemProps 保留当前字段 Schema。
+
+影响范围：依赖字段插槽参数中的 schema、label、componentType 等 ViewSchema 顶层属性的自定义 Vue 组件。
+
+#### 迁移说明
+
+1. 将插槽参数命名为 props，并按 Renderer Props 读取 value、onChange、onBlur 等字段属性。
+2. 需要读取当前 ViewSchema 时，从 props.formItemProps 访问 label、name、componentType 等字段。
+3. 内容插槽仍可从 props.columnElement 取得默认 Renderer VNode。
+
+替代方案：使用 componentProps，并通过 formItemProps 读取 ViewSchema
+
+升级前：
+
+```ts
+<template #emailContent="schema">{{ schema.label }}</template>
+```
+
+升级后：
+
+```ts
+<template #emailContent="props">{{ props.formItemProps?.label }}</template>
+```
+
 ## Features
 
 - `SchemxForm` 插件支持按 Vue App 隔离的安装配置；`app.use(SchemxForm, options)` 可配置 `schemaConfig`、`validatorAdapters`、`defaultRendererType`、`rendererRegistry` 和 `validationRuleRegistry`，不同 App 互不污染。
@@ -110,6 +162,8 @@ const dictionary: SchemxDictionary<FormValues, CityResponse, CityOption> = {
 - 外部 `modelValue` 更新通过 `setFieldsValue` 同步到表单，并避免同步过程重复触发相同的 `update:modelValue` 事件。
 - 响应式 Schema、动态组件属性和 Dependency 子树更新的边界更稳定，减少相同配置重复写入；可见 Group 现在作为表单项区段边界参与首尾样式计算。
 - 字段触发器和标签布局统一读取 `formContext.schemaConfig`，必填字段在没有显式 rules 时也能进入校验展示逻辑。
+- 目标提交中的 Vue README 仍记录已删除的 useEffect、createEffect 及旧 effect 类型，文档与当前导出不一致。（影响范围：@schemx/vue README）；临时方案：发布前同步更新 Vue/Core effect API 文档。
+- 字段整体插槽渲染路径仍包含 console.log("componentProps.value", componentProps.value) 调试输出。（影响范围：使用字段名整体插槽的开发环境）；临时方案：发布前移除该调试日志。
 
 ## Improvements
 

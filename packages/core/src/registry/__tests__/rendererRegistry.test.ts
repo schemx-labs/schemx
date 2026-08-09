@@ -8,20 +8,26 @@
  * @module core/registry/__tests__/rendererRegistry
  */
 
-import { defineComponent } from "vue"
-
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { createRendererRegistry } from "../rendererRegistry"
 
 import type { RendererRegistry } from "../rendererRegistry"
 
-const Comp1 = defineComponent({ render: () => null })
-const Comp2 = defineComponent({ render: () => null })
-const Comp3 = defineComponent({ render: () => null })
+const Comp1 = { name: "Comp1" }
+const Comp2 = { name: "Comp2" }
+const Comp3 = { name: "Comp3" }
 
 // 验证 Registry 的 register/registerAll/get/resolve/has/unregister/setFallback/clear 等完整 API
 describe("Registry", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   // 验证 register/has/get 的基本注册、覆盖、override:false
   describe("register / has / get", () => {
     it("注册并获取渲染器", () => {
@@ -49,13 +55,13 @@ describe("Registry", () => {
   // 验证 get 为纯查询、resolve 在未命中时回退到回退类型
   describe("get / resolve", () => {
     it("get 为纯查询，未注册时返回 undefined 且不回退", () => {
-      const reg = createRendererRegistry("text")
+      const reg = createRendererRegistry<string>("text")
       reg.register("text", Comp1)
       expect(reg.get("unknown")).toBeUndefined()
     })
 
     it("resolve 未命中时回退到回退类型", () => {
-      const reg = createRendererRegistry("text")
+      const reg = createRendererRegistry<string>("text")
       reg.register("text", Comp1)
       expect(reg.resolve("unknown")).toBe(Comp1)
     })
@@ -66,7 +72,7 @@ describe("Registry", () => {
     })
 
     it("精确命中时 get 与 resolve 返回同一组件", () => {
-      const reg = createRendererRegistry("text")
+      const reg = createRendererRegistry<string>("text")
       reg.register("text", Comp1)
       expect(reg.get("text")).toBe(Comp1)
       expect(reg.resolve("text")).toBe(Comp1)
@@ -111,7 +117,7 @@ describe("Registry", () => {
     })
 
     it("移除最后一个渲染器时回退类型保持不变", () => {
-      const reg = createRendererRegistry("text")
+      const reg = createRendererRegistry<string>("text")
       reg.register("text", Comp1)
       reg.unregister("text")
       expect(reg.getFallback()).toBe("text")
@@ -129,7 +135,7 @@ describe("Registry", () => {
     })
 
     it("设置未注册的类型无效", () => {
-      const reg = createRendererRegistry("text")
+      const reg = createRendererRegistry<string>("text")
       reg.register("text", Comp1)
       reg.setFallback("nonexistent")
       expect(reg.getFallback()).toBe("text")

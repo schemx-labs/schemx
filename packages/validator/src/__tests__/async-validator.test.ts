@@ -5,13 +5,13 @@ import {
   createAsyncValidatorAdapter,
 } from "../async-validator"
 
-import type { ValidationRuleContext } from "@schemx/core"
+import type { NamePath, ValidationRuleContext, Values } from "@schemx/core"
 
-const createContext = <TValues extends Record<string, unknown>>(
+const createContext = <TValues extends Values, TName extends NamePath<TValues>>(
   values: TValues,
-  name: string,
+  name: TName,
   signal = new AbortController().signal
-): ValidationRuleContext<TValues, string> => ({ name, values, signal })
+): ValidationRuleContext<TValues, TName> => ({ name, values, signal })
 
 /**
  * 解析规则并执行返回的原生规则，等价于此前直接调用 adapter.validate。
@@ -28,8 +28,6 @@ async function run(
   const rules = adapter.resolve(input, {
     name: ctx.name,
     label: "",
-    required: undefined,
-    rules: undefined,
   })
 
   return rules[0].validate(value, ctx)
@@ -120,7 +118,7 @@ describe("createAsyncValidatorAdapter", () => {
             : Promise.reject(new Error("两次输入不一致"))
         )
       },
-    }
+    } satisfies AsyncValidatorDescriptor
 
     await expect(
       run(
@@ -153,7 +151,7 @@ describe("createAsyncValidatorAdapter", () => {
     const descriptor = {
       type: "object",
       fields: { email: { type: "email", message: "嵌套邮箱格式错误" } },
-    }
+    } satisfies AsyncValidatorDescriptor
 
     await expect(
       run(

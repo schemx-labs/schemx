@@ -78,8 +78,8 @@ export async function waitAll<TResult>(
       promises.map(async (p, i) => {
         try {
           results[i] = await p
-        } catch {
-          // 不在这里处理错误，让调用方自行处理
+        } catch (error) {
+          console.error("[schemx] 等待并行任务时发生错误", error)
         }
 
         completed++

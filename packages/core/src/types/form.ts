@@ -6,7 +6,7 @@
  * @module types/form
  */
 
-// Declaration merging intentionally permits framework-specific empty extension interfaces.
+// 有意保留声明合并能力，以支持框架专属的空扩展接口。
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
 import { DeepNamePath, PathValue } from "./namePathType"
@@ -261,22 +261,21 @@ export interface SchemxInstance<TValues extends Values = Values> {
   setInitialValues: (values: Partial<TValues>) => void
 
   /**
-   * 检查单个字段是否被修改
-   *
-   * 通过深比较当前值与初始值判断。
+   * 检查单个字段是否发生过显式交互。
    *
    * @param name - 字段路径
    * @returns 是否与初始值不同
    *
    * @example
    * ```typescript
+   * form.setFieldTouched('name', true)
    * form.isFieldTouched('name') // => true
    * ```
    */
   isFieldTouched<TName extends NamePath<TValues>>(name: TName): boolean
 
   /**
-   * 设置个字段被修改
+   * 设置字段交互状态。
    *
    * 传入路径设置字段修改状态。
    *
@@ -291,7 +290,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
   setFieldTouched<TName extends NamePath<TValues>>(name: TName, value: boolean): void
 
   /**
-   * 获取所有被修改的字段路径
+   * 获取所有发生过显式交互的字段路径。
    *
    * @returns 被修改的字段路径数组
    *
@@ -728,6 +727,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
  * Schema 通用配置上下文。
  */
 export interface SchemxGlobalContext {
+  /** 当前生效的全局 Schema 默认配置。 */
   schemaConfig: Partial<SchemxSchemaConfig>
 }
 
@@ -773,7 +773,9 @@ export interface SchemxFormApi<TValues extends Values = Values> {
    * @param name - 可选的字段路径数组；不传时返回全部字段值。
    * @returns 字段值快照对象。
    */
+  /** 获取当前表单的完整值快照。 */
   getValues(): TValues
+  /** 按字段路径返回部分表单值。 */
   getValues<TName extends NamePath<TValues>>(name?: TName[]): Partial<TValues>
 
   /**

@@ -18,17 +18,17 @@ describe("getByPath", () => {
 
   it("空字符串路径返回整个对象", () => {
     const obj = { a: 1 }
-    expect(getByPath(obj, "")).toBe(obj)
+    expect(getByPath(obj, "" as never)).toBe(obj)
   })
 
   it("空数组路径返回整个对象", () => {
     const obj = { a: 1 }
-    expect(getByPath(obj, [])).toBe(obj)
+    expect(getByPath(obj, [] as never)).toBe(obj)
   })
 
   it("不存在的路径返回 undefined", () => {
     const obj = { a: 1 }
-    expect(getByPath(obj, "b.c")).toBeUndefined()
+    expect(getByPath(obj, "b.c" as never)).toBeUndefined()
   })
 })
 

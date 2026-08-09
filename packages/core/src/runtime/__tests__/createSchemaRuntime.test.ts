@@ -28,7 +28,9 @@ describe("SchemaRuntime", () => {
 
     expect(model.getFieldValue("name")).toBe("Alice")
     expect(model.getInitialValue("name")).toBe("Alice")
-    expect(runtime.getViewSchemas()[0]?.componentProps?.formInstance).toBe(instance)
+    expect(runtime.getViewSchemas()[0]).toMatchObject({
+      componentProps: { formInstance: instance },
+    })
 
     runtime.dispose()
   })
@@ -58,7 +60,11 @@ describe("SchemaRuntime", () => {
       },
     ])
 
-    expect(runtime.getViewSchemas().map((schema) => schema.name)).toEqual(["email"])
+    expect(
+      runtime
+        .getViewSchemas()
+        .map((schema) => ("name" in schema ? schema.name : undefined))
+    ).toEqual(["email"])
     expect(() => runtime.mount()).toThrow("Schema runtime is already mounted")
 
     runtime.dispose()
@@ -87,6 +93,7 @@ function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TVa
       return true
     },
     removeValidationField() {},
+    removeSchemaValidationField() {},
     getInitialValue(name) {
       return initialValues.get(name)
     },

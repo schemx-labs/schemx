@@ -6,8 +6,8 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../.." && pwd)"
-source "$root_dir/scripts/lib/ui.sh"
-source "$root_dir/scripts/modules/workspace/targets.sh"
+source "$root_dir/scripts/workflow/ui/api.sh"
+source "$root_dir/scripts/workflow/domains/workspace/api.sh"
 
 records="$(workspace_discover_task_targets "$root_dir" lint)"
 [[ "$records" == *$'packages\tcore\t@schemx/core\tlint'* ]]
@@ -22,13 +22,7 @@ tool_records="$(workspace_discover_targets "$root_dir" 'packages:*,plugins:pack:
 tool_selection="$(CI=true workspace_select_target_identifiers '选择打包目标' "$tool_records")"
 [[ "$tool_selection" == 'all' ]]
 
-grouped_options="$(workspace_grouped_target_options "$tool_records")"
-[[ "$grouped_options" == *'group:::packages:::Packages'* ]]
-[[ "$grouped_options" == *'packages:::packages/core:::core'* ]]
-[[ "$grouped_options" == *'group:::plugins:::Plugins'* ]]
-[[ "$grouped_options" == *'plugins:::plugins/vite-plugin-workspace-source:::vite-plugin-workspace-source'* ]]
-
-_ui_is_interactive() { return 0; }
+ui_is_interactive() { return 0; }
 ui_prompt() { return 1; }
 if workspace_select_target_identifiers '请选择构建目标' "$tool_records" >/dev/null 2>&1; then
   printf '断言失败：交互模式下未选择目标时不应继续。\n' >&2
@@ -36,14 +30,14 @@ if workspace_select_target_identifiers '请选择构建目标' "$tool_records" >
 fi
 
 interactive_selection="$({
-  _ui_is_interactive() { return 0; }
+  ui_is_interactive() { return 0; }
   ui_prompt() { printf 'packages/core\npackages/validator\n'; }
   workspace_select_target_identifiers '请选择构建目标' "$tool_records"
 })"
 [[ "$interactive_selection" == 'packages/core,packages/validator' ]]
 
 interactive_records="$({
-  _ui_is_interactive() { return 0; }
+  ui_is_interactive() { return 0; }
   ui_prompt() { printf 'packages/core\npackages/validator\n'; }
   workspace_select_task_targets "$root_dir" build
 })"

@@ -36,6 +36,7 @@ export interface DependencyEffectDependencies<TValues extends Values = Values> {
  * @param dependencies - 保存条件函数和副作用的依赖配置。
  * @param propKeys - 要解析的动态属性键。
  * @param formApi - 用于读取全量快照和传入用户回调的表单 API。
+ * @param schemaLabel - 当前 dependencies 所属 schema 的展示标识。
  * @returns 仅包含成功且非空结果的动态属性覆盖。
  */
 export async function resolveDependencyProps<
@@ -44,7 +45,8 @@ export async function resolveDependencyProps<
 >(
   dependencies: DependencyEffectDependencies<TValues>,
   propKeys: readonly Extract<keyof TProps, string>[],
-  formApi: SchemxFormApi<TValues>
+  formApi: SchemxFormApi<TValues>,
+  schemaLabel: string
 ): Promise<TProps> {
   // 当前解析批次使用的完整表单值快照。
   const values = formApi.getValues() as TValues
@@ -69,13 +71,13 @@ export async function resolveDependencyProps<
             return [key, value] as const
           } catch (error) {
             // 单个属性失败时保留其他属性的成功结果。
-            console.error("[schemx] 解析动态属性时发生错误:", error)
+            console.error(`[schemx] ${schemaLabel} 动态属性 "${key}" 解析错误`, error)
 
             return [key, undefined] as const
           }
         })
     ),
-    runTrigger(dependencies, values, formApi),
+    runTrigger(dependencies, values, formApi, schemaLabel),
   ])
 
   return Object.fromEntries(entries.filter(([, value]) => value != null)) as TProps
@@ -88,12 +90,14 @@ export async function resolveDependencyProps<
  * @param dependencies - 可能包含副作用函数的 dependencies 配置。
  * @param values - 当前解析批次的完整表单值快照。
  * @param formApi - 传入副作用函数的表单 API。
+ * @param schemaLabel - 当前 dependencies 所属 schema 的展示标识。
  * @returns 副作用结束后完成的 Promise。
  */
 async function runTrigger<TValues extends Values>(
   dependencies: DependencyEffectDependencies<TValues>,
   values: TValues,
-  formApi: SchemxFormApi<TValues>
+  formApi: SchemxFormApi<TValues>,
+  schemaLabel: string
 ): Promise<void> {
   if (!dependencies.trigger) {
     return
@@ -103,6 +107,6 @@ async function runTrigger<TValues extends Values>(
     await dependencies.trigger(values, formApi)
   } catch (error) {
     // 副作用失败不应阻断动态属性的并行解析。
-    console.error("[schemx] trigger 执行错误:", error)
+    console.error(`[schemx] ${schemaLabel} trigger 执行错误`, error)
   }
 }

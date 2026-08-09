@@ -153,7 +153,8 @@ export interface SchemxDictionary<
 /**
  * 为 Props 类型注入可选的 dict 字段
  *
- * 将任意组件 Props 类型 TProps 扩展为包含 `dict?: SchemxDictionary<TValues>` 的新类型。
+ * 将任意组件 Props 类型 TProps 扩展为包含可选 `dict` 的新类型。
+ * `dict` 可以是完整的字典配置，也可以直接传入其 `api` 函数。
  * 用于为渲染器组件的 Props 添加字典选项支持。
  *
  * @typeParam TProps - 原始组件 Props 类型
@@ -168,9 +169,11 @@ export interface SchemxDictionary<
  *
  * // 扩展后的类型包含 dict 字段
  * type MySelectWithDict = SchemxWithDictionary<MySelectProps, MyFormValues>
- * // 等价于 MySelectProps & { dict?: SchemxDictionary<MyFormValues> }
+ * // 等价于 MySelectProps & {
+ * //   dict?: SchemxDictionary<MyFormValues> | SchemxDictionary<MyFormValues>["api"]
+ * // }
  * ```
  */
 export type SchemxWithDictionary<TProps, TValues extends Values = Values> = TProps & {
-  dict?: SchemxDictionary<TValues>
+  dict?: SchemxDictionary<TValues> | SchemxDictionary<TValues>["api"]
 }

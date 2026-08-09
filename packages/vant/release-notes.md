@@ -20,6 +20,12 @@
 - Vant 根入口随 `@schemx/vue` / `@schemx/core` 同步到新的注册表名称：`validationRuleRegistry`、`createValidationRuleRegistry`、`ValidationRuleRegistry` 和 `RendererRegistry` 保留，旧的 `validatorRegistry`、`createValidatorsRegistry` 不再作为当前公共入口。
 - `getFieldProps` 的公开泛型约束从 `Record<string, any>` 收紧为 `Record<string, unknown>`；`FindTreeItemResult` 和 `findTreeItem` 现在使用 `TNode`、`TValue` 泛型，默认节点类型为 `Record<string, unknown>`、值类型为 `unknown`。直接依赖旧的 `any` 赋值或显式类型约束的调用方可能需要补充类型声明；运行时查找接口的参数形状未改变。
 
+### SensitiveInput 不再支持受控 revealed 状态
+
+SensitiveInput 运行时不再读取 revealed 或调用 onRevealChange，update:revealed 事件也被移除；展开状态改由内部状态管理，初始值仅取 defaultRevealed，变化通过 reveal-change 通知。
+
+影响范围：依赖 v-model:revealed、revealed prop 实时控制，或依赖 onRevealChange 回调的 SensitiveInput 调用方。
+
 #### 迁移说明
 
 ```ts
@@ -43,6 +49,8 @@ const result = findTreeItem<TreeOption, string>(tree, "guangzhou", {
 ## Fixes
 
 - `findTreeItem` 现在将节点标签路径显式转换为字符串，返回的 `labels: string[]` 与实际运行时值保持一致；节点值路径继续按 `TValue` 保留类型。
+
+- 可编辑且 value 为空时组件直接渲染输入框并隐藏展开按钮；首次输入后保持展开，避免从空值切换到非空值时立即回到脱敏展示态。（影响范围：需要在表单初始值为空且字段可编辑时直接录入敏感字段的用户。）
 
 ## Improvements
 

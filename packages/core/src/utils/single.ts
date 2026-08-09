@@ -28,10 +28,10 @@
 export function createStrictSingleton<TValue, TArgs extends any[] = []>(
   factory: (...args: TArgs) => TValue
 ) {
-  // Cached singleton instance created by the first successful access.
+  // 首次成功访问时创建并缓存的单例实例。
   let instance: TValue | undefined
 
-  // Tracks whether the factory has already produced the singleton instance.
+  // 标记工厂是否已经创建过单例实例。
   let initialized = false
 
   /**
@@ -56,14 +56,17 @@ export function createStrictSingleton<TValue, TArgs extends any[] = []>(
    */
   const reset = (): void => {
     try {
-      // @ts-expect-error Node's optional process global is unavailable in browser-only type builds.
-      if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
-        console.warn("[Singleton] reset() 不应在生产环境调用")
+      const processEnvironment = (
+        globalThis as { process?: { env?: { NODE_ENV?: string } } }
+      ).process?.env
+
+      if (processEnvironment?.NODE_ENV === "production") {
+        console.warn("[schemx] reset() 不应在生产环境调用")
 
         return
       }
     } catch {
-      // Environments without process support reset the singleton without an environment check.
+      // 不支持 process 的环境直接重置单例，不执行环境检查。
     }
 
     instance = undefined

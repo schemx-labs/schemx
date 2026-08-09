@@ -7,7 +7,7 @@
  * @module types/renderer
  */
 
-// Declaration merging intentionally permits renderer-specific extension interfaces.
+// 有意保留声明合并能力，以支持渲染器专属的扩展接口。
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
 import { Values } from "./form"

@@ -6,4 +6,4 @@
 
 export { default } from "./index.vue"
 export type { SensitiveInputRendererProps, SensitiveInputValue } from "./types"
-export { defaultMaskFormatter } from "./types"
+export { defaultMaskFormatter } from "./helper"

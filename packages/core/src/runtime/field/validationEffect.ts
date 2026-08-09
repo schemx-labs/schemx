@@ -7,11 +7,10 @@
  * @module core/runtime/field/validationEffect
  */
 
-import { createSignal, createSignalEffect } from "../../reactivity"
+import { createSignalEffect } from "../../reactivity"
 import { createFieldKey } from "../../utils"
 
-import type { FieldEffectiveSchema } from "./runtimeState"
-import type { Signal } from "../../reactivity"
+import type { FieldValidationSchema } from "./runtimeState"
 import type { ComputedSignal } from "../../reactivity/computed"
 import type { SchemxBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
@@ -42,7 +41,7 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
    *
    * 它的变化会重新计算字段是否应注册校验规则。
    */
-  effectiveSchema: ComputedSignal<FieldEffectiveSchema<TValues>>
+  validationSchema: ComputedSignal<FieldValidationSchema<TValues>>
 
   /**
    * 关联的 scope。
@@ -58,11 +57,6 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
  */
 export interface ValidationEffect {
   /**
-   * 是否已注册规则。
-   */
-  registered: Signal<boolean>
-
-  /**
    * 销毁创建该 effect 时传入的整个 Scope，并注销字段校验规则。
    *
    * 该方法不是只释放 effect 自身；不要将 `effect.dispose` 注册为同一 Scope 的清理回调，
@@ -71,12 +65,19 @@ export interface ValidationEffect {
   dispose(): void
 }
 
+/** 保存一次校验规则注册所需的字段配置快照。 */
 interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
+  /** 字段是否可见。 */
   visible: boolean
+  /** 字段是否只读。 */
   readonly: boolean
+  /** 字段是否禁用。 */
   disabled: boolean
+  /** 用于错误提示的字段标签。 */
   label: string
+  /** 字段是否必填。 */
   required: SchemxBaseField<TValues>["required"]
+  /** 字段当前规则列表。 */
   rules: SchemxBaseField<TValues>["rules"]
 }
 
@@ -90,7 +91,7 @@ interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
  * @example
  * ```ts
  * const effectScope = createScope()
- * const effect = createValidationEffect({ context, name, effectiveSchema, scope: effectScope })
+ * const effect = createValidationEffect({ context, name, validationSchema, scope: effectScope })
  *
  * // 由专用 Scope 的拥有者在字段卸载时调用。
  * effect.dispose()
@@ -99,21 +100,21 @@ interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
 export function createValidationEffect<TValues extends Values = Values>(
   options: CreateValidationEffectOptions<TValues>
 ): ValidationEffect {
-  const { context, name, effectiveSchema, scope } = options
+  const { context, name, validationSchema, scope } = options
 
   const taskScheduler = context.scheduler
 
-  const registered = createSignal(false)
-
   let registrationVersion = 0
+
+  let lastScheduledSnapshot: ValidationRegistrationSnapshot<TValues> | undefined
 
   /**
    * 读取参与规则注册决策的响应式字段呈现态。
    *
-   * 直接读取 effectiveSchema（Signal Graph 路径）。
+   * 直接读取 validationSchema，避免订阅纯展示字段。
    */
   const readValidationProps = (): ValidationRegistrationSnapshot<TValues> => {
-    const effective = effectiveSchema.value
+    const effective = validationSchema.value
 
     return {
       visible: effective.visible,
@@ -132,15 +133,12 @@ export function createValidationEffect<TValues extends Values = Values>(
     const { visible, readonly, disabled, label, required, rules } = snapshot
 
     if (!visible || readonly || disabled || (!required && !hasRules(rules))) {
-      context.validation.removeField(name)
-
-      registered.value = false
+      context.validation.removeSchemaField(name)
 
       return
     }
 
-    registered.value =
-      context.validation.syncField({ name, label, required, rules }) !== false
+    context.validation.syncField({ name, label, required, rules })
   }
 
   /**
@@ -149,6 +147,12 @@ export function createValidationEffect<TValues extends Values = Values>(
   const scheduleRegistration = (
     snapshot: ValidationRegistrationSnapshot<TValues>
   ): void => {
+    if (lastScheduledSnapshot === snapshot) {
+      return
+    }
+
+    lastScheduledSnapshot = snapshot
+
     const currentVersion = ++registrationVersion
 
     taskScheduler.schedule({
@@ -170,7 +174,6 @@ export function createValidationEffect<TValues extends Values = Values>(
     registrationVersion += 1
     context.validation.removeField(name)
 
-    registered.value = false
   })
 
   const disposeEffect = createSignalEffect(() => {
@@ -187,7 +190,6 @@ export function createValidationEffect<TValues extends Values = Values>(
   }
 
   return {
-    registered,
     dispose,
   }
 }

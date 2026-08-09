@@ -95,7 +95,7 @@ describe("createField", () => {
     form.destroy()
   })
 
-  it("初始化后立即 removeRules 应取消待执行的 schema 规则注册", async () => {
+  it("未设置运行时覆盖时 removeRules 保留 Schema 规则", async () => {
     const form = createForm<TypedForm>({
       initialValues: {
         name: "",
@@ -116,9 +116,15 @@ describe("createField", () => {
     field.removeRules()
 
     await expect(field.validate()).resolves.toEqual({
-      valid: true,
+      valid: false,
       values: { name: "", age: 20, user: { city: "Beijing" } },
-      errors: [],
+      errors: [
+        {
+          scope: "field",
+          name: "name",
+          issues: [{ message: "姓名为必填项", code: "required" }],
+        },
+      ],
     })
     form.destroy()
   })

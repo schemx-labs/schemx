@@ -112,7 +112,7 @@ export async function resolveDynamicProp<TValue, TValues extends Values = Values
 
       return result ?? defaultValue
     } catch (error) {
-      console.error("[schemx] 解析动态属性时发生错误:", error)
+      console.error("[schemx] 解析动态属性时发生错误", error)
 
       return defaultValue
     }

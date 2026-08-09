@@ -4,19 +4,17 @@
 
 ## 分类与章节
 
-按下列顺序渲染有内容的章节：
+按下列顺序渲染有内容的章节。固定章节名和分类名使用英文；叙述性文字使用简体中文：
 
-1. 版本标题、摘要和版本元数据。
-2. 重要提示。
-3. 不兼容变更。
-4. 安全修复。
-5. 按包分组的新增功能、优化与调整、问题修复和 API 变更。
-6. 跨包 TypeScript 变更。
-7. 依赖与兼容性。
-8. 升级指南。
-9. 验证。
-10. 已知问题。
-11. 完整变更。
+1. `Release Notes`、版本信息和概览。
+2. `Important Notices`。
+3. `Breaking Changes`。
+4. `Security`。
+5. `Deprecations`、`Features`、`Fixes`、`Improvements`、`Documentation`（均按包分组）。
+6. `TypeScript Changes`。
+7. `Dependencies and Compatibility`。
+8. `Validation`、`Known Issues`、`Full Changelog`。
+9. `Affected Packages`。
 
 仅输出有内容的章节。不要为了模板完整保留空标题；不要把完整 Commit 列表当作正文，除非仓库规范或用户明确要求。
 
@@ -98,7 +96,8 @@ Deprecation 必须说明替代方案；已删除 API 应归入 Breaking Change�
 
 ## 语言与格式
 
-- 默认使用简体中文；保留 API、包名、命令、代码、依赖和版本号原文。
+- 默认使用简体中文叙述；保留 API、包名、命令、代码、依赖和版本号原文。
+- 固定章节名必须使用英文：`Release Notes`、`Important Notices`、`Breaking Changes`、`Security`、`Deprecations`、`Features`、`Fixes`、`Improvements`、`Documentation`、`TypeScript Changes`、`Dependencies and Compatibility`、`Validation`、`Known Issues`、`Full Changelog`、`Affected Packages`。不要翻译这些专业名称或添加 Emoji。
 - 使用 Markdown 正确层级、列表和代码围栏。
 - 版本标题使用实际发布版本，例如 `# v1.4.0`。
 - 没有迁移、已知问题或验证结果时，不生成对应章节。

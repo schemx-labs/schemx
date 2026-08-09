@@ -1,7 +1,7 @@
 /**
  * 运行时图（Runtime Graph）的测试辅助工具。
  *
- * 提供创建字段 descriptor、原始 schema、完整运行时图测试夹具以及
+ * 提供创建原始 schema、完整运行时图测试夹具以及
  * 异步刷新调度器的方法，供各测试套件共用。
  *
  * @module core/runtime/node/__tests__/runtimeGraphTestUtils
@@ -10,17 +10,15 @@ import { vi } from "vitest"
 
 import { createCompile } from "../../compiler"
 import { mergeAndResolveSchemxConfig } from "../../../config"
-import type { FormDescriptor } from "../../descriptor"
 import { createLifecycleBus, type LifecycleListener } from "../../lifecycle"
 import { createSignal } from "../../../reactivity"
 import { createReconciler, type Reconciler } from "../../reconciler"
 import { type SchemaRuntimeContext } from "../../context"
 import { createScheduler, type Scheduler } from "../../scheduler"
-import { createRuntimeResources } from "../resources"
+import { createRuntimeRegistry } from "../runtimeRegistry"
 
-import type { FieldDescriptor } from "../../descriptor"
 import type { SchemxField, SchemxFormApi, Values } from "../../../types"
-import type { ContainerRuntimeNode, RuntimeNode, RootRuntimeNode } from "../types"
+import type { ParentRuntimeNode, RuntimeNode, RootRuntimeNode } from "../types"
 
 /**
  * 运行时图测试夹具的接口类型，包含 context、reconciler、root、scheduler 及 formApi。
@@ -30,35 +28,29 @@ export interface RuntimeGraphTestHarness<TValues extends Values = Values> {
   readonly reconciler: Reconciler<TValues>
   readonly root: RootRuntimeNode
   readonly scheduler: Scheduler
-  readonly commitChildren: (
-    parent: ContainerRuntimeNode<TValues>,
-    descriptors: FormDescriptor<TValues>[]
-  ) => void
   readonly commitSchemas: (
-    parent: ContainerRuntimeNode<TValues>,
+    parent: ParentRuntimeNode<TValues>,
     schemas: SchemxField<TValues>[]
   ) => void
   readonly formApi: SchemxFormApi<TValues>
 }
 
 /**
- * 创建最小化的 FieldDescriptor，仅包含 key、name、componentType 和 label。
+ * 创建最小化的字段 schema。
  *
  * @param key - 字段 key
  * @param name - 字段路径名，默认同 key
  */
-export function createFieldDescriptor<TValues extends Values = Values>(
+export function createFieldSchema<TValues extends Values = Values>(
   key: string,
   name: string | string[] = key
-): FieldDescriptor<TValues> {
-  return createCompile<TValues>().toDescriptors([
-    {
-      key,
-      name: name as any,
-      label: "label",
-      componentType: "text",
-    },
-  ])[0] as FieldDescriptor<TValues>
+): SchemxField<TValues> {
+  return {
+    key,
+    name: name as any,
+    label: "label",
+    componentType: "text",
+  } as SchemxField<TValues>
 }
 
 /**
@@ -159,6 +151,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   const validation = {
     syncField: vi.fn(),
     removeField: vi.fn(),
+    removeSchemaField: vi.fn(),
   }
 
   const compile = createCompile<TValues>({
@@ -174,31 +167,25 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     scheduler,
     validation,
     lifecycleBus,
-    nodeResources: createRuntimeResources<TValues>(),
+    runtimeRegistry: createRuntimeRegistry<TValues>(),
   } as unknown as SchemaRuntimeContext<TValues>
 
   const reconciler = createReconciler<TValues>(context)
   const root = reconciler.createRoot()
-  const commitChildren = (
-    parent: ContainerRuntimeNode<TValues>,
-    descriptors: FormDescriptor<TValues>[]
-  ): void => {
-    reconciler.reconcileChildren(parent, descriptors)
-  }
-
   const commitSchemas = (
-    parent: ContainerRuntimeNode<TValues>,
+    parent: ParentRuntimeNode<TValues>,
     schemas: SchemxField<TValues>[]
-  ): void => commitChildren(parent, compile.toDescriptors(schemas))
+  ): void => reconciler.reconcileChildren(parent, schemas)
 
-  Object.assign(context, { reconciler, commitChildren })
+  Object.assign(context, {
+    reconcileChildren: reconciler.reconcileChildren,
+  })
 
   return {
     context,
     reconciler,
-    root,
+    root: root as unknown as RootRuntimeNode,
     scheduler,
-    commitChildren,
     commitSchemas,
     formApi,
   }

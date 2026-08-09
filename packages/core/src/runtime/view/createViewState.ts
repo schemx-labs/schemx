@@ -9,30 +9,19 @@
 
 import { createComputed } from "../../reactivity/computed"
 import {
-  type FormDescriptor,
-  isDependencyDescriptor,
-  isFieldDescriptor,
-  isGroupDescriptor,
-} from "../descriptor"
-import {
   isDependencyRuntimeNode,
   isFieldRuntimeNode,
   isGroupRuntimeNode,
 } from "../node/helper"
 
-import type {
-  DescribedRuntimeNode,
-  RootRuntimeNode,
-  RuntimeNode,
-  RuntimeNodeResourceContext,
-} from "../node"
+import type { RootRuntimeNode, RuntimeNode, SchemaRuntimeNode } from "../node"
 import type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
 } from "./types"
 import type { ComputedSignal } from "../../reactivity/computed"
-import type { SchemxComponentProps, Values } from "../../types"
+import type { Values } from "../../types"
 
 /**
  * 字段节点视图状态。
@@ -103,8 +92,7 @@ export type RuntimeViewState<TValues extends Values = Values> =
  * @returns root 视图状态。
  */
 export function createRootRuntimeViewState<TValues extends Values = Values>(
-  root: RootRuntimeNode<TValues>,
-  _resources: RuntimeNodeResourceContext<TValues>
+  root: RootRuntimeNode<TValues>
 ): RootViewState<TValues> {
   const viewState: RootViewState<TValues> = {
     viewSchemas: createComputed(() => readChildrenViewSchemas(root.childNodes.value)),
@@ -119,47 +107,39 @@ export function createRootRuntimeViewState<TValues extends Values = Values>(
  * 为 RuntimeNode 创建并注册对应 ViewState。
  *
  * 根据节点类型（field / group / dependency）分别构建对应的 view computed。
- * 创建前会校验 descriptor 与 node 的类型是否匹配。
  *
  * @param node - 待创建视图状态的运行时节点。
- * @param descriptor - 节点对应的 descriptor。
- * @param _resources - 运行时资源上下文。
+ * @param debug - 是否在 ViewSchema 中附加调试元数据。
  * @returns 创建的运行时视图状态。
- * @throws 当 node 类型与 descriptor 类型不匹配时抛出错误。
  * @throws 当 field 节点缺少 fieldState 时抛出错误。
  */
 export function createRuntimeViewState<TValues extends Values = Values>(
-  node: DescribedRuntimeNode<TValues>,
-  descriptor: FormDescriptor<TValues>,
-  _resources: RuntimeNodeResourceContext<TValues>
+  node: SchemaRuntimeNode<TValues>,
+  debug = false
 ): RuntimeViewState<TValues> {
-  if (node.type !== descriptor.type) {
-    throw new Error(
-      `[schemx] Cannot create viewState for node "${node.key}" with descriptor "${descriptor.type}".`
-    )
-  }
-
-  if (isFieldRuntimeNode(node) && isFieldDescriptor(descriptor)) {
+  if (isFieldRuntimeNode(node)) {
     const runtimeState = node.fieldState
 
     if (!runtimeState) {
       throw new Error(`[schemx] fieldState is required for node "${node.key}"`)
     }
 
-    // 字段 view 是 computed：从 fieldState 读取 viewSchema（含动态覆盖）和诊断信息，
-    // 合并 key、清洗后的 placeholder 和 componentProps，以及调试元数据
+    // 字段 View 直接由静态 schema 与有效字段状态投影，避免在 Field 状态中重复维护 ViewSchema。
     const viewState: FieldNodeViewState<TValues> = {
       view: createComputed(() => {
-        const schema = runtimeState.viewSchema.value
+        const staticSchema = runtimeState.staticSchema.value
 
-        const diagnostics = runtimeState.diagnostics.value
+        const effectiveSchema = runtimeState.effectiveSchema.value
+
+        const diagnostics = runtimeState.diagnostics?.value
 
         return {
-          ...schema,
+          ...staticSchema,
+          ...effectiveSchema,
           key: node.key,
-          placeholder: sanitizePlaceholder(schema.placeholder),
-          componentProps: sanitizeComponentProps(schema.componentProps ?? {}),
-          debug: {
+          placeholder: effectiveSchema.placeholder,
+          componentProps: effectiveSchema.componentProps,
+          ...(diagnostics ? { debug: {
             runtimeNodeId: node.id,
             runtimeNodeType: "field",
             hasRuntimeState: true,
@@ -167,7 +147,7 @@ export function createRuntimeViewState<TValues extends Values = Values>(
             lastUpdatedBy: diagnostics.lastUpdatedBy,
             overriddenKeys: diagnostics.overriddenKeys,
             error: diagnostics.error?.message ?? null,
-          },
+          } } : {}),
         } as unknown as SchemxViewFieldSchema<TValues>
       }),
     }
@@ -177,11 +157,13 @@ export function createRuntimeViewState<TValues extends Values = Values>(
     return viewState
   }
 
-  if (isGroupRuntimeNode(node) && isGroupDescriptor(descriptor)) {
-    const runtimeState = node.containerState
+  if (isGroupRuntimeNode(node)) {
+    const runtimeState = node.presentationState
 
     if (!runtimeState) {
-      throw new Error(`[schemx] containerState is required for group node "${node.key}"`)
+      throw new Error(
+        `[schemx] presentationState is required for group node "${node.key}"`
+      )
     }
 
     // 分组 view 合并容器有效状态，并递归读取子节点 viewSchemas。
@@ -190,18 +172,18 @@ export function createRuntimeViewState<TValues extends Values = Values>(
         const effective = runtimeState.effectiveState.value
 
         return {
-          ...descriptor.staticSchema,
+          ...node.staticSchema,
           key: node.key,
           visible: effective.visible,
           readonly: effective.readonly,
           disabled: effective.disabled,
           children: readChildrenViewSchemas(node.childNodes.value),
-          debug: {
+          ...(debug ? { debug: {
             runtimeNodeId: node.id,
             runtimeNodeType: "group",
             hasRuntimeState: true,
-            hasDependencyEffect: descriptor.dynamicProps != null,
-          },
+            hasDependencyEffect: node.dynamicProps != null,
+          } } : {}),
         } as SchemxViewGroupSchema<TValues>
       }),
     }
@@ -211,7 +193,7 @@ export function createRuntimeViewState<TValues extends Values = Values>(
     return viewState
   }
 
-  if (isDependencyRuntimeNode(node) && isDependencyDescriptor(descriptor)) {
+  if (isDependencyRuntimeNode(node)) {
     // dependency 节点本身不产生 ViewSchema，其 view 直接返回子节点的 schema 数组
     const viewState: DependencyViewState<TValues> = {
       view: createComputed(() => readChildrenViewSchemas(node.childNodes.value)),
@@ -222,28 +204,7 @@ export function createRuntimeViewState<TValues extends Values = Values>(
     return viewState
   }
 
-  throw new Error(
-    `[schemx] Cannot create viewState for node "${node.key}" with descriptor "${descriptor.type}".`
-  )
-}
-
-/**
- * 更新 RuntimeNode 对应 ViewState。
- *
- * 当前实现直接委托给 createRuntimeViewState 重建整个 viewState，
- * 因为 computed 会在运行时自动响应依赖变化，不需要增量更新。
- *
- * @param node - 待更新的运行时节点。
- * @param descriptor - 节点对应的 descriptor。
- * @param resources - 运行时资源上下文。
- * @returns 更新后的视图状态。
- */
-export function updateRuntimeViewState<TValues extends Values = Values>(
-  node: DescribedRuntimeNode<TValues>,
-  descriptor: FormDescriptor<TValues>,
-  resources: RuntimeNodeResourceContext<TValues>
-): RuntimeViewState<TValues> {
-  return createRuntimeViewState(node, descriptor, resources)
+  throw new Error("[schemx] Unsupported schema runtime node.")
 }
 
 /**
@@ -255,8 +216,7 @@ export function updateRuntimeViewState<TValues extends Values = Values>(
  * @param _resources - 运行时资源上下文。
  */
 export function deleteRuntimeViewState<TValues extends Values = Values>(
-  node: RuntimeNode<TValues>,
-  _resources: RuntimeNodeResourceContext<TValues>
+  node: RuntimeNode<TValues>
 ): void {
   node.viewState = null
 }
@@ -271,7 +231,7 @@ export function deleteRuntimeViewState<TValues extends Values = Values>(
  * @returns 扁平化的 ViewSchema 数组。
  */
 function readChildrenViewSchemas<TValues extends Values>(
-  children: readonly DescribedRuntimeNode<TValues>[]
+  children: readonly SchemaRuntimeNode<TValues>[]
 ): readonly SchemxViewSchema<TValues>[] {
   const result: SchemxViewSchema<TValues>[] = []
 
@@ -288,67 +248,6 @@ function readChildrenViewSchemas<TValues extends Values>(
       result.push(...(view as readonly SchemxViewSchema<TValues>[]))
     } else if (view) {
       result.push(view as SchemxViewSchema<TValues>)
-    }
-  }
-
-  return result
-}
-
-/**
- * 清洗 placeholder 值，限制长度不超过 1000 字符。
- *
- * @param value - 原始 placeholder。
- * @returns 清洗后的 placeholder，超长时截断。
- */
-function sanitizePlaceholder(value: string | undefined): string {
-  return value ? value.slice(0, 1000) : ""
-}
-
-/**
- * 清洗 componentProps，递归过滤非法属性 key。
- *
- * 只保留符合标识符命名规范（字母/数字/下划线/美元符号/连字符）的 key，
- * 嵌套对象最多递归 10 层以防止循环引用。
- *
- * @param props - 原始 componentProps。
- * @param depth - 当前递归深度。
- * @returns 清洗后的只读属性对象。
- */
-function sanitizeComponentProps<TValues extends Values = Values>(
-  props: SchemxComponentProps<TValues>,
-  depth = 0
-): Readonly<Record<string, unknown>> {
-  // 超过 10 层深度直接返回空对象，防止循环引用
-  if (depth > 10) {
-    return {}
-  }
-
-  const result: Record<string, unknown> = {}
-
-  for (const key of Object.keys(props)) {
-    // 只保留合法的标识符 key（驼峰或连字符格式）
-    if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) && !/^[a-zA-Z0-9_-]+$/.test(key)) {
-      continue
-    }
-
-    const value = (props as Record<string, unknown>)[key]
-
-    // Form 实例是具有稳定身份的服务门面，不属于可序列化配置快照。
-    // 保留原引用，避免 ViewSchema 清洗过程复制实例并破坏引用相等语义。
-    if (key === "formInstance") {
-      result[key] = value
-
-      continue
-    }
-
-    // 嵌套对象递归清洗
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      result[key] = sanitizeComponentProps(
-        value as SchemxComponentProps<TValues>,
-        depth + 1
-      )
-    } else {
-      result[key] = value
     }
   }
 

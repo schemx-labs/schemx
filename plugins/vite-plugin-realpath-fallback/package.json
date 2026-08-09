@@ -21,7 +21,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "pack:local": "bash ../../scripts/modules/packages/pack-vite-plugin.sh vite-plugin-realpath-fallback"
+    "pack:local": "bash ../../scripts/workflow/commands/packages/pack-vite-plugin.sh vite-plugin-realpath-fallback"
   },
   "peerDependencies": {
     "vite": ">=4.0.0 <9.0.0"

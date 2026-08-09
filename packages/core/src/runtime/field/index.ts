@@ -12,31 +12,7 @@ export {
   type CreateDependenciesEffectOptions,
 } from "./dependenciesEffect"
 
-export {
-  getDependencyEffect,
-  hasDependencyEffect,
-  createDependencyEffect,
-  type CreateDependencyEffectOptions,
-  type DependencyEffectState,
-} from "./dependencyEffect"
-
-export {
-  mountDependencyNodeResources,
-  updateDependencyNodeResources,
-  unmountDependencyNodeResources,
-} from "./dependencyNodeResources"
-
-export {
-  createFieldRegistry,
-  type FieldRegistry,
-  type FieldRegistryEntry,
-} from "./registry"
-
-export {
-  mountFieldNodeResources,
-  updateFieldNodeResources,
-  unmountFieldNodeResources,
-} from "./nodeResources"
+export { mountFieldRuntime, unmountFieldRuntime, updateFieldRuntime } from "./lifecycle"
 
 export {
   createValidationEffect,
@@ -54,6 +30,7 @@ export {
   type FieldDynamicOverrideKey,
   type FieldDynamicOverrides,
   type FieldEffectiveSchema,
+  type FieldValidationSchema,
   type FieldRuntimeDiagnostics,
   type FieldRuntimeState,
 } from "./runtimeState"

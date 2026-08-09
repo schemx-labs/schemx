@@ -21,7 +21,13 @@
 
 import { cloneDeep, isEqual } from "es-toolkit"
 
-import { batchUpdates, createFieldSignal, createFieldSignalMap } from "../reactivity"
+import {
+  batchUpdates,
+  createFieldSignal,
+  createFieldSignalMap,
+  createSignal,
+  onBatchComplete,
+} from "../reactivity"
 import { collectObjectPathsByLeaf, getByPath, setByPath } from "../utils"
 
 import type { FieldSignal } from "../reactivity"
@@ -93,6 +99,21 @@ class StoreImpl<TValues extends Values = Values> {
    */
   private fieldSignals = createFieldSignalMap<NamePath<TValues>, unknown>()
 
+  /** 当前值变更的单调 revision；完整快照按此 revision 缓存。 */
+  private readonly valueRevision = createSignal(0)
+
+  /** 当前 batch 中发生值或字段结构变化的精确路径。 */
+  private readonly changedPaths = new Set<NamePath<TValues>>()
+
+  /** 已缓存完整快照对应的 revision。 */
+  private snapshotRevision = -1
+
+  /** 同一 revision 内复用的完整值快照。 */
+  private snapshotCache: TValues | undefined
+
+  /** 释放 batch 完成监听，避免 Store 销毁后保留引用。 */
+  private readonly disposeBatchListener: () => void
+
   /**
    * 与当前值隔离存储的初始字段值。
    */
@@ -125,6 +146,50 @@ class StoreImpl<TValues extends Values = Values> {
         })
       )
     }
+
+    this.disposeBatchListener = onBatchComplete(() => {
+      this.commitValueChanges()
+    })
+  }
+
+  /**
+   * 记录值或字段结构变化，延后到最外层 batch 一次性提交 revision。
+   */
+  private markValueChanged(path: NamePath<TValues>): void {
+    this.changedPaths.add(path)
+  }
+
+  /**
+   * 提交当前 batch 的字段变更并使完整快照缓存失效。
+   */
+  private commitValueChanges(): void {
+    if (this.changedPaths.size === 0) return
+
+    this.changedPaths.clear()
+    this.snapshotRevision = -1
+    this.valueRevision.value += 1
+  }
+
+  /**
+   * 返回当前 revision 的完整值快照；同一 revision 最多构建一次。
+   */
+  private getFullSnapshot(): TValues {
+    const revision = this.valueRevision.peek()
+
+    if (this.snapshotRevision === revision && this.snapshotCache) {
+      return this.snapshotCache
+    }
+
+    const result = {} as TValues
+
+    for (const path of this.fieldSignals.keys()) {
+      setByPath(result, path, this.getFieldSnapshot(path))
+    }
+
+    this.snapshotRevision = revision
+    this.snapshotCache = result
+
+    return result
   }
 
   /**
@@ -196,10 +261,16 @@ class StoreImpl<TValues extends Values = Values> {
     path: TName,
     value: FieldValue<TValues, TName> | undefined
   ): void {
-    const signal = this.getOrCreateFieldSignal(path)
+    batchUpdates(() => {
+      const existingSignal = this.fieldSignals.peek(path)
 
-    signal.setValue(value)
-    signal.setTouched(!isEqual(value, signal.initialValue.peek()))
+      const signal = this.getOrCreateFieldSignal(path)
+
+      if (!existingSignal || !isEqual(signal.value.peek(), value)) {
+        signal.setValue(value)
+        this.markValueChanged(path)
+      }
+    })
   }
 
   /**
@@ -216,9 +287,11 @@ class StoreImpl<TValues extends Values = Values> {
    * store.getFieldsValue()                  // => { name: 'John', age: 25 }
    * store.getFieldsValue(['name', 'age'])   // => { name: 'John', age: 25 }
    * ```
-   */
+  */
   getFieldsValue(): TValues
+  /** 按指定字段路径返回部分表单值。 */
   getFieldsValue<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
+  /** 按可选路径构造当前表单值结果。 */
   getFieldsValue<TName extends NamePath<TValues>>(paths?: TName[]): Partial<TValues> {
     const result = {} as Partial<TValues>
 
@@ -291,17 +364,21 @@ class StoreImpl<TValues extends Values = Values> {
    * const snapshot = store.getFieldsSnapshot()
    * const partial = store.getFieldsSnapshot(['name', 'age'])
    * ```
-   */
+  */
   getFieldsSnapshot(): TValues
+  /** 按指定字段路径返回部分表单快照。 */
   getFieldsSnapshot<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
+  /** 按可选路径构造当前表单快照。 */
   getFieldsSnapshot<TName extends NamePath<TValues>>(
     paths?: TName[]
   ): TValues | Partial<TValues> {
+    if (paths === undefined) {
+      return this.getFullSnapshot()
+    }
+
     const result = {} as Partial<TValues>
 
-    const pathsArr = paths ?? this.fieldSignals.keys()
-
-    for (const path of pathsArr) {
+    for (const path of paths) {
       setByPath(result, path, this.getFieldSnapshot(path))
     }
 
@@ -345,9 +422,11 @@ class StoreImpl<TValues extends Values = Values> {
    * store.getInitialValues()         // => { name: 'John', age: 25 }
    * store.getInitialValues(['name']) // => { name: 'John' }
    * ```
-   */
+  */
   getInitialValues(): Partial<TValues>
+  /** 按指定字段路径返回部分初始值。 */
   getInitialValues<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
+  /** 按可选路径返回初始值快照。 */
   getInitialValues<TName extends NamePath<TValues>>(paths?: TName[]): Partial<TValues> {
     if (paths === undefined) {
       return cloneDeep(this.initialValues)
@@ -381,7 +460,6 @@ class StoreImpl<TValues extends Values = Values> {
     const signal = this.getOrCreateFieldSignal(path)
 
     signal.setInitialValue(value)
-    signal.setTouched(!isEqual(signal.value.peek(), signal.initialValue.peek()))
   }
 
   /**
@@ -408,22 +486,19 @@ class StoreImpl<TValues extends Values = Values> {
         const signal = this.getOrCreateFieldSignal(path)
 
         signal.setInitialValue(next)
-        signal.setTouched(!isEqual(signal.value.peek(), signal.initialValue.peek()))
       }
     })
   }
 
   /**
-   * 检查指定字段是否被修改过。
-   *
-   * 通过深比较当前值与初始值判断。
+   * 检查指定字段是否发生过显式交互。
    *
    * @param path - 字段路径
    * @returns 是否与初始值不同
    *
    * @example
    * ```typescript
-   * store.setFieldValue('name', 'Jane')
+   * store.setFieldTouched('name', true)
    * store.isFieldTouched('name') // => true
    * ```
    */
@@ -444,9 +519,11 @@ class StoreImpl<TValues extends Values = Values> {
    * store.isFieldsTouched(['name', 'age']) // => true（全部被修改时）
    * store.isFieldsTouched()               // => true（任一字段被修改时）
    * ```
-   */
+  */
   isFieldsTouched(): boolean
+  /** 检查指定字段是否全部被修改。 */
   isFieldsTouched<TName extends NamePath<TValues>>(paths: TName[]): boolean
+  /** 按是否传入路径选择任一或全部字段的 touched 判断。 */
   isFieldsTouched<TName extends NamePath<TValues>>(paths?: TName[]): boolean {
     const pathsArr = paths ?? [...this.fieldSignals.keys()]
 
@@ -456,9 +533,7 @@ class StoreImpl<TValues extends Values = Values> {
   }
 
   /**
-   * 获取所有被修改的字段路径。
-   *
-   * 遍历所有 reactive values，与初始值比较，收集不同的路径。
+   * 获取所有发生过显式交互的字段路径。
    *
    * @returns 被修改的字段路径数组
    *
@@ -480,7 +555,7 @@ class StoreImpl<TValues extends Values = Values> {
   }
 
   /**
-   * 设置字段的修改状态。
+   * 设置字段的交互状态。
    *
    * @param path - 字段路径
    * @param touched - 是否被修改
@@ -546,13 +621,17 @@ class StoreImpl<TValues extends Values = Values> {
    * store.isFieldsPending(['name', 'age']) // => true（全部处于操作中时）
    * store.isFieldsPending()               // => true（任一字段处于操作中时）
    * ```
-   */
+  */
   isFieldsPending(): boolean
+  /** 检查指定字段是否全部处于 pending 状态。 */
   isFieldsPending<TName extends NamePath<TValues>>(paths: TName[]): boolean
+  /** 按是否传入路径选择任一或全部字段的 pending 判断。 */
   isFieldsPending<TName extends NamePath<TValues>>(paths?: TName[]): boolean {
-    const pathsArr = paths ?? [...this.fieldSignals.keys()]
+    if (paths) {
+      return paths.every((path) => this.isFieldPending(path))
+    }
 
-    return pathsArr.every((path) => this.isFieldPending(path))
+    return [...this.fieldSignals.keys()].some((path) => this.isFieldPending(path))
   }
 
   /**
@@ -640,7 +719,17 @@ class StoreImpl<TValues extends Values = Values> {
    * ```
    */
   resetField<TName extends NamePath<TValues>>(path: TName): void {
-    this.getOrCreateFieldSignal(path).reset()
+    batchUpdates(() => {
+      const signal = this.getOrCreateFieldSignal(path)
+
+      const initialValue = signal.initialValue.peek()
+
+      if (!isEqual(signal.value.peek(), initialValue)) {
+        this.markValueChanged(path)
+      }
+
+      signal.reset()
+    })
   }
 
   /**
@@ -656,7 +745,15 @@ class StoreImpl<TValues extends Values = Values> {
   resetFields<TName extends NamePath<TValues>>(paths: TName[]): void {
     batchUpdates(() => {
       for (const path of paths) {
-        this.getOrCreateFieldSignal(path).reset()
+        const signal = this.getOrCreateFieldSignal(path)
+
+        const initialValue = signal.initialValue.peek()
+
+        if (!isEqual(signal.value.peek(), initialValue)) {
+          this.markValueChanged(path)
+        }
+
+        signal.reset()
       }
     })
   }
@@ -679,6 +776,10 @@ class StoreImpl<TValues extends Values = Values> {
   reset(values?: Partial<TValues>): void {
     const resetValues = cloneDeep(values ?? this.initialValues)
 
+    if (values !== undefined) {
+      this.initialValues = cloneDeep(resetValues)
+    }
+
     const nextPaths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(resetValues)
 
     const nextPathSet = new Set(nextPaths)
@@ -687,17 +788,20 @@ class StoreImpl<TValues extends Values = Values> {
       for (const path of this.fieldSignals.keys()) {
         if (!nextPathSet.has(path)) {
           this.fieldSignals.delete(path)
+          this.markValueChanged(path)
         }
       }
 
       for (const path of nextPaths) {
         const next = getByPath<TValues, typeof path>(resetValues, path)
 
-        setByPath(this.initialValues, path, next)
-
         const signal = this.fieldSignals.peek(path)
 
         if (signal) {
+          if (!isEqual(signal.value.peek(), next)) {
+            this.markValueChanged(path)
+          }
+
           signal.setInitialValue(next)
           signal.reset(next)
         } else {
@@ -708,6 +812,7 @@ class StoreImpl<TValues extends Values = Values> {
               initialValue: next,
             })
           )
+          this.markValueChanged(path)
         }
       }
     })
@@ -725,6 +830,9 @@ class StoreImpl<TValues extends Values = Values> {
    */
   destroy(): void {
     this.fieldSignals.clear()
+    this.changedPaths.clear()
+    this.snapshotCache = undefined
+    this.disposeBatchListener()
   }
 }
 

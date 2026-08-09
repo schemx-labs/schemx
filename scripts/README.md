@@ -6,26 +6,27 @@
 ```text
 scripts/
 ├── workflow.sh           # 项目级命令入口
-├── lib/                  # terminal、interaction、task 等通用基建
-├── modules/              # workspace、packages、release 的可组合业务步骤
-├── commands/             # workspace、工具与 release 最终命令编排
+├── workflow/             # 工作流实现层
+│   ├── commands/         # 可执行命令入口与最终编排
+│   ├── domains/          # workspace、packages、release 的领域公共 API 与私有实现
+│   ├── shared/           # package.json、workspace 目录发现等无 UI 通用能力
+│   └── ui/               # UI 公共 API 与 internal/ 内部实现
 ├── fixtures/             # UI 预览与测试使用的静态输入
-└── tests/                # lib、modules 与命令域测试
+└── tests/                # shared、domains 与命令域测试
 ```
 
 本地 TTY 下，workspace 命令通过 Clack 选择 `packages`、`plugins`、`examples` 中定义了
 对应 script 的目标；`dev` 使用单选，其余批处理任务使用多选。CI 和管道环境默认执行所有
-符合条件的目标。`build`、`lint`、`type-check`
-和 `test` 由 Turborepo 编排依赖与缓存。发布命令的参数、计划冻结和不可逆操作边界由
-`commands/release.sh` 负责。
+符合条件的目标。每个目标直接执行对应 script。发布命令的参数、计划冻结和不可逆操作边界由
+`workflow/commands/release/main.sh` 负责。
 
-`modules/packages/` 中保留需要 Node 读取复杂产物或 JSON 结构的底层实现；它们不再作为根命令
-入口，统一由 `commands/tools.sh` 包装并通过 `lib/ui.sh` 显示生命周期反馈。
+`workflow/domains/packages/` 中保留需要 Node 读取复杂产物或 JSON 结构的领域实现；它们不再作为
+根命令入口，统一由 `workflow/commands/tools.sh` 包装并通过 `workflow/ui/api.sh` 显示生命周期反馈。
 
 ## Shell UI 约定
 
-`scripts/lib/ui.sh` 是工作流唯一的 UI 边界。业务脚本只使用以下公共方法，底层的
-`_ui_*` 函数、Gum 和 Clack 实现不属于业务 API：
+`scripts/workflow/ui/api.sh` 是工作流唯一的 UI 边界。业务脚本只使用以下公共方法，底层的
+`ui__*` 函数、Gum 和 Clack 实现不属于业务 API：
 
 | 方法 | 职责 |
 | --- | --- |
@@ -37,6 +38,7 @@ scripts/
 | `ui_service` | 执行持续运行的开发服务，Ctrl+C 映射为取消状态（退出码 130）。 |
 | `ui_status` | 输出单条 `info`、`success`、`warning` 或 `error` 状态。 |
 | `ui_summary` | 输出计划或结果等结构化摘要；不承担任务执行。 |
+| `ui_copyable_summary` | 输出结构化摘要与可直接复制的单行内容；复制内容前固定保留两条导轨间隔。 |
 
 输出边界固定为：UI 反馈写入 stderr（交互控件使用 TTY），提示结果写入 stdout，`ui_task`
 包装的原生命令 stdout/stderr 保持原样透传。这样可以安全地用命令替换读取选择结果，也可以

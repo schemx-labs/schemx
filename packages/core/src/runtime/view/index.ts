@@ -11,7 +11,6 @@ export { subscribeViewSchemas } from "./subscribeViewSchemas"
 export {
   createRuntimeViewState,
   createRootRuntimeViewState,
-  updateRuntimeViewState,
   deleteRuntimeViewState,
   type FieldNodeViewState,
   type GroupViewState,

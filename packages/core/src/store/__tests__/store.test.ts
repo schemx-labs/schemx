@@ -9,8 +9,6 @@
  * @module core/store/__tests__/store
  */
 
-import { isReactive } from "vue"
-
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
@@ -141,6 +139,21 @@ describe("Store", () => {
 
   // 验证 getFieldsSnapshot 返回深拷贝快照、不受后续修改影响、非 reactive 对象
   describe("getFieldsSnapshot", () => {
+    it("同一 revision 复用完整快照，值变更后创建新快照", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      const firstSnapshot = store.getFieldsSnapshot()
+      const secondSnapshot = store.getFieldsSnapshot()
+
+      expect(secondSnapshot).toBe(firstSnapshot)
+
+      store.setFieldValue("name", "Jane")
+
+      expect(store.getFieldsSnapshot()).not.toBe(firstSnapshot)
+    })
+
     it("返回指定字段快照", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
@@ -149,14 +162,14 @@ describe("Store", () => {
       expect(store.getFieldSnapshot("name")).toBe("Jane")
     })
 
-    it("返回原始对象的深拷贝", () => {
+    it("同一 revision 返回稳定的完整快照", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
       const snap1 = store.getFieldsSnapshot()
       const snap2 = store.getFieldsSnapshot()
       expect(snap1).toEqual(snap2)
-      expect(snap1).not.toBe(snap2)
+      expect(snap1).toBe(snap2)
     })
 
     it("快照不受后续修改影响", () => {
@@ -168,13 +181,6 @@ describe("Store", () => {
       expect(snap.name).toBe("John")
     })
 
-    it("快照不是 reactive 对象", () => {
-      const store = createStore<TestForm>({
-        initialValues: { name: "John", age: 25, email: "j@t.com" },
-      })
-      const snap = store.getFieldsSnapshot()
-      expect(isReactive(snap)).toBe(false)
-    })
   })
 
   // 验证 getInitialValue/getInitialValues/setInitialValue/setInitialValues 的读写行为
@@ -206,15 +212,16 @@ describe("Store", () => {
       expect(partial).toEqual({ name: "John", email: "j@t.com" })
     })
 
-    it("setInitialValue 只更新初始值并重新计算 touched", () => {
+    it("setInitialValue 只更新初始值，不改变 touched 交互状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
       store.setFieldValue("name", "Jane")
+      store.setFieldTouched("name", true)
       store.setInitialValue("name", "Jane")
       expect(store.getFieldValue("name")).toBe("Jane")
       expect(store.getInitialValue("name")).toBe("Jane")
-      expect(store.isFieldTouched("name")).toBe(false)
+      expect(store.isFieldTouched("name")).toBe(true)
     })
 
     it("setInitialValues 批量更新初始值", () => {
@@ -250,21 +257,22 @@ describe("Store", () => {
       expect(store.isFieldTouched("name")).toBe(false)
     })
 
-    it("修改后返回 true", () => {
+    it("设置字段值不会隐式标记 touched", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
       store.setFieldValue("name", "Jane")
-      expect(store.isFieldTouched("name")).toBe(true)
+      expect(store.isFieldTouched("name")).toBe(false)
     })
 
-    it("设回初始值后返回 false", () => {
+    it("字段值恢复初始值不会改变 touched", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+      store.setFieldTouched("name", true)
       store.setFieldValue("name", "Jane")
       store.setFieldValue("name", "John")
-      expect(store.isFieldTouched("name")).toBe(false)
+      expect(store.isFieldTouched("name")).toBe(true)
     })
 
     it("isFieldsTouched 无参检查任一字段", () => {
@@ -273,6 +281,8 @@ describe("Store", () => {
       })
       expect(store.isFieldsTouched()).toBe(false)
       store.setFieldValue("age", 30)
+      expect(store.isFieldsTouched()).toBe(false)
+      store.setFieldTouched("age", true)
       expect(store.isFieldsTouched()).toBe(true)
     })
 
@@ -283,16 +293,17 @@ describe("Store", () => {
       store.setFieldValue("name", "Jane")
       // 只修改了 name，age 未修改
       expect(store.isFieldsTouched(["name", "age"])).toBe(false)
-      store.setFieldValue("age", 30)
+      store.setFieldsTouched(["name", "age"])
       expect(store.isFieldsTouched(["name", "age"])).toBe(true)
     })
 
-    it("getTouchedFields 返回所有被修改的路径", () => {
+    it("getTouchedFields 返回所有显式标记的路径", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
       store.setFieldValue("name", "Jane")
       store.setFieldValue("email", "new@t.com")
+      store.setFieldsTouched(["name", "email"])
       const touched = store.getTouchedFields()
       expect(touched).toContain("name")
       expect(touched).toContain("email")
@@ -329,16 +340,27 @@ describe("Store", () => {
       expect(store.getPendingFields()).toEqual([])
     })
 
-    it("isFieldsPending 对传入路径和全量字段使用全字段 pending 判断", () => {
+    it("isFieldsPending 对传入路径使用 all 语义，对全量字段使用 any 语义", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
       store.setFieldsPending(["name", "age"], true)
       expect(store.isFieldsPending(["name", "age"])).toBe(true)
-      expect(store.isFieldsPending()).toBe(false)
+      expect(store.isFieldsPending()).toBe(true)
+
+      store.setFieldPending("age", false)
+      expect(store.isFieldsPending(["name", "age"])).toBe(false)
+      expect(store.isFieldsPending()).toBe(true)
 
       store.setFieldPending("email", true)
       expect(store.isFieldsPending()).toBe(true)
+
+      store.setFieldsPending(["name", "email"], false)
+      expect(store.isFieldsPending()).toBe(false)
+    })
+
+    it("空 store 没有 pending 字段", () => {
+      expect(createStore().isFieldsPending()).toBe(false)
     })
   })
 
@@ -383,6 +405,12 @@ describe("Store", () => {
       expect(store.getFieldValue("name")).toBe("Only")
       expect(store.getFieldValue("age")).toBeUndefined()
       expect(store.getFieldValue("email")).toBeUndefined()
+      expect(store.getFieldsSnapshot()).toEqual({ name: "Only" })
+      expect(store.getInitialValues()).toEqual({ name: "Only" })
+
+      store.setFieldValue("name", "Changed")
+      store.reset()
+
       expect(store.getFieldsSnapshot()).toEqual({ name: "Only" })
     })
 
@@ -430,8 +458,8 @@ describe("Store", () => {
 
 // 属性测试：通过 fast-check 验证 Store setFieldValue 往返一致性和 reset 状态正确性
 describe("Store 属性测试", () => {
-  // Feature: pure-signal-core-refactor, Property 2: Store setFieldValue/setFieldsValue 往返一致性
-  // **Validates: Requirements 3.1, 3.4**
+  // 功能：pure-signal-core-refactor；属性 2：Store setFieldValue/setFieldsValue 往返一致性
+  // **验证：需求 3.1、3.4**
   it("Property 2: 对任意字段路径和值，setFieldValue 后 getFieldValue 应返回相同的值；setFieldsValue 同理", () => {
     // 使用原始类型值，避免 collectObjectPathsByLeaf 将对象展开为嵌套路径
     const primitiveArb = fc.oneof(
@@ -473,8 +501,8 @@ describe("Store 属性测试", () => {
     )
   })
 
-  // Feature: pure-signal-core-refactor, Property 5: reset 产生正确的 store 状态（diff 式更新）
-  // **Validates: Requirements 4.1, 4.3, 4.4**
+  // 功能：pure-signal-core-refactor；属性 5：reset 产生正确的 store 状态（diff 式更新）
+  // **验证：需求 4.1、4.3、4.4**
   it("Property 5: reset 后已有路径中在目标值内的返回正确值，不在目标值内的被删除", () => {
     const primitiveArb = fc.oneof(
       fc.string(),

@@ -6,10 +6,10 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../../../.." && pwd)"
-source "$root_dir/scripts/modules/release/targets.sh"
-source "$root_dir/scripts/modules/release/versions.sh"
-source "$root_dir/scripts/modules/release/plan.sh"
-source "$root_dir/scripts/modules/release/preflight.sh"
+source "$root_dir/scripts/workflow/domains/release/targets.sh"
+source "$root_dir/scripts/workflow/domains/release/versions.sh"
+source "$root_dir/scripts/workflow/domains/release/plan.sh"
+source "$root_dir/scripts/workflow/domains/release/preflight.sh"
 
 assert_equals() {
   local actual="$1"
@@ -32,7 +32,7 @@ pnpm() {
 assert_equals "$(preflight_next_prerelease_sequence '@schemx/core' 1.0.0 beta)" '3'
 
 spinner_marker="$(mktemp)"
-_ui_can_spinner() { return 0; }
+ui_can_spinner() { return 0; }
 gum() {
   printf 'spinner\n' >> "$spinner_marker"
   shift

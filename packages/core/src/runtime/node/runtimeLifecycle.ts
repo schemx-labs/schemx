@@ -9,28 +9,22 @@
  */
 
 import {
-  mountContainerNodeResources,
-  unmountContainerNodeResources,
-  updateContainerNodeResources,
-} from "../container"
+  mountDependencyRuntime,
+  unmountDependencyRuntime,
+  updateDependencyRuntime,
+} from "../dependency"
+import { mountFieldRuntime, unmountFieldRuntime, updateFieldRuntime } from "../field"
 import {
-  mountDependencyNodeResources,
-  mountFieldNodeResources,
-  unmountDependencyNodeResources,
-  unmountFieldNodeResources,
-  updateDependencyNodeResources,
-  updateFieldNodeResources,
-} from "../field"
-import {
-  createRuntimeViewState,
-  deleteRuntimeViewState,
-  updateRuntimeViewState,
-} from "../view/createViewState"
+  mountPresentationRuntime,
+  unmountPresentationRuntime,
+  updatePresentationRuntime,
+} from "../presentation"
+import { createRuntimeViewState, deleteRuntimeViewState } from "../view/createViewState"
 
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FormDescriptor } from "../descriptor"
-import type { DescribedRuntimeNode, RuntimeNode } from "./types"
+import type { RuntimeNodeInput } from "./input"
+import type { RuntimeNode, SchemaRuntimeNode } from "./types"
 
 /**
  * RuntimeNode 生命周期操作的接口。
@@ -44,27 +38,21 @@ export interface RuntimeLifecycle<TValues extends Values = Values> {
   /**
    * 挂载节点。
    *
-   * 设置 descriptor、创建领域资源、标记已挂载。
+   * 创建领域资源并标记已挂载。
    *
    * @param node - 待挂载的节点
-   * @param descriptor - 节点对应的 form descriptor
    */
-  mount(node: DescribedRuntimeNode<TValues>, descriptor: FormDescriptor<TValues>): void
+  mount(node: SchemaRuntimeNode<TValues>): void
 
   /**
    * 更新节点。
    *
-   * 当 schema 变化导致 descriptor 变更时调用，更新 descriptor 和领域资源。
+   * 当 schema 变化导致节点输入变更时调用，更新配置和领域资源。
    *
    * @param node - 待更新的节点
-   * @param previousDescriptor - 旧的 descriptor，首次更新时为 null
-   * @param nextDescriptor - 新的 descriptor
+   * @param input - 最新节点输入。
    */
-  update(
-    node: DescribedRuntimeNode<TValues>,
-    previousDescriptor: FormDescriptor<TValues> | null,
-    nextDescriptor: FormDescriptor<TValues>
-  ): void
+  update(node: SchemaRuntimeNode<TValues>, input: RuntimeNodeInput<TValues>): void
 
   /**
    * 卸载单个节点。
@@ -89,14 +77,12 @@ export interface RuntimeLifecycle<TValues extends Values = Values> {
  * 创建 RuntimeNode 生命周期管理器。
  *
  * @typeParam TValues - 表单值类型
- * @param context - 表单运行时上下文，提供 nodeResources、lifecycleBus 等实例级服务
+ * @param context - 表单运行时上下文，提供 runtimeRegistry、lifecycleBus 等实例级服务
  * @returns RuntimeLifecycle 实例
  */
 export function createRuntimeLifecycle<TValues extends Values = Values>(
   context: SchemaRuntimeContext<TValues>
 ): RuntimeLifecycle<TValues> {
-  const resources = context.nodeResources
-
   const bus = context.lifecycleBus
 
   return {
@@ -107,58 +93,51 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
   }
 
   /**
-   * 挂载节点：设置 descriptor、创建领域资源、标记已挂载。
+   * 挂载节点并创建领域资源。
    *
    * 挂载顺序：
    * 1. 发出 beforeMount 事件
    * 2. 创建该节点类型的领域资源（字段状态、视图状态、dependency effect）
-   * 3. 标记 mounted 为 true
-   * 4. 发出 mount 事件
+   * 3. 发出 mount 事件
    */
-  function mount(
-    node: DescribedRuntimeNode<TValues>,
-    descriptor: FormDescriptor<TValues>
-  ): void {
+  function mount(node: SchemaRuntimeNode<TValues>): void {
     if (!node.parent) {
       throw new Error(
         `[schemx] Runtime node "${node.key}" must have a parent before mount.`
       )
     }
 
-    node.descriptor = descriptor
     bus.emitBeforeMount(node)
 
-    mountRuntimeResources(node, descriptor)
-    node.mounted.value = true
-
+    mountRuntimeResources(node)
     bus.emitMount(node)
   }
 
   /**
-   * 更新节点：校验类型一致性、更新 descriptor 和领域资源。
+   * 更新节点：校验类型一致性、更新配置和领域资源。
    *
-   * 更新时先校验 node.type 与 nextDescriptor.type 一致，
+   * 更新时先校验 node.type 与输入类型一致，
    * 然后依次触发 beforeUpdate、更新资源、update、updated 事件。
    *
    * @throws 如果节点类型与新 descriptor 类型不匹配则抛出错误
    */
   function update(
-    node: DescribedRuntimeNode<TValues>,
-    previousDescriptor: FormDescriptor<TValues> | null,
-    nextDescriptor: FormDescriptor<TValues>
+    node: SchemaRuntimeNode<TValues>,
+    input: RuntimeNodeInput<TValues>
   ): void {
-    if (node.type !== nextDescriptor.type) {
+    if (node.type !== input.type) {
       throw new Error(
-        `unexpected descriptor type: node ${node.type} cannot update with ${nextDescriptor.type}`
+        `unexpected runtime node input type: node ${node.type} cannot update with ${input.type}`
       )
     }
 
     const previousNode = { ...node }
 
     bus.emitBeforeUpdate(node, previousNode)
-    node.descriptor = nextDescriptor
-    updateRuntimeResources(node, previousDescriptor, nextDescriptor)
-    bus.emitUpdate(node, previousNode)
+    const previousConfig = copyNodeConfig(node)
+
+    applyNodeInput(node, input)
+    updateRuntimeResources(node, previousConfig)
     bus.emitUpdated(node, previousNode)
   }
 
@@ -203,24 +182,21 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
    * - group 节点：创建运行时视图状态
    * - dependency 节点：挂载 dependency effect（动态子节点渲染）
    */
-  function mountRuntimeResources(
-    node: DescribedRuntimeNode<TValues>,
-    descriptor: FormDescriptor<TValues>
-  ): void {
-    if (node.type === "field" && descriptor.type === "field") {
-      mountFieldNodeResources(node, descriptor, context)
+  function mountRuntimeResources(node: SchemaRuntimeNode<TValues>): void {
+    if (node.type === "field") {
+      mountFieldRuntime(node, context)
 
       return
     }
 
-    if (node.type === "group" && descriptor.type === "group") {
-      mountGroupResources(node, descriptor)
+    if (node.type === "group") {
+      mountGroupResources(node)
 
       return
     }
 
-    if (node.type === "dependency" && descriptor.type === "dependency") {
-      mountDependencyNodeResources(node, descriptor, context)
+    if (node.type === "dependency") {
+      mountDependencyRuntime(node, context)
     }
   }
 
@@ -232,36 +208,27 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
    * - dependency 节点：更新 dependency effect
    */
   function updateRuntimeResources(
-    node: DescribedRuntimeNode<TValues>,
-    previousDescriptor: FormDescriptor<TValues> | null,
-    nextDescriptor: FormDescriptor<TValues>
+    node: SchemaRuntimeNode<TValues>,
+    previousConfig: RuntimeNodeInput<TValues>
   ): void {
-    if (node.type === "field" && nextDescriptor.type === "field") {
-      updateFieldNodeResources(
-        node,
-        previousDescriptor?.type === "field" ? previousDescriptor : undefined,
-        nextDescriptor,
-        context
-      )
+    if (node.type === "field" && previousConfig.type === "field") {
+      updateFieldRuntime(node, previousConfig.name, previousConfig.dynamicProps, context)
 
       return
     }
 
-    if (node.type === "group" && nextDescriptor.type === "group") {
-      mountGroupResources(
-        node,
-        nextDescriptor,
-        previousDescriptor?.type === "group" ? previousDescriptor : undefined
-      )
+    if (node.type === "group" && previousConfig.type === "group") {
+      mountGroupResources(node, previousConfig.dynamicProps)
 
       return
     }
 
-    if (node.type === "dependency" && nextDescriptor.type === "dependency") {
-      updateDependencyNodeResources(
+    if (node.type === "dependency" && previousConfig.type === "dependency") {
+      updateDependencyRuntime(
         node,
-        previousDescriptor?.type === "dependency" ? previousDescriptor : undefined,
-        nextDescriptor,
+        previousConfig.triggerFields,
+        previousConfig.rendererIdentity,
+        previousConfig.dynamicProps,
         context
       )
     }
@@ -274,18 +241,20 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
    */
   function mountGroupResources(
     node: Extract<RuntimeNode<TValues>, { type: "group" }>,
-    descriptor: Extract<FormDescriptor<TValues>, { type: "group" }>,
-    previousDescriptor?: Extract<FormDescriptor<TValues>, { type: "group" }>
+    previousDynamicProps?: Extract<
+      RuntimeNodeInput<TValues>,
+      { type: "group" }
+    >["dynamicProps"]
   ): void {
-    if (node.containerState) {
-      updateContainerNodeResources(node, previousDescriptor, descriptor, context)
-      updateRuntimeViewState(node, descriptor, resources)
+    if (node.presentationState) {
+      updatePresentationRuntime(node, previousDynamicProps, context)
+      createRuntimeViewState(node, context.debug)
 
       return
     }
 
-    mountContainerNodeResources(node, descriptor, context)
-    createRuntimeViewState(node, descriptor, resources)
+    mountPresentationRuntime(node, context)
+    createRuntimeViewState(node, context.debug)
   }
 
   /**
@@ -295,16 +264,92 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
    * field 和 dependency 节点还需额外卸载其特定领域资源。
    */
   function unmountRuntimeResources(node: RuntimeNode<TValues>): void {
-    const descriptor = node.type === "root" ? undefined : (node.descriptor ?? undefined)
+    deleteRuntimeViewState(node)
 
-    deleteRuntimeViewState(node, resources)
-
-    if (node.type === "field" && descriptor?.type === "field") {
-      unmountFieldNodeResources(node, context)
+    if (node.type === "field") {
+      unmountFieldRuntime(node, context)
     } else if (node.type === "group") {
-      unmountContainerNodeResources(node)
+      unmountPresentationRuntime(node)
     } else if (node.type === "dependency") {
-      unmountDependencyNodeResources(node, context)
+      unmountDependencyRuntime(node)
     }
+  }
+}
+
+/** 从运行时节点复制可用于更新比较的节点输入快照。 */
+function copyNodeConfig<TValues extends Values>(
+  node: SchemaRuntimeNode<TValues>
+): RuntimeNodeInput<TValues> {
+  if (node.type === "field") {
+    return {
+      type: "field",
+      key: node.key,
+      configToken: node.configToken,
+      name: node.name,
+      componentType: node.componentType,
+      staticSchema: node.staticSchema,
+      dynamicProps: node.dynamicProps,
+      validation: node.validation,
+    }
+  }
+
+  if (node.type === "group") {
+    return {
+      type: "group",
+      key: node.key,
+      configToken: node.configToken,
+      staticSchema: node.staticSchema,
+      staticState: node.staticState,
+      dynamicProps: node.dynamicProps,
+    }
+  }
+
+  return {
+    type: "dependency",
+    key: node.key,
+    configToken: node.configToken,
+    triggerFields: node.triggerFields,
+    renderer: node.renderer,
+    rendererIdentity: node.rendererIdentity,
+    staticState: node.staticState,
+    dynamicProps: node.dynamicProps,
+  }
+}
+
+/** 将新的编译输入写入运行时节点，并保持节点类型一致。 */
+function applyNodeInput<TValues extends Values>(
+  node: SchemaRuntimeNode<TValues>,
+  input: RuntimeNodeInput<TValues>
+): void {
+  if (node.type !== input.type) {
+    throw new Error(`unexpected runtime node input type: ${input.type}`)
+  }
+
+  node.configToken = input.configToken
+
+  if (node.type === "field" && input.type === "field") {
+    node.name = input.name
+    node.componentType = input.componentType
+    node.staticSchema = input.staticSchema
+    node.dynamicProps = input.dynamicProps
+    node.validation = input.validation
+
+    return
+  }
+
+  if (node.type === "group" && input.type === "group") {
+    node.staticSchema = input.staticSchema
+    node.staticState = input.staticState
+    node.dynamicProps = input.dynamicProps
+
+    return
+  }
+
+  if (node.type === "dependency" && input.type === "dependency") {
+    node.triggerFields = input.triggerFields
+    node.renderer = input.renderer
+    node.rendererIdentity = input.rendererIdentity
+    node.staticState = input.staticState
+    node.dynamicProps = input.dynamicProps
   }
 }

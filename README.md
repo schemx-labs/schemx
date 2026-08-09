@@ -199,9 +199,8 @@ pnpm --filter vant-demo dev
 
 根目录的开发、构建、质量与测试命令统一通过 `scripts/workflow.sh` 执行。本地终端会按任务
 使用 Clack 选择定义了对应 script 的 `packages`、`plugins`、`examples` 目标；`dev` 使用单选，
-其余批处理任务使用多选；CI 或管道环境默认执行所有符合条件的目标。`build`、`lint`、
-`type-check`、`test` 会交由 Turborepo 编排依赖与缓存，
-其余任务直接执行对应 package script。
+其余批处理任务使用多选；CI 或管道环境默认执行所有符合条件的目标。每个目标都直接执行
+对应 package script。
 
 ```bash
 pnpm dev

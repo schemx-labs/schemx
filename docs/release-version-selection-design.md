@@ -23,7 +23,7 @@ pnpm release:publish beta core
 - 保持多包发布的独立版本线，避免精确版本误写入多个包。
 - 让公开 Beta 与 RC 发布具备 Git Tag 和 GitHub Release 的可追溯性。
 - 保留 `dev` 通道的快速临时验证能力。
-- 以 Clack、Gum、Turborepo 和新的发布模块彻底重构现有发布流程。
+- 以 Clack、Gum、pnpm 和新的发布模块彻底重构现有发布流程。
 - 保持当前终端体验的识别度，但不复用旧发布或终端反馈实现。
 
 ## 非目标
@@ -42,17 +42,12 @@ pnpm release:publish beta core
 ```text
 scripts/
 ├── workflow.sh                   # 项目级 CLI 入口与命令分派
-├── lib/                           # terminal、interaction、task 等通用基础能力
-├── modules/
-│   ├── workspace/                 # workspace 目标发现与执行步骤
-│   ├── packages/                  # 本地打包、安装与包检查业务步骤
-│   └── release/                   # 发布域版本、预检、产物和基础设施适配器
-├── commands/
-│   ├── workspace.sh              # dev、build、test、lint 等 workspace 任务
-│   └── release.sh                # 发布状态机
+├── workflow/
+│   ├── commands/                  # workspace 与 release 命令编排
+│   ├── domains/                   # workspace、packages、release 领域逻辑
+│   ├── shared/                    # 无 UI 的基础能力
+│   └── ui/                        # terminal、interaction、task 等 UI 能力
 └── tests/
-    ├── lib/                      # 基础模块测试
-    ├── packages/                 # 包模块测试
     └── release/                  # 发布域的单元与集成测试
 ```
 
@@ -60,17 +55,17 @@ scripts/
 
 ```text
 CLI / Terminal UI -> 命令域 -> 工作流步骤 -> 基础设施适配器
-                       -> Turborepo / pnpm / npm / Git / GitHub
+                       -> pnpm / npm / Git / GitHub
 ```
 
-- `modules/workspace/targets.sh`、`modules/release/targets.sh`、`modules/release/versions.sh` 与
-  `release/plan.sh` 不渲染终端、不执行发布，也不修改文件。
+- `workflow/domains/workspace/api.sh`、`workflow/domains/release/targets.sh`、
+  `workflow/domains/release/versions.sh` 与 `workflow/domains/release/plan.sh` 不渲染终端、不执行发布，也不修改文件。
 - `plan.sh` 输出完整、稳定的发布计划；后续阶段只能消费该计划，不能重新计算版本。
 - `release/preflight.sh`、`release/quality.sh`、`release/artifacts.sh`、`release/publish.sh`
   是发布工作流步骤，负责返回
   成功、失败和可诊断信息，不自行决定下一步。
 - `core/ui.sh` 只收集输入、展示计划和渲染状态，不包含版本或发布业务判断。
-- `commands/release.sh` 是发布状态机；`commands/workspace.sh` 负责通用任务的目标选择与执行。
+- `workflow/commands/release/main.sh` 是发布状态机；`workflow/commands/workspace.sh` 负责通用任务的目标选择与执行。
 
 发布计划应是新系统的核心契约。它至少包含通道、目标包、当前版本、目标基线、实际版本、
 npm dist-tag、是否创建提交、Tag 与 GitHub Release。计划先在内存或临时 JSON 文件中
@@ -187,7 +182,7 @@ npm tag：beta
 ## 终端体验、Clack 与 Gum
 
 新流程以 Clack 和 Gum 重新实现终端体验，不依赖 `scripts/terminal.mjs` 或
-`scripts/lib/terminal-feedback`。保留的是现有体验的视觉与行为契约，而不是其代码。
+`scripts/workflow/ui/internal/terminal-feedback`。保留的是现有体验的视觉与行为契约，而不是其代码。
 Clack 提供选择、输入和确认控件；Gum 提供 Spinner、样式、布局和表格能力；Shell 发布流程不需要
 直接维护 Bubbles、Bubble Tea 或 Lip Gloss 的 Go 运行时。
 
@@ -246,8 +241,7 @@ Clack 与 Gum 的 TTY 与非 TTY 策略如下：
 | CI 或管道 | CLI 参数或环境变量 | `ui.sh` 输出稳定纯文本，不调用 Clack 交互命令 |
 | 自动化 dry-run | 显式参数 | 输出可解析的发布计划与退出码 |
 
-Turborepo 仅负责任务图调度。它的命令输出由 `ui_task` 包装，因此不会自行改变发布过程
-的视觉节奏；`publish`、Tag 与 GitHub Release 仍由 Shell 状态机串行执行。
+质量任务由 `ui_task` 逐包直接执行；`publish`、Tag 与 GitHub Release 仍由 Shell 状态机串行执行。
 
 ## 版本规划与可用性校验
 
@@ -307,15 +301,13 @@ GitHub Release 说明使用该包上一个同类或同包 Tag 到当前提交的
 
 实施时需要调整以下位置：
 
-- `scripts/modules/release/`：实现版本动作解析、发布计划、预发布序号查询、预检、
-  Turborepo 调用、npm 发布、Tag、GitHub Release、Release notes 与测试；不复用旧
+- `scripts/workflow/domains/release/`：实现版本动作解析、发布计划、预发布序号查询、预检、
+  pnpm 质量任务、npm 发布、Tag、GitHub Release、Release notes 与测试；不复用旧
   发布流程或 Node 终端反馈实现。
-- `scripts/lib/`：按 `terminal`、`interaction`、`task` 拆分终端呈现、Clack 交互和任务生命周期，
+- `scripts/workflow/ui/internal/`：按 `terminal`、`interaction`、`task` 拆分终端呈现、Clack 交互和任务生命周期，
   Spinner、耗时和失败摘要，并实现非 TTY 纯文本降级。
 - `scripts/tests/`：覆盖各通道、各版本动作、序号递增、错误分支、多包
   限制、发布计划冻结、终端交互体验和非交互模式的输出边界。
-- 根目录 `turbo.json`：声明可缓存的 `lint`、`type-check`、`test`、`build` 依赖图；
-  发布、Tag 与 GitHub Release 不得定义为可缓存任务。
 - 根目录 `package.json`：将开发、质量、构建、测试与 `release:*` 入口统一指向
   `scripts/workflow.sh`、对应命令域或新测试入口。
 - `README.md`：更新命令说明、版本格式和公开测试发布示例。

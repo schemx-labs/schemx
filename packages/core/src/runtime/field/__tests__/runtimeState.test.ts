@@ -44,16 +44,13 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "username" as any,
-          staticSchema: schema,
-        },
+        name: "username" as any,
+        staticSchema: schema,
       })
 
       expect(state.staticSchema).toBeDefined()
       expect(state.dynamicOverrides).toBeDefined()
       expect(state.effectiveSchema).toBeDefined()
-      expect(state.viewSchema).toBeDefined()
       expect(state.diagnostics).toBeDefined()
     })
 
@@ -61,24 +58,20 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "username" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "username" as any,
+        staticSchema: createTestSchema(),
       })
 
       expect("_currentName" in state).toBe(false)
     })
 
-    it("初始 staticSchema 应该等于 descriptor.staticSchema", () => {
+    it("初始 staticSchema 应该等于传入的静态 schema", () => {
       const schema = createTestSchema({ label: "用户名" })
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "username" as any,
-          staticSchema: schema,
-        },
+        name: "username" as any,
+        staticSchema: schema,
       })
 
       expect(state.staticSchema.value).toEqual(schema)
@@ -88,10 +81,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "username" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "username" as any,
+        staticSchema: createTestSchema(),
       })
 
       expect(state.dynamicOverrides.value).toEqual({})
@@ -101,14 +92,12 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "username" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "username" as any,
+        staticSchema: createTestSchema(),
       })
 
-      expect(state.diagnostics.value.lastUpdatedBy).toBe("static-schema")
-      expect(state.diagnostics.value.version).toBe(0)
+      expect(state.diagnostics!.value.lastUpdatedBy).toBe("static-schema")
+      expect(state.diagnostics!.value.version).toBe(0)
     })
   })
 
@@ -123,10 +112,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       const effective = state.effectiveSchema.value
@@ -142,10 +129,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       setFieldDynamicOverrides(
@@ -167,24 +152,19 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema({ required: true }),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema({ required: true }),
       })
 
       expect(state.effectiveSchema.value.showRequiredMark).toBe(true)
-      expect(state.viewSchema.value.showRequiredMark).toBe(true)
     })
 
     it("静态 showRequiredMark=false 应隐藏标记但保留 required", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema({ required: true, showRequiredMark: false }),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema({ required: true, showRequiredMark: false }),
       })
 
       expect(state.effectiveSchema.value.showRequiredMark).toBe(false)
@@ -195,10 +175,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema({ required: false }),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema({ required: false }),
       })
 
       expect(state.effectiveSchema.value.showRequiredMark).toBe(false)
@@ -216,10 +194,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema({ required: true }),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema({ required: true }),
       })
 
       setFieldDynamicOverrides(
@@ -237,10 +213,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       setFieldDynamicOverrides(
@@ -266,10 +240,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       const newSchema = createTestSchema({ label: "新标签" })
@@ -286,10 +258,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "oldName" as any,
-          staticSchema: schema,
-        },
+        name: "oldName" as any,
+        staticSchema: schema,
       })
 
       setFieldStaticSchema(state, {
@@ -305,10 +275,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       setFieldDynamicOverrides(
@@ -337,20 +305,18 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
-      const prevVersion = state.diagnostics.value.version
+      const prevVersion = state.diagnostics!.value.version
       setFieldStaticSchema(state, {
         name: "email" as any,
         staticSchema: createTestSchema({ label: "新" }),
       })
 
-      expect(state.diagnostics.value.lastUpdatedBy).toBe("static-schema")
-      expect(state.diagnostics.value.version).toBe(prevVersion + 1)
+      expect(state.diagnostics!.value.lastUpdatedBy).toBe("static-schema")
+      expect(state.diagnostics!.value.version).toBe(prevVersion + 1)
     })
   })
 
@@ -359,10 +325,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema(),
       })
 
       setFieldDynamicOverrides(
@@ -381,10 +345,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema(),
       })
 
       setFieldDynamicOverrides(
@@ -396,7 +358,7 @@ describe("FieldRuntimeState", () => {
         }
       )
 
-      const diag = state.diagnostics.value
+      const diag = state.diagnostics!.value
       expect(diag.lastUpdatedBy).toBe("dependencies")
       expect(diag.triggerFields).toEqual(["country", "city"])
       expect(diag.overriddenKeys).toContain("visible")
@@ -406,10 +368,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema(),
       })
 
       setFieldDynamicOverrides(
@@ -438,10 +398,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema(),
       })
 
       setFieldDynamicOverrides(
@@ -461,10 +419,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: createTestSchema(),
-        },
+        name: "email" as any,
+        staticSchema: createTestSchema(),
       })
 
       setFieldDynamicOverrides(
@@ -477,7 +433,7 @@ describe("FieldRuntimeState", () => {
       )
       resetFieldDynamicOverrides(state, "dispose")
 
-      expect(state.diagnostics.value.lastUpdatedBy).toBe("dispose")
+      expect(state.diagnostics!.value.lastUpdatedBy).toBe("dispose")
     })
 
     it("不应修改 staticSchema", () => {
@@ -485,10 +441,8 @@ describe("FieldRuntimeState", () => {
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
-        descriptor: {
-          name: "email" as any,
-          staticSchema: schema,
-        },
+        name: "email" as any,
+        staticSchema: schema,
       })
 
       setFieldDynamicOverrides(
@@ -523,7 +477,8 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     const effective = state.effectiveSchema.value
@@ -549,7 +504,8 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     setFieldDynamicOverrides(
@@ -569,7 +525,8 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     setFieldDynamicOverrides(
@@ -584,25 +541,26 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     expect(state.effectiveSchema.value.componentProps).toEqual({ size: "large" })
   })
 
-  it("viewSchema 应该反映 effectiveSchema 的合并结果", () => {
+  it("effectiveSchema 应反映动态覆盖的合并结果", () => {
     const schema = createTestSchema({ visible: true, label: "原始" })
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     setFieldDynamicOverrides(
       state,
-      { visible: false, label: "动态" as any },
+      { visible: false, label: "动态" as any } as never,
       {
         source: "dependencies",
         triggerFields: ["country" as any],
       }
     )
 
-    const view = state.viewSchema.value
-    expect(view.visible).toBe(false)
+    const effective = state.effectiveSchema.value
+    expect(effective.visible).toBe(false)
     // label 不是动态覆盖 key，应保持静态值
   })
 })

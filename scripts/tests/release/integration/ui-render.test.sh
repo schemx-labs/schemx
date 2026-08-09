@@ -4,7 +4,7 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 plan_file="${test_dir}/../fixtures/beta-plan.json"
-source "${test_dir}/../../../modules/release/feedback.sh"
+source "${test_dir}/../../../workflow/domains/release/feedback.sh"
 
 assert_contains() {
   local value="$1"

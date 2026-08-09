@@ -22,6 +22,35 @@
 - `submit()` 从 `Promise<void>` 改为 `Promise<ValidationResult<TValues>>`；`validate()`、`validateField()`、`createValidator().validate()` 也返回同一结果模型。字段实例的 `getError` / `setError` / `clearError` 改为 `getErrors` / `setErrors` / `clearErrors`，规则方法的 `registerRules` / `unregisterRules` 改为 `setRules` / `removeRules`。
 - Core 的校验入口统一接收原生 `ValidationRule` 和 Standard Schema；第三方校验器通过 `ValidationAdapterV1` / `validatorAdapters` 接入，旧的第三方规则注册边界不再作为 Core 当前入口。
 
+### 移除 createEffect，统一使用 Signal effect/watch API
+
+@schemx/core 根入口不再导出 createEffect、CleanupFn、EffectCallback、CreateEffectReturn；同时公开 createSignalEffect、runSignalUntracked、createSignalWatch 和 createDebouncedSignalWatch。
+
+影响范围：直接从 @schemx/core 导入旧 effect API，或依赖旧 cleanup-return / debounce effect 形态的项目。
+
+#### 迁移说明
+
+迁移方式需要维护者补充。
+
+替代方案：createSignalEffect、createSignalWatch、createDebouncedSignalWatch、runSignalUntracked
+
+升级前：
+
+```ts
+const stop = createEffect(() => {
+  readSignal()
+  return cleanup
+})
+```
+
+升级后：
+
+```ts
+const stop = createSignalEffect(() => {
+  readSignal()
+})
+```
+
 #### 迁移说明
 
 ```ts
@@ -108,6 +137,7 @@ const schemas = [
 
 ## Features
 
+- 新增 createSignalWatch 与 createDebouncedSignalWatch，支持 immediate、once、equals、wait、edges，以及 run、cancel、flush、dispose 控制器。（影响范围：需要直接监听 Core Signal，或需要可取消、可手动触发的防抖监听逻辑的调用方。）
 - Group 新增 `visible`、`readonly`、`disabled`、`dependencies`、`collapsible`、`defaultCollapsed`、`collapsed`、`onCollapsedChange` 和 `destroyOnCollapse` 等配置；容器状态会递归约束后代字段，隐藏后代会移出校验范围但保留表单值。
 - Dependency 支持动态子树及 `visible`、`readonly`、`disabled`、`dependencies` 状态；动态渲染器接收当前值、Form API 和 `AbortSignal` 上下文。
 - 新增 `configureSchemx`、`getGlobalSchemxConfig`、`mergeSchemxConfig`、`resolveSchemxConfig` 和 `mergeAndResolveSchemxConfig`。全局配置只影响后续创建的 Form，表单显式配置优先；合并函数可分别执行纯合并、默认值解析或两者组合。
@@ -119,6 +149,9 @@ const schemas = [
 - 动态依赖计算会隔离用户回调中的响应式读取，仅根据声明的 `triggerFields` 触发，减少无关字段变化造成的重复计算。
 - 异步 Dependency renderer 和字段校验均支持取消与过期结果抑制；旧请求晚于新请求完成时不会覆盖最新状态，取消结果不会被当作普通校验失败提示。
 - Group/Dependency 的可见性、只读和禁用状态会递归同步到后代运行时节点；隐藏字段清理校验规则和错误时仍保留字段值。
+- createSignalEffect(fn, { once: true }) 现在会在首次执行后立即释放，不再继续响应后续 Signal 变化。
+- 动态属性、Dependency renderer、调度任务、字段校验、Scope cleanup 和 waitAll 的异常现在输出带字段、Schema 或任务上下文的 [schemx] 日志；缺少 onError 的任务也不再静默处理。（影响范围：依赖动态属性、异步任务或自定义校验规则出现异常时，开发调试信息更完整。）
+- 传给 Renderer 的 formItemProps 现在使用归一化 Schema 的浅拷贝，减少组件层与运行时 Schema 共享同一顶层对象引用。
 
 ## Improvements
 

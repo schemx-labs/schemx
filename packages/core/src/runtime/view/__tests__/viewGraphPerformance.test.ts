@@ -24,26 +24,27 @@ function createTestSchema(
   } as SchemxResolvedBaseField
 }
 
-// 验证 viewState 性能边界：单字段动态属性变化不触发其他字段 viewSchema 重建、多次覆盖不泄漏、版本号递增
+// 验证字段有效状态性能边界：单字段变化不触发其他字段 computed 重建、多次覆盖不泄漏、版本号递增。
 describe("computed viewState 性能边界 (US3)", () => {
-  it("单字段动态属性变化不应触发其他字段 viewSchema 重建", () => {
+  it("单字段动态属性变化不应触发其他字段有效状态重建", () => {
     const schema1 = createTestSchema({ label: "字段A", visible: true })
     const schema2 = createTestSchema({ label: "字段B", visible: true })
 
     const state1 = createFieldRuntimeState({
       nodeId: 1,
       key: "field-a",
-      descriptor: { name: "fieldA" as any, staticSchema: schema1 },
+      name: "fieldA" as any,
+      staticSchema: schema1,
     })
     const state2 = createFieldRuntimeState({
       nodeId: 2,
       key: "field-b",
-      descriptor: { name: "fieldB" as any, staticSchema: schema2 },
+      name: "fieldB" as any,
+      staticSchema: schema2,
     })
 
-    // 记录初始 viewSchema
-    const view1Before = state1.viewSchema.value
-    const view2Before = state2.viewSchema.value
+    const effective1Before = state1.effectiveSchema.value
+    const effective2Before = state2.effectiveSchema.value
 
     // 只修改字段A
     setFieldDynamicOverrides(
@@ -55,24 +56,23 @@ describe("computed viewState 性能边界 (US3)", () => {
       }
     )
 
-    const view1After = state1.viewSchema.value
-    const view2After = state2.viewSchema.value
+    const effective1After = state1.effectiveSchema.value
+    const effective2After = state2.effectiveSchema.value
 
-    // 字段A 的 viewSchema 应变化
-    expect(view1After.visible).toBe(false)
-    expect(view1After).not.toBe(view1Before)
+    expect(effective1After.visible).toBe(false)
+    expect(effective1After).not.toBe(effective1Before)
 
-    // 字段B 的 viewSchema 不应变化（引用复用）
-    expect(view2After.visible).toBe(true)
-    expect(view2After).toBe(view2Before)
+    expect(effective2After.visible).toBe(true)
+    expect(effective2After).toBe(effective2Before)
   })
 
-  it("多次动态覆盖写入不应导致 viewSchema 泄漏", () => {
+  it("多次动态覆盖写入不应导致有效状态泄漏", () => {
     const schema = createTestSchema({ visible: true })
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "field" as any, staticSchema: schema },
+      name: "field" as any,
+      staticSchema: schema,
     })
 
     // 多次写入
@@ -89,7 +89,7 @@ describe("computed viewState 性能边界 (US3)", () => {
 
     // 最终状态正确
     expect(state.effectiveSchema.value.visible).toBe(false)
-    expect(state.diagnostics.value.version).toBe(100)
+    expect(state.diagnostics!.value.version).toBe(100)
   })
 
   it("diagnostics 版本号应正确递增", () => {
@@ -97,7 +97,8 @@ describe("computed viewState 性能边界 (US3)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "field" as any, staticSchema: schema },
+      name: "field" as any,
+      staticSchema: schema,
     })
 
     const versions: number[] = []
@@ -111,7 +112,7 @@ describe("computed viewState 性能边界 (US3)", () => {
           triggerFields: ["trigger" as any],
         }
       )
-      versions.push(state.diagnostics.value.version)
+      versions.push(state.diagnostics!.value.version)
     }
 
     // 版本号严格递增

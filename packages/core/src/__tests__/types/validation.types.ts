@@ -173,6 +173,7 @@ const schemas: SchemxField<FormValues>[] = [
 
 declare module "../../types/rule" {
   interface ValidationRuleDefinition {
+    email: string
     emailRule: string
     positive: number
   }
@@ -202,6 +203,7 @@ registry.register("missingRegistryRule", registryEmailEntry)
 registry.register("registryEmail", registryPositiveEntry)
 registry.registerAll({
   emailRule: registryEmailEntry,
+  email: registryEmailEntry,
   positive: registryPositiveEntry,
   registryEmail: registryEmailEntry,
   registryPositive: registryPositiveEntry,

@@ -33,25 +33,25 @@ workflow_run() {
 case "${1:-}" in
   dev)
     shift
-    workflow_run bash "$workflow_root/scripts/commands/dev.sh" "$@"
+    workflow_run bash "$workflow_root/scripts/workflow/commands/dev.sh" "$@"
     ;;
   build)
     shift
-    workflow_run bash "$workflow_root/scripts/commands/build.sh" "$@"
+    workflow_run bash "$workflow_root/scripts/workflow/commands/build.sh" "$@"
     ;;
   build:analyze | check | lint | lint:fix | format | format:check | type-check | test)
     command="$1"
     shift
-    workflow_run bash "$workflow_root/scripts/commands/workspace.sh" "$command" "$@"
+    workflow_run bash "$workflow_root/scripts/workflow/commands/workspace.sh" "$command" "$@"
     ;;
   release)
     shift
-    workflow_run bash "$workflow_root/scripts/commands/release.sh" "$@"
+    workflow_run bash "$workflow_root/scripts/workflow/commands/release/main.sh" "$@"
     ;;
   preview | pack-local | check:packages)
     command="$1"
     shift
-    workflow_run bash "$workflow_root/scripts/commands/tools.sh" "$command" "$@"
+    workflow_run bash "$workflow_root/scripts/workflow/commands/tools.sh" "$command" "$@"
     ;;
   help | -h | --help | '')
     workflow_usage

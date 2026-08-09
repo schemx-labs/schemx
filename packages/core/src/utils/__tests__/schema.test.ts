@@ -50,12 +50,12 @@ describe("getSchemaKind", () => {
   })
 
   it("无容器结构属性时识别为普通字段", () => {
-    expect(getSchemaKind({ label: "未知" })).toBe("field")
+    expect(getSchemaKind({ label: "未知" } as never)).toBe("field")
   })
 
   it("to 或 renderer 任一存在时识别为 Dependency", () => {
-    expect(getSchemaKind({ to: ["username"] })).toBe("dependency")
-    expect(getSchemaKind({ renderer: () => [] })).toBe("dependency")
+    expect(getSchemaKind({ to: ["username"] } as never)).toBe("dependency")
+    expect(getSchemaKind({ renderer: () => [] } as never)).toBe("dependency")
   })
 })
 

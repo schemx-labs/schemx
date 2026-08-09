@@ -25,14 +25,14 @@ describe("SchemxField 容器结构类型", () => {
   })
 
   it("拒绝旧容器 componentType 语法", () => {
-    // @ts-expect-error Group 不再接受 componentType。
     const group: SchemxField = {
+      // @ts-expect-error Group 不再接受 componentType。
       componentType: "group",
       label: "资料",
       children: [],
     }
-    // @ts-expect-error Dependency 不再接受 componentType。
     const dependency: SchemxField = {
+      // @ts-expect-error Dependency 不再接受 componentType。
       componentType: "dependency",
       to: ["mode"],
       renderer: () => [],

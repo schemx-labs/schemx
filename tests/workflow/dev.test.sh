@@ -6,15 +6,15 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../.." && pwd)"
-source "$root_dir/scripts/lib/ui.sh"
-source "$root_dir/scripts/modules/workspace/targets.sh"
-source "$root_dir/scripts/modules/workspace/dev.sh"
+source "$root_dir/scripts/workflow/ui/api.sh"
+source "$root_dir/scripts/workflow/domains/workspace/api.sh"
+source "$root_dir/scripts/workflow/domains/workspace/dev.sh"
 
 records="$(CI=true SCHEMX_WORKFLOW_TARGETS=examples/uniapp-vant workspace_dev_select_targets "$root_dir")"
 [[ "$records" == $'examples\tuniapp-vant\tuni-preset-vue\tdev:h5' ]]
 
 interactive_records="$({
-  _ui_is_interactive() { return 0; }
+  ui_is_interactive() { return 0; }
   ui_prompt() {
     [[ "$1" == select ]]
     printf 'examples/vant\n'

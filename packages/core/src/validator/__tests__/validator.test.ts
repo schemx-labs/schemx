@@ -1,5 +1,5 @@
 import fc from "fast-check"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { createValidator } from "../validator"
 
@@ -77,7 +77,7 @@ describe("Validator", () => {
     ])
 
     await expect(
-      validator.validateField(["profile", "email"], { profile: { email: "invalid" } })
+      validator.validateField(["profile", "email"] as never, { profile: { email: "invalid" } })
     ).resolves.toMatchObject({
       valid: false,
       errors: [{ name: ["profile", "email"], issues: [{ message: "邮箱错误" }] }],
@@ -117,38 +117,58 @@ describe("Validator", () => {
   })
 
   it("规则异常通过 onRuleError 转换", async () => {
+    const error = new Error("boom")
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const validator = createValidator<TestForm>({
       onRuleError: (error) => `执行异常: ${(error as Error).message}`,
     })
-    validator.setFieldRules("name", [throwingRule(new Error("boom"))])
+    validator.setFieldRules("name", [throwingRule(error)])
 
-    const result = await validator.validateField("name", baseValues)
-    expect(result).toMatchObject({
-      valid: false,
-      errors: [
-        {
-          scope: "field",
-          name: "name",
-          issues: [{ message: "执行异常: boom", code: "rule_execution" }],
-        },
-      ],
-    })
+    try {
+      const result = await validator.validateField("name", baseValues)
+      expect(result).toMatchObject({
+        valid: false,
+        errors: [
+          {
+            scope: "field",
+            name: "name",
+            issues: [{ message: "执行异常: boom", code: "rule_execution" }],
+          },
+        ],
+      })
+      expect(consoleError).toHaveBeenCalledWith(
+        '[schemx] 字段 "name" 校验规则执行错误',
+        error
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it("规则异常未配置 onRuleError 时使用默认提示", async () => {
+    const error = new Error("boom")
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const validator = createValidator<TestForm>()
-    validator.setFieldRules("name", [throwingRule(new Error("boom"))])
+    validator.setFieldRules("name", [throwingRule(error)])
 
-    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
-      valid: false,
-      errors: [
-        {
-          scope: "field",
-          name: "name",
-          issues: [{ message: "校验执行失败", code: "rule_execution" }],
-        },
-      ],
-    })
+    try {
+      await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+        valid: false,
+        errors: [
+          {
+            scope: "field",
+            name: "name",
+            issues: [{ message: "校验执行失败", code: "rule_execution" }],
+          },
+        ],
+      })
+      expect(consoleError).toHaveBeenCalledWith(
+        '[schemx] 字段 "name" 校验规则执行错误',
+        error
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it("旧异步结果不能覆盖新状态", async () => {
@@ -203,14 +223,23 @@ describe("Validator", () => {
   })
 
   it("非法空 issue 失败结果转换为规则执行错误", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
     const validator = createValidator<TestForm>()
     validator.setFieldRules("name", [
       { validate: () => ({ valid: false, issues: [] }) as never },
     ])
 
-    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
-      errors: [{ issues: [{ code: "rule_execution" }] }],
-    })
+    try {
+      await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+        errors: [{ issues: [{ code: "rule_execution" }] }],
+      })
+      expect(consoleError).toHaveBeenCalledWith(
+        '[schemx] 字段 "name" 校验规则执行错误',
+        expect.any(TypeError)
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it("destroy 中止运行并清空全部状态", async () => {

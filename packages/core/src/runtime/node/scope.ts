@@ -28,16 +28,16 @@ import type {
  * @returns 新创建的 `Scope`。
  *
  * @remarks
- * 内部维护 cleanupRecords 数组和 childScopes 数组。dispose 时先释放子 scope，
+ * 内部维护 cleanupRecords 集合和 childScopes 集合。dispose 时先释放子 scope，
  * 再按 LIFO 顺序执行当前 scope 的 cleanup。cleanup 抛错会被捕获并上报，
  * 不影响后续 cleanup 执行。
  */
 export function createScope(): Scope {
   let disposed = false
 
-  const cleanupRecords: ScopeCleanupRecord[] = []
+  const cleanupRecords = new Set<ScopeCleanupRecord>()
 
-  const childScopes: Scope[] = []
+  const childScopes = new Set<Scope>()
 
   /**
    * 注册释放函数。
@@ -62,7 +62,7 @@ export function createScope(): Scope {
       disposed: false,
     }
 
-    cleanupRecords.push(record)
+    cleanupRecords.add(record)
 
     /**
      * 立即释放当前 cleanup 记录并从 scope 中移除。
@@ -73,7 +73,7 @@ export function createScope(): Scope {
       }
 
       record.disposed = true
-      removeItem(cleanupRecords, record)
+      cleanupRecords.delete(record)
       runCleanup(record.cleanup)
     }
 
@@ -96,12 +96,18 @@ export function createScope(): Scope {
   const child = (): Scope => {
     const childScope = createScope()
 
-    childScopes.push(childScope)
+    if (disposed) {
+      childScope.dispose()
+
+      return childScope
+    }
+
+    childScopes.add(childScope)
 
     // 子 scope 可能被调用方提前释放；提前释放后从父 scope 中摘除，
     // 避免父 scope 后续 dispose 时继续保留无效引用。
     childScope.add(() => {
-      removeItem(childScopes, childScope)
+      childScopes.delete(childScope)
     })
 
     return childScope
@@ -121,21 +127,21 @@ export function createScope(): Scope {
     disposed = true
 
     // 先释放子 scope，确保叶子资源早于父级资源清理。
-    for (const childScope of childScopes.slice().reverse()) {
+    for (const childScope of [...childScopes].reverse()) {
       childScope.dispose()
     }
 
-    childScopes.length = 0
+    childScopes.clear()
 
     // 再按 LIFO 顺序释放当前 scope 自己注册的 cleanup。
-    for (const record of cleanupRecords.slice().reverse()) {
+    for (const record of [...cleanupRecords].reverse()) {
       if (!record.disposed) {
         record.disposed = true
         runCleanup(record.cleanup)
       }
     }
 
-    cleanupRecords.length = 0
+    cleanupRecords.clear()
   }
 
   return {
@@ -187,20 +193,6 @@ const createDisposedHandle = (): ScopeCleanupHandle => {
 const noop = (): void => {}
 
 /**
- * 从数组中移除第一个匹配项。
- *
- * @param items - 目标数组
- * @param item - 要移除的元素
- */
-const removeItem = <TItem>(items: TItem[], item: TItem): void => {
-  const index = items.indexOf(item)
-
-  if (index >= 0) {
-    items.splice(index, 1)
-  }
-}
-
-/**
  * 执行 cleanup 并捕获错误。
  *
  * cleanup 抛错不阻断后续清理流程，错误通过 reportRuntimeCleanupError 上报。
@@ -224,5 +216,5 @@ const runCleanup = (cleanup: ScopeCleanup): void => {
  * @param error - cleanup 抛出的错误。
  */
 export function reportRuntimeCleanupError(error: unknown): void {
-  console.error("[Scope] Cleanup error:", error)
+  console.error("[schemx] Scope cleanup 执行错误", error)
 }

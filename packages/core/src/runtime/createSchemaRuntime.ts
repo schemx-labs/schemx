@@ -5,13 +5,14 @@ import {
   type SchemxSchemas,
   type SchemxSchemasInput,
 } from "../createSchemas"
+import { normalizeSchemas } from "../utils"
 
 import { createCompile } from "./compiler"
 import { createLifecycleBus, type LifecycleListener } from "./lifecycle"
 import {
-  type ContainerRuntimeNode,
-  createRuntimeResources,
+  createRuntimeRegistry,
   createScope,
+  type ParentRuntimeNode,
   type RootRuntimeNode,
   type RuntimeNode,
 } from "./node"
@@ -66,6 +67,8 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    * Runtime 生命周期钩子。
    */
   lifecycleHooks?: LifecycleListener<RuntimeNode<TValues>>
+  /** 是否启用 Runtime diagnostics。 */
+  debug?: boolean
 }
 
 /**
@@ -176,7 +179,7 @@ export function createSchemaRuntime<TValues extends Values>(
   const scheduler = createScheduler()
 
   // 提供跨节点资源索引和字段查询能力。
-  const nodeResources = createRuntimeResources<TValues>()
+  const runtimeRegistry = createRuntimeRegistry<TValues>()
 
   // 广播 Runtime 生命周期事件。
   const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(options.lifecycleHooks)
@@ -204,6 +207,7 @@ export function createSchemaRuntime<TValues extends Values>(
 
   // Runtime 内部共享的最小服务上下文。
   const context: SchemaRuntimeContext<TValues> = {
+    debug: options.debug ?? false,
     schemaConfig,
     instance: options.instance,
     model: options.model,
@@ -214,35 +218,36 @@ export function createSchemaRuntime<TValues extends Values>(
     validation: {
       syncField: options.model.syncValidationField,
       removeField: options.model.removeValidationField,
+      removeSchemaField: options.model.removeSchemaValidationField,
     },
     lifecycleBus,
-    nodeResources,
-    // 统一由 reconciler 提交子 descriptor，避免各调用方绕过节点协调流程。
-    commitChildren(parent, descriptors) {
-      reconciler.reconcileChildren(parent, descriptors)
+    runtimeRegistry,
+    // 统一由 reconciler 提交子 schema，避免各调用方绕过节点协调流程。
+    reconcileChildren(parent, schemas) {
+      reconciler.reconcileChildren(
+        parent,
+        normalizeSchemas(schemas, options.defaultRendererType)
+      )
     },
   }
 
-  // 根据 descriptor 增量创建、更新和卸载 RuntimeNode。
+  // 根据原始 schema 增量创建、更新和卸载 RuntimeNode。
   const reconciler = createReconciler<TValues>(context)
 
   // Runtime 根节点及其视图状态。
   const root = reconciler.createRoot()
 
-  createRootRuntimeViewState(root, nodeResources)
+  createRootRuntimeViewState(root)
 
   /**
-   * 将最新 Schema 编译为 descriptor 并提交给根节点。
+   * 将最新 Schema 提交给根节点协调。
    */
   const applySchemas = (nextSchemas: readonly SchemxField<TValues>[]): void => {
     if (disposed) {
       return
     }
 
-    // 当前 Schema 编译得到的 Runtime descriptor 列表。
-    const descriptors = compile.toDescriptors(nextSchemas)
-
-    reconciler.reconcileChildren(root as ContainerRuntimeNode<TValues>, descriptors)
+    context.reconcileChildren(root as ParentRuntimeNode<TValues>, nextSchemas)
   }
 
   /**
@@ -313,18 +318,13 @@ export function createSchemaRuntime<TValues extends Values>(
     }
 
     // 根据字段名找到当前 RuntimeNode。
-    const node = nodeResources.fieldIndex.getByName(name)
+    const node = runtimeRegistry.fieldIndex.get(name)
 
     if (!node) {
       return
     }
 
-    // 当前字段 descriptor；容器或未编译节点不参与字段更新。
-    const current = node.descriptor
-
-    if (current?.type !== "field") {
-      return
-    }
+    const current = node
 
     // 合并静态 componentProps，避免更新字段时丢失既有属性。
     const componentProps = patch.componentProps
@@ -346,12 +346,9 @@ export function createSchemaRuntime<TValues extends Values>(
       dependencies: current.dynamicProps?.dependencies,
     } as SchemxField<TValues>
 
-    // 单字段重新编译得到的最新 descriptor。
-    const [next] = compile.toDescriptors([nextRawSchema])
+    const index = node.parent?.childNodes.value.indexOf(node) ?? 0
 
-    if (next.type === "field") {
-      reconciler.updateNode(node, next)
-    }
+    reconciler.updateNode(node, nextRawSchema, index)
   }
 
   /**
@@ -375,6 +372,7 @@ export function createSchemaRuntime<TValues extends Values>(
         { schemaConfig: context.schemaConfig }
       ).schemaConfig
     )
+
     compile.invalidate()
     applySchemas(assertMounted().peek())
   }
@@ -385,7 +383,7 @@ export function createSchemaRuntime<TValues extends Values>(
   const getEffectiveFieldSchema = (
     name: NamePath<TValues>
   ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined => {
-    return nodeResources.fieldIndex.getByName(name)?.fieldState?.effectiveSchema.value
+    return runtimeRegistry.fieldIndex.get(name)?.fieldState?.effectiveSchema.value
   }
 
   /**
@@ -408,7 +406,7 @@ export function createSchemaRuntime<TValues extends Values>(
   const subscribeRuntimeViewSchemas = (
     callback: (schemas: readonly SchemxViewSchema<TValues>[]) => void
   ): (() => void) => {
-    return subscribeViewSchemas(root, nodeResources, callback)
+    return subscribeViewSchemas(root, callback)
   }
 
   /**
@@ -442,7 +440,6 @@ export function createSchemaRuntime<TValues extends Values>(
     scope.dispose()
     reconciler.removeNode(root)
     scheduler.dispose()
-    lifecycleBus.clear()
     schemaSource = undefined
   }
 

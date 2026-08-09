@@ -11,13 +11,21 @@ import { createSignal, createSignalEffect } from "../../../reactivity"
 import type { SchemaRuntimeContext } from "../../context"
 import { createScheduler } from "../../scheduler"
 import { createValidationEffect } from "../validationEffect"
-import { createFieldRuntimeState, setFieldDynamicOverrides } from "../runtimeState"
+import {
+  createFieldRuntimeState,
+  setFieldDynamicOverrides,
+  setFieldStaticSchema,
+} from "../runtimeState"
 
-import type { FieldDescriptor } from "../../descriptor"
-import type { SchemxBaseField } from "../../../types"
+import type { SchemxBaseField, SchemxResolvedBaseField } from "../../../types"
 
 interface TestValues {
   field?: string
+}
+
+interface FieldConfig {
+  readonly key: string
+  readonly staticSchema: SchemxResolvedBaseField<TestValues>
 }
 
 const createSchema = (
@@ -33,12 +41,9 @@ const createSchema = (
   ...overrides,
 })
 
-const createDescriptor = (schema = createSchema()): FieldDescriptor<TestValues> => ({
-  type: "field",
+const createFieldConfig = (schema = createSchema()): FieldConfig => ({
   key: "field:0:field",
-  name: schema.name,
-  componentType: schema.componentType,
-  staticSchema: schema,
+  staticSchema: schema as SchemxResolvedBaseField<TestValues>,
 })
 
 const createFormConfigContext = () => {
@@ -49,6 +54,7 @@ const createFormConfigContext = () => {
   const validation = {
     syncField: vi.fn(),
     removeField: vi.fn(),
+    removeSchemaField: vi.fn(),
   }
 
   return {
@@ -67,27 +73,25 @@ const createFormConfigContext = () => {
 describe("createValidationEffect", () => {
   it("应该创建只负责规则注册的 ValidationEffect", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor()
+    const config = createFieldConfig()
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     const validation = createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
     await scheduler.flush()
 
-    expect(validation.registered.value).toBe(true)
+    expect(validation).not.toHaveProperty("registered")
     expect(validation).not.toHaveProperty("validating")
     expect(validation).not.toHaveProperty("validate")
     expect(controller.syncField).toHaveBeenCalledWith({
@@ -100,23 +104,21 @@ describe("createValidationEffect", () => {
 
   it("showRequiredMark=false 时仍应注册 required 校验", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor(
+    const config = createFieldConfig(
       createSchema({ required: true, showRequiredMark: false })
     )
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
@@ -129,95 +131,116 @@ describe("createValidationEffect", () => {
       rules: [],
     })
   })
+
+  it("仅更新 placeholder 不会重新同步校验规则", async () => {
+    const scope = createRuntimeScope()
+    const config = createFieldConfig()
+    const runtimeState = createFieldRuntimeState({
+      nodeId: 1,
+      key: config.key,
+      name: config.staticSchema.name,
+      staticSchema: config.staticSchema,
+    })
+    const { context, validation: controller, scheduler } = createFormConfigContext()
+
+    createValidationEffect({
+      context,
+      name: "field",
+      validationSchema: runtimeState.validationSchema,
+      scope,
+    })
+    await scheduler.flush()
+    controller.syncField.mockClear()
+
+    setFieldStaticSchema(runtimeState, {
+      name: "field",
+      staticSchema: { ...config.staticSchema, placeholder: "新的提示" },
+    })
+    await scheduler.flush()
+
+    expect(controller.syncField).not.toHaveBeenCalled()
+  })
 })
 
 // 规则管理：visible=false / readonly / disabled 时注销规则并清空错误
 describe("rule management", () => {
   it("应该在 visible=false 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor(createSchema({ visible: false }))
+    const config = createFieldConfig(createSchema({ visible: false }))
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
     await scheduler.flush()
 
-    expect(controller.removeField).toHaveBeenCalledWith("field")
+    expect(controller.removeSchemaField).toHaveBeenCalledWith("field")
   })
 
   it("应该在 readonly=true 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor(createSchema({ readonly: true }))
+    const config = createFieldConfig(createSchema({ readonly: true }))
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
     await scheduler.flush()
 
-    expect(controller.removeField).toHaveBeenCalledWith("field")
+    expect(controller.removeSchemaField).toHaveBeenCalledWith("field")
   })
 
   it("应该在 disabled=true 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor(createSchema({ disabled: true }))
+    const config = createFieldConfig(createSchema({ disabled: true }))
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
     await scheduler.flush()
 
-    expect(controller.removeField).toHaveBeenCalledWith("field")
+    expect(controller.removeSchemaField).toHaveBeenCalledWith("field")
   })
 
   it("字段呈现态在响应式 effect 中变化时不应同步写 Validator 造成循环", async () => {
     const scope = createRuntimeScope()
-    const descriptor = createDescriptor()
+    const config = createFieldConfig()
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
-      key: descriptor.key,
-      descriptor: {
-        name: descriptor.staticSchema.name,
-        staticSchema: descriptor.staticSchema,
-      },
+      key: config.key,
+      name: config.staticSchema.name,
+        staticSchema: config.staticSchema,
     })
     const trigger = createSignal(0)
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -225,7 +248,7 @@ describe("rule management", () => {
     createValidationEffect({
       context,
       name: "field",
-      effectiveSchema: runtimeState.effectiveSchema,
+      validationSchema: runtimeState.validationSchema,
       scope,
     })
 
@@ -250,13 +273,11 @@ describe("rule management", () => {
 
     await scheduler.flush()
 
-    expect(controller.removeField).toHaveBeenCalledWith("field")
+    expect(controller.removeSchemaField).toHaveBeenCalledWith("field")
 
     dispose()
   })
 })
-
-import type { SchemxResolvedBaseField } from "../../../types"
 
 function createTestSchemaForUS2(
   overrides: Partial<SchemxResolvedBaseField> = {}
@@ -283,7 +304,8 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     expect(state.effectiveSchema.value.required).toBe(true)
@@ -294,7 +316,8 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     setFieldDynamicOverrides(
@@ -318,7 +341,8 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     expect(state.effectiveSchema.value.visible).toBe(true)
@@ -343,7 +367,8 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
-      descriptor: { name: "email" as any, staticSchema: schema },
+      name: "email" as any,
+      staticSchema: schema,
     })
 
     expect(state.effectiveSchema.value.label).toBe("邮箱地址")

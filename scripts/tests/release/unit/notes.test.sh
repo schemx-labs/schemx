@@ -6,7 +6,7 @@ set -euo pipefail
 
 test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../../../.." && pwd)"
-source "$root_dir/scripts/modules/release/notes.sh"
+source "$root_dir/scripts/workflow/domains/release/notes.sh"
 
 output_file="$(mktemp)"
 fixture_root="$(mktemp -d)"

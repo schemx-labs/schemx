@@ -15,12 +15,12 @@ import {
 import { createScope } from "../scope"
 
 import type {
-  DependencyDescriptor,
-  FieldDescriptor,
-  GroupDescriptor,
-} from "../../descriptor"
+  DependencyRuntimeNodeInput,
+  FieldRuntimeNodeInput,
+  GroupRuntimeNodeInput,
+} from "../input"
 import type {
-  ContainerRuntimeNode,
+  ParentRuntimeNode,
   DependencyRuntimeNode,
   FieldRuntimeNode,
   GroupRuntimeNode,
@@ -37,7 +37,7 @@ export function createTestRootRuntimeNode(
   options: {
     id?: number
     key?: string
-    dispose?: RuntimeDispose
+    dispose?: Scope
   } = {}
 ): RootRuntimeNode {
   const root = createRootRuntimeNode({ dispose: options.dispose ?? createScope() })
@@ -52,18 +52,17 @@ export function createTestRootRuntimeNode(
 /**
  * 创建测试用的 FieldRuntimeNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填 key、parent、descriptor，可选 id 和 dispose
+ * @param options - 必填 input、parent，可选 id 和 dispose
  */
 export function createTestFieldRuntimeNode(options: {
   id?: number
-  key: string
-  parent: ContainerRuntimeNode
-  descriptor: FieldDescriptor
-  dispose?: RuntimeDispose
+  input: FieldRuntimeNodeInput
+  parent: ParentRuntimeNode
+  dispose?: Scope
 }): FieldRuntimeNode {
   return createFieldRuntimeNode({
     id: options.id ?? 1,
-    key: options.key,
+    input: options.input,
     parent: options.parent,
     dispose: options.dispose ?? options.parent.dispose.child(),
   })
@@ -72,18 +71,17 @@ export function createTestFieldRuntimeNode(options: {
 /**
  * 创建测试用的 GroupRuntimeNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填 key、parent、descriptor，可选 id 和 dispose
+ * @param options - 必填 input、parent，可选 id 和 dispose
  */
 export function createTestGroupRuntimeNode(options: {
   id?: number
-  key: string
-  parent: ContainerRuntimeNode
-  descriptor: GroupDescriptor
-  dispose?: RuntimeDispose
+  input: GroupRuntimeNodeInput
+  parent: ParentRuntimeNode
+  dispose?: Scope
 }): GroupRuntimeNode {
   return createGroupRuntimeNode({
     id: options.id ?? 1,
-    key: options.key,
+    input: options.input,
     parent: options.parent,
     dispose: options.dispose ?? options.parent.dispose.child(),
   })
@@ -92,18 +90,17 @@ export function createTestGroupRuntimeNode(options: {
 /**
  * 创建测试用的 DependencyRuntimeNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填 key、parent、descriptor，可选 id 和 dispose
+ * @param options - 必填 input、parent，可选 id 和 dispose
  */
 export function createTestDependencyRuntimeNode(options: {
   id?: number
-  key: string
-  parent: ContainerRuntimeNode
-  descriptor: DependencyDescriptor
-  dispose?: RuntimeDispose
+  input: DependencyRuntimeNodeInput
+  parent: ParentRuntimeNode
+  dispose?: Scope
 }): DependencyRuntimeNode {
   return createDependencyRuntimeNode({
     id: options.id ?? 1,
-    key: options.key,
+    input: options.input,
     parent: options.parent,
     dispose: options.dispose ?? options.parent.dispose.child(),
   })

@@ -11,6 +11,7 @@ type ReleaseData = {
   from: ReleasePoint
   to: ReleasePoint
   range: string
+  branch?: string
   scope: "repository" | "package"
   packages: string[]
   summary: string
@@ -30,6 +31,7 @@ type ReleasePoint = {
 - `version`：目标发布版本。优先使用用户指定值；否则从目标 Tag 或目标包版本推断，并明确标记推断来源。
 - `date`：生成或发布日期，采用 `YYYY-MM-DD`。
 - `from`、`to`、`range`：可复核的 Git 比较范围。保留 Commit，即使 Tag 不存在。
+- `branch`：可选的收集时当前分支；HEAD 游离时使用 `detached HEAD`。旧 Release Data 缺少该字段时，渲染为 `unknown`。
 - `scope`：`repository` 表示仓库汇总发布；`package` 表示单个包发布。
 - `packages`：受影响且对用户可见的包。不要把仅测试或内部工具包列入。
 - `summary`：一至三句面向使用者的版本摘要，不重复章节条目。

@@ -3,15 +3,19 @@ import type { ValidationRuleDefinition } from "../types/rule"
 import type { StandardSchemaV1 } from "../types/standardSchema"
 import type { ValidationRule } from "../validator/types"
 
+/** 从声明合并的规则定义中提取规则名称。 */
 type DeclaredValidationRuleName = Extract<keyof ValidationRuleDefinition, string>
 
+/** 在存在声明规则与否的两种模式间选择规则 key 类型。 */
 type ValidationRuleKey = [DeclaredValidationRuleName] extends [never]
   ? string
   : DeclaredValidationRuleName
 
+/** 根据规则名称映射到对应的字段值类型。 */
 type ValidationRuleValue<TKey extends ValidationRuleKey> =
   TKey extends DeclaredValidationRuleName ? ValidationRuleDefinition[TKey] : unknown
 
+/** 规则注册表中已经解析、可直接执行的规则条目。 */
 type ResolvedValidationRuleEntry<TValue> =
   StandardSchemaV1<TValue, unknown> | ValidationRule<TValue>
 
@@ -126,7 +130,9 @@ export type ValidationRuleRegistryListener = (
  * ```
  */
 export class ValidationRuleRegistry {
+  /** 保存规则名称到原始注册条目的映射。 */
   private readonly rules = new Map<string, ValidationRuleEntry<unknown>>()
+  /** 保存规则注册表变更监听器。 */
   private readonly listeners = new Set<ValidationRuleRegistryListener>()
 
   /**
@@ -153,7 +159,7 @@ export class ValidationRuleRegistry {
     options?: RegistryOptions
   ): void {
     if (this.rules.has(name) && options?.override === false) {
-      console.warn(`[ValidationRuleRegistry] Rule "${name}" 已存在，跳过注册`)
+      console.warn(`[schemx] 校验规则 "${name}" 已存在，跳过注册`)
 
       return
     }
