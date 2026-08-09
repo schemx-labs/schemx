@@ -9,7 +9,7 @@
 
 import { inject, type InjectionKey, provide } from "vue"
 
-import type { SchemxSchemaConfig, Values } from "@schemx/core"
+import type { SchemxSchemaConfig } from "@schemx/core"
 
 /** 表单级展示配置在 Vue provide/inject 中使用的注入 key。 */
 export const SCHEMX_FORM_CONFIG_KEY = Symbol(
@@ -33,7 +33,6 @@ export interface FormContextProps {
  * 应在 `SchemxForm` 或自定义 Provider 的 setup() 同步阶段调用，
  * 使后代字段组件能够读取 readonly、disabled、labelAlign 等默认配置。
  *
- * @typeParam TValues - 表单值类型
  * @param props - 要提供给后代组件的 Schema 配置
  *
  * @remarks
@@ -44,9 +43,7 @@ export interface FormContextProps {
  * createFormConfigContext({ schemaConfig: { readonly: true, labelAlign: "right" } })
  * ```
  */
-export const createFormConfigContext = <TValues extends Values = Values>(
-  props: FormContextProps
-): void => {
+export const createFormConfigContext = (props: FormContextProps): void => {
   provide<FormContextProps>(SCHEMX_FORM_CONFIG_KEY, props)
 }
 

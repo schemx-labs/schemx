@@ -36,7 +36,7 @@ release_usage() {
   bash scripts/workflow.sh release plan <channel> <target> <version-action> [--output <file>]
   bash scripts/workflow.sh release dry-run <channel> <target> <version-action>
   bash scripts/workflow.sh release publish [channel] [target] [version-action]
-  bash scripts/workflow.sh release check [target]
+  bash scripts/workflow.sh release check [channel] [target] [version-action]
   bash scripts/workflow.sh release pack [target]
   bash scripts/workflow.sh release test
   bash scripts/workflow.sh release verify <plan-file>

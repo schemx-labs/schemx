@@ -112,7 +112,7 @@ describe("SchemxForm 动态 schemas", () => {
                 },
               ],
               "onUpdate:modelValue": (nextValues) => {
-                modelValue.value = nextValues
+                modelValue.value = nextValues as typeof modelValue.value
               },
             },
             {
@@ -175,6 +175,12 @@ describe("SchemxForm 动态 schemas", () => {
 
     const adapter = createTestAdapter("vue-form-adapter", "adapter 校验失败")
 
+    const rule = adapter.rule
+
+    if (!rule) {
+      throw new Error("测试 adapter 必须提供 rule")
+    }
+
     const wrapper = mount(SchemxForm, {
       props: {
         rendererRegistry,
@@ -184,7 +190,7 @@ describe("SchemxForm 动态 schemas", () => {
             name: "email",
             label: "邮箱",
             componentType: "input",
-            rules: adapter.rule("invalid"),
+            rules: rule("invalid"),
           },
         ],
       },
@@ -213,6 +219,12 @@ describe("SchemxForm 动态 schemas", () => {
 
     const formAdapter = createTestAdapter("priority-adapter", "Form adapter")
 
+    const rule = formAdapter.rule
+
+    if (!rule) {
+      throw new Error("测试 adapter 必须提供 rule")
+    }
+
     const wrapper = mount(SchemxForm, {
       global: {
         plugins: [[Schemx, { validatorAdapters: [appAdapter] }]],
@@ -225,7 +237,7 @@ describe("SchemxForm 动态 schemas", () => {
             name: "email",
             label: "邮箱",
             componentType: "input",
-            rules: formAdapter.rule("invalid"),
+            rules: rule("invalid"),
           },
         ],
       },
@@ -537,7 +549,7 @@ describe("SchemxForm 动态 schemas", () => {
             componentType: "rate",
             dependencies: {
               triggerFields: ["deliveryMethod"],
-              componentProps: (values: any) => {
+              componentProps: ((values: { deliveryMethod?: string }) => {
                 const countMap: Record<string, number> = {
                   express: 5,
                   selfPickup: 3,
@@ -547,7 +559,7 @@ describe("SchemxForm 动态 schemas", () => {
                 return {
                   count: countMap[values.deliveryMethod as string] ?? 5,
                 }
-              },
+              }) as any,
             },
           },
         ],

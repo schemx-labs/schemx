@@ -57,10 +57,10 @@ const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0
 /**
  * 挂载包装组件，提供 inject 上下文，在 setup 中调用 useDictionary。
  */
-function mountUseDictionary(options: SchemxDictionary) {
+function mountUseDictionary(options: SchemxDictionary<{ country?: string }>) {
   let hookReturn: UseDictionaryReturn
 
-  const form = createForm({ initialValues: {} })
+  const form = createForm<{ country?: string }>({ initialValues: {} })
 
   const Comp = defineComponent({
     setup() {
@@ -298,11 +298,14 @@ describe("useDictionary 集成测试", () => {
 
       const { wrapper, hookReturn } = mountUseDictionary({
         api: mockApi,
-        formatter: (res) =>
-          res.data.map((item: any) => ({
+        formatter: (res) => {
+          const response = res as { data: Array<{ name: string; id: number }> }
+
+          return response.data.map((item) => ({
             label: item.name,
             value: item.id,
-          })),
+          }))
+        },
       })
 
       await nextTick()

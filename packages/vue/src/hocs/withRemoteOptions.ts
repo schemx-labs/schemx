@@ -91,7 +91,9 @@ export function WithRemoteOptions(WrappedComponent: Component): Component {
 
       // 内嵌于 FormItem 时自动从字段 Context 获取目标字段；显式 fieldName
       // 保留给脱离 FormItem 的独立使用场景。
-      const fieldName = dictionary ? useFieldContext().name : undefined
+      const fieldName = dictionary
+        ? (attrs.fieldName as string | undefined) ?? useFieldContext().name
+        : undefined
 
       const dictResult = dictionary ? useDictionary(dictionary, fieldName) : null
 

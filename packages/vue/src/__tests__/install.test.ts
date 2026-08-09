@@ -228,6 +228,14 @@ describe("Schemx Vue 插件安装", () => {
 
     const secondAdapter = createTestAdapter("app-isolated-adapter", "第二个 App")
 
+    const firstRule = firstAdapter.rule
+
+    const secondRule = secondAdapter.rule
+
+    if (!firstRule || !secondRule) {
+      throw new Error("测试 adapter 必须提供 rule")
+    }
+
     const first = mountUseForm(
       { validatorAdapters: [firstAdapter] },
       {
@@ -236,7 +244,7 @@ describe("Schemx Vue 插件安装", () => {
             name: "email",
             label: "邮箱",
             componentType: "input",
-            rules: firstAdapter.rule("invalid"),
+            rules: firstRule("invalid"),
           },
         ],
       }
@@ -250,7 +258,7 @@ describe("Schemx Vue 插件安装", () => {
             name: "email",
             label: "邮箱",
             componentType: "input",
-            rules: secondAdapter.rule("invalid"),
+            rules: secondRule("invalid"),
           },
         ],
       }

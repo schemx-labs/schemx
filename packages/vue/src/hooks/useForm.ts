@@ -118,7 +118,6 @@ function getUseFormSchemxConfig<TValues extends Values>(
     defaultRendererType = undefined,
     rendererRegistry = undefined,
     validationRuleRegistry = undefined,
-    ...rest
   } = options
 
   return {

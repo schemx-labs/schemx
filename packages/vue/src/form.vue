@@ -117,7 +117,8 @@
       syncingFromModel = true
       form.setFieldsValue(values)
       syncingFromModel = false
-    }
+    },
+    { deep: true }
   )
 
   const disposeWatch = createWatch(form, (latestSnapshot) => {
@@ -155,8 +156,6 @@
   watch(
     pickSchemaConfig,
     (nextSchemaConfig) => {
-      console.log(" > ~ nextSchemaConfig:", nextSchemaConfig)
-
       Object.assign(formSchemaConfig, nextSchemaConfig)
       form.updateSchemaConfig(nextSchemaConfig)
     },

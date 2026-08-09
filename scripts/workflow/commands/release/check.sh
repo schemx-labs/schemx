@@ -1,25 +1,49 @@
 #!/usr/bin/env bash
 
-# release check 命令编排：验证依赖、发布配置、质量任务和实际发布产物，不产生发布写操作。
+# release check 命令编排：以发布同样的输入冻结计划并执行所有无副作用校验。
 
 release_check() {
-  local target="${1:-all}"
-  local package
-  local packages
-  local quality_task
+  local requested_channel="${1:-}"
+  local requested_target="${2:-}"
+  local requested_action="${3:-}"
+  local channel target version_action
+  local plan_file
+  local exit_code
 
-  packages="$(release_resolve_target "$target")" || return
-  ui_flow_begin --domain release --title '发布检查' --description '执行依赖一致性、发布配置、目标质量任务与实际发布文件检查。' || return
-  ui_flow_group --title '发布前检查' --description '验证工作区、凭据与 registry。' || return
-  ui_task --title '安装依赖一致性检查' --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" assert-installation || { local exit_code=$?; ui_flow_end failed '发布检查失败：依赖一致性。'; return "$exit_code"; }
-  ui_task --title '运行包配置检查' --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" assert-package-configuration || { local exit_code=$?; ui_flow_end failed '发布检查失败：包配置。'; return "$exit_code"; }
-  while IFS= read -r package; do
-    [[ -n "$package" ]] || continue
-    for quality_task in lint type-check test build; do
-      targets_has_script "$package" "$quality_task" || continue
-      ui_task --title "验证 $(targets_package_name "$package") ${quality_task}" --log live -- pnpm --dir "$(targets_package_dir "$package")" run "$quality_task" || { local exit_code=$?; ui_flow_end failed "发布检查失败：$(targets_package_name "$package") ${quality_task}。"; return "$exit_code"; }
-    done
-    ui_task --title "检查 $(targets_package_name "$package") 发布产物" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" assert-artifacts "$(targets_package_name "$package")" || { local exit_code=$?; ui_flow_end failed "发布检查失败：$(targets_package_name "$package") 产物。"; return "$exit_code"; }
-  done <<< "$packages"
-  ui_flow_end success '发布检查完成：未执行 npm 发布、版本写入、Git Tag 或 GitHub Release。'
+  [[ $# -le 3 ]] || {
+    release_usage
+    return 2
+  }
+  ui_flow_begin --domain release --title '发布合规检查' --description '复用发布流程的计划和发布前校验，但不执行任何外部写入。' || return
+  ui_flow_group --title '发布脚本测试' --description '验证发布流程、交互控件、目标解析与 UI 渲染。' || return
+  if release_run_tests; then
+    :
+  else
+    exit_code=$?
+    ui_flow_end failed '发布合规检查失败：发布脚本测试。'
+    return "$exit_code"
+  fi
+  ui_flow_group --title '检查配置' --description '发布通道和版本动作为单选；发布包支持多选。' || return
+  channel="$(release_select_channel "$requested_channel")" || { ui_flow_end cancelled '发布检查已取消。'; return 130; }
+  target="$(release_select_target "$requested_target")" || { ui_flow_end cancelled '发布检查已取消。'; return 130; }
+  version_action="$(release_select_version_action "$channel" "$requested_action")" || { ui_flow_end cancelled '发布检查已取消。'; return 130; }
+  ui_flow_group --title '生成发布计划' --description '查询 registry 并冻结待发布的版本、Tag 与源码提交。' || return
+  plan_file="$(mktemp "${TMPDIR:-/tmp}/schemx-release-check-plan.XXXXXX")" || {
+    ui_flow_end failed '无法创建发布检查计划文件。'
+    return 1
+  }
+  if release_create_plan "$channel" "$target" "$version_action" "$plan_file" \
+    && release_render_plan "$plan_file" \
+    && release_verify_plan "$plan_file"; then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+  rm -f "$plan_file"
+  if [[ "$exit_code" -eq 0 ]]; then
+    ui_flow_end success '发布合规检查完成：未执行版本写入、npm 发布、Git 推送或 GitHub Release 创建。'
+  else
+    ui_flow_end failed '发布合规检查失败。'
+  fi
+  return "$exit_code"
 }

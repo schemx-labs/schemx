@@ -66,7 +66,7 @@ function createFieldHook<TValues extends Values = Values>(
   const fieldPending = shallowRef(field.isPending())
 
   const dispose = field.effect(() => {
-    fieldValue.value = field.getSnapshot()
+    fieldValue.value = field.getValue()
 
     fieldErrors.value = field.getErrors()
 

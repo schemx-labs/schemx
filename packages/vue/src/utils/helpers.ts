@@ -65,8 +65,6 @@ function hasPositionItemInSection<TItem extends SchemxViewSchema>(
       continue
     }
 
-    console.log(" > ~ hasPositionItemInSection ~ item:", item)
-
     if (isViewGroupSchema(item)) {
       return false
     }

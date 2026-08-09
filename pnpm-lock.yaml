@@ -4,6 +4,15 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    es-toolkit:
+      specifier: ^1.47.0
+      version: 1.50.0
+    vue:
+      specifier: ^3.4.0
+      version: 3.5.41
+
 importers:
 
   .:
@@ -310,6 +319,9 @@ importers:
       vue:
         specifier: 'catalog:'
         version: 3.5.41(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^3.3.9
+        version: 3.3.9(typescript@5.9.3)
       zod:
         specifier: ^4.3.6
         version: 4.4.3
@@ -12954,6 +12966,12 @@ snapshots:
       '@volar/typescript': 2.4.28
       '@vue/language-core': 3.3.9
       typescript: 5.4.2
+
+  vue-tsc@3.3.9(typescript@5.9.3):
+    dependencies:
+      '@volar/typescript': 2.4.28
+      '@vue/language-core': 3.3.9
+      typescript: 5.9.3
 
   vue@3.5.41(typescript@5.4.2):
     dependencies:

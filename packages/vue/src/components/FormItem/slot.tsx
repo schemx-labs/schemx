@@ -69,7 +69,7 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
   const createSlotProps = (additionalProps: Record<string, unknown> = {}) => {
     return {
       ...componentProps.value,
-      value: field.getSnapshot(),
+      value: field.value.value,
       ...additionalProps,
     }
   }

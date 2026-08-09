@@ -9,10 +9,10 @@
  */
 
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, h, PropType, toRef } from "vue"
+import { computed, defineComponent, h, onUnmounted, PropType, shallowRef } from "vue"
 import type { VNodeChild } from "vue"
 
-import { isViewGroupSchema } from "@schemx/core"
+import { isSchemxViewFieldSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
 import type { TriggerConfig } from "@/utils"
@@ -43,8 +43,8 @@ import type {
  *
  * @typeParam TValues - 表单值类型
  */
-export interface SchemxItemProps<TValues extends Values = Values> {
-  schema: SchemxViewSchema<TValues>
+export interface SchemxItemProps {
+  schema: unknown
 }
 
 const FormItem = defineComponent({
@@ -52,14 +52,14 @@ const FormItem = defineComponent({
 
   props: {
     schema: {
-      type: Object as PropType<SchemxViewSchema>,
+      type: Object as PropType<unknown>,
       required: true,
     },
   },
 
   setup(props, { slots }) {
     return (): VNodeChild => {
-      const schema = props.schema
+      const schema = props.schema as SchemxViewSchema<Values>
 
       if (isViewGroupSchema(schema)) {
         return h(FormGroup, { schema }, slots)
@@ -72,18 +72,40 @@ const FormItem = defineComponent({
 
 const FieldFormItem = defineComponent({
   name: "SchemxFieldItem",
+  inheritAttrs: false,
 
   props: {
     schema: {
-      type: Object as PropType<SchemxViewFieldSchema>,
+      type: Object as PropType<unknown>,
       required: true,
     },
   },
 
-  setup(props, { slots }) {
-    const schemaRef = toRef(props, "schema")
-
+  setup(props, { attrs, slots }) {
     const form = useFormContext<Values>()
+
+    const inputSchema = props.schema as SchemxViewFieldSchema<Values>
+
+    const schemaVersion = shallowRef(0)
+
+    const disposeSchemaEffect = form.effect(() => {
+      form.getViewSchemas()
+      schemaVersion.value++
+    })
+
+    onUnmounted(disposeSchemaEffect)
+
+    const schemaRef = computed<SchemxViewFieldSchema<Values>>(() => {
+      void schemaVersion.value
+
+      const latestSchema = form
+        .getViewSchemas()
+        .find((viewSchema) => viewSchema.key === inputSchema.key)
+
+      return latestSchema && isSchemxViewFieldSchema(latestSchema)
+        ? latestSchema
+        : inputSchema
+    })
 
     const formContext = useFormConfigContext()
 
@@ -143,9 +165,29 @@ const FieldFormItem = defineComponent({
       (): SchemxComponentProps<Values> => {
         const currentSchema = schemaRef.value
 
+        const currentComponentProps = currentSchema.componentProps ?? {}
+
+        const formItemProps = {
+          name: currentSchema.name,
+          label: currentSchema.label,
+          componentType: currentSchema.componentType,
+          ...currentComponentProps.formItemProps,
+        }
+
         return {
-          ...currentSchema.componentProps,
+          ...currentComponentProps,
           value: field.value.value,
+          disabled: currentSchema.disabled,
+          readonly: currentSchema.readonly,
+          readonlyPlaceholder: currentSchema.readonlyPlaceholder,
+          placeholder: currentSchema.placeholder,
+          formItemProps: {
+            ...formItemProps,
+            disabled: currentSchema.disabled,
+            readonly: currentSchema.readonly,
+            readonlyPlaceholder: currentSchema.readonlyPlaceholder,
+            placeholder: currentSchema.placeholder,
+          },
           onChange: handleChange,
           onBlur: handleBlur,
           "onUpdate:value": handleValueUpdate,
@@ -185,7 +227,11 @@ const FieldFormItem = defineComponent({
         schemaRef.value.labelPosition || formContext.schemaConfig.labelPosition
 
       return (
-        <div class={classnames("schemx-item-wrapper")} style={schemaRef.value.style}>
+        <div
+          {...attrs}
+          class={classnames("schemx-item-wrapper", attrs.class)}
+          style={[attrs.style, schemaRef.value.style]}
+        >
           <div
             class={classnames(
               "schemx-item",

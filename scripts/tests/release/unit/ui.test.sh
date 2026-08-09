@@ -6,6 +6,9 @@ test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root_dir="$(cd "$test_dir/../../../.." && pwd)"
 source "$root_dir/scripts/workflow/ui/api.sh"
 
+# 单测需自行控制输出格式，不能继承 release:test 顶层流程导出的格式缓存。
+unset SCHEMX_UI_RESOLVED_FORMAT
+
 assert_contains() {
   local value="$1"
   local expected="$2"

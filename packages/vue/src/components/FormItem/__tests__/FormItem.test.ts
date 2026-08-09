@@ -24,7 +24,7 @@ import { SCHEMX_FORM_INSTANCE_KEY } from "@/hooks/provideFormContext"
 
 import FormItem from "../index"
 
-import type { SchemxBaseField, SchemxInstance } from "@schemx/core"
+import type { SchemxBaseField } from "@schemx/core"
 
 /**
  * 创建最小化的 FormContext 配置
@@ -137,7 +137,7 @@ describe("FormItem 集成测试", () => {
       componentType: "input" as any,
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { website: "schemx.dev" },
       schemas: [schema as any],
     })
@@ -172,7 +172,7 @@ describe("FormItem 集成测试", () => {
   it("Dictionary HOC 支持直接传入 api 函数", async () => {
     const api = vi.fn().mockResolvedValue([])
 
-    const form: SchemxInstance = createForm({ initialValues: {} })
+    const form = createForm({ initialValues: {} })
 
     const wrapper = mount(DictionaryRendererWithRemoteOptions, {
       props: {
@@ -195,7 +195,7 @@ describe("FormItem 集成测试", () => {
   })
 
   it("Dictionary HOC 脱离 FormItem 时仍可使用显式 fieldName", async () => {
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { province: "GD", city: "Guangzhou" },
     })
 
@@ -226,7 +226,7 @@ describe("FormItem 集成测试", () => {
   })
 
   it("Dictionary Renderer 应在依赖字段变化时自动清空自身字段值", async () => {
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { province: "GD", city: "Guangzhou" },
       schemas: [
         {
@@ -240,7 +240,7 @@ describe("FormItem 集成测试", () => {
               resetOnDepsChange: true,
               immediate: false,
             },
-          },
+          } as any,
         },
       ],
     })
@@ -278,7 +278,7 @@ describe("FormItem 集成测试", () => {
       },
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { province: "guangdong" },
       schemas: [schema as any],
     })
@@ -315,7 +315,7 @@ describe("FormItem 集成测试", () => {
   })
 
   it("无 dependencies 时静态 visible: false 直接生效，组件不渲染", async () => {
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { name: "" },
     })
 
@@ -355,7 +355,7 @@ describe("FormItem 集成测试", () => {
       initialValue: "mixc",
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { pickupStore: "hubin" },
       schemas: [schema as any],
     })
@@ -388,7 +388,7 @@ describe("FormItem 集成测试", () => {
       componentType: "controlled" as any,
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { website: "www.baidu.com" },
       schemas: [schema as any],
     })
@@ -426,7 +426,7 @@ describe("FormItem 集成测试", () => {
       componentType: "change" as any,
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       schemas: [schema as any],
     })
 
@@ -461,7 +461,7 @@ describe("FormItem 集成测试", () => {
       validationTrigger: "onChange",
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { title: "旧标题" },
       schemas: [schema as any],
     })
@@ -497,7 +497,7 @@ describe("FormItem 集成测试", () => {
       validationTrigger: "onBlur",
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { title: "旧标题" },
       schemas: [schema as any],
     })
@@ -538,7 +538,7 @@ describe("FormItem 集成测试", () => {
       required: true,
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { title: "旧标题" },
       schemas: [schema as any],
     })
@@ -585,7 +585,7 @@ describe("FormItem 集成测试", () => {
       validationTrigger: ["onChange", "onBlur"],
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { title: "旧标题" },
       schemas: [schema as any],
     })
@@ -629,7 +629,7 @@ describe("FormItem 集成测试", () => {
       validationTrigger: ["onChange", "onBlur"],
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { title: "旧标题" },
       schemas: [schema as any],
     })
@@ -665,7 +665,7 @@ describe("FormItem 集成测试", () => {
   it.each(["disabled", "readonly"])(
     "%s 时即使 showRequiredMark=true 也不显示必填星号",
     async (state) => {
-      const form: SchemxInstance = createForm({
+      const form = createForm({
         schemas: [
           {
             name: "title",
@@ -705,7 +705,7 @@ describe("FormItem 集成测试", () => {
     ["RequiredOptions", { required: { message: "请输入标题" } }, true],
     ["disabled required", { required: true, disabled: true }, false],
   ])("%s 的必填标记符合 required 语义", async (_name, schemaOptions, expected) => {
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       schemas: [
         {
           name: "title",
@@ -747,7 +747,7 @@ describe("FormItem 集成测试", () => {
       },
     }
 
-    const form: SchemxInstance = createForm({
+    const form = createForm({
       initialValues: { deliveryMethod: "express", quantity: "1" },
       schemas: [schema as any],
     })

@@ -63,8 +63,8 @@
     "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-test": "tsc -p tsconfig.type-tests.json --noEmit",
-    "type-check": "tsc -p tsconfig.json --noEmit && pnpm run type-test",
+    "type-test": "vue-tsc -p tsconfig.type-tests.json --noEmit",
+    "type-check": "vue-tsc -p tsconfig.json --noEmit && pnpm run type-test",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
     "prepublishOnly": "pnpm run build",
     "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/vue"
@@ -74,6 +74,7 @@
     "@schemx/core": "workspace:*",
     "@vue/test-utils": "^2.4.6",
     "vue": "catalog:",
+    "vue-tsc": "^3.3.9",
     "zod": "^4.3.6"
   }
 }
