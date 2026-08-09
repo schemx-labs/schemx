@@ -88,14 +88,37 @@ release_select_target() {
   local target
   local resolved
   local package
+  local directory
+  local package_name
   local selected=()
+  local option
+  local group_value
+  local group_id
+  local group_label
+  local option_group
+  local option_value
+  local option_id
+  local option_label
+  local prompt_arguments=(group-multiselect --message '发布目标（可多选）')
 
   target="${requested:-${SCHEMX_RELEASE_TARGET:-}}"
   if [[ -z "$target" ]]; then
-    target="$(ui_prompt multiselect --message '发布目标（可多选）' \
-      --option core '@schemx/core · 核心表单运行时' \
-      --option vue '@schemx/vue · Vue 适配器' \
-      --option vant '@schemx/vant · Vant 适配器' | release_join_selection)" || return
+    while IFS= read -r option; do
+      [[ -n "$option" ]] || continue
+      if [[ "$option" == group:::* ]]; then
+        group_value="${option#group:::}"
+        group_id="${group_value%%:::*}"
+        group_label="${group_value#*:::}"
+        prompt_arguments+=(--group "$group_id" "$group_label")
+      else
+        option_group="${option%%:::*}"
+        option_value="${option#*:::}"
+        option_id="${option_value%%:::*}"
+        option_label="${option_value#*:::}"
+        prompt_arguments+=(--option "$option_group" "$option_id" "$option_label")
+      fi
+    done < <(targets_grouped_options)
+    target="$(ui_prompt "${prompt_arguments[@]}" | release_join_selection)" || return
   fi
   resolved="$(targets_resolve "$target")" || {
     ui_status error "无效发布目标：${target}"

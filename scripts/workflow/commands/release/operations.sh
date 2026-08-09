@@ -10,8 +10,8 @@ release_verify_plan() {
   local package_rows
 
   plan_read "$plan_file" >/dev/null || return
-  channel="$(plan_channel "$plan_file")"
-  package_rows="$(plan_packages "$plan_file")"
+  channel="$(plan_channel "$plan_file")" || return
+  package_rows="$(plan_packages "$plan_file")" || return
   ui_flow_group --title '发布前检查' --description '验证工作区、发布凭据与 registry；所有检查均在冻结计划之后执行。' || return
   ui_task --title '验证工作区状态' --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" assert-clean-worktree || return
   if [[ "$channel" == 'latest' ]]; then
@@ -40,7 +40,8 @@ release_verify_plan() {
     [[ -n "$package" ]] || continue
     local quality_task
     for quality_task in lint type-check test build; do
-      ui_task --title "验证 ${package_name} ${quality_task}" --log live -- pnpm --dir "packages/$package" run "$quality_task" || return
+      targets_has_script "$package" "$quality_task" || continue
+      ui_task --title "验证 ${package_name} ${quality_task}" --log live -- pnpm --dir "$(targets_package_dir "$package")" run "$quality_task" || return
     done
     ui_task --title "检查 ${package_name} 发布产物" --log live -- pnpm --filter "$package_name" pack --dry-run || return
   done <<< "$package_rows"
@@ -57,9 +58,9 @@ release_restore_prerelease_versions() {
   [[ -n "$backup_directory" && -d "$backup_directory" ]] || return 0
   while IFS=$'\t' read -r package package_name version tag; do
     [[ -n "$package" && -f "$backup_directory/$package.json" ]] || continue
-    cp "$backup_directory/$package.json" "$workflow_root/packages/$package/package.json"
+    cp "$backup_directory/$package.json" "$workflow_root/$(targets_package_dir "$package")/package.json" || return
   done < <(plan_release_records "$plan_file")
-  rm -rf "$backup_directory"
+  rm -rf "$backup_directory" || return
 }
 
 # 按计划记录串行发布 npm 包；失败时报告已发布、失败和未执行的包，避免掩盖不可回滚状态。
@@ -78,7 +79,7 @@ release_publish_packages() {
 
   for index in "${!records[@]}"; do
     IFS=$'\t' read -r package package_name version tag <<< "${records[$index]}"
-    if ui_task --title "发布 ${package_name}@${version}" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" publish "$workflow_root/packages/$package" "$dist_tag"; then
+    if ui_task --title "发布 ${package_name}@${version}" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" publish "$workflow_root/$(targets_package_dir "$package")" "$dist_tag"; then
       published+=("${package_name}@${version}")
       continue
     else
@@ -115,9 +116,9 @@ release_create_markers() {
       :
     else
       local exit_code=$?
-      rm -f "$notes_file"
+      rm -f "$notes_file" || return
       return "$exit_code"
     fi
-    rm -f "$notes_file"
+    rm -f "$notes_file" || return
   done < <(plan_release_records "$plan_file")
 }

@@ -3,7 +3,7 @@
 # 发布计划的创建与读取。计划一旦创建，后续流程只读取其中的版本与发布配置。
 
 # 将完整发布计划序列化为 JSON 文件。
-# 包记录格式为 package|currentVersion|baselineVersion|version。
+# 包记录格式为 package|npmPackageName|currentVersion|baselineVersion|version。
 plan_write() {
   # 计划文件绝对路径。
   local plan_file="$1"
@@ -24,15 +24,15 @@ const fs = require('node:fs')
 
 const [file, channel, target, versionAction, distTag, sourceSha, ...records] = process.argv.slice(2)
 const packages = records.map((record) => {
-  const [name, currentVersion, baselineVersion, version] = record.split('|')
-  if (!name || !currentVersion || !baselineVersion || !version) throw new Error(`无效计划包记录：${record}`)
+  const [package, name, currentVersion, baselineVersion, version] = record.split('|')
+  if (!package || !name || !currentVersion || !baselineVersion || !version) throw new Error(`无效计划包记录：${record}`)
   return {
-    name: `@schemx/${name}`,
-    package: name,
+    name,
+    package,
     currentVersion,
     baselineVersion,
     version,
-    tag: `@schemx/${name}@${version}`,
+    tag: `${name}@${version}`,
   }
 })
 

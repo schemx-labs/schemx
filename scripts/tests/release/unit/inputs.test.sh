@@ -19,10 +19,31 @@ assert_equals() {
   }
 }
 
+assert_contains() {
+  local actual="$1"
+  local expected="$2"
+
+  [[ "$actual" == *"$expected"* ]] || {
+    printf '断言失败：期望输出包含 %s，实际为 %s\n' "$expected" "$actual" >&2
+    exit 1
+  }
+}
+
+assert_not_contains() {
+  local actual="$1"
+  local expected="$2"
+
+  [[ "$actual" != *"$expected"* ]] || {
+    printf '断言失败：输出不应包含 %s，实际为 %s\n' "$expected" "$actual" >&2
+    exit 1
+  }
+}
+
 ui_status() { :; }
 
 assert_equals "$(release_select_target 'vue,core')" 'core,vue'
 assert_equals "$(release_target_summary 'vue,core')" '@schemx/core、@schemx/vue'
+assert_equals "$(release_target_summary 'vite-plugin-realpath-fallback,core')" '@schemx/core、@schemx/vite-plugin-realpath-fallback'
 assert_equals "$(release_channel_summary beta)" 'beta · 面向公开测试'
 assert_equals "$(release_version_action_summary 1.0.0)" '1.0.0 · 指定版本基线'
 
@@ -31,6 +52,24 @@ output="$(
   release_select_target
 )"
 assert_equals "$output" 'core,vue'
+
+prompt_options_file="$(mktemp)"
+output="$(
+  ui_prompt() {
+    printf '%s\n' "$@" >"$prompt_options_file"
+    printf 'core\n'
+  }
+  release_select_target
+)"
+assert_equals "$output" 'core'
+assert_contains "$(<"$prompt_options_file")" 'group-multiselect'
+assert_contains "$(<"$prompt_options_file")" '--group'
+assert_contains "$(<"$prompt_options_file")" 'Packages'
+assert_contains "$(<"$prompt_options_file")" 'Plugins'
+assert_contains "$(<"$prompt_options_file")" '@schemx/validator · packages/validator'
+assert_contains "$(<"$prompt_options_file")" '@schemx/vite-plugin-realpath-fallback · plugins/vite-plugin-realpath-fallback'
+assert_not_contains "$(<"$prompt_options_file")" '@plugins/inject-style-css'
+rm -f "$prompt_options_file"
 
 output="$(
   ui_prompt() {

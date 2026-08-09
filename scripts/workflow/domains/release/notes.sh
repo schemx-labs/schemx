@@ -6,6 +6,9 @@ notes_root="$(cd "$(dirname "$BASH_SOURCE")/../.." && pwd)"
 if ! declare -F ui_status >/dev/null 2>&1; then
   source "$notes_root/ui/api.sh"
 fi
+if ! declare -F targets_package_dir >/dev/null 2>&1; then
+  source "$notes_root/domains/release/targets.sh"
+fi
 
 # 返回一个包在指定提交上对应的发布 Tag 名称。
 notes_tag_name() {
@@ -91,7 +94,7 @@ notes_write_release_notes() {
   local tag_name="$5"
   local target_ref="$6"
   local output_file="$7"
-  local notes_file="${SCHEMX_RELEASE_NOTES_FILE:-$root_dir/packages/$package/release-notes.md}"
+  local notes_file="${SCHEMX_RELEASE_NOTES_FILE:-$root_dir/$(targets_package_dir "$package")/release-notes.md}"
   local generator="${SCHEMX_RELEASE_NOTES_GENERATOR:-}"
   local previous_tag
   local commit_range

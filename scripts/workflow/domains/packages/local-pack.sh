@@ -26,9 +26,9 @@ packages__pack_restore_versions() {
   for backup in "$pack_backup_directory"/*.json; do
     [[ -f "$backup" ]] || continue
     target="$(basename "$backup" .json)"
-    cp "$backup" "$pack_root/packages/$target/package.json"
+    cp "$backup" "$pack_root/packages/$target/package.json" || return
   done
-  rm -rf "$pack_backup_directory"
+  rm -rf "$pack_backup_directory" || return
 }
 
 packages__pack_write_version() {
@@ -43,16 +43,17 @@ packages__pack_write_version() {
 
 packages__pack_requested_targets() {
   local requested="${SCHEMX_WORKFLOW_TARGETS:-all}"
-  local scope directory package_name package_file
+  local scope directory package_name package_file catalog
   local eligible=''
   local selected_count=0
   local identifier
   local matched
 
+  catalog="$(workspace_catalog_discover "$pack_root" packages plugins)" || return
   while IFS=$'\t' read -r scope directory package_name package_file; do
     [[ "$scope" == packages ]] || package_json_has_script "$package_file" pack:local || continue
     eligible+="${scope}/${directory}"$'\t'"${directory}"$'\t'"${package_name}"$'\n'
-  done < <(workspace_catalog_discover "$pack_root" packages plugins)
+  done <<< "$catalog"
   if [[ "$requested" == all || -z "$requested" ]]; then
     printf '%s' "$eligible"
     return
@@ -105,12 +106,12 @@ packages__pack_workspace_package() {
   if [[ -z "${SCHEMX_PACK_VERSION_PRESET:-}" ]]; then
     version="$(jq -r '.version' "$package_file")" || return
     packed_version="${version}-dev.$(date +%Y%m%d%H%M%S)"
-    cp "$package_file" "$pack_backup_directory/$target.json"
+    cp "$package_file" "$pack_backup_directory/$target.json" || return
     packages__pack_write_version "$target" "$packed_version" || return
   fi
   pnpm --filter "$package_name" build || return
   result="$(pnpm --filter "$package_name" pack --pack-destination "$pack_directory" --json)" || return
-  filename="$(jq -r 'if type == "array" then .[0].filename else .filename end // empty' <<< "$result")"
+  filename="$(jq -r 'if type == "array" then .[0].filename else .filename end // empty' <<< "$result")" || return
   [[ -n "$filename" ]] || { ui_status error "$package_name 的 pnpm pack 结果中缺少 filename"; return 1; }
   case "$filename" in
     /*) pack_tarballs+=("$filename") ;;
@@ -137,7 +138,7 @@ packages__pack_local_execute() {
 
   package_json_require_jq || return
   [[ -n "$records" ]] || return
-  mkdir -p "$pack_directory"
+  mkdir -p "$pack_directory" || return
   if [[ -z "${SCHEMX_PACK_VERSION_PRESET:-}" ]]; then
     pack_backup_directory="$(mktemp -d "${TMPDIR:-/tmp}/schemx-pack-backup.XXXXXX")" || return
     trap 'packages__pack_restore_versions' EXIT INT TERM
@@ -156,9 +157,9 @@ packages__pack_local_execute() {
     install_command+=" $(printf '%q' "$target")"
   done
   if [[ -n "${SCHEMX_PACK_RESULT_FILE:-}" ]]; then
-    printf 'directory\t%s\n' "$pack_directory" >> "$SCHEMX_PACK_RESULT_FILE"
+    printf 'directory\t%s\n' "$pack_directory" >> "$SCHEMX_PACK_RESULT_FILE" || return
     for target in "${pack_tarballs[@]}"; do
-      printf 'tarball\t%s\n' "$target" >> "$SCHEMX_PACK_RESULT_FILE"
+      printf 'tarball\t%s\n' "$target" >> "$SCHEMX_PACK_RESULT_FILE" || return
     done
   else
     ui_note "产物目录：$pack_directory"
@@ -189,7 +190,7 @@ packages__pack_run_leaf() {
           ;;
       esac
     done < "$result_file"
-    rm -f "$result_file"
+    rm -f "$result_file" || return
     [[ -z "$leaf_directory" ]] || ui_note "产物目录：$leaf_directory" || return
     for result_value in "${leaf_tarballs[@]}"; do
       leaf_install_command+=" $(printf '%q' "$result_value")"
@@ -197,7 +198,7 @@ packages__pack_run_leaf() {
     [[ "${#leaf_tarballs[@]}" -eq 0 ]] || ui_note "安装命令：$leaf_install_command" || return
   else
     local exit_code=$?
-    rm -f "$result_file"
+    rm -f "$result_file" || return
     return "$exit_code"
   fi
 }
@@ -233,14 +234,14 @@ packages__pack_local_orchestrate() {
     # 闭包内所有 workspace 包统一使用同一 dev 时间戳版本，确保 pack 时 workspace:*
     # peer 引用解析到一致的 dev 版本，而不是被还原后的 base 版本。
     package_json_require_jq || return
-    mkdir -p "$pack_directory"
+    mkdir -p "$pack_directory" || return
     pack_backup_directory="$(mktemp -d "${TMPDIR:-/tmp}/schemx-pack-backup.XXXXXX")" || return
     trap 'packages__pack_restore_versions' EXIT INT TERM
     shared_timestamp="$(date +%Y%m%d%H%M%S)"
     while IFS= read -r target; do
       [[ -n "$target" ]] || continue
-      base_version="$(jq -r '.version' "$pack_root/packages/$target/package.json")"
-      cp "$pack_root/packages/$target/package.json" "$pack_backup_directory/$target.json"
+      base_version="$(jq -r '.version' "$pack_root/packages/$target/package.json")" || return
+      cp "$pack_root/packages/$target/package.json" "$pack_backup_directory/$target.json" || return
       packages__pack_write_version "$target" "${base_version}-dev.${shared_timestamp}" || return
     done <<< "$expanded"
 
@@ -252,7 +253,7 @@ packages__pack_local_orchestrate() {
     done <<< "$expanded"
     unset SCHEMX_PACK_VERSION_PRESET
 
-    packages__pack_restore_versions
+    packages__pack_restore_versions || return
     trap - EXIT INT TERM
   fi
 
@@ -271,7 +272,7 @@ packages_pack_local_main() {
       SCHEMX_WORKFLOW_TARGETS="$2" packages__pack_local_execute "$(SCHEMX_WORKFLOW_TARGETS="$2" packages__pack_requested_targets)"
       exit_code=$?
       if [[ -z "${SCHEMX_PACK_VERSION_PRESET:-}" ]]; then
-        packages__pack_restore_versions
+        packages__pack_restore_versions || return
         trap - EXIT INT TERM
       fi
       return "$exit_code"

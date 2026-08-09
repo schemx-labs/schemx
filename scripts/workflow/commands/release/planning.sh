@@ -18,6 +18,8 @@ release_create_plan() {
   local resolved_targets
   # 当前遍历到的目标包。
   local package
+  # 当前目标的 npm 包名。
+  local package_name
   # 当前 package.json 版本。
   local current_version
   # 计算得到的正式版本基线。
@@ -58,6 +60,8 @@ release_create_plan() {
 
   source_sha="${SCHEMX_RELEASE_SHA:-$(git rev-parse --short HEAD 2>/dev/null || printf 'local')}"
   for package in "${packages[@]}"; do
+    package_name="$(targets_package_name "$package")" || return
+    [[ -n "$package_name" ]] || return 2
     current_version="$(targets_package_version "$workflow_root" "$package")"
     baseline_version="$(versions_baseline "$current_version" "$version_action")" || {
       ui_status error "无法根据 ${current_version} 计算 ${version_action} 版本基线。"
@@ -71,8 +75,8 @@ release_create_plan() {
           return 2
         }
       else
-        sequence="$(preflight_next_prerelease_sequence "$(targets_package_name "$package")" "$baseline_version" "$channel")" || {
-          ui_status error "无法从 npm registry 查询 $(targets_package_name "$package") 的 ${channel} 预发布序号。"
+        sequence="$(preflight_next_prerelease_sequence "$package_name" "$baseline_version" "$channel")" || {
+          ui_status error "无法从 npm registry 查询 ${package_name} 的 ${channel} 预发布序号。"
           return 1
         }
       fi
@@ -80,7 +84,7 @@ release_create_plan() {
       sequence=0
     fi
     release_version="$(versions_release_version "$channel" "$baseline_version" "$sequence")" || return 2
-    records+=("${package}|${current_version}|${baseline_version}|${release_version}")
+    records+=("${package}|${package_name}|${current_version}|${baseline_version}|${release_version}")
   done
 
   plan_write "$plan_file" "$channel" "$target" "$version_action" "$(versions_dist_tag "$channel")" "$source_sha" "${records[@]}"

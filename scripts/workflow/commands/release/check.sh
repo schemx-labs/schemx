@@ -16,6 +16,7 @@ release_check() {
   while IFS= read -r package; do
     [[ -n "$package" ]] || continue
     for quality_task in lint type-check test build; do
+      targets_has_script "$package" "$quality_task" || continue
       ui_task --title "验证 $(targets_package_name "$package") ${quality_task}" --log live -- pnpm --dir "$(targets_package_dir "$package")" run "$quality_task" || { local exit_code=$?; ui_flow_end failed "发布检查失败：$(targets_package_name "$package") ${quality_task}。"; return "$exit_code"; }
     done
     ui_task --title "检查 $(targets_package_name "$package") 发布产物" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" assert-artifacts "$(targets_package_name "$package")" || { local exit_code=$?; ui_flow_end failed "发布检查失败：$(targets_package_name "$package") 产物。"; return "$exit_code"; }

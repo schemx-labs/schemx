@@ -10,9 +10,9 @@ release_execute_plan() {
   local package_files=()
 
   plan_read "$plan_file" >/dev/null || return
-  channel="$(plan_channel "$plan_file")"
-  version_action="$(plan_value "$plan_file" versionAction)"
-  source_sha="$(plan_value "$plan_file" sourceSha)"
+  channel="$(plan_channel "$plan_file")" || return
+  version_action="$(plan_value "$plan_file" versionAction)" || return
+  source_sha="$(plan_value "$plan_file" sourceSha)" || return
   release_render_plan "$plan_file" || return
   ui_prompt confirm --message '确认执行冻结的发布计划？' || { ui_status warning '已取消发布；冻结计划未被修改。'; return 130; }
   release_verify_plan "$plan_file" || return
@@ -21,7 +21,7 @@ release_execute_plan() {
     while IFS=$'\t' read -r package package_name version tag; do
       [[ -n "$package" ]] || continue
       ui_task --title "写入 ${package_name}@${version}" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" write-package-version "$package" "$version" || return
-      package_files+=("packages/$package/package.json")
+      package_files+=("$(targets_package_dir "$package")/package.json")
     done < <(release_plan_release_records "$plan_file")
     ui_task --title '同步 pnpm-lock.yaml' --log live -- pnpm install --lockfile-only || return
     package_files+=(pnpm-lock.yaml)
@@ -31,7 +31,7 @@ release_execute_plan() {
     trap 'release_restore_prerelease_versions "$backup_directory" "$plan_file"' EXIT
     while IFS=$'\t' read -r package package_name version tag; do
       [[ -n "$package" ]] || continue
-      cp "$workflow_root/packages/$package/package.json" "$backup_directory/$package.json"
+      cp "$workflow_root/$(targets_package_dir "$package")/package.json" "$backup_directory/$package.json" || return
       ui_task --title "写入临时 ${package_name}@${version}" --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" write-package-version "$package" "$version" || return
     done < <(release_plan_release_records "$plan_file")
   fi

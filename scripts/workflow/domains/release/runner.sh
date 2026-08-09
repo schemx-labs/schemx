@@ -6,6 +6,7 @@ set -euo pipefail
 
 runner_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 source "$runner_root/scripts/workflow/ui/api.sh"
+source "$runner_root/scripts/workflow/domains/release/targets.sh"
 source "$runner_root/scripts/workflow/domains/release/publish.sh"
 source "$runner_root/scripts/workflow/domains/release/preflight.sh"
 source "$runner_root/scripts/workflow/domains/release/git.sh"
@@ -18,7 +19,7 @@ runner_write_package_version() {
   local package="$1"
   local version="$2"
 
-  npm --prefix "$runner_root/packages/$package" version "$version" --no-git-tag-version
+  npm --prefix "$runner_root/$(targets_package_dir "$package")" version "$version" --no-git-tag-version
 }
 
 case "${1:-}" in
