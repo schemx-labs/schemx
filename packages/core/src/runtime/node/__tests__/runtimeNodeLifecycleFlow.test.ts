@@ -9,18 +9,28 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+import {
+  createFieldRuntimeState,
+  resetFieldDynamicOverrides,
+  setFieldDynamicOverrides,
+} from "../../field/runtimeState"
 import { createRuntimeLifecycle } from "../runtimeLifecycle"
 import { createFieldRuntimeNode } from "../runtimeNode"
 
+import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+
+import type { SchemxResolvedBaseField } from "../../../types"
 import type { FieldRuntimeNode } from "../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、effectDispose 与 fieldIndex 维护
 describe("node lifecycle flow", () => {
   it("没有 parent 的描述节点不能进入 mount", () => {
     const { context } = createRuntimeGraphHarness()
+
     const lifecycle = createRuntimeLifecycle(context)
+
     const schema = createRawFieldSchema("detached", "detached")
+
     const input = context.compile.compileNode(schema, "", 0)
 
     if (input.type !== "field") {
@@ -43,6 +53,7 @@ describe("node lifecycle flow", () => {
       beforeUnmount: vi.fn(),
       unmounted: vi.fn(),
     }
+
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
@@ -59,6 +70,7 @@ describe("node lifecycle flow", () => {
 
   it("生命周期 hook 异常不会中断节点提交或资源释放", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
     const hooks = {
       mounted: vi.fn(() => {
         throw new Error("hook failed")
@@ -67,6 +79,7 @@ describe("node lifecycle flow", () => {
         throw new Error("hook failed")
       }),
     }
+
     const { commitSchemas, context, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
@@ -88,10 +101,12 @@ describe("node lifecycle flow", () => {
       beforeUpdate: vi.fn(),
       updated: vi.fn(),
     }
+
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const node = root.childNodes.value[0] as FieldRuntimeNode
+
     const previousConfigToken = node.configToken
 
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
@@ -102,6 +117,7 @@ describe("node lifecycle flow", () => {
 
     const [beforeUpdateNode, beforeUpdatePreviousRuntimeNode] =
       hooks.beforeUpdate.mock.calls[0] ?? []
+
     const [updatedNode, updatedPreviousRuntimeNode] = hooks.updated.mock.calls[0] ?? []
 
     expect(beforeUpdateNode).toBe(node)
@@ -121,6 +137,7 @@ describe("node lifecycle flow", () => {
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
+
     const firstConfigToken = field.configToken
 
     expect(field.configToken).toBe(firstConfigToken)
@@ -159,6 +176,7 @@ describe("node lifecycle flow", () => {
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
+
     const previousEffectDispose = field.effectDispose
 
     expect(previousEffectDispose).not.toBeNull()
@@ -177,7 +195,9 @@ describe("node lifecycle flow", () => {
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
+
     const validationScope = field.effectDispose
+
     const dependenciesScope = field.dependenciesEffectDispose
 
     commitSchemas(root, [
@@ -207,14 +227,6 @@ describe("node lifecycle flow", () => {
   })
 })
 
-import {
-  createFieldRuntimeState,
-  resetFieldDynamicOverrides,
-  setFieldDynamicOverrides,
-} from "../../field/runtimeState"
-
-import type { SchemxResolvedBaseField } from "../../../types"
-
 function createTestSchema(
   overrides: Partial<SchemxResolvedBaseField> = {}
 ): SchemxResolvedBaseField {
@@ -233,10 +245,19 @@ function createTestSchema(
   } as SchemxResolvedBaseField
 }
 
+function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
+  if (!state.diagnostics) {
+    throw new Error("diagnostics 未启用")
+  }
+
+  return state.diagnostics.value
+}
+
 // 用户场景 3：字段删除后的 runtimeState 标记与 scope 释放行为
 describe("字段删除和 scope 释放 (US3)", () => {
   it("dispose 后 runtimeState 应标记为 dispose", () => {
     const schema = createTestSchema()
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -246,12 +267,13 @@ describe("字段删除和 scope 释放 (US3)", () => {
 
     resetFieldDynamicOverrides(state, "dispose")
 
-    expect(state.diagnostics!.value.lastUpdatedBy).toBe("dispose")
+    expect(readDiagnostics(state).lastUpdatedBy).toBe("dispose")
     expect(state.dynamicOverrides.value).toEqual({})
   })
 
   it("dispose 后不应再接受动态覆盖写入（调用方负责检查 scope）", () => {
     const schema = createTestSchema({ visible: true })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -272,11 +294,12 @@ describe("字段删除和 scope 释放 (US3)", () => {
     )
 
     // 写入仍然生效（runtimeState 不自行阻止），但 diagnostics 反映最新状态
-    expect(state.diagnostics!.value.lastUpdatedBy).toBe("dependencies")
+    expect(readDiagnostics(state).lastUpdatedBy).toBe("dependencies")
   })
 
   it("reset 后 dynamicOverrides 应清空", () => {
     const schema = createTestSchema({ visible: true })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",

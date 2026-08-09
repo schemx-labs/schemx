@@ -9,8 +9,9 @@
 import { h } from "vue"
 import type { ShallowRef, Slots, VNodeChild } from "vue"
 
-import { extractChildSlots, resolveSlot } from "../../utils"
 import { FormContextProps } from "../../hooks/provideFormConfigContext"
+import { extractChildSlots, resolveSlot } from "../../utils"
+
 import type { FieldInstance } from "../../types/field"
 import type {
   SchemxComponentProps,

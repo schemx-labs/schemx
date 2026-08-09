@@ -13,6 +13,7 @@ import { createScheduler } from "../scheduler"
 describe("schedule", () => {
   it("同一 tick 内只安排一次 flush microtask", async () => {
     const scheduler = createScheduler()
+
     const queueMicrotask = vi.spyOn(globalThis, "queueMicrotask")
 
     for (let index = 0; index < 1000; index++) {
@@ -128,6 +129,7 @@ describe("flush", () => {
 
   it("应该继续执行 flush 期间新调度的任务", async () => {
     const scheduler = createScheduler()
+
     const order: string[] = []
 
     scheduler.schedule({
@@ -247,6 +249,7 @@ describe("track", () => {
 describe("scope cancellation", () => {
   it("应该在 scope disposed 后不执行关联任务", async () => {
     const scheduler = createScheduler()
+
     const scope = createRuntimeScope()
 
     const task = vi.fn()
@@ -268,6 +271,7 @@ describe("scope cancellation", () => {
 
   it("任务已开始后由任务自身负责响应 scope dispose", async () => {
     const scheduler = createScheduler()
+
     const scope = createRuntimeScope()
 
     const task = vi.fn()
@@ -325,6 +329,7 @@ describe("error handling", () => {
     const scheduler = createScheduler()
 
     const error = new Error("test error")
+
     const onError = vi.fn()
 
     scheduler.schedule({

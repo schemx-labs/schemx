@@ -49,6 +49,17 @@ ui__layout_before() {
   return 0
 }
 
+# 在即将输出任务块时，按既有状态补两条标准间隔行。
+# 相邻目录任务的标题需要与上一任务的完成状态保持更明显的视觉边界。
+# 返回：始终返回 0；布局间隔本身的失败由底层输出函数体现。
+ui__layout_before_task() {
+  if ui__layout_state; then
+    ui__layout_gap
+    ui__layout_gap
+  fi
+  return 0
+}
+
 # 输出一条主题化的导轨间隔行，plain 模式使用稳定的 Unicode 导轨。
 # 返回：输出成功时返回 0，否则返回底层 Gum 或 printf 错误码。
 ui__layout_gap() {

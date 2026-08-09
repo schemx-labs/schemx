@@ -9,15 +9,15 @@
 
 import { describe, expect, it } from "vitest"
 
-import { createCompile } from "../../compiler"
 import { mergeAndResolveSchemxConfig } from "../../../config"
+import { createCompile } from "../../compiler"
 import { createLifecycleBus } from "../../lifecycle"
 import { createScheduler } from "../../scheduler"
-import { createRuntimeRegistry } from "../runtimeRegistry"
 import { createRuntimeNodeManager } from "../runtimeNodeManager"
+import { createRuntimeRegistry } from "../runtimeRegistry"
 
-import type { SchemaRuntimeContext } from "../../context"
 import type { Values } from "../../../types"
+import type { SchemaRuntimeContext } from "../../context"
 import type { RuntimeNodeInput } from "../input"
 import type { RuntimeNodeManager } from "../types"
 
@@ -25,13 +25,16 @@ function createRuntimeContext<
   TValues extends Values = Values,
 >(): SchemaRuntimeContext<TValues> {
   const runtimeRegistry = createRuntimeRegistry<TValues>()
+
   const scheduler = createScheduler()
+
   const instance = {
     getFieldSnapshot: () => undefined,
     setInitialValues: () => undefined,
     setFieldValue: () => undefined,
     validateField: async () => ({ valid: true, values: {}, errors: [] }),
   }
+
   const formApi = {
     getValues: () => ({}),
   }
@@ -70,6 +73,7 @@ describe("RuntimeNodeManager", () => {
 
   it("应该通过显式 context 使用同一份 runtimeRegistry", () => {
     const context = createRuntimeContext()
+
     const manager = createRuntimeNodeManager(context)
 
     expect(manager.createRoot().dispose.disposed).toBe(false)
@@ -99,8 +103,11 @@ describe("RuntimeNodeManager", () => {
 
   it("创建 node 时维护 parent 初始状态", () => {
     const context = createRuntimeContext()
+
     const manager = createRuntimeNodeManager(context)
+
     const root = manager.createRoot()
+
     const field = manager.createNode({ input: createFieldInput("field:name", "name") })
 
     expect(field.parent).toBeNull()
@@ -109,8 +116,11 @@ describe("RuntimeNodeManager", () => {
 
   it("insertChild 应该维护 parent 和 children 数组一致性", () => {
     const manager = createTreeManager()
+
     const root = manager.createRoot()
+
     const first = manager.createNode({ input: createFieldInput("first", "first") })
+
     const second = manager.createNode({ input: createFieldInput("second", "second") })
 
     manager.insertChild(root, second)
@@ -123,13 +133,18 @@ describe("RuntimeNodeManager", () => {
 
   it("replaceChildren 应该替换 children 并清空被移除节点 parent", () => {
     const manager = createTreeManager()
+
     const root = manager.createRoot()
+
     const first = manager.createNode({ input: createFieldInput("first", "first") })
+
     const second = manager.createNode({ input: createFieldInput("second", "second") })
+
     const third = manager.createNode({ input: createFieldInput("third", "third") })
 
     manager.replaceChildren(root, [first, second])
     const previous = root.childNodes.value
+
     manager.replaceChildren(root, [third])
 
     expect(root.childNodes.value).toEqual([third])
@@ -141,14 +156,19 @@ describe("RuntimeNodeManager", () => {
 
   it("removeSubtree 应该深度删除节点、释放结构 scope 并维护父子关系", () => {
     const context = createRuntimeContext()
+
     const manager = createRuntimeNodeManager(context)
+
     const root = manager.createRoot()
+
     const group = manager.createNode({ input: createGroupInput("group") })
+
     const field = manager.createNode({ input: createFieldInput("field", "field") })
 
     if (group.type !== "group") {
       throw new Error("expected group node")
     }
+
     manager.replaceChildren(root, [group])
     manager.replaceChildren(group, [field])
     manager.removeSubtree(group)
@@ -180,19 +200,6 @@ function createGroupInput(key: string): RuntimeNodeInput {
     key,
     configToken: Symbol(key),
     staticSchema: { label: "group", children: [] } as never,
-    staticState: { visible: true, readonly: false, disabled: false },
-    dynamicProps: null,
-  }
-}
-
-function createDependencyInput(key: string, triggerFields: string[]): RuntimeNodeInput {
-  return {
-    type: "dependency",
-    key,
-    configToken: Symbol(key),
-    triggerFields,
-    renderer: () => [],
-    rendererIdentity: () => [],
     staticState: { visible: true, readonly: false, disabled: false },
     dynamicProps: null,
   }

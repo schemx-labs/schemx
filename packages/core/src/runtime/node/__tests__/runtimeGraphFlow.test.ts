@@ -24,6 +24,7 @@ describe("runtime node flow", () => {
     ])
 
     const name = root.childNodes.value[0]
+
     const age = root.childNodes.value[1]
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
@@ -76,11 +77,16 @@ describe("runtime node flow", () => {
   })
 
   it("removed-node cleanup 观察到的是已经提交的新 parent.children", () => {
+    // 回调创建早于 harness 返回 root，必须在创建后补充引用。
+    // eslint-disable-next-line prefer-const
     let rootRef: Extract<RuntimeNode, { childNodes: unknown }> | undefined
+
     const beforeUnmount = vi.fn(() => {
       expect(rootRef?.childNodes.value.map((child) => child.key)).toEqual(["next"])
     })
+
     const { commitSchemas, root } = createRuntimeGraphHarness({ beforeUnmount })
+
     rootRef = root
 
     commitSchemas(root, [createRawFieldSchema("previous", "previous")])

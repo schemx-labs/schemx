@@ -15,7 +15,7 @@ ui__task_start() {
 
   command_text="$(ui__command_text "$@")" || return
   command_argv="$(jq -cn '$ARGS.positional' --args -- "$@")" || return
-  ui__layout_before
+  ui__layout_before_task
   ui__render_task_start "$title" "$command_text" || return
   ui__layout_mark
   ui__event task.started "$(jq -cn --arg title "$title" --arg command "$command_text" --argjson argv "$command_argv" '{title:$title,command:$command,argv:$argv}')"

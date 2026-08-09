@@ -6,18 +6,18 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../../node/scope"
 import { createSignal, createSignalEffect } from "../../../reactivity"
-import type { SchemaRuntimeContext } from "../../context"
+import { createRuntimeScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
-import { createValidationEffect } from "../validationEffect"
 import {
   createFieldRuntimeState,
   setFieldDynamicOverrides,
   setFieldStaticSchema,
 } from "../runtimeState"
+import { createValidationEffect } from "../validationEffect"
 
 import type { SchemxBaseField, SchemxResolvedBaseField } from "../../../types"
+import type { SchemaRuntimeContext } from "../../context"
 
 interface TestValues {
   field?: string
@@ -48,9 +48,11 @@ const createFieldConfig = (schema = createSchema()): FieldConfig => ({
 
 const createFormConfigContext = () => {
   const scheduler = createScheduler()
+
   const instance = {
     validateField: vi.fn(),
   }
+
   const validation = {
     syncField: vi.fn(),
     removeField: vi.fn(),
@@ -73,13 +75,16 @@ const createFormConfigContext = () => {
 describe("createValidationEffect", () => {
   it("应该创建只负责规则注册的 ValidationEffect", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig()
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     const validation = createValidationEffect({
@@ -104,15 +109,18 @@ describe("createValidationEffect", () => {
 
   it("showRequiredMark=false 时仍应注册 required 校验", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig(
       createSchema({ required: true, showRequiredMark: false })
     )
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -134,13 +142,16 @@ describe("createValidationEffect", () => {
 
   it("仅更新 placeholder 不会重新同步校验规则", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig()
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
       staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -166,13 +177,16 @@ describe("createValidationEffect", () => {
 describe("rule management", () => {
   it("应该在 visible=false 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig(createSchema({ visible: false }))
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -189,13 +203,16 @@ describe("rule management", () => {
 
   it("应该在 readonly=true 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig(createSchema({ readonly: true }))
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -212,13 +229,16 @@ describe("rule management", () => {
 
   it("应该在 disabled=true 时从 Validator 注销规则并清空错误", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig(createSchema({ disabled: true }))
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -235,14 +255,18 @@ describe("rule management", () => {
 
   it("字段呈现态在响应式 effect 中变化时不应同步写 Validator 造成循环", async () => {
     const scope = createRuntimeScope()
+
     const config = createFieldConfig()
+
     const runtimeState = createFieldRuntimeState({
       nodeId: 1,
       key: config.key,
       name: config.staticSchema.name,
         staticSchema: config.staticSchema,
     })
+
     const trigger = createSignal(0)
+
     const { context, validation: controller, scheduler } = createFormConfigContext()
 
     createValidationEffect({
@@ -301,6 +325,7 @@ function createTestSchemaForUS2(
 describe("validationEffect 读取 effectiveSchema (US2)", () => {
   it("effectiveSchema 应包含 rules 信息供 validation 读取", () => {
     const schema = createTestSchemaForUS2({ required: true })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -313,6 +338,7 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
 
   it("dynamicOverrides 更新 rules 后 effectiveSchema 应反映新 rules", () => {
     const schema = createTestSchemaForUS2({ required: true })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -338,6 +364,7 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
       readonly: false,
       disabled: false,
     })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -364,6 +391,7 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
 
   it("effectiveSchema 应包含 label 供 validation 错误消息使用", () => {
     const schema = createTestSchemaForUS2({ label: "邮箱地址" })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",

@@ -1,37 +1,41 @@
+import { createForm, createValidationRuleRegistry } from "../../index"
+
 import type {
+  AdapterRule,
   FieldRules,
   FormSchemaOptions,
   RequiredOptions,
   RequiredRule,
-  SchemxExactBaseField,
   SchemxDependencies,
   SchemxDependencyDependencies,
+  SchemxExactBaseField,
   SchemxField,
   SchemxFieldDependencies,
   SchemxGroupDependencies,
   SchemxViewFieldSchema,
   StandardSchemaV1,
-  AdapterRule,
-  ValidationAdapterV1,
   ValidationAdapter,
   ValidationAdapterRule,
-  ValidationRuleFactory,
-  ValidationRuleEntry,
+  ValidationAdapterV1,
   ValidationError,
   ValidationResult,
+  ValidationRuleEntry,
+  ValidationRuleFactory,
 } from "../../index"
-import { createForm, createValidationRuleRegistry } from "../../index"
-import * as Core from "../../index"
+
+type CoreExports = typeof import("../../index")
 
 // @ts-expect-error 旧必填工厂已从 Core 公共入口删除。
-Core.createRequiredRule
+type _RemovedCreateRequiredRule = CoreExports["createRequiredRule"]
 // @ts-expect-error 旧 Registry 工厂已从 Core 公共入口删除。
-Core.createValidatorsRegistry
+type _RemovedCreateValidatorsRegistry = CoreExports["createValidatorsRegistry"]
 // @ts-expect-error 品牌规则工厂不得从 Core 公共入口导出。
-Core.createAdapterRule
+type _RemovedCreateAdapterRule = CoreExports["createAdapterRule"]
 
 // @ts-expect-error 旧迁移别名不得从 Core 公共入口导出。
-import type { SchemxRuleDefinition, SchemxRules } from "../../index"
+type _RemovedSchemxRuleDefinition = CoreExports["SchemxRuleDefinition"]
+// @ts-expect-error 旧迁移别名不得从 Core 公共入口导出。
+type _RemovedSchemxRules = CoreExports["SchemxRules"]
 
 interface FormValues {
   email: string
@@ -62,7 +66,7 @@ createForm<FormValues>({ readonly: true })
 // @ts-expect-error 实例只提供 updateSchemaConfig，不再提供旧方法。
 configuredForm.updateDefaultProps({ disabled: true })
 // @ts-expect-error 旧 Schema 配置类型已从 Core 公共入口删除。
-import type { SchemxDefaultProps } from "../../index"
+type _RemovedSchemxDefaultProps = CoreExports["SchemxDefaultProps"]
 
 const externalAdapter: ValidationAdapter<{ readonly message: string }> = {
   id: "external",
@@ -72,7 +76,9 @@ const externalAdapter: ValidationAdapter<{ readonly message: string }> = {
   isRule: () => false,
   resolve(input) {
     const rule: ValidationAdapterRule<{ readonly message: string }> = input
+
     void rule
+
     return [{ validate: () => ({ valid: true as const }) }]
   },
 }
@@ -89,6 +95,7 @@ const versionedExternalAdapter: ValidationAdapterV1<{ readonly message: string }
 }
 
 const versionedAdapterId: ValidationAdapterV1.ID = "external-v1"
+
 const versionedRuleInput: ValidationAdapterV1.RuleInput<{ readonly message: string }> = {
   adapterId: versionedAdapterId,
   payload: { message: "校验失败" },
@@ -153,8 +160,10 @@ const schemas: SchemxField<FormValues>[] = [
       triggerFields: ["age"],
       visible: (values) => {
         const email: string = values.email
+
         // @ts-expect-error Schema 依赖回调必须保留 FormValues，不能退化为 any。
         values.missing
+
         return email.length > 0
       },
     },
@@ -163,9 +172,11 @@ const schemas: SchemxField<FormValues>[] = [
     to: ["age"],
     renderer: (values) => {
       const age: number = values.age
+
       // @ts-expect-error 动态 Schema renderer 必须保留 FormValues。
       values.missing
       void age
+
       return []
     },
   },
@@ -187,12 +198,16 @@ declare module "../../types/rule" {
 }
 
 const emailRules: FieldRules<FormValues, "email"> = ["emailRule"]
+
 // @ts-expect-error email 字段不能使用 number 规则名。
 const invalidEmailRules: FieldRules<FormValues, "email"> = ["positive"]
+
 const adapterObjectRules: FieldRules<FormValues, "email"> = [{ required: true }]
 
 const registry = createValidationRuleRegistry()
+
 const registryEmailEntry: ValidationRuleEntry<string> = stringSchema
+
 const registryPositiveEntry: ValidationRuleEntry<number> = numberSchema
 
 registry.register("registryEmail", registryEmailEntry)
@@ -216,9 +231,12 @@ registry.registerAll({
 
 const stableContextFactory: ValidationRuleFactory<string> = (context) => {
   const label: string = context.label
+
   const required: boolean = context.required
+
   void label
   void required
+
   return stringSchema
 }
 
@@ -230,14 +248,17 @@ const dynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
   triggerFields: ["email"],
   trigger: (values) => {
     const email: string = values.email
+
     void email
   },
   required: (values): RequiredOptions<File[]> => ({
     message: values.email.trim().length > 0 ? "请上传文件" : "文件不能为空",
     isEmpty: (files) => {
       const count: number = files?.length ?? 0
+
       // @ts-expect-error File[] 字段值不支持字符串专属的 trim 操作。
       files?.trim()
+
       return count === 0
     },
   }),
@@ -266,6 +287,7 @@ const groupDependencies: SchemxGroupDependencies<FormValues> = {
   triggerFields: ["email"],
   trigger: (values) => {
     const email: string = values.email
+
     void email
   },
   readonly: (values) => values.email.length > 0,
@@ -275,6 +297,7 @@ const dependencyDependencies: SchemxDependencyDependencies<FormValues> = {
   triggerFields: ["age"],
   trigger: (values) => {
     const age: number = values.age
+
     void age
   },
   disabled: (values) => values.age < 18,
@@ -282,8 +305,10 @@ const dependencyDependencies: SchemxDependencyDependencies<FormValues> = {
 
 declare const result: ValidationResult<FormValues, "email">
 const typedForm = createForm<FormValues>()
+
 const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
   typedForm.validateField("email")
+
 declare const fieldErrors: ReturnType<
   import("../../index").Validator<FormValues>["getFieldErrors"]
 >
@@ -291,8 +316,10 @@ declare const fieldErrors: ReturnType<
 fieldErrors.push("外部修改")
 if (!result.valid) {
   const error: ValidationError<"email"> = result.errors[0]
+
   if (error.scope === "field") {
     const name: "email" = error.name
+
     void name
   }
 }

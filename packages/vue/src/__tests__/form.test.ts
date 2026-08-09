@@ -91,6 +91,7 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
 describe("SchemxForm 动态 schemas", () => {
   it("受控 modelValue 原地更新字段后应同步到字段整体插槽", async () => {
     const rendererRegistry = createRendererRegistry()
+
     const modelValue = ref<{ age: string; username?: string }>({ age: "1" })
 
     rendererRegistry.register("input", markRaw(InputRenderer))

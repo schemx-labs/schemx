@@ -27,6 +27,7 @@ const createSchema = (
 describe("规则归一化", () => {
   it.each([undefined, null, "", []])("默认 required 拒绝空值 %#", async (value) => {
     const rule = createRequiredValidationRule({ required: true, label: "用户名" })
+
     const result = await rule.validate(value, createContext())
 
     expect(result).toEqual({
@@ -56,6 +57,7 @@ describe("规则归一化", () => {
 
   it("Standard Schema wrapper 只映射 issues，不返回转换值", async () => {
     const schema = createSchema(() => ({ value: 123 }))
+
     const rule = createStandardSchemaValidationRule(schema)
 
     await expect(rule.validate("123", createContext())).resolves.toEqual({ valid: true })
@@ -65,6 +67,7 @@ describe("规则归一化", () => {
     const schema = createSchema(() => ({
       issues: [{ message: "格式错误", path: ["field"] }],
     }))
+
     const rule = createStandardSchemaValidationRule(schema)
 
     await expect(rule.validate("invalid", createContext())).resolves.toEqual({

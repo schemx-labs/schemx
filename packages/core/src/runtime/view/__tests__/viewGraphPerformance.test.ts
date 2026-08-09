@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+
 import {
   createFieldRuntimeState,
   setFieldDynamicOverrides,
@@ -24,10 +25,19 @@ function createTestSchema(
   } as SchemxResolvedBaseField
 }
 
+function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
+  if (!state.diagnostics) {
+    throw new Error("diagnostics 未启用")
+  }
+
+  return state.diagnostics.value
+}
+
 // 验证字段有效状态性能边界：单字段变化不触发其他字段 computed 重建、多次覆盖不泄漏、版本号递增。
 describe("computed viewState 性能边界 (US3)", () => {
   it("单字段动态属性变化不应触发其他字段有效状态重建", () => {
     const schema1 = createTestSchema({ label: "字段A", visible: true })
+
     const schema2 = createTestSchema({ label: "字段B", visible: true })
 
     const state1 = createFieldRuntimeState({
@@ -36,6 +46,7 @@ describe("computed viewState 性能边界 (US3)", () => {
       name: "fieldA" as any,
       staticSchema: schema1,
     })
+
     const state2 = createFieldRuntimeState({
       nodeId: 2,
       key: "field-b",
@@ -44,6 +55,7 @@ describe("computed viewState 性能边界 (US3)", () => {
     })
 
     const effective1Before = state1.effectiveSchema.value
+
     const effective2Before = state2.effectiveSchema.value
 
     // 只修改字段A
@@ -57,6 +69,7 @@ describe("computed viewState 性能边界 (US3)", () => {
     )
 
     const effective1After = state1.effectiveSchema.value
+
     const effective2After = state2.effectiveSchema.value
 
     expect(effective1After.visible).toBe(false)
@@ -68,6 +81,7 @@ describe("computed viewState 性能边界 (US3)", () => {
 
   it("多次动态覆盖写入不应导致有效状态泄漏", () => {
     const schema = createTestSchema({ visible: true })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -89,11 +103,12 @@ describe("computed viewState 性能边界 (US3)", () => {
 
     // 最终状态正确
     expect(state.effectiveSchema.value.visible).toBe(false)
-    expect(state.diagnostics!.value.version).toBe(100)
+    expect(readDiagnostics(state).version).toBe(100)
   })
 
   it("diagnostics 版本号应正确递增", () => {
     const schema = createTestSchema()
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -112,7 +127,7 @@ describe("computed viewState 性能边界 (US3)", () => {
           triggerFields: ["trigger" as any],
         }
       )
-      versions.push(state.diagnostics!.value.version)
+      versions.push(readDiagnostics(state).version)
     }
 
     // 版本号严格递增

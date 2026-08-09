@@ -15,8 +15,11 @@ import { createSignal } from "../signal"
 describe("createSignal", () => {
   it("应该支持 signals-core 的 subscribe / name / value 转换能力", () => {
     const watched = vi.fn()
+
     const unwatched = vi.fn()
+
     const count = createSignal(1, { name: "count", watched, unwatched })
+
     const listener = vi.fn()
 
     const unsubscribe = count.subscribe(listener)
@@ -104,6 +107,7 @@ describe("FieldSignalMap", () => {
 
   it("读取缺失字段后，字段创建应该触发 effect 重新运行", () => {
     const map = createFieldSignalMap<string, number>()
+
     const seen: Array<number | undefined> = []
 
     const dispose = createSignalEffect(() => {

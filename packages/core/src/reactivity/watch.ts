@@ -98,6 +98,8 @@ export function createSignalWatch<TValue>(
 
   let previousValue: TValue
 
+  // disposer 可能在 createSignalEffect 的同步回调中尚未完成赋值。
+  // eslint-disable-next-line prefer-const
   let disposeEffect: SignalEffectDispose | undefined
 
   let stopRequested = false
@@ -225,6 +227,8 @@ export function createDebouncedSignalWatch<TValue>(
 
   let disposeRequested = false
 
+  // disposer 可能在 createSignalWatch 的同步回调中尚未完成赋值。
+  // eslint-disable-next-line prefer-const
   let disposeWatch: SignalEffectDispose | undefined
 
   /**

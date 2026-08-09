@@ -8,17 +8,17 @@
  */
 import { vi } from "vitest"
 
-import { createCompile } from "../../compiler"
 import { mergeAndResolveSchemxConfig } from "../../../config"
-import { createLifecycleBus, type LifecycleListener } from "../../lifecycle"
 import { createSignal } from "../../../reactivity"
-import { createReconciler, type Reconciler } from "../../reconciler"
+import { createCompile } from "../../compiler"
 import { type SchemaRuntimeContext } from "../../context"
+import { createLifecycleBus, type LifecycleListener } from "../../lifecycle"
+import { createReconciler, type Reconciler } from "../../reconciler"
 import { createScheduler, type Scheduler } from "../../scheduler"
 import { createRuntimeRegistry } from "../runtimeRegistry"
 
 import type { SchemxField, SchemxFormApi, Values } from "../../../types"
-import type { ParentRuntimeNode, RuntimeNode, RootRuntimeNode } from "../types"
+import type { ParentRuntimeNode, RootRuntimeNode, RuntimeNode } from "../types"
 
 /**
  * 运行时图测试夹具的接口类型，包含 context、reconciler、root、scheduler 及 formApi。
@@ -84,12 +84,16 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   initialValues: Record<string, unknown> = {}
 ): RuntimeGraphTestHarness<TValues> {
   const signals = new Map<string, ReturnType<typeof createSignal<unknown>>>()
+
   const values = { ...initialValues }
+
   const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(listener)
+
   const scheduler = createScheduler()
 
   const readValue = (name: unknown): unknown => {
     const key = normalizeName(name)
+
     let signal = signals.get(key)
 
     if (!signal) {
@@ -102,9 +106,11 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
   const writeValue = (name: unknown, value: unknown): void => {
     const key = normalizeName(name)
+
     values[key] = value
 
     let signal = signals.get(key)
+
     if (!signal) {
       signal = createSignal(value)
       signals.set(key, signal)
@@ -148,6 +154,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     setFieldValue: writeValue,
     validateField: vi.fn().mockResolvedValue({ valid: true, values, errors: [] }),
   }
+
   const validation = {
     syncField: vi.fn(),
     removeField: vi.fn(),
@@ -171,7 +178,9 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   } as unknown as SchemaRuntimeContext<TValues>
 
   const reconciler = createReconciler<TValues>(context)
+
   const root = reconciler.createRoot()
+
   const commitSchemas = (
     parent: ParentRuntimeNode<TValues>,
     schemas: SchemxField<TValues>[]

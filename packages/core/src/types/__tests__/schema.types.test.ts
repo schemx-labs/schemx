@@ -8,6 +8,7 @@ describe("SchemxField 容器结构类型", () => {
       label: "资料",
       children: [],
     } satisfies SchemxField
+
     const dependency = {
       to: ["mode"],
       renderer: () => [],
@@ -31,6 +32,7 @@ describe("SchemxField 容器结构类型", () => {
       label: "资料",
       children: [],
     }
+
     const dependency: SchemxField = {
       // @ts-expect-error Dependency 不再接受 componentType。
       componentType: "dependency",

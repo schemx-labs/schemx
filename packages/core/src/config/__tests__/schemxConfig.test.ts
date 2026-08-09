@@ -4,25 +4,27 @@ import { createForm } from "../../createForm"
 import { createRendererRegistry } from "../../registry"
 import { configureSchemx } from "../schemxConfig"
 
+import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
+import type { Values } from "../../types"
 import type {
   AdapterRule,
   ValidationAdapter,
   ValidationRule,
 } from "../../validator/types"
-import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
-import type { Values } from "../../types"
 
 function createTestAdapter<TInput>(
   id: string,
   resolve: (rule: AdapterRule | TInput) => readonly ValidationRule[]
-): ValidationAdapter<TInput> {
+): ValidationAdapter<TInput> & { rule: (input: TInput) => AdapterRule } {
   const rules = new WeakSet<object>()
 
   return {
     id,
     rule(input) {
       const rule = Object.freeze({ adapterId: id, payload: input })
+
       rules.add(rule)
+
       return rule
     },
     isRule(value): value is AdapterRule {
@@ -48,6 +50,7 @@ describe("configureSchemx", () => {
     const globalAdapter = createTestAdapter("test", () => [
       { validate: () => ({ valid: false as const, issues: [{ message: "全局" }] }) },
     ])
+
     const formAdapter = createTestAdapter("test", () => [
       { validate: () => ({ valid: false as const, issues: [{ message: "表单" }] }) },
     ])
@@ -59,10 +62,11 @@ describe("configureSchemx", () => {
           name: "email",
           label: "邮箱",
           componentType: "input",
-          rules: [globalAdapter.rule!("x")],
+          rules: [globalAdapter.rule("x")],
         },
       ],
     })
+
     const form = createForm<{ email: string }>({
       validatorAdapters: [{ adapter: formAdapter, override: true }],
       schemas: [
@@ -70,10 +74,11 @@ describe("configureSchemx", () => {
           name: "email",
           label: "邮箱",
           componentType: "input",
-          rules: [formAdapter.rule!("x")],
+          rules: [formAdapter.rule("x")],
         },
       ],
     })
+
     configureSchemx({ validatorAdapters: [] })
 
     await expect(
@@ -94,6 +99,7 @@ describe("configureSchemx", () => {
 
   it("仅显式 override 才允许覆盖同 ID adapter", () => {
     const first = createTestAdapter("same", () => [])
+
     const second = createTestAdapter("same", () => [])
 
     expect(() => createForm({ validatorAdapters: [first, second] })).toThrow(
@@ -109,6 +115,7 @@ describe("configureSchemx", () => {
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     await Promise.resolve()
 
     expect(findField(form, "name")?.readonly).toBe(true)
@@ -120,6 +127,7 @@ describe("configureSchemx", () => {
       schemaConfig: { readonly: false },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     await Promise.resolve()
 
     expect(findField(form, "name")?.readonly).toBe(false)
@@ -131,6 +139,7 @@ describe("configureSchemx", () => {
       schemaConfig: { readonly: undefined },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     await Promise.resolve()
 
     expect(findField(form, "name")?.readonly).toBe(false)
@@ -153,6 +162,7 @@ describe("configureSchemx", () => {
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input", required: true }],
     })
+
     await Promise.resolve()
 
     expect(findField(form, "name")?.showRequiredMark).toBe(false)
@@ -162,6 +172,7 @@ describe("configureSchemx", () => {
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input", required: true }],
     })
+
     await Promise.resolve()
 
     expect(findField(form, "name")?.showRequiredMark).toBe(true)
@@ -169,11 +180,13 @@ describe("configureSchemx", () => {
 
   it("全局 rendererRegistry 在多个 Form 间共享", () => {
     const registry = createRendererRegistry()
+
     configureSchemx({ rendererRegistry: registry })
 
     const form1 = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     const form2 = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
@@ -186,6 +199,7 @@ describe("configureSchemx", () => {
     const form1 = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     const form2 = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
@@ -199,6 +213,7 @@ describe("configureSchemx", () => {
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     form.registerRenderer("text", "TEXT_COMP")
 
     // 未注册的 unknown 类型回退到全局 defaultRendererType "text"

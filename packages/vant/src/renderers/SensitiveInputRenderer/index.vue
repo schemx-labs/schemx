@@ -58,6 +58,7 @@
   import SchemxCell from "@/components/Cell/index.vue"
   import SchemxInput from "@/components/Input"
   import { isEmptyDisplayValue } from "@/utils"
+
   import { defaultMaskFormatter } from "./helper"
 
   import type { SensitiveInputRendererProps } from "./types"
@@ -99,9 +100,11 @@
   }>()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
+
   const revealed = ref(props.defaultRevealed)
 
   const rawValue = computed(() => String(props.value ?? ""))
+
   const isEmpty = computed(() => isEmptyDisplayValue(rawValue.value))
 
   const canReveal = computed(() => {
@@ -175,6 +178,7 @@
     if (!canReveal.value) return
 
     const next = !revealed.value
+
     setRevealed(next)
 
     if (next && props.focusOnReveal && !props.readonly) {

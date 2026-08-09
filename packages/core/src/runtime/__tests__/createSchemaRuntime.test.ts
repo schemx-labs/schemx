@@ -9,7 +9,9 @@ import type { SchemxFormApi, SchemxInstance, Values } from "../../types"
 describe("SchemaRuntime", () => {
   it("通过假的最小 Model Port 应用字段 initialValue", () => {
     const model = createTestModelPort<{ name?: string }>()
+
     const instance = {} as SchemxInstance
+
     const runtime = createSchemaRuntime({
       model,
       instance,
@@ -37,6 +39,7 @@ describe("SchemaRuntime", () => {
 
   it("独立管理 Schema source、ViewSchema 和 mount 生命周期", () => {
     const model = createTestModelPort<{ name?: string; email?: string }>()
+
     const runtime = createSchemaRuntime({
       model,
       instance: {} as SchemxInstance,
@@ -75,6 +78,7 @@ function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TVa
   getInitialValue(name: string): unknown
 } {
   const values = new Map<string, unknown>()
+
   const initialValues = new Map<string, unknown>()
 
   return {

@@ -10,14 +10,15 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
-import { CompileError } from "../runtime/compiler"
-import { createSchemas } from "../createSchemas"
 import { createForm } from "../createForm"
+import { createSchemas } from "../createSchemas"
 import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
+import { CompileError } from "../runtime/compiler"
 
 describe("字段初始值", () => {
   it("Schema initialValue 初始化不应触发 onValuesChange", () => {
     const onValuesChange = vi.fn()
+
     const form = createForm({
       schemas: [
         {
@@ -90,6 +91,7 @@ describe("表单提交", () => {
 
   it("应返回成功校验结果并调用 onFinish", async () => {
     const onFinish = vi.fn()
+
     const form = createForm({
       initialValues: { name: "Alice" },
       schemas: [
@@ -112,6 +114,7 @@ describe("表单提交", () => {
 
   it("应返回失败校验结果并调用 onFinishFailed", async () => {
     const onFinishFailed = vi.fn()
+
     const form = createForm({
       initialValues: { name: "" },
       schemas: [
@@ -141,6 +144,7 @@ describe("表单提交", () => {
     if (!result.valid) {
       expect(onFinishFailed).toHaveBeenCalledWith(result)
     }
+
     form.destroy()
   })
 
@@ -175,7 +179,9 @@ describe("表单提交", () => {
 
   it("pending 字段返回字段级错误并同步错误状态", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const form = createForm({ initialValues: { avatar: "" } })
+
     try {
       form.setFieldPending("avatar", true, "头像上传中")
 
@@ -194,7 +200,7 @@ describe("表单提交", () => {
       })
       expect(form.getFieldErrors("avatar")).toEqual(["头像上传中"])
       expect(consoleWarn).toHaveBeenCalledWith(
-        '[schemx] 存在正在操作中的字段: avatar，请等待完成后再提交'
+        "[schemx] 存在正在操作中的字段: avatar，请等待完成后再提交"
       )
     } finally {
       form.destroy()
@@ -205,7 +211,9 @@ describe("表单提交", () => {
   it("依赖等待超时返回表单级错误", async () => {
     vi.useFakeTimers()
     const onFinish = vi.fn()
+
     const onFinishFailed = vi.fn()
+
     const form = createForm({
       initialValues: { mode: "async" },
       schemas: [
@@ -220,6 +228,7 @@ describe("表单提交", () => {
     })
 
     const submission = form.submit()
+
     await vi.advanceTimersByTimeAsync(10_000)
 
     await expect(submission).resolves.toEqual({
@@ -267,6 +276,7 @@ describe("CreateFormInstance 属性测试", () => {
 
           // 记录回调接收到的参数
           let receivedChangedValues: any = null
+
           let receivedLatestSnapshot: any = null
 
           // 创建配置了 onValuesChange 的表单实例
@@ -327,10 +337,12 @@ describe("渲染器注册中心下沉 属性测试", () => {
         fc.uniqueArray(safeTypeStr, { minLength: 1, maxLength: 10 }),
         (types) => {
           const registry = createRendererRegistry()
+
           const renderers: Record<string, object> = {}
 
           for (const type of types) {
             const renderer = { __type: type }
+
             renderers[type] = renderer
             registry.register(type, renderer)
           }
@@ -380,6 +392,7 @@ describe("渲染器注册中心下沉 属性测试", () => {
     fc.assert(
       fc.property(safeTypeStr, fc.object({ maxDepth: 1 }), (type, rendererObj) => {
         const registry = createRendererRegistry()
+
         const form = createForm({ rendererRegistry: registry })
 
         form.registerRenderer(type, rendererObj)
@@ -401,6 +414,7 @@ describe("渲染器注册中心下沉 属性测试", () => {
         fc.uniqueArray(safeTypeStr, { minLength: 1, maxLength: 5 }),
         (types) => {
           const registryA = createRendererRegistry()
+
           const registryB = createRendererRegistry()
 
           for (const type of types) {
@@ -412,6 +426,7 @@ describe("渲染器注册中心下沉 属性测试", () => {
 
           for (const type of types) {
             const result = form.getRenderer(type)
+
             expect(result).toBe(registryA.resolve(type))
             expect(result).not.toBe(registryB.resolve(type))
           }
@@ -454,10 +469,9 @@ describe("渲染器注册中心下沉 单元测试", () => {
   })
 
   it("销毁 RuntimeNode 时 FormModel 仍然可用", () => {
-    let form!: ReturnType<typeof createForm<{ name: string }>>
     let valueDuringUnmount: string | undefined
 
-    form = createForm({
+    const form = createForm<{ name: string }>({
       initialValues: { name: "Alice" },
       schemas: [
         {
@@ -491,6 +505,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
 
   it("rendererRegistry 的内部默认值不会隐式补齐 field componentType", () => {
     const customRegistry = createRendererRegistry("registry-default")
+
     let thrown: unknown
 
     try {
@@ -523,7 +538,9 @@ describe("渲染器注册中心下沉 单元测试", () => {
   // 验证：需求 5.1、5.2
   it("外部传入自定义 rendererRegistry 时，form 使用该 registry 的渲染器", () => {
     const customRegistry = createRendererRegistry()
+
     const inputRenderer = { component: "CustomInput" }
+
     const selectRenderer = { component: "CustomSelect" }
 
     customRegistry.register("input", inputRenderer)
@@ -547,6 +564,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
 describe("字段规则注册上下文 单元测试", () => {
   it("createForm 应该注册并触发生命周期 hooks", () => {
     const mounted = vi.fn()
+
     const form = createForm({
       schemas: [
         {
@@ -575,6 +593,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
   it("dependency 子树挂载时应该水合挂载前写入的字段值", async () => {
     const submitted: any[] = []
+
     const form = createForm({
       initialValues: { orderType: "express" },
       schemas: [
@@ -762,6 +781,7 @@ describe("字段规则注册上下文 单元测试", () => {
         },
       ]
     })
+
     const form = createForm<{ orderType: string }>({
       initialValues: { orderType: "standard" },
       schemas: [
@@ -944,6 +964,7 @@ describe("字段规则注册上下文 单元测试", () => {
 
   it("setFieldRules 使用运行时字段状态为字符串工厂规则补充上下文", async () => {
     const validationRuleRegistry = createValidationRuleRegistry()
+
     validationRuleRegistry.register("contextual" as never, (context) => ({
       "~standard": {
         version: 1,
@@ -1036,10 +1057,10 @@ const safeRuleName = fc
 /**
  * 创建 mock StandardSchemaV1 实例
  *
- * @param id - 用于区分不同 mock 实例的标识符
+ * @param _id - 用于区分不同 mock 实例的标识符
  * @returns 符合 StandardSchemaV1 接口的 mock 对象
  */
-function createMockStandardSchema(id: string): StandardSchemaV1 {
+function createMockStandardSchema(_id: string): StandardSchemaV1 {
   return {
     "~standard": {
       version: 1,
@@ -1059,6 +1080,7 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
         const form = createForm({
           validationRuleRegistry: createValidationRuleRegistry(),
         })
+
         const rule = createMockStandardSchema(schemaId)
 
         form.registerRule(name, rule)
@@ -1080,7 +1102,9 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
         const form = createForm({
           validationRuleRegistry: createValidationRuleRegistry(),
         })
+
         const ruleA = createMockStandardSchema("A")
+
         const ruleB = createMockStandardSchema("B")
 
         form.registerRule(name, ruleA)
@@ -1108,7 +1132,9 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
             rendererRegistry: createRendererRegistry(),
             validationRuleRegistry: createValidationRuleRegistry(),
           })
+
           const rule = createMockStandardSchema(schemaId)
+
           const renderer = { __type: rendererType }
 
           // 路径 A: 通过 form 注册规则并查询
@@ -1117,6 +1143,7 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
 
           // 路径 B: 注册另一个规则并查询
           const rule2 = createMockStandardSchema(schemaId + "_2")
+
           form.registerRule(ruleName + "_via_internals", rule2)
           expect(form.getRule(ruleName + "_via_internals")).toBe(rule2)
 
@@ -1126,6 +1153,7 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
 
           // 路径 D: 注册另一个渲染器并查询
           const renderer2 = { __type: rendererType + "_2" }
+
           form.registerRenderer(rendererType + "_via_internals", renderer2)
           expect(form.getRenderer(rendererType + "_via_internals")).toBe(renderer2)
 
@@ -1166,6 +1194,7 @@ describe("RulesRegistry 快捷方法单元测试", () => {
     const form = createForm({
       validationRuleRegistry: createValidationRuleRegistry(),
     })
+
     const hooks = form
 
     expect(hooks).toBeDefined()
@@ -1196,7 +1225,9 @@ describe("RulesRegistry 快捷方法单元测试", () => {
   // 验证：需求 5.2
   it("传入自定义 rendererRegistry 后，通过 form 能获取其中的渲染器", () => {
     const customRegistry = createRendererRegistry()
+
     const testRenderer = { component: "Test" }
+
     customRegistry.register("test-type", testRenderer)
 
     const form = createForm({ rendererRegistry: customRegistry })
@@ -1222,6 +1253,7 @@ describe("destroy 清理", () => {
 
   it("destroy 后 onValuesChange 不再被触发", () => {
     const onValuesChange = vi.fn()
+
     const form = createForm({
       initialValues: { name: "a" } as any,
       onValuesChange,
@@ -1276,6 +1308,7 @@ describe("动态 schemas", () => {
 
   it("移除 group 子树时应该递归发送子字段 unmount 事件", () => {
     const unmounted = vi.fn()
+
     const form = createForm({
       schemas: [
         {
@@ -1375,7 +1408,9 @@ describe("动态 schemas", () => {
     const form = createForm({
       schemas: [{ label: "旧分组", children: [] }] as any,
     })
+
     const calls: unknown[] = []
+
     const unsubscribe = form.subscribeViewSchemas((schemas) => {
       calls.push(schemas)
     })
@@ -1396,6 +1431,7 @@ describe("动态 schemas", () => {
     const schemas = createSchemas<{ name: string; email: string }>([
       { name: "name", label: "姓名", componentType: "input" },
     ])
+
     const form = createForm({
       schemas,
     })
@@ -1418,6 +1454,7 @@ describe("动态 schemas", () => {
     const schemas = createSchemas<{ name: string; email: string }>([
       { name: "name", label: "姓名", componentType: "input" },
     ])
+
     const form = createForm({
       schemas,
     })

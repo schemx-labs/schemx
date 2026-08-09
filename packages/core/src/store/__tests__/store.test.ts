@@ -37,6 +37,7 @@ describe("Store", () => {
   describe("构造", () => {
     it("无参构造创建空 store", () => {
       const store = createStore()
+
       expect(store.getFieldsSnapshot()).toEqual({})
     })
 
@@ -44,13 +45,16 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getFieldValue("name")).toBe("John")
       expect(store.getFieldValue("age")).toBe(25)
     })
 
     it("initialValues 深拷贝，外部修改不影响 store", () => {
       const init = { name: "John", age: 25, email: "j@t.com" }
+
       const store = createStore<TestForm>({ initialValues: init })
+
       init.name = "Modified"
       expect(store.getFieldValue("name")).toBe("John")
     })
@@ -59,6 +63,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "A", age: 1, email: "a@b.com" },
       })
+
       expect(store.getFieldValue("name")).toBe("A")
     })
   })
@@ -73,6 +78,7 @@ describe("Store", () => {
       })
 
       const values = store.getInitialValues(["user" as any]) as NestedForm
+
       values.user.address.city = "Shanghai"
 
       expect(store.getInitialValue("user.address.city" as any)).toBe("Beijing")
@@ -85,6 +91,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       expect(store.getFieldValue("name")).toBe("Jane")
     })
@@ -96,6 +103,7 @@ describe("Store", () => {
           tags: ["a"],
         },
       })
+
       store.setFieldValue("user.address.city" as any, "Shanghai")
       expect(store.getFieldValue("user.address.city" as any)).toBe("Shanghai")
     })
@@ -104,6 +112,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getFieldValue("nonexistent" as any)).toBeUndefined()
     })
   })
@@ -114,7 +123,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const values = store.getFieldsValue()
+
       expect(values).toEqual({ name: "John", age: 25, email: "j@t.com" })
     })
 
@@ -122,7 +133,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const partial = store.getFieldsValue(["name", "age"])
+
       expect(partial).toEqual({ name: "John", age: 25 })
     })
 
@@ -130,6 +143,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsValue({ name: "Jane", age: 30 })
       expect(store.getFieldValue("name")).toBe("Jane")
       expect(store.getFieldValue("age")).toBe(30)
@@ -145,6 +159,7 @@ describe("Store", () => {
       })
 
       const firstSnapshot = store.getFieldsSnapshot()
+
       const secondSnapshot = store.getFieldsSnapshot()
 
       expect(secondSnapshot).toBe(firstSnapshot)
@@ -158,6 +173,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       expect(store.getFieldSnapshot("name")).toBe("Jane")
     })
@@ -166,8 +182,11 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const snap1 = store.getFieldsSnapshot()
+
       const snap2 = store.getFieldsSnapshot()
+
       expect(snap1).toEqual(snap2)
       expect(snap1).toBe(snap2)
     })
@@ -176,7 +195,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const snap = store.getFieldsSnapshot()
+
       store.setFieldValue("name", "Changed")
       expect(snap.name).toBe("John")
     })
@@ -189,6 +210,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getInitialValue("name")).toBe("John")
       expect(store.getInitialValue("missing" as any)).toBeUndefined()
     })
@@ -197,7 +219,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const init = store.getInitialValues()
+
       expect(init).toEqual({ name: "John", age: 25, email: "j@t.com" })
       // 修改返回值不影响 store
       init.name = "Modified"
@@ -208,7 +232,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const partial = store.getInitialValues(["name", "email"])
+
       expect(partial).toEqual({ name: "John", email: "j@t.com" })
     })
 
@@ -216,6 +242,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       store.setFieldTouched("name", true)
       store.setInitialValue("name", "Jane")
@@ -228,6 +255,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setInitialValues({ name: "NewDefault", age: 99 })
       expect(store.getInitialValues().name).toBe("NewDefault")
       expect(store.getInitialValues().age).toBe(99)
@@ -239,6 +267,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setInitialValues({})
       expect(store.getInitialValues()).toEqual({
         name: "John",
@@ -254,6 +283,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.isFieldTouched("name")).toBe(false)
     })
 
@@ -261,6 +291,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       expect(store.isFieldTouched("name")).toBe(false)
     })
@@ -269,6 +300,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldTouched("name", true)
       store.setFieldValue("name", "Jane")
       store.setFieldValue("name", "John")
@@ -279,6 +311,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.isFieldsTouched()).toBe(false)
       store.setFieldValue("age", 30)
       expect(store.isFieldsTouched()).toBe(false)
@@ -290,6 +323,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       // 只修改了 name，age 未修改
       expect(store.isFieldsTouched(["name", "age"])).toBe(false)
@@ -301,10 +335,12 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       store.setFieldValue("email", "new@t.com")
       store.setFieldsTouched(["name", "email"])
       const touched = store.getTouchedFields()
+
       expect(touched).toContain("name")
       expect(touched).toContain("email")
       expect(touched).not.toContain("age")
@@ -314,6 +350,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldTouched("name", true)
       store.setFieldsTouched(["age", "email"], true)
       expect(store.getTouchedFields()).toEqual(["name", "age", "email"])
@@ -331,6 +368,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldPending("email", true)
       expect(store.isFieldPending("email")).toBe(true)
       expect(store.getPendingFields()).toEqual([{ field: "email", message: [] }])
@@ -344,6 +382,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsPending(["name", "age"], true)
       expect(store.isFieldsPending(["name", "age"])).toBe(true)
       expect(store.isFieldsPending()).toBe(true)
@@ -370,6 +409,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Changed")
       store.setFieldValue("age", 99)
       store.reset()
@@ -384,6 +424,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.reset({ name: "New", age: 0, email: "new@t.com" })
       expect(store.getFieldsSnapshot()).toEqual({
         name: "New",
@@ -401,6 +442,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.reset({ name: "Only" })
       expect(store.getFieldValue("name")).toBe("Only")
       expect(store.getFieldValue("age")).toBeUndefined()
@@ -418,6 +460,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Changed")
       store.setFieldValue("age", 99)
       store.resetField("name")
@@ -429,6 +472,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsValue({ name: "Changed", age: 99 })
       store.setFieldPending("name", true)
 
@@ -444,6 +488,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldTouched("name", true)
       store.setFieldPending("email", true)
 
@@ -484,13 +529,16 @@ describe("Store 属性测试", () => {
         (path, value) => {
           // 测试 setFieldValue 往返一致性
           const store = createStore()
+
           store.setFieldValue(path as any, value)
           expect(store.getFieldValue(path as any)).toEqual(value)
           store.destroy()
 
           // 测试 setFieldsValue 往返一致性
           const store2 = createStore()
+
           const obj: Record<string, unknown> = {}
+
           obj[path] = value
           store2.setFieldsValue(obj)
           expect(store2.getFieldValue(path as any)).toEqual(value)

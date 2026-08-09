@@ -15,7 +15,9 @@ import { createRuntimeDispose, createScope } from "../scope"
 describe("Scope", () => {
   it("createRuntimeDispose 创建 RuntimeDispose 生命周期边界", () => {
     const dispose = createRuntimeDispose()
+
     const childDispose = dispose.child()
+
     const calls: string[] = []
 
     dispose.add(() => calls.push("parent"))
@@ -30,6 +32,7 @@ describe("Scope", () => {
 
   it("add 返回的 handle 可以提前执行并避免 scope 重复清理", () => {
     const scope = createScope()
+
     const cleanup = vi.fn()
 
     const handle = scope.add(cleanup)
@@ -45,7 +48,9 @@ describe("Scope", () => {
 
   it("dispose 时先释放子 scope，再按逆序执行当前 scope cleanup", () => {
     const scope = createScope()
+
     const childScope = scope.child()
+
     const calls: string[] = []
 
     scope.add(() => calls.push("parent:first"))
@@ -61,6 +66,7 @@ describe("Scope", () => {
 
   it("disposed 后注册 cleanup 会立即执行并返回已释放 handle", () => {
     const scope = createScope()
+
     const cleanup = vi.fn()
 
     scope.dispose()
@@ -76,6 +82,7 @@ describe("Scope", () => {
     scope.dispose()
 
     const childScope = scope.child()
+
     const cleanup = vi.fn()
 
     childScope.add(cleanup)
@@ -86,6 +93,7 @@ describe("Scope", () => {
 
   it("同一个 cleanup 函数重复注册时应按注册次数执行", () => {
     const scope = createScope()
+
     const cleanup = vi.fn()
 
     scope.add(cleanup)

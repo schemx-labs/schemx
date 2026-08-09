@@ -6,11 +6,11 @@ import type {
   FormLifecycleOptions,
   NamePath,
   RequiredRule,
+  SchemxConfig,
   SchemxInstance,
   SchemxSchemasInput,
   ValidationTrigger,
   Values,
-  SchemxConfig,
 } from "@schemx/core"
 
 /**

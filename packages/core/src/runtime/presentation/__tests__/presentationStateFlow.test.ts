@@ -13,12 +13,12 @@ import {
   flushRuntimeGraph,
 } from "../../node/__tests__/runtimeGraphTestUtils"
 
+import type { SchemxField } from "../../../types"
 import type {
   DependencyRuntimeNode,
   FieldRuntimeNode,
   GroupRuntimeNode,
 } from "../../node"
-import type { SchemxField } from "../../../types"
 
 describe("呈现状态运行时链路", () => {
   it("嵌套 Group 和 Dependency 状态应递归约束后代字段", async () => {
@@ -51,7 +51,9 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     const dependency = expectDependency(group.childNodes.value[0])
+
     const field = expectField(dependency.childNodes.value[0])
 
     expect(group.presentationState?.effectiveState.value).toEqual({
@@ -96,6 +98,7 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     const field = expectField(group.childNodes.value[0])
 
     expect(field.fieldState?.effectiveSchema.value.visible).toBe(true)
@@ -113,6 +116,7 @@ describe("呈现状态运行时链路", () => {
       undefined,
       { mode: "initial" }
     )
+
     // 记录 Group 依赖副作用的执行参数。
     const groupTrigger = vi.fn()
 
@@ -156,6 +160,7 @@ describe("呈现状态运行时链路", () => {
       undefined,
       { mode: "enterprise", status: "active" }
     )
+
     const renderer = vi.fn(() => [
       {
         name: "companyName",
@@ -178,8 +183,11 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = expectDependency(root.childNodes.value[0])
+
     const firstEffect = dependency.rendererEffect
+
     const firstChild = expectField(dependency.childNodes.value[0])
+
     const initialRenderCount = renderer.mock.calls.length
 
     commitSchemas(root, [
@@ -219,9 +227,11 @@ describe("呈现状态运行时链路", () => {
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness(undefined, {
       mode: "enterprise",
     })
+
     const firstRenderer = vi.fn(() => [
       { name: "companyName", label: "企业名称", componentType: "input" },
     ])
+
     const nextRenderer = vi.fn(() => [
       { name: "personalName", label: "个人姓名", componentType: "input" },
     ])
@@ -236,6 +246,7 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = expectDependency(root.childNodes.value[0])
+
     const firstEffect = dependency.rendererEffect
 
     commitSchemas(root, [
@@ -257,6 +268,7 @@ describe("呈现状态运行时链路", () => {
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness(undefined, {
       show: false,
     })
+
     const children: SchemxField[] = [
       { name: "name", label: "姓名", componentType: "input" },
     ]
@@ -275,6 +287,7 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     expect(group.presentationState?.effectiveState.value.visible).toBe(false)
 
     commitSchemas(root, [
@@ -295,7 +308,9 @@ describe("呈现状态运行时链路", () => {
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness(undefined, {
       show: false,
     })
+
     const visible = vi.fn((values: any) => Boolean(values.show))
+
     const dependencies = {
       triggerFields: ["show"],
       visible,
@@ -312,7 +327,9 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     const firstEffectScope = group.presentationEffectScope
+
     const initialCallCount = visible.mock.calls.length
 
     commitSchemas(root, [
@@ -338,6 +355,7 @@ describe("呈现状态运行时链路", () => {
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness(undefined, {
       show: false,
     })
+
     let resolveNext!: (visible: boolean) => void
 
     commitSchemas(root, [
@@ -354,6 +372,7 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     expect(group.presentationState?.effectiveState.value.visible).toBe(false)
 
     commitSchemas(root, [
@@ -384,6 +403,7 @@ describe("呈现状态运行时链路", () => {
       undefined,
       { mode: "initial" }
     )
+
     const requests: Array<{
       mode: unknown
       resolve: (visible: boolean) => void
@@ -418,6 +438,7 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     const group = expectGroup(root.childNodes.value[0])
+
     expect(group.presentationState?.effectiveState.value.visible).toBe(true)
   })
 })

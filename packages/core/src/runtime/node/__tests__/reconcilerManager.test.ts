@@ -50,6 +50,7 @@ describe("RuntimeReconciler + RuntimeNodeManager", () => {
       updated: vi.fn(),
       unmounted: vi.fn(),
     }
+
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import * as Core from "../../index"
 import { createValidationRuleRegistry } from "../../registry"
-import { createValidator } from "../validator"
 import { createValidationController } from "../validationController"
+import { createValidator } from "../validator"
 
 import type {
   AdapterRule,
@@ -23,14 +23,16 @@ const nativeRule: ValidationRule = {
 function createTestAdapter<TInput>(
   id: ValidationAdapterID,
   resolve: (rule: AdapterRule | TInput) => readonly ValidationRule[]
-): ValidationAdapter<TInput> {
+): ValidationAdapter<TInput> & { rule: (input: TInput) => AdapterRule } {
   const rules = new WeakSet<object>()
 
   return {
     id,
     rule(input) {
       const rule = Object.freeze({ adapterId: id, payload: input })
+
       rules.add(rule)
+
       return rule
     },
     isRule(value): value is AdapterRule {
@@ -62,10 +64,12 @@ describe("ValidationController", () => {
 
   it("required 始终排在附加规则之前", async () => {
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
     })
+
     const extra = vi.fn(() => ({
       valid: false as const,
       issues: [{ message: "格式错误" }],
@@ -86,8 +90,11 @@ describe("ValidationController", () => {
 
   it("未注册名称写入字段配置错误，并在注册后自动恢复", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const validator = createValidator<FormValues>()
+
     const registry = createValidationRuleRegistry()
+
     const controller = createValidationController({
       validator,
       registry,
@@ -118,6 +125,7 @@ describe("ValidationController", () => {
 
   it("移除字段时同步清理规则和错误", () => {
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
@@ -137,13 +145,16 @@ describe("ValidationController", () => {
 
   it("运行时规则覆盖优先于 Schema 规则，移除后恢复 Schema 规则", async () => {
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
     })
+
     const schemaRule: ValidationRule = {
       validate: () => ({ valid: false as const, issues: [{ message: "Schema 规则" }] }),
     }
+
     const overrideRule: ValidationRule = {
       validate: () => ({ valid: false as const, issues: [{ message: "运行时规则" }] }),
     }
@@ -171,14 +182,16 @@ describe("ValidationController", () => {
             : { valid: true as const },
       },
     ])
+
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
       validatorAdapters: [adapter],
     })
 
-    controller.syncField({ ...fieldConfig, rules: adapter.rule!("invalid") })
+    controller.syncField({ ...fieldConfig, rules: adapter.rule("invalid") })
 
     await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
       {
@@ -189,7 +202,9 @@ describe("ValidationController", () => {
 
   it("不将手写同形对象识别为品牌 adapter 规则并警告跳过", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const adapter = createTestAdapter("test", () => [nativeRule])
+
     const controller = createValidationController({
       validator: createValidator<FormValues>(),
       registry: createValidationRuleRegistry(),
@@ -209,6 +224,7 @@ describe("ValidationController", () => {
 
   it("裸对象规则未配置默认 adapter 时警告并跳过", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const controller = createValidationController({
       validator: createValidator<FormValues>(),
       registry: createValidationRuleRegistry(),
@@ -225,10 +241,12 @@ describe("ValidationController", () => {
 
   it("Standard Schema 经内置 adapter 校验失败", async () => {
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
     })
+
     const schema = {
       "~standard": {
         version: 1,
@@ -248,7 +266,9 @@ describe("ValidationController", () => {
 
   it("原生 ValidationRule 不经 adapter 仍可执行", async () => {
     const validate = vi.fn(() => ({ valid: true as const }))
+
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
@@ -266,11 +286,14 @@ describe("ValidationController", () => {
 
   it("未识别对象规则写入配置错误，不执行部分规则", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const extra = vi.fn(() => ({
       valid: false as const,
       issues: [{ message: "格式错误" }],
     }))
+
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
@@ -293,6 +316,7 @@ describe("ValidationController", () => {
 
   it("同一字段的未识别对象规则仅警告一次", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const controller = createValidationController({
       validator: createValidator<FormValues>(),
       registry: createValidationRuleRegistry(),
@@ -307,14 +331,16 @@ describe("ValidationController", () => {
 
   it("非法 adapter 返回值写入字段配置错误", async () => {
     const badAdapter = createTestAdapter("bad", () => [{}] as never)
+
     const validator = createValidator<FormValues>()
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
       validatorAdapters: [badAdapter],
     })
 
-    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule!(null) })).toBe(
+    expect(controller.syncField({ ...fieldConfig, rules: badAdapter.rule(null) })).toBe(
       false
     )
     await expect(validator.validateField("email", { email: "x" })).resolves.toMatchObject(
@@ -339,13 +365,18 @@ describe("ValidationController", () => {
 
   it("同一规则匹配多个 adapter 时写入配置错误", async () => {
     const first = createTestAdapter("first", () => [nativeRule])
+
     const second = createTestAdapter("second", () => [nativeRule])
+
     const validator = createValidator<FormValues>()
+
     const sharedRule = { marker: true }
+
     const alwaysMatches = (adapter: ValidationAdapter) => ({
       ...adapter,
       isRule: (value: unknown): value is AdapterRule => value === sharedRule,
     })
+
     const controller = createValidationController({
       validator,
       registry: createValidationRuleRegistry(),
@@ -382,6 +413,7 @@ describe("ValidationController", () => {
 
   it("字符串 standard-schema 不与内置 symbol ID 冲突", () => {
     const adapter = createTestAdapter("standard-schema", () => [nativeRule])
+
     expect(() =>
       createValidationController({
         validator: createValidator<FormValues>(),
@@ -403,7 +435,9 @@ describe("ValidationController", () => {
 
   it("支持 symbol adapter ID，并可显式覆盖", () => {
     const id = Symbol("custom")
+
     const first = createTestAdapter(id, () => [nativeRule])
+
     const second = createTestAdapter(id, () => [nativeRule])
 
     expect(() =>

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 
-import type { StandardSchemaV1 } from "../../types/standardSchema"
 import { createValidationRuleRegistry } from "../validationRuleRegistry"
+
+import type { StandardSchemaV1 } from "../../types/standardSchema"
 
 declare module "../../types/rule" {
   interface ValidationRuleDefinition {
@@ -33,8 +34,11 @@ function numberSchema(id: string): StandardSchemaV1<number> {
 describe("ValidationRuleRegistry", () => {
   it("注册、查询和 override=false 保持一致", () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const registry = createValidationRuleRegistry()
+
     const first = stringSchema("first")
+
     const second = stringSchema("second")
 
     try {
@@ -53,7 +57,9 @@ describe("ValidationRuleRegistry", () => {
 
   it("工厂只收到精简字段上下文", () => {
     const factory = vi.fn(() => stringSchema("email"))
+
     const registry = createValidationRuleRegistry()
+
     registry.register("email", factory)
 
     registry.resolve("email", {
@@ -71,7 +77,9 @@ describe("ValidationRuleRegistry", () => {
 
   it("批量注册、移除、列举与清空命名规则", () => {
     const registry = createValidationRuleRegistry()
+
     const email = stringSchema("email")
+
     const positive = numberSchema("positive")
 
     registry.registerAll({ email, positive } as never)

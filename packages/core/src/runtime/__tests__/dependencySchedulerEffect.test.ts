@@ -72,7 +72,9 @@ describe("createDepSchedulerEffect", () => {
 
     // 提供 effect 所需的表单读取接口与 Scheduler。
     const formApi = createTestFormApi(store)
+
     const scheduler = createScheduler()
+
     const context = createTestContext(formApi, scheduler)
 
     // 跟踪 effect 生命周期。
@@ -114,8 +116,11 @@ describe("createDepSchedulerEffect", () => {
 
     // 组装公共 effect 所需的运行时依赖。
     const formApi = createTestFormApi(store)
+
     const scheduler = createScheduler()
+
     const context = createTestContext(formApi, scheduler)
+
     const scope = createRuntimeScope()
 
     // 记录后续字段变化产生的任务次数。
@@ -147,8 +152,11 @@ describe("createDepSchedulerEffect", () => {
 
     // 组装任务合并测试所需的运行时资源。
     const formApi = createTestFormApi(store)
+
     const scheduler = createScheduler()
+
     const context = createTestContext(formApi, scheduler)
+
     const scope = createRuntimeScope()
 
     // 记录初始任务和合并后的更新任务。
@@ -179,8 +187,11 @@ describe("createDepSchedulerEffect", () => {
 
     // 组装异步竞态测试所需的运行时资源。
     const formApi = createTestFormApi(store)
+
     const scheduler = createScheduler()
+
     const context = createTestContext(formApi, scheduler)
+
     const scope = createRuntimeScope()
 
     // 保存每次任务的完成函数，以控制新旧任务的完成顺序。

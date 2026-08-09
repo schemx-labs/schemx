@@ -33,7 +33,9 @@ describe("createField", () => {
     })
 
     const nameField = createField(form, "name")
+
     const ageField = createField(form, "age")
+
     const cityField = createField(form, "user.city")
 
     expectTypeOf(nameField.getValue()).toEqualTypeOf<string | undefined>()
@@ -67,6 +69,7 @@ describe("createField", () => {
       },
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
+
     const field = createField(form, "name")
 
     field.setErrors(["错误"])
@@ -111,6 +114,7 @@ describe("createField", () => {
         },
       ],
     })
+
     const field = createField(form, "name")
 
     field.removeRules()

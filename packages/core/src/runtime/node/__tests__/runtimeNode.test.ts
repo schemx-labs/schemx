@@ -31,6 +31,7 @@ const createDependencyInput = (key: string) => ({
 describe("node child helpers", () => {
   it("应该读写 root.childNodes", () => {
     const root = createTestRootRuntimeNode()
+
     const field = createTestFieldRuntimeNode({
       input: createFieldInput("name"),
       parent: root,
@@ -43,6 +44,7 @@ describe("node child helpers", () => {
 
   it("SchemaRuntimeNode 创建时直接持有已解析配置", () => {
     const root = createTestRootRuntimeNode()
+
     const field = createTestFieldRuntimeNode({
       input: createFieldInput("name"),
       parent: root,
@@ -57,6 +59,7 @@ describe("node child helpers", () => {
 
   it("DependencyRuntimeNode 创建时 dependency effect 为空", () => {
     const root = createTestRootRuntimeNode()
+
     const dependency = createTestDependencyRuntimeNode({
       input: createDependencyInput("mode"),
       parent: root,

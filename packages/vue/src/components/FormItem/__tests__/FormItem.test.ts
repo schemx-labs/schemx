@@ -136,6 +136,7 @@ describe("FormItem 集成测试", () => {
       label: "个人网站",
       componentType: "input" as any,
     }
+
     const form: SchemxInstance = createForm({
       initialValues: { website: "schemx.dev" },
       schemas: [schema as any],
@@ -170,6 +171,7 @@ describe("FormItem 集成测试", () => {
 
   it("Dictionary HOC 支持直接传入 api 函数", async () => {
     const api = vi.fn().mockResolvedValue([])
+
     const form: SchemxInstance = createForm({ initialValues: {} })
 
     const wrapper = mount(DictionaryRendererWithRemoteOptions, {

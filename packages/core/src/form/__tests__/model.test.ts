@@ -31,6 +31,7 @@ describe("FormModel", () => {
       validationRuleRegistry: createValidationRuleRegistry(),
       validatorAdapters: [],
     })
+
     let runs = 0
 
     model.effect(() => {

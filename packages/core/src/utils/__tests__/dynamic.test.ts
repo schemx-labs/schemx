@@ -63,10 +63,13 @@ describe("resolveDynamicPropBatch", () => {
     vi.useFakeTimers()
 
     let resolveFirst!: (value: string) => void
+
     const firstValue = new Promise<string>((resolve) => {
       resolveFirst = resolve
     })
+
     const callback = vi.fn()
+
     const resolveBatch = resolveDynamicPropBatch<{ placeholder: string }>(0)
 
     resolveBatch(

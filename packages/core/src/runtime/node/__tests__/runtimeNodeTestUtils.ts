@@ -20,10 +20,10 @@ import type {
   GroupRuntimeNodeInput,
 } from "../input"
 import type {
-  ParentRuntimeNode,
   DependencyRuntimeNode,
   FieldRuntimeNode,
   GroupRuntimeNode,
+  ParentRuntimeNode,
   RootRuntimeNode,
   Scope,
 } from "../types"

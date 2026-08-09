@@ -12,6 +12,7 @@
 import { computed, defineComponent, h, PropType, toRef } from "vue"
 import type { VNodeChild } from "vue"
 
+import { isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
 import type { TriggerConfig } from "@/utils"
@@ -25,9 +26,9 @@ import {
 } from "../../hooks"
 import { mergeTrigger, resolveSlot, shouldValidateOn } from "../../utils"
 import FormGroup from "../FormGroup"
+
 import { createFormItemSlotRenderers, normalizeNameKey } from "./slot"
 
-import { isViewGroupSchema } from "@schemx/core"
 import type {
   FieldValue,
   NamePath,

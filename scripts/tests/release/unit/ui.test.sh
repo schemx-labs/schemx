@@ -46,6 +46,29 @@ assert_rail_gap_before() {
   }
 }
 
+assert_rail_gap_count_before() {
+  local file="$1"
+  local marker="$2"
+  local expected="$3"
+  local gap
+  gap="$(awk -v marker="$marker" '
+    index($0, marker) {
+      print blanks
+      found = 1
+      exit
+    }
+    $0 == "│" { blanks += 1; next }
+    $0 == "" { blanks = -1; next }
+    { blanks = 0 }
+    END { if (!found) print -1 }
+  ' "$file" | tail -n 1)"
+  [[ "$gap" -eq "$expected" ]] || {
+    printf '断言失败：%q 前的导轨间隔行数应为 %s，实际为 %s\n' "$marker" "$expected" "$gap" >&2
+    sed -n l "$file" >&2
+    exit 1
+  }
+}
+
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/schemx-ui-test.XXXXXX")"
 trap 'rm -rf "$temp_dir"' EXIT
 
@@ -108,6 +131,16 @@ if rg -n '^$' "$plain_stderr" >/dev/null; then
   sed -n l "$plain_stderr" >&2
   exit 1
 fi
+
+task_boundary_stderr="$temp_dir/task-boundary.stderr"
+(
+  export SCHEMX_UI_FORMAT=plain
+  ui_flow_begin --domain workspace --title '目录任务间隔'
+  ui_task --title '处理 packages/core' --log live -- true
+  ui_task --title '处理 packages/validator' --log live -- true
+  ui_flow_end success '目录任务间隔完成'
+) >/dev/null 2>"$task_boundary_stderr"
+assert_rail_gap_count_before "$task_boundary_stderr" '[任务] 处理 packages/validator' 2
 
 spinner_stdout="$temp_dir/spinner.stdout"
 spinner_stderr="$temp_dir/spinner.stderr"

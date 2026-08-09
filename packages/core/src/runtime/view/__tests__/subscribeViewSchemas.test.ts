@@ -15,7 +15,6 @@ import { createRootRuntimeViewState } from "../createViewState"
 import { subscribeViewSchemas } from "../subscribeViewSchemas"
 
 import type { RootRuntimeNode } from "../../node"
-import type { SchemxViewSchema } from "../types"
 
 function createRootWithViewState(): {
   root: RootRuntimeNode
@@ -99,6 +98,7 @@ describe("subscribeViewSchemas", () => {
 
   it("应该返回取消订阅函数并立即回调", async () => {
     const { root } = createRootWithViewState()
+
     const onChange = vi.fn()
 
     const unsubscribe = subscribeViewSchemas(root, onChange)
@@ -112,9 +112,11 @@ describe("subscribeViewSchemas", () => {
   it("取消订阅后不再回调", async () => {
     vi.useFakeTimers()
     const { root } = createRootWithViewState()
+
     const onChange = vi.fn()
 
     const unsubscribe = subscribeViewSchemas(root, onChange)
+
     const callCountAfterFirst = onChange.mock.calls.length
 
     unsubscribe()
@@ -127,7 +129,9 @@ describe("subscribeViewSchemas", () => {
 
   it("onChange 回调抛出错误不应中断订阅", async () => {
     const { root } = createRootWithViewState()
+
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
     const onChange = vi.fn(() => {
       throw new Error("onChange error")
     })
@@ -152,6 +156,7 @@ describe("subscribeViewSchemas", () => {
     })
 
     const onChange = vi.fn()
+
     const unsubscribe = form.subscribeViewSchemas(onChange)
 
     await Promise.resolve()

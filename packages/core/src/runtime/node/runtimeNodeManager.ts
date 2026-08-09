@@ -33,14 +33,12 @@ import type {
  * 内部维护自增 ID，确保每个节点有唯一的 RuntimeNodeId。
  *
  * @typeParam TValues - 表单值类型
- * @param context - 表单运行时上下文
+ * @param _context - 表单运行时上下文（保留参数以兼容现有工厂调用）
  * @returns RuntimeNodeManager 实例
  */
 export function createRuntimeNodeManager<TValues extends Values = Values>(
-  context: SchemaRuntimeContext<TValues>
+  _context: SchemaRuntimeContext<TValues>
 ): RuntimeNodeManager<TValues> {
-  const registry = context.runtimeRegistry
-
   let nextId = 1
 
   /**

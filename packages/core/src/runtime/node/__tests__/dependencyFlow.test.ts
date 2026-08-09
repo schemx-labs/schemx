@@ -25,6 +25,7 @@ describe("dependency flow", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
@@ -50,6 +51,7 @@ describe("dependency flow", () => {
 
   it("trigger 不变时保留 dependency effect，trigger 变化时重建", async () => {
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness()
+
     const renderer = vi.fn().mockResolvedValue([])
 
     commitSchemas(root, [
@@ -62,11 +64,13 @@ describe("dependency flow", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
 
     const firstEffect = dependency.rendererEffect
+
     expect(firstEffect).toBeDefined()
     expect(dependency.rendererEffect).toBe(firstEffect)
 
@@ -106,6 +110,7 @@ describe("dependency flow", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
@@ -123,7 +128,9 @@ describe("dependency flow", () => {
 
   it("trigger 不变但 renderer 变化时，下一次执行使用最新 descriptor", async () => {
     const firstRenderer = vi.fn().mockResolvedValue([])
+
     const secondRenderer = vi.fn().mockResolvedValue([])
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { mode: "a" }

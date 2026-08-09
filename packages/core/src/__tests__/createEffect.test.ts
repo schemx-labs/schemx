@@ -23,6 +23,7 @@ describe("createSignalEffect 属性测试", () => {
     fc.assert(
       fc.property(fc.integer(), (initial) => {
         const s = signal(initial)
+
         let callCount = 0
 
         const dispose = createSignalEffect(() => {
@@ -48,7 +49,9 @@ describe("createSignalEffect 属性测试", () => {
         fc.integer().filter((v) => v !== 0),
         (initial, delta) => {
           const s = signal(initial)
+
           let callCount = 0
+
           let lastSeen: number | undefined
 
           const dispose = createSignalEffect(() => {
@@ -76,6 +79,7 @@ describe("createSignalEffect 属性测试", () => {
     fc.assert(
       fc.property(fc.integer(), fc.integer(), (initial, newVal) => {
         const s = signal(initial)
+
         let callCount = 0
 
         const dispose = createSignalEffect(() => {
@@ -99,6 +103,7 @@ describe("createSignalEffect 属性测试", () => {
     fc.assert(
       fc.property(fc.nat({ max: 10 }), (extraCalls) => {
         const s = signal(0)
+
         const cleanupFn = vi.fn()
 
         const dispose = createSignalEffect(() => {
@@ -129,6 +134,7 @@ describe("createSignalEffect 属性测试", () => {
         fc.integer().filter((v) => v !== 0),
         (initial, delta) => {
           const s = signal(initial)
+
           const order: string[] = []
 
           const dispose = createSignalEffect(() => {
@@ -158,6 +164,7 @@ describe("createSignalEffect 属性测试", () => {
     fc.assert(
       fc.property(fc.integer(), (initial) => {
         const s = signal(initial)
+
         const cleanupFn = vi.fn()
 
         const dispose = createSignalEffect(() => {
@@ -185,9 +192,13 @@ describe("createSignalEffect 属性测试", () => {
           .filter(([valA, valB]) => valA !== 0 || valB !== 0),
         ([valA, valB]) => {
           const a = signal(0)
+
           const b = signal(0)
+
           let callCount = 0
+
           let lastA: number | undefined
+
           let lastB: number | undefined
 
           const dispose = createSignalEffect(() => {
@@ -219,6 +230,7 @@ describe("createSignalEffect 属性测试", () => {
 describe("createSignalEffect 单元测试", () => {
   it("回调不返回清理函数时正常工作", () => {
     const s = signal(0)
+
     let callCount = 0
 
     const dispose = createSignalEffect(() => {
@@ -245,6 +257,7 @@ describe("createSignalEffect 单元测试", () => {
 
   it("SignalEffectDispose 类型可正确赋值", () => {
     const dispose: SignalEffectDispose = createSignalEffect(() => {})
+
     expect(typeof dispose).toBe("function")
     dispose()
   })
@@ -252,6 +265,7 @@ describe("createSignalEffect 单元测试", () => {
   it("与 form.getFieldValue 等方法配合使用", () => {
     // 模拟 form 内部的 ReactiveMap 行为
     const nameSignal = signal("Alice")
+
     let captured: string | undefined
 
     const dispose = createSignalEffect(() => {
@@ -271,8 +285,11 @@ describe("createSignalEffect 单元测试", () => {
 
   it("batch 内更新不触发 effect 时不执行 cleanup", () => {
     const a = signal(0)
+
     const b = signal(0)
+
     const cleanupCalls: number[] = []
+
     let callCount = 0
 
     const dispose = createSignalEffect(() => {
@@ -297,7 +314,9 @@ describe("createSignalEffect 单元测试", () => {
 
   it("batch 内写入相同值时不重新触发 effect", () => {
     const a = signal(0)
+
     const b = signal(0)
+
     let callCount = 0
 
     const dispose = createSignalEffect(() => {

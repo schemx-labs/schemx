@@ -9,7 +9,7 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { onUnmounted, reactive, watch } from "vue"
 
-  import { createWatch, isSchemxSchemas, defaultSchemxConfigKeys } from "@schemx/core"
+  import { createWatch, defaultSchemxConfigKeys, isSchemxSchemas } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import FormItem from "./components/FormItem"

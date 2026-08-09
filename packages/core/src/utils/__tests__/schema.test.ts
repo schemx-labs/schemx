@@ -10,11 +10,11 @@ import { describe, expect, it } from "vitest"
 import {
   findSchema,
   getSchemaKind,
-  isBaseSchema,
   isBaseResolvedSchema,
+  isBaseSchema,
   isDependencySchema,
-  isGroupSchema,
   isGroupResolvedSchema,
+  isGroupSchema,
 } from "../schema"
 
 import type { SchemxField, SchemxResolvedField } from "../../types"
@@ -69,6 +69,7 @@ describe("Raw Schema 类型守卫", () => {
 
 describe("Resolved Schema 类型守卫", () => {
   const resolvedBase = baseField as SchemxResolvedField
+
   const resolvedGroup = groupField as SchemxResolvedField
 
   it("通过 children 区分 Group 与普通字段", () => {
@@ -82,16 +83,19 @@ describe("Resolved Schema 类型守卫", () => {
 describe("findSchema", () => {
   it("平铺 schemas 中按名称查找", () => {
     const schemas: SchemxField[] = [baseField]
+
     expect(findSchema(schemas, "username")).toBe(baseField)
   })
 
   it("group 嵌套中递归查找", () => {
     const schemas: SchemxField[] = [groupField]
+
     expect(findSchema(schemas, "username")).toBe(baseField)
   })
 
   it("不存在的字段名返回 undefined", () => {
     const schemas: SchemxField[] = [baseField, groupField]
+
     expect(findSchema(schemas, "nonexistent")).toBeUndefined()
   })
 })

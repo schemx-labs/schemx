@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest"
 
-import { batchUpdates, createSignalEffect, createSignal, createSignalMap } from "../index"
+import { batchUpdates, createSignal, createSignalEffect, createSignalMap } from "../index"
 
 // ReactiveMap 的基础读写、迭代、延迟追踪、批量更新和删除通知
 describe("ReactiveMap", () => {
@@ -64,7 +64,9 @@ describe("ReactiveMap", () => {
 
   it("tracks keys that are created after an effect reads them", () => {
     const map = createSignalMap<string, unknown>()
+
     let runs = 0
+
     let latest: unknown
 
     const dispose = createSignalEffect(() => {
@@ -85,9 +87,11 @@ describe("ReactiveMap", () => {
 
   it("batches multiple reactive writes", () => {
     const map = createSignalMap<string, number>()
+
     map.set("count", 0)
 
     let runs = 0
+
     let isFirst = true
 
     const dispose = createSignalEffect(() => {
@@ -113,9 +117,11 @@ describe("ReactiveMap", () => {
 
   it("notifies subscribers when a key is deleted", () => {
     const map = createSignalMap<string, number>()
+
     map.set("count", 0)
 
     let runs = 0
+
     let latest: number | undefined
 
     const dispose = createSignalEffect(() => {
@@ -139,9 +145,11 @@ describe("ReactiveMap", () => {
 describe("reactivity runtime", () => {
   it("creates signals and batches updates", () => {
     const count = createSignal(0)
+
     const seen: number[] = []
 
     const map = createSignalMap<string, number>()
+
     map.set("count", count.value)
     const dispose = createSignalEffect(() => {
       seen.push(map.get("count") ?? 0)

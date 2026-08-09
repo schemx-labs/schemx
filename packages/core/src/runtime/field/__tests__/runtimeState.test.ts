@@ -9,11 +9,12 @@
  */
 
 import { describe, expect, it } from "vitest"
+
 import {
   createFieldRuntimeState,
-  setFieldStaticSchema,
-  setFieldDynamicOverrides,
   resetFieldDynamicOverrides,
+  setFieldDynamicOverrides,
+  setFieldStaticSchema,
 } from "../runtimeState"
 
 import type { SchemxResolvedBaseField } from "../../../types"
@@ -36,11 +37,20 @@ function createTestSchema(
   } as SchemxResolvedBaseField
 }
 
+function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
+  if (!state.diagnostics) {
+    throw new Error("diagnostics 未启用")
+  }
+
+  return state.diagnostics.value
+}
+
 // 字段运行态各层次的创建与初始状态
 describe("FieldRuntimeState", () => {
   describe("createFieldRuntimeState", () => {
     it("应该创建包含所有层次的字段运行态", () => {
       const schema = createTestSchema()
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -67,6 +77,7 @@ describe("FieldRuntimeState", () => {
 
     it("初始 staticSchema 应该等于传入的静态 schema", () => {
       const schema = createTestSchema({ label: "用户名" })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -96,8 +107,8 @@ describe("FieldRuntimeState", () => {
         staticSchema: createTestSchema(),
       })
 
-      expect(state.diagnostics!.value.lastUpdatedBy).toBe("static-schema")
-      expect(state.diagnostics!.value.version).toBe(0)
+      expect(readDiagnostics(state).lastUpdatedBy).toBe("static-schema")
+      expect(readDiagnostics(state).version).toBe(0)
     })
   })
 
@@ -109,6 +120,7 @@ describe("FieldRuntimeState", () => {
         disabled: false,
         required: true,
       })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -126,6 +138,7 @@ describe("FieldRuntimeState", () => {
 
     it("动态覆盖应该覆盖静态 schema", () => {
       const schema = createTestSchema({ visible: true, disabled: false })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -210,6 +223,7 @@ describe("FieldRuntimeState", () => {
 
     it("部分动态覆盖不应影响未覆盖的静态属性", () => {
       const schema = createTestSchema({ visible: true, disabled: false, readonly: false })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -237,6 +251,7 @@ describe("FieldRuntimeState", () => {
   describe("setFieldStaticSchema", () => {
     it("应该更新 staticSchema", () => {
       const schema = createTestSchema({ label: "旧标签" })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -245,6 +260,7 @@ describe("FieldRuntimeState", () => {
       })
 
       const newSchema = createTestSchema({ label: "新标签" })
+
       setFieldStaticSchema(state, {
         name: "email" as any,
         staticSchema: newSchema,
@@ -255,6 +271,7 @@ describe("FieldRuntimeState", () => {
 
     it("应该更新 effectiveSchema.name", () => {
       const schema = createTestSchema({ label: "旧标签" })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -272,6 +289,7 @@ describe("FieldRuntimeState", () => {
 
     it("更新 staticSchema 不应清空 dynamicOverrides", () => {
       const schema = createTestSchema({ visible: true })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -289,6 +307,7 @@ describe("FieldRuntimeState", () => {
       )
 
       const newSchema = createTestSchema({ visible: true, label: "新标签" })
+
       setFieldStaticSchema(state, {
         name: "email" as any,
         staticSchema: newSchema,
@@ -302,6 +321,7 @@ describe("FieldRuntimeState", () => {
 
     it("应该更新 diagnostics", () => {
       const schema = createTestSchema()
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -309,14 +329,15 @@ describe("FieldRuntimeState", () => {
         staticSchema: schema,
       })
 
-      const prevVersion = state.diagnostics!.value.version
+      const prevVersion = readDiagnostics(state).version
+
       setFieldStaticSchema(state, {
         name: "email" as any,
         staticSchema: createTestSchema({ label: "新" }),
       })
 
-      expect(state.diagnostics!.value.lastUpdatedBy).toBe("static-schema")
-      expect(state.diagnostics!.value.version).toBe(prevVersion + 1)
+      expect(readDiagnostics(state).lastUpdatedBy).toBe("static-schema")
+      expect(readDiagnostics(state).version).toBe(prevVersion + 1)
     })
   })
 
@@ -358,7 +379,8 @@ describe("FieldRuntimeState", () => {
         }
       )
 
-      const diag = state.diagnostics!.value
+      const diag = readDiagnostics(state)
+
       expect(diag.lastUpdatedBy).toBe("dependencies")
       expect(diag.triggerFields).toEqual(["country", "city"])
       expect(diag.overriddenKeys).toContain("visible")
@@ -433,11 +455,12 @@ describe("FieldRuntimeState", () => {
       )
       resetFieldDynamicOverrides(state, "dispose")
 
-      expect(state.diagnostics!.value.lastUpdatedBy).toBe("dispose")
+      expect(readDiagnostics(state).lastUpdatedBy).toBe("dispose")
     })
 
     it("不应修改 staticSchema", () => {
       const schema = createTestSchema({ label: "原始标签" })
+
       const state = createFieldRuntimeState({
         nodeId: 1,
         key: "field-1",
@@ -464,6 +487,7 @@ describe("FieldRuntimeState", () => {
 describe("effectiveSchema 合并逻辑 (US1)", () => {
   it("应该合并静态 schema、动态覆盖和默认值", () => {
     const formatRule = { validate: () => ({ valid: true }) as const }
+
     const schema = createTestSchema({
       label: "邮箱",
       visible: true,
@@ -474,6 +498,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       componentProps: { type: "email" } as any,
       rules: [formatRule],
     })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -499,8 +524,11 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
 
   it("动态覆盖 rules 应覆盖静态 rules", () => {
     const staticRule = { validate: () => ({ valid: true }) as const }
+
     const dynamicRule = { validate: () => ({ valid: false, issues: [] }) as const }
+
     const schema = createTestSchema({ rules: [staticRule] })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -522,6 +550,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
 
   it("动态覆盖 componentProps 应覆盖静态 componentProps", () => {
     const schema = createTestSchema({ componentProps: { size: "small" } as any })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -543,6 +572,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
 
   it("effectiveSchema 应反映动态覆盖的合并结果", () => {
     const schema = createTestSchema({ visible: true, label: "原始" })
+
     const state = createFieldRuntimeState({
       nodeId: 1,
       key: "field-1",
@@ -560,6 +590,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     )
 
     const effective = state.effectiveSchema.value
+
     expect(effective.visible).toBe(false)
     // label 不是动态覆盖 key，应保持静态值
   })

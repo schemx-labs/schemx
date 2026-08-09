@@ -15,7 +15,9 @@ import { createScheduler } from "../scheduler"
 describe("createAbortableTaskRunner", () => {
   it("run 应通过 scheduler 跟踪任务并提交成功结果", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const onSuccess = vi.fn()
 
     const runner = createAbortableTaskRunner({
@@ -33,6 +35,7 @@ describe("createAbortableTaskRunner", () => {
 
   it("run 应返回当前任务的执行结果", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
 
     const runner = createAbortableTaskRunner({
@@ -46,8 +49,11 @@ describe("createAbortableTaskRunner", () => {
 
   it("run 应在任务执行前提交当前 AbortController", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const onStart = vi.fn()
+
     let observedSignal: AbortSignal | undefined
 
     const runner = createAbortableTaskRunner({
@@ -55,6 +61,7 @@ describe("createAbortableTaskRunner", () => {
       scheduler,
       run: (signal) => {
         observedSignal = signal
+
         return "result"
       },
       onStart,
@@ -68,9 +75,13 @@ describe("createAbortableTaskRunner", () => {
 
   it("新的 run 应 abort 旧 run，旧结果不应提交", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const onSuccess = vi.fn()
+
     let resolveFirst!: (value: string) => void
+
     let runCount = 0
 
     const runner = createAbortableTaskRunner({
@@ -91,6 +102,7 @@ describe("createAbortableTaskRunner", () => {
     })
 
     const firstRun = runner.run()
+
     const secondRun = runner.run()
 
     resolveFirst("first")
@@ -103,7 +115,9 @@ describe("createAbortableTaskRunner", () => {
 
   it("被替代但永不 settle 的旧任务不会阻塞 scheduler idle", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     let runCount = 0
 
     const runner = createAbortableTaskRunner({
@@ -128,8 +142,11 @@ describe("createAbortableTaskRunner", () => {
 
   it("scope dispose 后不应提交成功或错误结果", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const onSuccess = vi.fn()
+
     const onError = vi.fn()
 
     const runner = createAbortableTaskRunner({
@@ -137,6 +154,7 @@ describe("createAbortableTaskRunner", () => {
       scheduler,
       run: async () => {
         scope.dispose()
+
         return "late"
       },
       onSuccess,
@@ -152,9 +170,13 @@ describe("createAbortableTaskRunner", () => {
 
   it("只应提交最新任务的错误", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const onError = vi.fn()
+
     let rejectFirst!: (cause: unknown) => void
+
     let runCount = 0
 
     const runner = createAbortableTaskRunner({
@@ -175,6 +197,7 @@ describe("createAbortableTaskRunner", () => {
     })
 
     const firstRun = runner.run()
+
     const secondRun = runner.run()
 
     rejectFirst(new Error("first"))
@@ -188,8 +211,11 @@ describe("createAbortableTaskRunner", () => {
 
   it("dispose 后 run 不再执行任务", async () => {
     const scope = createRuntimeScope()
+
     const scheduler = createScheduler()
+
     const run = vi.fn(() => "result")
+
     const onSuccess = vi.fn()
 
     const runner = createAbortableTaskRunner({

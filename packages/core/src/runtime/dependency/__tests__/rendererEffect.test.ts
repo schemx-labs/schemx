@@ -9,12 +9,13 @@
 
 import { describe, expect, it, vi } from "vitest"
 
+import * as dependencyModule from "../index"
+
 import {
   createRawFieldSchema,
   createRuntimeGraphHarness,
   flushRuntimeGraph,
 } from "./dependencyRuntimeTestUtils"
-import * as dependencyModule from "../index"
 
 // 依赖渲染器（dependency effect）的核心行为：子 schema 渲染与提交
 describe("dependency renderer effect", () => {
@@ -25,6 +26,7 @@ describe("dependency renderer effect", () => {
 
   it("renderer 返回的子 schema 会编译后通过 commit boundary 写入 dependency childNodes", async () => {
     const renderer = vi.fn().mockResolvedValue([createRawFieldSchema("child", "child")])
+
     const { commitSchemas, root, scheduler } = createRuntimeGraphHarness()
 
     commitSchemas(root, [
@@ -37,9 +39,11 @@ describe("dependency renderer effect", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
+
     expect(dependency.childNodes.value).toHaveLength(1)
     expect(dependency.childNodes.value[0]?.key).toBe("child")
     expect(dependency.childNodes.value[0]?.type).toBe("field")
@@ -64,6 +68,7 @@ describe("dependency renderer effect", () => {
         },
       ]
     })
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { orderType: "standard" }
@@ -82,6 +87,7 @@ describe("dependency renderer effect", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     expect(dependency?.type).toBe("dependency")
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
@@ -94,6 +100,7 @@ describe("dependency renderer effect", () => {
     if (group?.type !== "group") {
       throw new Error("expected group node")
     }
+
     expect(group.childNodes.value.map((child) => child.key)).toEqual([
       "field:group:0/expressLevel",
     ])
@@ -101,7 +108,9 @@ describe("dependency renderer effect", () => {
 
   it("renderer 返回相同 child schema 引用时应复用节点配置", async () => {
     const childSchema = createRawFieldSchema("child", "child")
+
     const renderer = vi.fn(() => [childSchema])
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { mode: "a" }
@@ -117,11 +126,13 @@ describe("dependency renderer effect", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
 
     const firstChild = dependency.childNodes.value[0]
+
     const firstConfigToken = firstChild?.configToken
 
     formApi.setValue("mode" as any, "b")
@@ -133,7 +144,9 @@ describe("dependency renderer effect", () => {
 
   it("外部 compiler 失效后 renderer 应复用子节点并更新配置", async () => {
     const childSchema = createRawFieldSchema("child", "child")
+
     const renderer = vi.fn(() => [childSchema])
+
     const { commitSchemas, context, formApi, root, scheduler } =
       createRuntimeGraphHarness({}, { mode: "a" })
 
@@ -147,11 +160,13 @@ describe("dependency renderer effect", () => {
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
+
     if (dependency?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
 
     const firstChild = dependency.childNodes.value[0]
+
     const firstConfigToken = firstChild?.configToken
 
     context.compile.invalidate()
@@ -170,6 +185,7 @@ describe("dependency renderer effect", () => {
       .fn()
       .mockResolvedValueOnce([createRawFieldSchema("child", "child")])
       .mockResolvedValueOnce([])
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { mode: "a" }
@@ -188,6 +204,7 @@ describe("dependency renderer effect", () => {
     if (root.childNodes.value[0]?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
+
     expect(root.childNodes.value[0].childNodes.value).toHaveLength(1)
 
     formApi.setValue("mode" as any, "b")
@@ -198,11 +215,14 @@ describe("dependency renderer effect", () => {
 
   it("失败的 renderer 不会覆盖上一次成功提交的 dependency children", async () => {
     const error = new Error("boom")
+
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
     const renderer = vi
       .fn()
       .mockResolvedValueOnce([createRawFieldSchema("stable", "stable")])
       .mockRejectedValueOnce(error)
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { mode: "a" }
@@ -225,6 +245,7 @@ describe("dependency renderer effect", () => {
       if (root.childNodes.value[0]?.type !== "dependency") {
         throw new Error("expected dependency node")
       }
+
       expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual([
         "stable",
       ])
@@ -239,14 +260,17 @@ describe("dependency renderer effect", () => {
 
   it("旧 renderer 晚于新 renderer 完成时不会覆盖最新 dependency children", async () => {
     let resolveSlowRenderer!: (schemas: any[]) => void
+
     const slowRenderer = new Promise<any[]>((resolve) => {
       resolveSlowRenderer = resolve
     })
+
     const renderer = vi
       .fn()
       .mockResolvedValueOnce([createRawFieldSchema("initial", "initial")])
       .mockImplementationOnce(() => slowRenderer)
       .mockResolvedValueOnce([createRawFieldSchema("latest", "latest")])
+
     const { commitSchemas, formApi, root, scheduler } = createRuntimeGraphHarness(
       {},
       { mode: "initial" }
@@ -274,6 +298,7 @@ describe("dependency renderer effect", () => {
     if (root.childNodes.value[0]?.type !== "dependency") {
       throw new Error("expected dependency node")
     }
+
     expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual([
       "latest",
     ])

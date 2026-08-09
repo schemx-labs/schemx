@@ -10,8 +10,8 @@
 import type { App } from "vue"
 
 import FormItem from "./components/FormItem"
-import SchemxForm from "./formRuntime.js"
 import { provideSchemxAppConfig } from "./config"
+import SchemxForm from "./formRuntime.js"
 
 import type { SchemxConfig } from "@schemx/core"
 

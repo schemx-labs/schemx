@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest"
 
-import { createPresentationRuntimeState } from "../../presentation"
+import { createComputed } from "../../../reactivity"
 import { createFieldRuntimeState, setFieldDynamicOverrides } from "../../field"
 import {
   createDependencyRuntimeNode,
@@ -17,19 +17,19 @@ import {
   createRootRuntimeNode,
 } from "../../node/runtimeNode"
 import { createScope } from "../../node/scope"
-import { createComputed } from "../../../reactivity"
+import { createPresentationRuntimeState } from "../../presentation"
 import {
   createRootRuntimeViewState,
   createRuntimeViewState,
   deleteRuntimeViewState,
 } from "../createViewState"
 
+import type { SchemxResolvedBaseField } from "../../../types"
 import type {
   DependencyRuntimeNodeInput,
   FieldRuntimeNodeInput,
   GroupRuntimeNodeInput,
 } from "../../node"
-import type { SchemxResolvedBaseField } from "../../../types"
 
 // 验证 createViewState 对各类 RuntimeNode 的 viewState 创建、更新与删除。
 describe("createViewState", () => {
@@ -43,6 +43,7 @@ describe("createViewState", () => {
 
   it("为 field 创建并注册 field viewState", () => {
     const input = createFieldInput()
+
     const node = createFieldRuntimeNode({ id: 1, input, dispose: createScope() })
 
     node.fieldState = createFieldRuntimeState({
@@ -60,7 +61,9 @@ describe("createViewState", () => {
 
   it("field viewState 跟随 effectiveSchema computed 更新", () => {
     const input = createFieldInput({ label: "姓名", visible: true })
+
     const node = createFieldRuntimeNode({ id: 1, input, dispose: createScope() })
+
     const runtimeState = createFieldRuntimeState({
       nodeId: node.id,
       key: node.key,
@@ -86,7 +89,9 @@ describe("createViewState", () => {
     const componentProps = Object.assign(Object.create({ inherited: true }), {
       "data-test": "field",
     })
+
     const input = createFieldInput({ componentProps: componentProps as never })
+
     const node = createFieldRuntimeNode({ id: 1, input, dispose: createScope() })
 
     node.fieldState = createFieldRuntimeState({
@@ -105,7 +110,9 @@ describe("createViewState", () => {
 
   it("为 group 创建并注册 group viewState", () => {
     const input = createGroupInput()
+
     const node = createGroupRuntimeNode({ id: 1, input, dispose: createScope() })
+
     node.presentationState = createPresentationRuntimeState({
       nodeId: node.id,
       staticState: node.staticState,
@@ -125,6 +132,7 @@ describe("createViewState", () => {
       input: createGroupInput(),
       dispose: createScope(),
     })
+
     node.presentationState = createPresentationRuntimeState({
       nodeId: node.id,
       staticState: node.staticState,
@@ -141,16 +149,19 @@ describe("createViewState", () => {
 
   it("group 和 dependency viewState 透明组合 children viewSchemas", () => {
     const root = createRootRuntimeNode({ dispose: createScope() })
+
     const group = createGroupRuntimeNode({
       id: 1,
       input: createGroupInput(),
       dispose: createScope(),
     })
+
     const dependency = createDependencyRuntimeNode({
       id: 2,
       input: createDependencyInput(),
       dispose: createScope(),
     })
+
     const field = createFieldRuntimeNode({
       id: 3,
       input: createFieldInput(),

@@ -17,12 +17,15 @@ import {
 describe("createReconciler", () => {
   it("创建、复用并按最新 schema 排列子节点", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
+
     const firstSchema = createRawFieldSchema("name", "name")
+
     const secondSchema = createRawFieldSchema("email", "email")
 
     commitSchemas(root, [firstSchema, secondSchema])
 
     const nameNode = root.childNodes.value[0]
+
     const emailNode = root.childNodes.value[1]
 
     commitSchemas(root, [secondSchema, firstSchema])
@@ -95,6 +98,7 @@ describe("createReconciler", () => {
 
   it("拒绝嵌套的重复字段名，并保留当前子树", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
+
     const current = createRawFieldSchema("current", "current")
 
     commitSchemas(root, [current])
