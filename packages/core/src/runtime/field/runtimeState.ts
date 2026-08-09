@@ -1,9 +1,9 @@
 /**
  * FieldRuntimeState - 字段运行态。
  *
- * 将字段呈现态拆分为静态 schema、动态覆盖、有效状态和视图状态四个层次，
- * 让静态 schema 更新和动态属性更新走不同入口，便于 dependencies、validation
- * 和 view 模块按需读取对应层次。
+ * 将字段呈现态拆分为静态 schema、动态覆盖和有效状态三个层次。
+ * 静态 schema 更新不会隐式清除 dependencies 覆盖；下游 validation 与 view
+ * 仅订阅自己需要的有效切片，避免展示属性变化触发无关校验。
  *
  * @module core/runtime/field/runtimeState
  */
@@ -28,6 +28,9 @@ import type { PresentationState } from "../presentation/state"
 
 /**
  * 字段动态覆盖支持的属性 key。
+ *
+ * 仅列出 dependencies 可以替换的展示与校验属性；字段身份、渲染器类型和
+ * 校验触发器始终由静态 schema 决定。
  */
 export type FieldDynamicOverrideKey =
   | "componentProps"
@@ -51,26 +54,34 @@ export type FieldDynamicOverrides<TValues extends Values = Values> = Partial<
 
 /**
  * 字段运行时诊断信息。
+ *
+ * 仅在 debug 模式创建，用于暴露最近一次运行态变更，不能作为业务状态使用。
  */
 export interface FieldRuntimeDiagnostics<TValues extends Values = Values> {
   /**
-   * 最近一次更新来源
+   * 最近一次更新来源。
    */
   readonly lastUpdatedBy: "static-schema" | "dependencies" | "reset" | "dispose"
   /**
-   * 运行态更新版本
+   * 运行态更新版本。
+   *
+   * 每次 static schema、动态覆盖或重置写入时递增。
    */
   readonly version: number
   /**
-   * 最近一次 dependencies 触发字段
+   * 最近一次 dependencies 触发字段。
+   *
+   * 静态更新与重置没有触发字段，使用空数组。
    */
   readonly triggerFields: readonly NamePath<TValues>[]
   /**
-   * 最近一次动态覆盖涉及的 key
+   * 最近一次动态覆盖涉及的 key。
    */
   readonly overriddenKeys: readonly FieldDynamicOverrideKey[]
   /**
-   * 最近一次解析错误
+   * 最近一次解析错误。
+   *
+   * 依赖解析成功或运行态重置后恢复为 null。
    */
   readonly error: Error | null
 }
@@ -79,6 +90,8 @@ export interface FieldRuntimeDiagnostics<TValues extends Values = Values> {
  * 字段有效呈现态。
  *
  * 合并静态 schema、动态覆盖和默认值后的最终字段状态。
+ *
+ * View 层消费完整配置；Validator 只消费 FieldValidationSchema，以隔离纯展示更新。
  */
 export interface FieldEffectiveSchema<TValues extends Values = Values> {
   /** 字段运行时稳定 key。 */
@@ -130,29 +143,34 @@ export interface FieldValidationSchema<TValues extends Values = Values> {
 /**
  * 字段运行态。
  *
- * 拆分静态 schema、动态覆盖、有效状态和视图状态，让不同模块按需读取。
+ * staticSchema 与 dynamicOverrides 是唯一可写来源；effectiveSchema 与
+ * validationSchema 均为派生值，不应由调用方直接缓存或修改。
  */
 export interface FieldRuntimeState<TValues extends Values = Values> {
   /**
-   * 字段当前 name path
+   * 字段当前 name path。
    */
   readonly name: Signal<NamePath<TValues>>
   /**
-   * 来自 descriptor 的规范化静态字段 schema
+   * 来自编译阶段的规范化静态字段 schema。
    */
   readonly staticSchema: Signal<SchemxResolvedBaseField<TValues>>
   /**
-   * 来自 dependencies 的动态覆盖
+   * 来自 dependencies 的动态覆盖。
+   *
+   * 缺失属性保留静态值，空对象表示没有动态覆盖。
    */
   readonly dynamicOverrides: Signal<FieldDynamicOverrides<TValues>>
   /**
-   * 合并静态 schema、动态覆盖和默认值的有效字段状态
+   * 合并静态 schema、动态覆盖和默认值的完整字段状态。
    */
   readonly effectiveSchema: ComputedSignal<FieldEffectiveSchema<TValues>>
   /** 校验 effect 订阅的稳定配置切片。 */
   readonly validationSchema: ComputedSignal<FieldValidationSchema<TValues>>
   /**
-   * 运行时诊断信息
+   * 运行时诊断信息。
+   *
+   * 非 debug 模式不分配该 Signal。
    */
   readonly diagnostics?: Signal<FieldRuntimeDiagnostics<TValues>>
 }
@@ -162,11 +180,15 @@ export interface FieldRuntimeState<TValues extends Values = Values> {
  */
 export interface CreateFieldRuntimeStateOptions<TValues extends Values = Values> {
   /**
-   * 节点 ID
+   * 节点 ID。
+   *
+   * 仅用于 Signal 调试名称，不参与字段身份比较。
    */
   readonly nodeId: number
   /**
-   * 节点 key
+   * 节点 key。
+   *
+   * 运行期稳定，用于 ViewSchema 与渲染列表的 key。
    */
   readonly key: string
   /** 字段名。 */
@@ -175,6 +197,8 @@ export interface CreateFieldRuntimeStateOptions<TValues extends Values = Values>
   readonly staticSchema: SchemxResolvedBaseField<TValues>
   /**
    * 祖先 Group/Dependency 合并后的有效容器状态。
+   *
+   * 字段自身的动态覆盖优先于该状态。
    */
   readonly inheritedState?: ComputedSignal<PresentationState>
   /** 仅 debug 模式创建 diagnostics Signal。 */
@@ -185,13 +209,14 @@ export interface CreateFieldRuntimeStateOptions<TValues extends Values = Values>
  * 创建字段运行态。
  *
  * @param options - 创建选项
- * @returns 新创建的 FieldRuntimeState
+ * @returns 返回拥有独立 Signal 与 Computed 的字段运行态。
  */
 export function createFieldRuntimeState<TValues extends Values>(
   options: CreateFieldRuntimeStateOptions<TValues>
 ): FieldRuntimeState<TValues> {
   const { key, name, nodeId, staticSchema: initialStaticSchema } = options
 
+  // 容器态只在读取 Computed 时展开，避免复制祖先配置。
   const inheritedState = options.inheritedState
 
   const staticSchema = createSignal<SchemxResolvedBaseField<TValues>>(
@@ -216,8 +241,10 @@ export function createFieldRuntimeState<TValues extends Values>(
     name: `field:${nodeId}:name`,
   })
 
+  // 保持校验切片引用稳定，纯展示更新不应重新驱动 Validator。
   let previousValidationSchema: FieldValidationSchema<TValues> | undefined
 
+  // 仅计算 Validator 真正依赖的字段属性。
   const validationSchema = createComputed<FieldValidationSchema<TValues>>(() => {
     const base = staticSchema.value
 
@@ -252,6 +279,7 @@ export function createFieldRuntimeState<TValues extends Values>(
     return nextValidationSchema
   })
 
+  // 为 View 层组合完整字段属性与最终 Renderer Props。
   const effectiveSchema = createComputed<FieldEffectiveSchema<TValues>>(() => {
     const base = staticSchema.value
 
@@ -271,7 +299,7 @@ export function createFieldRuntimeState<TValues extends Values>(
       base.readonlyPlaceholder
     )
 
-    // 合并静态 schema 与动态覆盖：动态覆盖优先，未覆盖的 key 回退到静态值，静态值再回退到默认值
+    // 动态覆盖优先；未覆盖属性依次回退到静态值与运行时默认值。
     return {
       key,
       name: nameSignal.value,
@@ -300,7 +328,7 @@ export function createFieldRuntimeState<TValues extends Values>(
   }
 }
 
-/** 比较校验切片，保持无关展示更新时的 computed identity。 */
+/** 比较校验切片，避免无关展示更新改变 Computed 引用。 */
 function isValidationSchemaEqual<TValues extends Values>(
   previous: FieldValidationSchema<TValues>,
   next: FieldValidationSchema<TValues>
@@ -315,7 +343,7 @@ function isValidationSchemaEqual<TValues extends Values>(
   )
 }
 
-/** 比较规则引用；数组按元素引用比较以避免空规则数组造成无效更新。 */
+/** 比较规则引用；数组逐项比较以避免新建空数组造成无效更新。 */
 function areFieldRulesEqual<TValues extends Values>(
   previous: FieldRules<TValues, NamePath<TValues>>,
   next: FieldRules<TValues, NamePath<TValues>>
@@ -327,7 +355,7 @@ function areFieldRulesEqual<TValues extends Values>(
   return previous.length === next.length && previous.every((rule, index) => rule === next[index])
 }
 
-/** 无动态覆盖时保留 componentProps 原始引用与原型。 */
+/** 合并 Renderer Props；无覆盖时保留静态对象引用与原型。 */
 function resolveComponentProps<TValues extends Values>(
   staticProps: SchemxComponentProps<TValues> | undefined,
   dynamicProps: SchemxComponentProps<TValues> | undefined,
@@ -348,7 +376,7 @@ function resolveComponentProps<TValues extends Values>(
 /**
  * 更新字段静态 schema。
  *
- * 只更新 staticSchema 和 diagnostics，不清空 dynamicOverrides。
+ * 不清空 dynamicOverrides，确保 Schema 热更新不会撤销仍有效的依赖结果。
  *
  * @param state - 字段运行态
  * @param config - 最新字段配置
@@ -398,8 +426,8 @@ export interface DynamicOverrideMeta<TValues extends Values = Values> {
 /**
  * 写入字段动态覆盖。
  *
- * 只写入 dependencies 明确解析出的覆盖 key。空对象表示当前没有动态覆盖。
- * 写入后 effectiveSchema 和 Field View computed 自动失效。
+ * 只写入 dependencies 明确解析出的覆盖 key；空对象表示当前没有动态覆盖。
+ * 写入会使 effectiveSchema 与 Field View Computed 自动重新计算。
  *
  * @param state - 字段运行态
  * @param overrides - 动态覆盖值
@@ -429,7 +457,7 @@ export function setFieldDynamicOverrides<TValues extends Values>(
 /**
  * 重置字段动态覆盖。
  *
- * 清空 dynamicOverrides，更新 diagnostics，不修改 staticSchema。
+ * 清空 dynamicOverrides 并更新 diagnostics，不修改 staticSchema。
  *
  * @param state - 字段运行态
  * @param reason - 重置原因

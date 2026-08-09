@@ -1,4 +1,4 @@
-import { SchemxViewSchema } from "@schemx/core"
+import { isViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
 /**
  * 判断当前项是否为顶层可见普通字段所在区段的第一个或最后一个。
@@ -49,15 +49,6 @@ export function getSectionPosition<TItem extends SchemxViewSchema>(
   }
 }
 
-/**
- * 判断 schema 是否为 Group ViewSchema。
- */
-function isViewGroupSchema<TItem extends SchemxViewSchema>(
-  item?: TItem
-): item is Extract<TItem, { children: readonly SchemxViewSchema[] }> {
-  return !!item && "children" in item
-}
-
 function isPositionItem<TItem extends SchemxViewSchema>(item?: TItem) {
   return !!item && !isViewGroupSchema(item) && item.visible !== false
 }
@@ -73,6 +64,8 @@ function hasPositionItemInSection<TItem extends SchemxViewSchema>(
     if (item.visible === false) {
       continue
     }
+
+    console.log(" > ~ hasPositionItemInSection ~ item:", item)
 
     if (isViewGroupSchema(item)) {
       return false

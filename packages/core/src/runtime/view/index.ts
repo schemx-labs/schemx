@@ -8,6 +8,8 @@
  */
 export { subscribeViewSchemas } from "./subscribeViewSchemas"
 
+export { isSchemxViewFieldSchema, isViewGroupSchema } from "./helper"
+
 export {
   createRuntimeViewState,
   createRootRuntimeViewState,

@@ -153,6 +153,7 @@ onUnmounted(stop)
 ## Features
 
 - `SchemxForm` 插件支持按 Vue App 隔离的安装配置；`app.use(SchemxForm, options)` 可配置 `schemaConfig`、`validatorAdapters`、`defaultRendererType`、`rendererRegistry` 和 `validationRuleRegistry`，不同 App 互不污染。
+- `FormItem` 新增字段级 `{name}Before` 与 `{name}After` 插槽，分别渲染在当前 Renderer 前后；插槽参数与字段内容插槽一致，可读取当前字段的 `value`、Renderer Props 和 `formItemProps`。
 - 配置优先级明确为表单显式配置 > App 安装配置 > Vue 模块默认注册表 > Core 全局配置 > Core 默认值；`validatorAdapters` 支持累积注册，并可通过 `{ adapter, override: true }` 覆盖同 ID 适配器。
 - FormGroup 状态契约得到扩展：支持 `visible`、`readonly`、`disabled`、受控 `collapsed`、`onCollapsedChange`、`destroyOnCollapse` 以及对应的 ARIA 属性和关联 ID。默认折叠时销毁内容，`destroyOnCollapse=false` 时保留内容并隐藏。
 - `FormItem` 将必填校验与 `showRequiredMark` 视觉标记分开处理；未显式设置标记时跟随 `required`，只读或禁用字段不显示标记且不参与交互校验。

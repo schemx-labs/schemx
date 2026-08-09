@@ -138,6 +138,7 @@ const schemas = [
 ## Features
 
 - 新增 createSignalWatch 与 createDebouncedSignalWatch，支持 immediate、once、equals、wait、edges，以及 run、cancel、flush、dispose 控制器。（影响范围：需要直接监听 Core Signal，或需要可取消、可手动触发的防抖监听逻辑的调用方。）
+- View 模块新增 `isViewGroupSchema` 与 `isSchemxViewFieldSchema` 类型守卫，并从 `@schemx/core` 根入口导出，可用于区分分组 ViewSchema 与可直接渲染的字段 ViewSchema。
 - Group 新增 `visible`、`readonly`、`disabled`、`dependencies`、`collapsible`、`defaultCollapsed`、`collapsed`、`onCollapsedChange` 和 `destroyOnCollapse` 等配置；容器状态会递归约束后代字段，隐藏后代会移出校验范围但保留表单值。
 - Dependency 支持动态子树及 `visible`、`readonly`、`disabled`、`dependencies` 状态；动态渲染器接收当前值、Form API 和 `AbortSignal` 上下文。
 - 新增 `configureSchemx`、`getGlobalSchemxConfig`、`mergeSchemxConfig`、`resolveSchemxConfig` 和 `mergeAndResolveSchemxConfig`。全局配置只影响后续创建的 Form，表单显式配置优先；合并函数可分别执行纯合并、默认值解析或两者组合。

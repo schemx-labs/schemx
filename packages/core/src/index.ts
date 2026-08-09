@@ -65,6 +65,8 @@ export type {
   SchemxViewSchema,
 } from "./runtime/view"
 
+export { isSchemxViewFieldSchema, isViewGroupSchema } from "./runtime/view"
+
 export { createField, type SchemxFieldInstance } from "./createField"
 
 export {

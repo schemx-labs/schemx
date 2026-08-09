@@ -85,13 +85,6 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
 ): RuntimeLifecycle<TValues> {
   const bus = context.lifecycleBus
 
-  return {
-    mount,
-    update,
-    unmount,
-    unmountSubtree,
-  }
-
   /**
    * 挂载节点并创建领域资源。
    *
@@ -273,6 +266,13 @@ export function createRuntimeLifecycle<TValues extends Values = Values>(
     } else if (node.type === "dependency") {
       unmountDependencyRuntime(node)
     }
+  }
+
+  return {
+    mount,
+    update,
+    unmount,
+    unmountSubtree,
   }
 }
 
