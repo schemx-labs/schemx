@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # workspace 目标公共 API。
-# 公开函数：workspace_discover_task_targets、workspace_discover_targets、
+# 公开函数：workspace_discover_task_targets、workspace_discover_targets、workspace_parse_batch_arguments、
 # workspace_select_target_identifiers、workspace_select_task_targets、workspace_task_label。
 # 内部函数：workspace__*（仅本文件使用）。
 
@@ -49,6 +49,27 @@ workspace__join_targets() {
     result+="$value"
   done
   printf '%s' "$result"
+}
+
+# 解析 workspace 有限任务共用的可选 target 和 --keep-going。
+# 参数：flag 可出现在 target 前后；最多允许一个 target。
+# 返回：成功时写入 WORKSPACE_BATCH_TARGET、WORKSPACE_BATCH_KEEP_GOING 和 WORKSPACE_BATCH_HELP。
+workspace_parse_batch_arguments() {
+  WORKSPACE_BATCH_TARGET=''
+  WORKSPACE_BATCH_KEEP_GOING=false
+  WORKSPACE_BATCH_HELP=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --keep-going) WORKSPACE_BATCH_KEEP_GOING=true ;;
+      -h | --help | help) WORKSPACE_BATCH_HELP=true ;;
+      -*) ui_status error "未知 workspace 选项：$1"; return 2 ;;
+      *)
+        [[ -z "$WORKSPACE_BATCH_TARGET" ]] || { ui_status error 'workspace 有限任务最多接受一个 target。'; return 2; }
+        WORKSPACE_BATCH_TARGET="$1"
+        ;;
+    esac
+    shift
+  done
 }
 
 # 按 scope:script 规则发现目标；`*` 表示该 scope 中的全部 package.json 目标。

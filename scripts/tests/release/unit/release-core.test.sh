@@ -10,6 +10,7 @@ source "$root_dir/scripts/workflow/domains/release/targets.sh"
 source "$root_dir/scripts/workflow/domains/release/versions.sh"
 source "$root_dir/scripts/workflow/domains/release/plan.sh"
 source "$root_dir/scripts/workflow/domains/release/preflight.sh"
+source "$root_dir/scripts/workflow/domains/release/publish.sh"
 
 assert_equals() {
   local actual="$1"
@@ -57,6 +58,15 @@ token_config="$(NPM_TOKEN=test-token preflight_create_npm_token_config)"
 [[ -f "$token_config" ]]
 [[ "$(<"$token_config")" == *'//registry.npmjs.org/:_authToken=test-token'* ]]
 rm -f "$token_config"
+
+publish_arguments_file="$(mktemp)"
+preflight_with_npm_token() {
+  printf '%s\n' "$@" > "$publish_arguments_file"
+}
+NPM_OTP=123456 publish_package '/tmp/schemx-core' next
+rg -qx -- '--otp' "$publish_arguments_file"
+rg -qx '123456' "$publish_arguments_file"
+rm -f "$publish_arguments_file"
 
 if versions_baseline 0.2.3 unknown >/dev/null; then
   printf '断言失败：未知版本动作不应生成基线。\n' >&2

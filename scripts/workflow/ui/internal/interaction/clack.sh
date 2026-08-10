@@ -7,31 +7,30 @@ set -o pipefail
 ui__clack_module="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/clack.mjs"
 
 # 将普通单选或多选参数编码为 Clack 使用的 JSON 请求文件。
-# 参数：$1 为交互类型，$2 为提示文本，$3 为输出文件，后续参数为 value:::label 选项。
+# 参数：$1 为交互类型，$2 为提示文本，$3 为输出文件，后续参数为 JSON 选项对象。
 # 返回：成功写入 JSON 时返回 0，否则返回 jq 的错误码。
 ui__clack_options_payload() {
   local kind="$1" message="$2" payload="$3"
   shift 3
-  jq -n --arg kind "$kind" --arg message "$message" --args '
-    {kind:$kind,message:$message,options:($ARGS.positional | map(split(":::") | {value:.[0],label:.[1]}))}
-  ' "$@" > "$payload"
+  printf '%s\n' "$@" | jq -s --arg kind "$kind" --arg message "$message" '{kind:$kind,message:$message,options:.}' > "$payload"
 }
 
 # 将分组选择参数编码为 Clack 的分组与选项 JSON 请求文件。
-# 参数：$1 为提示文本，$2 为输出文件，后续参数为 group:::id:::label 或 group:::value:::label。
+# 参数：$1 为提示文本，$2 为输出文件，后续参数为 JSON group 或 option 对象。
 # 返回：成功写入 JSON 时返回 0，否则返回 jq 的错误码。
 ui__clack_group_payload() {
   local message="$1" payload="$2"
   shift 2
-  jq -n --arg message "$message" --args '
-    ($ARGS.positional | map(split(":::"))) as $entries
-    | ($entries | map(select(.[0] == "group") | {key:.[1],value:.[2]}) | from_entries) as $groups
-    | (reduce $entries[] as $entry ({};
-        if $entry[0] == "group" then .[$entry[2]] = []
-        else .[$groups[$entry[0]]] += [{value:$entry[1],label:$entry[2]}]
-        end)) as $options
+  printf '%s\n' "$@" | jq -s --arg message "$message" '
+    (map(select(.kind == "group"))) as $groups
+    | (map(select(.kind == "option"))) as $entries
+    | (reduce $groups[] as $group ({}; .[$group.label] = [])) as $options
+    | (reduce $entries[] as $entry ($options;
+        ($groups | map(select(.id == $entry.group)) | .[0].label) as $group_label
+        | .[$group_label] += [{value:$entry.value,label:$entry.label}]
+      )) as $options
     | {kind:"groupMultiselect",message:$message,options:$options}
-  ' "$@" > "$payload"
+  ' > "$payload"
 }
 
 # 将文本输入参数编码为 Clack 请求文件。
@@ -100,6 +99,11 @@ ui__prompt_clack() {
     confirm) ui__clack_confirm_payload "$message" "$payload" ;;
     *) ui_status error "未知交互类型：${kind}"; rm -f "$payload" "$result"; return 2 ;;
   esac
+  code=$?
+  if [[ "$code" -ne 0 ]]; then
+    rm -f "$payload" "$result"
+    return "$code"
+  fi
   ui__clack_invoke "$payload" "$result"
   code=$?
   rm -f "$payload" "$result"

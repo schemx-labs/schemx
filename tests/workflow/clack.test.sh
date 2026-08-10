@@ -13,7 +13,9 @@ node -e 'import("@clack/prompts").then((module) => { if (typeof module.select !=
 payload_file="$(mktemp)"
 trap 'rm -f "$payload_file"' EXIT
 
-ui__clack_options_payload select '选择发布通道' "$payload_file" 'beta:::beta · 公开测试' 'latest:::latest'
+ui__clack_options_payload select '选择发布通道' "$payload_file" \
+  '{"value":"beta","label":"beta · 公开测试"}' \
+  '{"value":"latest","label":"latest"}'
 [[ "$(jq -r '.kind' "$payload_file")" == 'select' ]]
 [[ "$(jq -r '.message' "$payload_file")" == '选择发布通道' ]]
 [[ "$(jq -r '.options[0].label' "$payload_file")" == 'beta · 公开测试' ]]
@@ -29,11 +31,11 @@ ui__clack_confirm_payload '确认发布？' "$payload_file"
 [[ "$(jq -r '.message' "$payload_file")" == '确认发布？' ]]
 
 ui__clack_group_payload '选择工作区目标' "$payload_file" \
-  'group:::packages:::Packages' \
-  'packages:::packages/core:::core' \
-  'packages:::packages/vue:::vue' \
-  'group:::plugins:::Plugins' \
-  'plugins:::plugins/vite:::vite'
+  '{"kind":"group","id":"packages","label":"Packages"}' \
+  '{"kind":"option","group":"packages","value":"packages/core","label":"core"}' \
+  '{"kind":"option","group":"packages","value":"packages/vue","label":"vue"}' \
+  '{"kind":"group","id":"plugins","label":"Plugins"}' \
+  '{"kind":"option","group":"plugins","value":"plugins/vite","label":"vite"}'
 [[ "$(jq -r '.kind' "$payload_file")" == 'groupMultiselect' ]]
 [[ "$(jq -r '.options.packages[0].value' "$payload_file")" == 'packages/core' ]]
 [[ "$(jq -r '.options.packages[1].label' "$payload_file")" == 'vue' ]]

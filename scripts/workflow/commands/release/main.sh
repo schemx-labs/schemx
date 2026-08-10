@@ -36,10 +36,10 @@ release_usage() {
   bash scripts/workflow.sh release plan <channel> <target> <version-action> [--output <file>]
   bash scripts/workflow.sh release dry-run <channel> <target> <version-action>
   bash scripts/workflow.sh release publish [channel] [target] [version-action]
-  bash scripts/workflow.sh release check [channel] [target] [version-action]
-  bash scripts/workflow.sh release pack [target]
+  bash scripts/workflow.sh release check [channel] [target] [version-action] [--keep-going]
+  bash scripts/workflow.sh release pack [target] [--keep-going]
   bash scripts/workflow.sh release test
-  bash scripts/workflow.sh release verify <plan-file>
+  bash scripts/workflow.sh release verify <plan-file> [--keep-going]
   bash scripts/workflow.sh release execute <plan-file>
 
 channel：dev、alpha、beta、rc、next、latest
@@ -58,6 +58,22 @@ release_resolve_target() {
   }
 }
 
+# 解析有限 release 命令共用的 --keep-going，并保留原位置参数顺序。
+# 参数：待解析的 release 子命令参数。
+# 返回：成功时写入 RELEASE_POSITIONAL 和 RELEASE_KEEP_GOING；未知选项返回 2。
+release_parse_keep_going() {
+  RELEASE_POSITIONAL=()
+  RELEASE_KEEP_GOING=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --keep-going) RELEASE_KEEP_GOING=true ;;
+      -*) ui_status error "未知 release 选项：$1"; return 2 ;;
+      *) RELEASE_POSITIONAL+=("$1") ;;
+    esac
+    shift
+  done
+}
+
 
 # 解析 CLI 并执行发布计划或按冻结计划推进工作流。
 release_main() {
@@ -65,6 +81,8 @@ release_main() {
   local command="${1:-help}"
   # 计划输出路径。
   local plan_file=''
+  # 用于校验不支持 keep-going 的子命令参数。
+  local argument
   shift || true
 
   case "$command" in
@@ -102,24 +120,30 @@ release_main() {
       printf '%s\n' "$plan_file"
       ;;
     publish)
+      for argument in "$@"; do
+        [[ "$argument" != --keep-going ]] || { release_usage; return 2; }
+      done
       release_publish "$@"
       ;;
     check)
-      [[ $# -le 1 ]] || { release_usage; return 2; }
-      release_check "${1:-all}"
+      release_parse_keep_going "$@" || return
+      [[ "${#RELEASE_POSITIONAL[@]}" -le 3 ]] || { release_usage; return 2; }
+      release_check "${RELEASE_POSITIONAL[0]:-}" "${RELEASE_POSITIONAL[1]:-}" "${RELEASE_POSITIONAL[2]:-}" "$RELEASE_KEEP_GOING"
       ;;
     pack)
-      [[ $# -le 1 ]] || { release_usage; return 2; }
-      release_pack "${1:-all}"
+      release_parse_keep_going "$@" || return
+      [[ "${#RELEASE_POSITIONAL[@]}" -le 1 ]] || { release_usage; return 2; }
+      release_pack "${RELEASE_POSITIONAL[0]:-all}" "$RELEASE_KEEP_GOING"
       ;;
     test)
       [[ $# -eq 0 ]] || { release_usage; return 2; }
       release_test
       ;;
     verify)
-      [[ $# -eq 1 ]] || { release_usage; return 2; }
+      release_parse_keep_going "$@" || return
+      [[ "${#RELEASE_POSITIONAL[@]}" -eq 1 ]] || { release_usage; return 2; }
       ui_flow_begin --domain release --title '验证发布计划' --description '读取冻结计划并执行发布前检查。' || return
-      release_verify_plan "$1" || {
+      release_verify_plan "${RELEASE_POSITIONAL[0]}" "$RELEASE_KEEP_GOING" || {
         local exit_code=$?
         [[ "$exit_code" -eq 130 ]] && ui_flow_end cancelled '发布计划验证已取消。' || ui_flow_end failed '发布计划验证失败。'
         return "$exit_code"
@@ -127,7 +151,7 @@ release_main() {
       ui_flow_end success '发布计划验证完成。'
       ;;
     execute)
-      [[ $# -eq 1 ]] || { release_usage; return 2; }
+      [[ $# -eq 1 && "$1" != --keep-going ]] || { release_usage; return 2; }
       ui_flow_begin --domain release --title '执行发布' --description '消费冻结计划并执行发布步骤。' || return
       release_execute_plan "$1" || {
         local exit_code=$?
@@ -145,4 +169,6 @@ release_main() {
   esac
 }
 
-release_main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  release_main "$@"
+fi

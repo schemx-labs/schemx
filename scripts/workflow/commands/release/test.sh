@@ -9,7 +9,7 @@ release_run_tests() {
 
   while IFS=$'\t' read -r label test_file; do
     [[ -n "$label" && -n "$test_file" ]] || continue
-    ui_task --title "测试 ${label}" --log live -- bash "$workflow_root/$test_file" || return
+    ui_task --title "测试 ${label}" --log live -- env -u SCHEMX_UI_LAYOUT_STATE_FILE -u SCHEMX_UI_FLOW_ID -u SCHEMX_UI_GROUP_ID -u SCHEMX_UI_GROUP_DEPTH -u SCHEMX_UI_GROUP_ITEM_KEY -u SCHEMX_UI_RESOLVED_FORMAT bash "$workflow_root/$test_file" || return
   done < <(release_test_case_records)
 }
 
@@ -18,11 +18,13 @@ release_test() {
   [[ $# -eq 0 ]] || return 2
 
   ui_flow_begin --domain release --title '发布脚本测试' --description '运行发布流程、交互控件、工作区目标与 UI 渲染测试，不执行实际发布。' || return
-  ui_flow_group --title '测试任务' --description '测试套件保持无副作用；任一测试失败都会立即停止后续任务。' || return
+  ui_group_begin --title '测试任务' --description '测试套件保持无副作用；任一测试失败都会立即停止后续任务。' || return
   if release_run_tests; then
+    ui_group_end success '测试任务完成。' || return
     ui_flow_end success '发布脚本测试完成。'
   else
     local exit_code=$?
+    ui_group_end failed '测试任务失败。' || true
     ui_flow_end failed '发布脚本测试失败。'
     return "$exit_code"
   fi

@@ -4,31 +4,59 @@
 
 set -o pipefail
 
-# 按状态类型渲染单行 UI 反馈，自动选择 pretty 或 plain 输出。
-# 参数：$1 为行类型，$2 为颜色令牌，$3 为展示文本。
+# 按指定 group 深度渲染单行 UI 反馈，自动选择 pretty 或 plain 输出。
+# 参数：$1 为缩进深度，$2 为行类型，$3 为颜色令牌，$4 为展示文本。
 # 返回：渲染成功时返回 0，否则返回底层 Gum 或输出错误码。
-ui__render_line() {
-  local kind="$1"
-  local color="$2"
-  local message="$3"
+ui__render_line_at_depth() {
+  local depth="$1"
+  local kind="$2"
+  local color="$3"
+  local message="$4"
+  local indent=''
   local marker
   local content
 
+  printf -v indent '%*s' "$((depth * 2))" ''
   if ui__can_style; then
     marker="$(ui__symbol "$kind" "$color")" || return
     content="$(ui__text "$color" bold "$message")" || return
+    printf '%s' "$indent" >&2
     gum join -- "$(gum style --width 2 --align left -- "$marker")" ' ' "$content" >&2
   else
     case "$kind" in
-      note) ui__write_stderr "[说明] ${message}" ;;
-      task) ui__write_stderr "[任务] ${message}" ;;
-      success) ui__write_stderr "[成功] ${message}" ;;
-      warning) ui__write_stderr "[警告] ${message}" ;;
-      error) ui__write_stderr "[错误] ${message}" ;;
-      group) ui__write_stderr "--- ${message} ---" ;;
-      *) ui__write_stderr "$message" ;;
+      note) printf '%s[说明] %s\n' "$indent" "$message" >&2 ;;
+      task) printf '%s[任务] %s\n' "$indent" "$message" >&2 ;;
+      success) printf '%s[成功] %s\n' "$indent" "$message" >&2 ;;
+      warning) printf '%s[警告] %s\n' "$indent" "$message" >&2 ;;
+      error) printf '%s[错误] %s\n' "$indent" "$message" >&2 ;;
+      group) printf '%s--- %s ---\n' "$indent" "$message" >&2 ;;
+      *) printf '%s%s\n' "$indent" "$message" >&2 ;;
     esac
   fi
+}
+
+# 按当前 group 内容深度渲染单行 UI 反馈。
+# 参数：$1 为行类型，$2 为颜色令牌，$3 为展示文本。
+# 返回：渲染成功时返回 0，否则返回底层 Gum 或输出错误码。
+ui__render_line() {
+  local depth
+  depth="$(ui__group_depth)" || return
+  ui__render_line_at_depth "$depth" "$1" "$2" "$3"
+}
+
+# 为 plain 模式的多行内容逐行添加 group 缩进。
+# 参数：$1 为缩进深度，$2 为多行内容。
+# 返回：所有行写入 stderr 时返回 0，否则返回 printf 错误码。
+ui__render_plain_block() {
+  local depth="$1"
+  local content="$2"
+  local indent=''
+  local line
+
+  printf -v indent '%*s' "$((depth * 2))" ''
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s%s\n' "$indent" "$line" >&2 || return
+  done <<< "$content"
 }
 
 # 将多行原生命令输出逐行渲染为统一的日志块。
@@ -50,11 +78,13 @@ ui__render_block() {
 ui__render_card() {
   local border="$1"
   local content="$2"
+  local depth
+  depth="$(ui__group_depth)" || return
   if ui__can_style; then
     local color="$(ui__color "$border")" || return
-    gum style --border rounded --border-foreground "$color" --padding '1 2' --width 72 -- "$content" >&2
+    gum style --border rounded --border-foreground "$color" --padding '1 2' --margin "0 0 0 $((depth * 2))" --width 72 -- "$content" >&2
   else
-    ui__write_stderr "$content"
+    ui__render_plain_block "$depth" "$content"
   fi
 }
 
@@ -63,12 +93,24 @@ ui__render_card() {
 # 返回：渲染成功时返回 0，否则返回底层输出错误码。
 ui__render_command() {
   local command_text="$1"
+  local depth
+  local indent=''
+  depth="$(ui__group_depth)" || return
+  printf -v indent '%*s' "$((depth * 2))" ''
+  if [[ "$command_text" == '命令已隐藏' ]]; then
+    if ui__can_style; then
+      ui__render_card warning_border '命令已隐藏'
+    else
+      printf '%s[命令] 命令已隐藏\n' "$indent" >&2
+    fi
+    return
+  fi
   if ui__can_style; then
     local foreground="$(ui__color muted)" || return
     local border="$(ui__color rail)" || return
-    gum style --foreground "$foreground" --border rounded --border-foreground "$border" --padding '0 1' -- "\$ ${command_text}" >&2
+    gum style --foreground "$foreground" --border rounded --border-foreground "$border" --padding '0 1' --margin "0 0 0 $((depth * 2))" -- "\$ ${command_text}" >&2
   else
-    ui__write_stderr "[命令] ${command_text}"
+    printf '%s[命令] %s\n' "$indent" "$command_text" >&2
   fi
 }
 
@@ -101,20 +143,46 @@ ui__render_flow_start() {
   return 0
 }
 
-# 渲染流程内的分组标题和可选描述。
-# 参数：$1 为分组标题，$2 为描述文本。
+# 渲染流程内的分组开始标题和可选描述。
+# 参数：$1 为分组标题，$2 为描述文本，$3 为分组深度。
 # 返回：渲染成功时返回 0，否则返回底层输出错误码。
-ui__render_group() {
+ui__render_group_start() {
   local title="$1"
   local description="$2"
+  local depth="$3"
+  local header_depth=$((depth - 1))
   if ui__can_style; then
     local heading="$(ui__text group bold "$title")" || return
+    local indent=''
+    printf -v indent '%*s' "$((header_depth * 2))" ''
+    printf '%s' "$indent" >&2
     gum join -- "$(ui__symbol group group)" '  ' "$heading" >&2
   else
-    ui__render_line group group "$title"
+    ui__render_line_at_depth "$header_depth" group group "$title"
   fi
-  [[ -n "$description" ]] && ui__render_line note muted "$description"
+  [[ -n "$description" ]] && ui__render_line_at_depth "$depth" note muted "$description"
   return 0
+}
+
+# 渲染带状态和耗时的分组结束行。
+# 参数：依次为标题、success/failed/cancelled/skipped、摘要、耗时秒数和分组深度。
+# 返回：渲染成功时返回 0，否则返回底层输出错误码。
+ui__render_group_finish() {
+  local title="$1"
+  local status="$2"
+  local summary="$3"
+  local elapsed="$4"
+  local depth="$5"
+  local header_depth=$((depth - 1))
+  local message="${summary:-$title}（${elapsed}s）"
+
+  case "$status" in
+    success) ui__render_line_at_depth "$header_depth" success success "$message" ;;
+    failed) ui__render_line_at_depth "$header_depth" error error "$message" ;;
+    cancelled) ui__render_line_at_depth "$header_depth" warning warning "$message" ;;
+    skipped) ui__render_line_at_depth "$header_depth" warning muted "$message" ;;
+    *) return 2 ;;
+  esac
 }
 
 # 渲染带语义色调的摘要卡片。
@@ -132,8 +200,9 @@ ui__render_summary() {
     local heading="$(ui__text accent bold "$title")" || return
     ui__render_card "$border" "$(printf '%s\n%s' "$heading" "$content")"
   else
-    ui__write_stderr "--- ${title} ---"
-    ui__write_stderr "$content"
+    local depth
+    depth="$(ui__group_depth)" || return
+    ui__render_plain_block "$depth" "$(printf '%s\n%s' "--- ${title} ---" "$content")"
   fi
 }
 
@@ -160,6 +229,13 @@ ui__render_task_finish() {
     cancelled) ui__render_line warning warning "${title}已取消（${elapsed}s）" ;;
     *) ui__render_line error error "${title}（退出码 ${exit_code}，${elapsed}s）" ;;
   esac
+}
+
+# 渲染未执行任务及其跳过原因。
+# 参数：$1 为任务标题，$2 为跳过原因。
+# 返回：渲染成功时返回 0，否则返回底层输出错误码。
+ui__render_task_skip() {
+  ui__render_line warning muted "$1（已跳过：$2）"
 }
 
 # 将命令 argv 转换为可展示且具备必要单引号转义的文本。

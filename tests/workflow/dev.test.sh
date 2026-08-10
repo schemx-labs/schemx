@@ -29,4 +29,14 @@ selection_code=$?
 set -e
 [[ "$selection_code" -eq 2 ]]
 
+# 非交互 dev 必须显式指定一个目标，并拒绝 all。
+set +e
+CI=true SCHEMX_WORKFLOW_TARGETS= SCHEMX_WORKFLOW_TARGET= workspace_dev_select_targets "$root_dir" >/dev/null 2>/dev/null
+missing_target_code=$?
+CI=true workspace_dev_select_targets "$root_dir" all >/dev/null 2>/dev/null
+all_target_code=$?
+set -e
+[[ "$missing_target_code" -eq 2 ]]
+[[ "$all_target_code" -eq 2 ]]
+
 printf 'dev.test.sh: 通过\n'

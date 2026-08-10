@@ -141,7 +141,7 @@ packages__pack_local_execute() {
   mkdir -p "$pack_directory" || return
   if [[ -z "${SCHEMX_PACK_VERSION_PRESET:-}" ]]; then
     pack_backup_directory="$(mktemp -d "${TMPDIR:-/tmp}/schemx-pack-backup.XXXXXX")" || return
-    trap 'packages__pack_restore_versions' EXIT INT TERM
+    trap 'packages__pack_restore_versions; ui_flow_cleanup' EXIT INT TERM
   fi
 
   while IFS=$'\t' read -r target_identifier directory package_name; do
@@ -236,7 +236,7 @@ packages__pack_local_orchestrate() {
     package_json_require_jq || return
     mkdir -p "$pack_directory" || return
     pack_backup_directory="$(mktemp -d "${TMPDIR:-/tmp}/schemx-pack-backup.XXXXXX")" || return
-    trap 'packages__pack_restore_versions' EXIT INT TERM
+    trap 'packages__pack_restore_versions; ui_flow_cleanup' EXIT INT TERM
     shared_timestamp="$(date +%Y%m%d%H%M%S)"
     while IFS= read -r target; do
       [[ -n "$target" ]] || continue

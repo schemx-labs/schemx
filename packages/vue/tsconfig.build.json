@@ -4,5 +4,6 @@
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "build", "src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
 }

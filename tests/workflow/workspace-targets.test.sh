@@ -44,4 +44,65 @@ interactive_records="$({
 [[ "$interactive_records" == *$'packages\tcore\t@schemx/core\tbuild'* ]]
 [[ "$interactive_records" == *$'packages\tvalidator\t@schemx/validator\tbuild'* ]]
 
+# 通用 workspace 命令默认首错停止，--keep-going 执行剩余目标并返回首个失败码。
+source "$root_dir/scripts/workflow/commands/workspace.sh"
+workspace_select_task_targets() {
+  printf '%s\n' \
+    $'packages\tcore\t@schemx/core\tlint' \
+    $'packages\tvue\t@schemx/vue\tlint'
+}
+ui_flow_begin() { return 0; }
+ui_flow_end() { return 0; }
+ui_group_begin() { return 0; }
+ui_group_end() { return 0; }
+ui_note() { return 0; }
+ui_summary() { return 0; }
+executed_targets=()
+ui_task() {
+  local item_key=''
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --item-key) item_key="$2"; shift 2 ;;
+      --) break ;;
+      *) shift ;;
+    esac
+  done
+  executed_targets+=("$item_key")
+  [[ "$item_key" != '@schemx/core' ]] || return 7
+}
+set +e
+workspace_run lint all
+fail_fast_code=$?
+set -e
+[[ "$fail_fast_code" -eq 7 ]]
+[[ "${executed_targets[*]}" == '@schemx/core' ]]
+executed_targets=()
+set +e
+workspace_run lint --keep-going all
+keep_going_code=$?
+set -e
+[[ "$keep_going_code" -eq 7 ]]
+[[ "${executed_targets[*]}" == '@schemx/core @schemx/vue' ]]
+
+# 即使启用 --keep-going，取消也必须立即停止。
+executed_targets=()
+ui_task() {
+  local item_key=''
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --item-key) item_key="$2"; shift 2 ;;
+      --) break ;;
+      *) shift ;;
+    esac
+  done
+  executed_targets+=("$item_key")
+  return 130
+}
+set +e
+workspace_run lint all --keep-going
+cancel_code=$?
+set -e
+[[ "$cancel_code" -eq 130 ]]
+[[ "${executed_targets[*]}" == '@schemx/core' ]]
+
 printf 'workspace-targets.test.sh: 通过\n'

@@ -16,13 +16,17 @@ workspace_build_run_target() {
   local directory="$2"
   local package_name="$3"
   local script_name="$4"
+  local progress="${5:-}"
+  local title="构建 ${package_name}"
+
+  [[ -z "$progress" ]] || title="[${progress}] ${title}"
 
   case "$script_name" in
     build)
-      ui_task --title "构建 ${package_name}" --log live -- pnpm --dir "$scope/$directory" run build || return
+      ui_task --title "$title" --item-key "$package_name" --log live -- pnpm --dir "$scope/$directory" run build || return
       ;;
     build:h5)
-      ui_task --title "构建 ${package_name}" --log live -- pnpm --dir "$scope/$directory" run build:h5 || return
+      ui_task --title "$title" --item-key "$package_name" --log live -- pnpm --dir "$scope/$directory" run build:h5 || return
       ;;
     *)
       ui_status error "不支持的构建 script：${script_name}"

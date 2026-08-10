@@ -16,7 +16,7 @@ dev_usage() {
 用法：
   bash scripts/workflow.sh dev [target]
 
-target：all、examples/vant 或 examples/uniapp-vant
+target：examples/vant 或 examples/uniapp-vant；非交互环境必须显式提供
 USAGE
 }
 
@@ -32,9 +32,13 @@ dev_main() {
       dev_usage
       return
       ;;
+    -* )
+      dev_usage
+      return 2
+      ;;
   esac
   ui_flow_begin --domain workspace --title '启动开发服务' --description '交互环境选择一个示例项目，持续运行其 dev 或 dev:h5 script。' || return
-  ui_note '开发服务器会持续占用当前终端；使用 Ctrl+C 停止。CI 或管道环境默认启动所有可用目标。'
+  ui_note '开发服务器会持续占用当前终端；使用 Ctrl+C 停止。一次只能启动一个目标。'
   records="$(workspace_dev_select_targets "$workflow_root" "$requested_target")" || {
     local exit_code=$?
     [[ "$exit_code" -eq 130 ]] && ui_flow_end cancelled '开发服务目标选择已取消。' || ui_flow_end failed '开发服务目标选择失败。'
@@ -61,4 +65,6 @@ dev_main() {
   ui_flow_end success "开发服务已结束：共处理 ${count} 个目标。"
 }
 
-dev_main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  dev_main "$@"
+fi

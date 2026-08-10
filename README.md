@@ -181,7 +181,7 @@ pnpm --filter vant-demo dev
 
 | 命令                  | 作用                                                                          |
 | --------------------- | ----------------------------------------------------------------------------- |
-| `pnpm dev`            | 交互单选并启动具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境默认启动全部目标。 |
+| `pnpm dev`            | 交互单选并启动一个具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境必须显式指定单个目标。 |
 | `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。                              |
 | `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                                  |
 | `pnpm test`           | 交互选择并运行测试；非交互环境默认运行全部测试。                              |
@@ -199,8 +199,8 @@ pnpm --filter vant-demo dev
 
 根目录的开发、构建、质量与测试命令统一通过 `scripts/workflow.sh` 执行。本地终端会按任务
 使用 Clack 选择定义了对应 script 的 `packages`、`plugins`、`examples` 目标；`dev` 使用单选，
-其余批处理任务使用多选；CI 或管道环境默认执行所有符合条件的目标。每个目标都直接执行
-对应 package script。
+其余批处理任务使用多选；CI 或管道环境中，批处理默认执行所有符合条件的目标，`dev` 则必须
+显式指定单个目标。每个目标都直接执行对应 package script。
 
 ```bash
 pnpm dev
@@ -210,15 +210,25 @@ pnpm test
 pnpm check:packages
 ```
 
+有限批处理默认在首个失败后停止；构建、workspace 质量任务以及 `release check`、`release pack`、
+`release verify` 可传入 `--keep-going`，继续执行剩余目标并最终返回首个失败码。取消始终立即停止：
+
+```bash
+bash scripts/workflow.sh lint all --keep-going
+bash scripts/workflow.sh release pack all --keep-going
+bash scripts/workflow.sh release verify /path/to/plan.json --keep-going
+```
+
 `pnpm pack-local` 也通过同一工作流选择多个目标；它只处理可本地打包的 `packages` 和
 `plugins` 目标。在 CI 中可在命令后传入 `all`、`packages/core` 或 `plugins/<name>`，
 也可使用 `SCHEMX_WORKFLOW_TARGETS` 提供逗号分隔的目标列表。
 
-所有工作流共用同一套 Shell UI：流程只显示一次顶层标题，任务负责命令、耗时和退出码，
-`ui_flow_group` 仅用于业务分组，不再额外渲染重复的“阶段”反馈。UI 写入 stderr，提示结果
-写入 stdout，原生命令日志保持原样透传。可用 `SCHEMX_UI_FORMAT=plain` 强制稳定纯文本，
-或用 `SCHEMX_UI_EVENTS_FILE=/path/to/events.jsonl` 追加机器可消费的 `schemx.ui/v1` JSONL
-生命周期事件；相邻 UI 输出块之间保持 1 条带前置 `│` 的导轨间隔行，任务完成状态与原始
+所有工作流共用同一套 Shell UI：一个命令内只允许一个顶层流程，任务负责命令、耗时和退出码，
+`ui_group_begin` / `ui_group_end` 用于可嵌套的业务分组，不再额外渲染重复的“阶段”反馈。UI 写入 stderr；选择和输入
+结果写入 stdout，确认则以退出码表示（确认 `0`、拒绝 `1`、取消 `130`）。`--log live` 的原生命令
+stdout/stderr 保持原样透传，`--log capture` 则统一缓冲后渲染。可用 `SCHEMX_UI_FORMAT=plain` 强制
+稳定纯文本，或用 `SCHEMX_UI_EVENTS_FILE=/path/to/events.jsonl` 追加机器可消费的 `schemx.ui/v2`
+JSONL 生命周期事件；相邻 UI 输出块之间保持 1 条带前置 `│` 的导轨间隔行，任务完成状态与原始
 日志末尾保持 1–2 条导轨间隔行；非交互确认可设置 `SCHEMX_UI_ASSUME_YES=true`。
 
 发布是其中的独立命令域，使用 `release:*` 前缀。

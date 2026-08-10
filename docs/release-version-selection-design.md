@@ -201,7 +201,7 @@ ANSI 转义序列或自行打印日志，而是仅调用 `ui_*` 接口。未来�
 Spinner 和耗时。颜色只承担辅助语义，纯文本标签、图标和退出码仍是
 信息主载体，以满足无色终端和可访问性需求。
 
-UI 模块提供流程开场、流程分组、说明、提示、任务、状态和摘要七类能力。计划和摘要读取
+UI 模块提供流程开场、可嵌套流程分组、说明、提示、任务、状态和摘要七类能力。计划和摘要读取
 冻结后的计划 JSON；任务通过 `ui_task` 执行外部命令，并统一报告命令、日志策略、耗时和
 退出码。流程分组只表达业务边界，不再作为独立的“阶段”反馈层。
 
@@ -218,10 +218,13 @@ UI 模块提供流程开场、流程分组、说明、提示、任务、状态�
 
 ```text
 ui_flow_begin
-ui_flow_group
+ui_group_begin
+ui_group_end
+ui_group_run
 ui_note
 ui_prompt
 ui_task
+ui_task_skip
 ui_service
 ui_status
 ui_summary
@@ -230,8 +233,13 @@ ui_flow_end
 
 工作流不得直接调用 `gum`、`echo` 或 ANSI 转义序列。所有 Turbo、pnpm、Git、npm 和
 GitHub 命令通过 `ui_task` 或 `ui_service` 运行，由统一 UI 处理命令回显、Spinner、耗时、
-退出码和失败状态。UI 写入 stderr，提示结果写入 stdout，原生命令输出保持原样透传；另可
-通过 `SCHEMX_UI_EVENTS_FILE` 追加 `schemx.ui/v1` JSONL 生命周期事件。
+退出码和失败状态。UI 写入 stderr，选择和输入结果写入 stdout，确认以退出码表达；`live` 任务
+原样透传命令输出，`capture` 任务缓冲后渲染；另可
+通过 `SCHEMX_UI_EVENTS_FILE` 追加 `schemx.ui/v2` JSONL 生命周期事件。
+
+发布前检查与逐包质量任务使用两层 group：外层表达检查类别，内层以 `itemKey` 标识具体包。
+`group.finished` 记录状态、耗时和后代统计，任务通过 `taskId` 配对。`release check`、`release pack`
+和 `release verify` 可使用 `--keep-going` 收集普通失败；发布与执行命令保持 fail-fast。
 
 Clack 与 Gum 的 TTY 与非 TTY 策略如下：
 

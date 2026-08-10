@@ -34,6 +34,44 @@ function assertPayload(payload) {
   if (!payload || typeof payload !== "object" || typeof payload.kind !== "string") {
     throw new Error("无效的 Clack 交互请求")
   }
+
+  if (typeof payload.message !== "string" || payload.message.length === 0) {
+    throw new Error("Clack 交互请求缺少 message")
+  }
+
+  if (["select", "multiselect"].includes(payload.kind)) {
+    if (!Array.isArray(payload.options) || payload.options.length === 0) {
+      throw new Error("选择交互请求必须包含选项")
+    }
+
+    for (const option of payload.options) {
+      if (!option || typeof option.value !== "string" || typeof option.label !== "string") {
+        throw new Error("选择交互请求包含无效选项")
+      }
+    }
+  }
+
+  if (payload.kind === "groupMultiselect") {
+    if (!payload.options || typeof payload.options !== "object" || Array.isArray(payload.options)) {
+      throw new Error("分组选择交互请求必须包含分组选项")
+    }
+
+    for (const options of Object.values(payload.options)) {
+      if (!Array.isArray(options) || options.length === 0) {
+        throw new Error("分组选择交互请求包含空分组")
+      }
+
+      for (const option of options) {
+        if (!option || typeof option.value !== "string" || typeof option.label !== "string") {
+          throw new Error("分组选择交互请求包含无效选项")
+        }
+      }
+    }
+  }
+
+  if (payload.kind === "input" && typeof payload.placeholder !== "string") {
+    throw new Error("输入交互请求缺少 placeholder")
+  }
 }
 
 /**

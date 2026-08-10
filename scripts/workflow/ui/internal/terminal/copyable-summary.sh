@@ -8,7 +8,7 @@ set -o pipefail
 # Arguments: 支持 --title、--tone neutral|success|warning|error、--content 和 --copy。
 # Returns: 参数合法且摘要、间隔、原始内容和事件均写入成功时返回 0，否则返回非 0。
 # Side effects: 写入 stderr、布局状态和可选 JSONL 事件；--copy 不会写入系统剪贴板。
-# 备注：复制内容前固定输出两条标准导轨间隔；内容本身不附加边框、前缀、颜色或硬换行。
+# 备注：复制内容前固定输出一条标准导轨间隔；内容本身不附加边框、前缀、颜色或硬换行。
 ui_copyable_summary() {
   local title=''
   local tone=neutral
@@ -17,10 +17,10 @@ ui_copyable_summary() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --title) title="${2:-}"; shift 2 ;;
-      --tone) tone="${2:-}"; shift 2 ;;
-      --content) content="${2:-}"; shift 2 ;;
-      --copy) copy_value="${2:-}"; shift 2 ;;
+      --title) [[ $# -ge 2 ]] || { ui__write_stderr 'ui_copyable_summary 用法错误：--title 需要文本。'; return 2; }; title="$2"; shift 2 ;;
+      --tone) [[ $# -ge 2 ]] || { ui__write_stderr 'ui_copyable_summary 用法错误：--tone 需要值。'; return 2; }; tone="$2"; shift 2 ;;
+      --content) [[ $# -ge 2 ]] || { ui__write_stderr 'ui_copyable_summary 用法错误：--content 需要文本。'; return 2; }; content="$2"; shift 2 ;;
+      --copy) [[ $# -ge 2 ]] || { ui__write_stderr 'ui_copyable_summary 用法错误：--copy 需要文本。'; return 2; }; copy_value="$2"; shift 2 ;;
       *) ui__write_stderr 'ui_copyable_summary 用法错误：支持 --title、--tone、--content、--copy。'; return 2 ;;
     esac
   done
@@ -38,7 +38,6 @@ ui_copyable_summary() {
   ui__layout_before
   ui__render_summary "$title" "$tone" "$content" || return
   ui__layout_mark
-  ui__layout_gap || return
   ui__layout_gap || return
   ui__write_stderr "$copy_value" || return
   ui__layout_mark
