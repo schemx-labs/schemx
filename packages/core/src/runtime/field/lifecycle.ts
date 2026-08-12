@@ -47,6 +47,7 @@ export function mountFieldRuntime<TValues extends Values>(
     debug: context.debug,
   })
 
+  context.model.registerFieldPath(node.name)
   applyFieldInitialValue(node, context)
   node.fieldState = runtimeState
   createRuntimeViewState(node, context.debug)
@@ -87,6 +88,7 @@ export function updateFieldRuntime<TValues extends Values>(
   }
 
   setFieldStaticSchema(runtimeState, node)
+  context.model.registerFieldPath(node.name)
   registry.fieldIndex.register(node)
   if (previousName !== node.name) {
     recreateValidationEffect(node, runtimeState, context)

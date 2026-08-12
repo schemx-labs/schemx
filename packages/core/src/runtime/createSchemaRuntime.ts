@@ -33,6 +33,7 @@ import type {
   SchemxFormApi,
   SchemxInstance,
   SchemxRendererKey,
+  SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
 } from "../types"
@@ -59,10 +60,12 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    * 已合并的字段默认配置。
    */
   schemaConfig: ResolvedSchemxSchemaConfig
+  /** 按 Renderer 类型配置的静态默认 Props。 */
+  rendererProps?: SchemxRendererPropsMap<TValues>
   /**
    * 未注册 renderer 的 fallback 类型。
    */
-  defaultRendererType?: SchemxRendererKey
+  defaultRendererType?: SchemxRendererKey<TValues>
   /**
    * Runtime 生命周期钩子。
    */
@@ -192,6 +195,7 @@ export function createSchemaRuntime<TValues extends Values>(
   // 编译 Schema 并保留当前 Form 实例引用。
   const compile = createCompile({
     schemaConfig,
+    rendererProps: options.rendererProps,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.instance,
   })

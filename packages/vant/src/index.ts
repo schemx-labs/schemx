@@ -25,4 +25,6 @@ export * from "./utils"
 /** 重新导出 @schemx/vue（含 SchemxForm 默认导出） */
 export { default } from "@schemx/vue"
 export { default as SchemxForm } from "@schemx/vue"
+
+/** 重新导出 @schemx/core */
 export * from "@schemx/vue"

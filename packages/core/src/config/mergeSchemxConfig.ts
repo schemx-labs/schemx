@@ -3,7 +3,12 @@ import { merge } from "es-toolkit"
 import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./defaultSchemxConfig"
 
 import type { SchemxConfig } from "./schemxConfig"
-import type { ResolvedSchemxSchemaConfig, SchemxSchemaConfig } from "../types"
+import type {
+  ResolvedSchemxSchemaConfig,
+  SchemxRendererPropsMap,
+  SchemxSchemaConfig,
+  Values,
+} from "../types"
 import type { ValidationAdapterOption } from "../validator/types"
 
 /**
@@ -11,14 +16,17 @@ import type { ValidationAdapterOption } from "../validator/types"
  *
  * 函数返回前会再次收敛为只读的 {@link SchemxConfig} 公共契约。
  */
-type MutableSchemxConfig = {
-  -readonly [TKey in keyof SchemxConfig]: SchemxConfig[TKey]
+type MutableSchemxConfig<TValues extends Values> = {
+  -readonly [TKey in keyof SchemxConfig<TValues>]: SchemxConfig<TValues>[TKey]
 }
 
 /**
  * 补齐默认值后可直接交给 Form Runtime 的 Schemx 配置。
  */
-export interface MergedSchemxConfig extends Omit<SchemxConfig, "schemaConfig"> {
+export interface MergedSchemxConfig<TValues extends Values = Values> extends Omit<
+  SchemxConfig<TValues>,
+  "schemaConfig"
+> {
   /**
    * 已合并并补齐全部内置默认值的 Schema 配置。
    */
@@ -28,8 +36,9 @@ export interface MergedSchemxConfig extends Omit<SchemxConfig, "schemaConfig"> {
 /**
  * 按从后到前的优先级合并多个 Schemx 配置。
  *
- * 参数越靠前优先级越高。对象字段由 `es-toolkit` 的 `merge` 深度合并；
- * `validatorAdapters` 按低优先级到高优先级排列，其他配置项取最高优先级值。
+ * 参数越靠前优先级越高。普通对象字段由 `es-toolkit` 的 `merge` 深度合并；
+ * `rendererProps` 按 Renderer key 和 Props 属性浅合并，`validatorAdapters`
+ * 按低优先级到高优先级排列，其他配置项取最高优先级值。
  * 函数不读取或修改全局配置，也不会修改输入对象或补齐任何默认值。
  *
  * @param configs - 按高到低优先级传入的配置列表。
@@ -47,12 +56,17 @@ export interface MergedSchemxConfig extends Omit<SchemxConfig, "schemaConfig"> {
  * 如需补齐 Core 内置默认值，请使用 {@link resolveSchemxConfig}；如需一步完成，
  * 请使用 {@link mergeAndResolveSchemxConfig}。
  */
-export function mergeSchemxConfig(...configs: readonly SchemxConfig[]): SchemxConfig {
+export function mergeSchemxConfig<TValues extends Values = Values>(
+  ...configs: readonly SchemxConfig<TValues>[]
+): SchemxConfig<TValues> {
   // 由低优先级到高优先级深度合并的对象型配置。
-  const result: MutableSchemxConfig = {}
+  const result: MutableSchemxConfig<TValues> = {}
 
   // 已按运行顺序累积的校验 adapter 列表。
   let validatorAdapters: readonly ValidationAdapterOption[] | undefined
+
+  // 按 Renderer key 与 Props 属性浅合并的默认 Props。
+  let rendererProps: SchemxRendererPropsMap<TValues> | undefined
 
   // 从最低优先级开始累积，使后续处理的高优先级配置可以覆盖已有值。
   for (let index = configs.length - 1; index >= 0; index -= 1) {
@@ -60,7 +74,11 @@ export function mergeSchemxConfig(...configs: readonly SchemxConfig[]): SchemxCo
     const config = configs[index]
 
     // Adapter 使用追加语义，避免通用深合并按数组索引覆盖低优先级项。
-    const { validatorAdapters: configValidatorAdapters, ...objectConfig } = config
+    const {
+      validatorAdapters: configValidatorAdapters,
+      rendererProps: configRendererProps,
+      ...objectConfig
+    } = config
 
     // 使用库的深合并能力处理对象配置和未来新增的嵌套配置项。
     merge(result, objectConfig)
@@ -81,12 +99,17 @@ export function mergeSchemxConfig(...configs: readonly SchemxConfig[]): SchemxCo
     if (configValidatorAdapters !== undefined) {
       validatorAdapters = [...(validatorAdapters ?? []), ...configValidatorAdapters]
     }
+
+    if (configRendererProps !== undefined) {
+      rendererProps = mergeRendererProps(rendererProps, configRendererProps)
+    }
   }
 
   // Adapter 在对象合并后写入，确保不会被数组索引合并改变顺序。
-  const mergedConfig: SchemxConfig = {
+  const mergedConfig: SchemxConfig<TValues> = {
     ...result,
     ...(validatorAdapters === undefined ? {} : { validatorAdapters }),
+    ...(rendererProps === undefined ? {} : { rendererProps }),
   }
 
   return mergedConfig
@@ -101,7 +124,9 @@ export function mergeSchemxConfig(...configs: readonly SchemxConfig[]): SchemxCo
  * @param config - 已合并或待解析的 Schemx 配置。
  * @returns 可直接供 Runtime 消费的完整配置。
  */
-export function resolveSchemxConfig(config: SchemxConfig = {}): MergedSchemxConfig {
+export function resolveSchemxConfig<TValues extends Values = Values>(
+  config: SchemxConfig<TValues> = {}
+): MergedSchemxConfig<TValues> {
   // 尚未补齐默认值的 Schema 配置。
   const schemaConfig = config.schemaConfig
 
@@ -130,11 +155,51 @@ export function resolveSchemxConfig(config: SchemxConfig = {}): MergedSchemxConf
  * @param configs - 按高到低优先级传入的配置列表。
  * @returns 合并且补齐默认值后的完整配置。
  */
-export function mergeAndResolveSchemxConfig(
-  ...configs: readonly SchemxConfig[]
-): MergedSchemxConfig {
+export function mergeAndResolveSchemxConfig<TValues extends Values = Values>(
+  ...configs: readonly SchemxConfig<TValues>[]
+): MergedSchemxConfig<TValues> {
   // 先保留所有层级的显式值，再在最后统一回退到内置默认值。
   const mergedConfig = mergeSchemxConfig(...configs)
 
   return resolveSchemxConfig(mergedConfig)
+}
+
+/**
+ * 合并两层 Renderer Props。
+ *
+ * Renderer 之间独立，单个 Renderer 内只做一层属性展开；嵌套对象和数组由高优先级
+ * 属性整体替换。显式属性 `undefined` 也会覆盖低优先级同名属性。
+ *
+ * @param lowerPriority - 已合并的低优先级 Renderer Props。
+ * @param higherPriority - 当前待应用的高优先级 Renderer Props。
+ * @returns 新建的 Renderer Props Map，不修改任一输入对象。
+ */
+function mergeRendererProps<TValues extends Values>(
+  lowerPriority: SchemxRendererPropsMap<TValues> | undefined,
+  higherPriority: SchemxRendererPropsMap<TValues>
+): SchemxRendererPropsMap<TValues> {
+  // 运行时只处理普通字符串 key 与 Props 记录，类型关联已在公开 Map 类型中约束。
+  type RendererPropsRecord = Record<string, Record<string, unknown> | undefined>
+
+  // 将缺失的低优先级配置视为空 Map。
+  const lowerPriorityRecord = (lowerPriority ?? {}) as RendererPropsRecord
+
+  // 转为统一的运行时记录形态，以便按 key 遍历。
+  const higherPriorityRecord = higherPriority as RendererPropsRecord
+
+  // 先复制 Map 外层，使未被高优先级触及的 Renderer 直接继承。
+  const mergedRecord: RendererPropsRecord = { ...lowerPriorityRecord }
+
+  for (const [type, props] of Object.entries(higherPriorityRecord)) {
+    if (props === undefined) {
+      continue
+    }
+
+    mergedRecord[type] = {
+      ...mergedRecord[type],
+      ...props,
+    }
+  }
+
+  return mergedRecord as SchemxRendererPropsMap<TValues>
 }

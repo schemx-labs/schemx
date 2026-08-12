@@ -5,7 +5,7 @@ import { createRendererRegistry } from "../../registry"
 import { configureSchemx } from "../schemxConfig"
 
 import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
-import type { Values } from "../../types"
+import type { SchemxRendererPropsMap, Values } from "../../types"
 import type {
   AdapterRule,
   ValidationAdapter,
@@ -81,9 +81,7 @@ describe("configureSchemx", () => {
 
     configureSchemx({ validatorAdapters: [] })
 
-    await expect(
-      globalForm.validateField("email")
-    ).resolves.toMatchObject({
+    await expect(globalForm.validateField("email")).resolves.toMatchObject({
       errors: [{ issues: [{ message: "全局" }] }],
     })
     await expect(form.validateField("email")).resolves.toMatchObject({
@@ -131,6 +129,63 @@ describe("configureSchemx", () => {
     await Promise.resolve()
 
     expect(findField(form, "name")?.readonly).toBe(false)
+  })
+
+  it("按全局、Form、字段优先级合并 Renderer Props，并隔离全局配置快照", () => {
+    const globalOnChange = () => undefined
+
+    const formOnBlur = () => undefined
+
+    const nestedRendererValue = { theme: "light" }
+
+    const globalRendererProps = {
+      input: {
+        placeholder: "全局占位",
+        readonlyPlaceholder: "全局空值",
+        onChange: globalOnChange,
+        metadata: nestedRendererValue,
+      },
+    } as SchemxRendererPropsMap
+
+    configureSchemx({ rendererProps: globalRendererProps })
+
+    if (!globalRendererProps.input) {
+      throw new Error("测试 Renderer Props 缺少 input 配置")
+    }
+
+    globalRendererProps.input.readonlyPlaceholder = "已修改的全局空值"
+    globalRendererProps.input = { placeholder: "已替换的全局占位" }
+    nestedRendererValue.theme = "dark"
+
+    const form = createForm<{ name: string }>({
+      rendererProps: {
+        input: {
+          placeholder: "Form 占位",
+          onBlur: formOnBlur,
+        },
+      },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          componentProps: { placeholder: "字段占位" },
+        },
+      ],
+    })
+
+    const componentProps = findField(form, "name")?.componentProps
+
+    expect(componentProps).toMatchObject({
+      placeholder: "字段占位",
+      readonlyPlaceholder: "全局空值",
+      onChange: globalOnChange,
+      onBlur: formOnBlur,
+    })
+    expect((componentProps as { metadata?: unknown }).metadata).toBe(nestedRendererValue)
+    expect(nestedRendererValue).toEqual({ theme: "dark" })
+
+    form.destroy()
   })
 
   it("Form 显式传入 undefined 时回到内置默认值", async () => {

@@ -549,7 +549,22 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
   })
 
   it("动态覆盖 componentProps 应覆盖静态 componentProps", () => {
-    const schema = createTestSchema({ componentProps: { size: "small" } as any })
+    const formInstance = { id: "form" }
+
+    const schema = createTestSchema({
+      componentProps: {
+        size: "small",
+        formInstance,
+        formItemProps: {
+          name: "email",
+          label: "邮箱",
+          componentType: "input",
+          disabled: false,
+          readonly: false,
+          placeholder: "请输入",
+        },
+      } as any,
+    })
 
     const state = createFieldRuntimeState({
       nodeId: 1,
@@ -560,14 +575,89 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
 
     setFieldDynamicOverrides(
       state,
-      { componentProps: { size: "large" } as any },
+      {
+        componentProps: {
+          size: "large",
+          formInstance: { id: "dynamic" },
+          formItemProps: { name: "dynamic" },
+        } as any,
+      },
       {
         source: "dependencies",
         triggerFields: ["type" as any],
       }
     )
 
-    expect(state.effectiveSchema.value.componentProps).toEqual({ size: "large" })
+    expect(state.effectiveSchema.value.componentProps).toMatchObject({
+      size: "large",
+      formInstance,
+      disabled: false,
+      readonly: false,
+      placeholder: "请输入",
+      formItemProps: {
+        name: "email",
+        label: "邮箱",
+        componentType: "input",
+        disabled: false,
+        readonly: false,
+        placeholder: "请输入",
+      },
+    })
+  })
+
+  it("动态展示属性应同步到 componentProps 和 formItemProps", () => {
+    const schema = createTestSchema({
+      readonlyPlaceholder: "暂无内容",
+      componentProps: {
+        disabled: false,
+        readonly: false,
+        placeholder: "请输入",
+        readonlyPlaceholder: "暂无内容",
+        formItemProps: {
+          name: "email",
+          label: "邮箱",
+          componentType: "input",
+          disabled: false,
+          readonly: false,
+          placeholder: "请输入",
+          readonlyPlaceholder: "暂无内容",
+        },
+      },
+    })
+
+    const state = createFieldRuntimeState({
+      nodeId: 1,
+      key: "field-1",
+      name: "email" as any,
+      staticSchema: schema,
+    })
+
+    setFieldDynamicOverrides(
+      state,
+      {
+        disabled: true,
+        readonly: true,
+        placeholder: "动态占位",
+        readonlyPlaceholder: "动态空值",
+      },
+      {
+        source: "dependencies",
+        triggerFields: ["type" as any],
+      }
+    )
+
+    expect(state.effectiveSchema.value.componentProps).toMatchObject({
+      disabled: true,
+      readonly: true,
+      placeholder: "动态占位",
+      readonlyPlaceholder: "动态空值",
+      formItemProps: {
+        disabled: true,
+        readonly: true,
+        placeholder: "动态占位",
+        readonlyPlaceholder: "动态空值",
+      },
+    })
   })
 
   it("effectiveSchema 应反映动态覆盖的合并结果", () => {

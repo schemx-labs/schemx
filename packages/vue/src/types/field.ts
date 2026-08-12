@@ -19,7 +19,7 @@ export interface FieldInstance<
    */
   readonly name: NamePath<TValues>
   /**
-   * 当前字段值（Vue shallowRef，由 Signal effect 驱动）。
+   * 当前字段值（Vue shallowRef，由共享 Field Bridge 驱动）。
    */
   value: Ref<FieldValue<TValues, NamePath<TValues>> | undefined>
   /**

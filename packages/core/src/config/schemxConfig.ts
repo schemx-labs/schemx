@@ -1,5 +1,10 @@
 import type { RendererRegistry, ValidationRuleRegistry } from "../registry"
-import type { SchemxRendererKey, SchemxSchemaConfig } from "../types"
+import type {
+  SchemxRendererKey,
+  SchemxRendererPropsMap,
+  SchemxSchemaConfig,
+  Values,
+} from "../types"
 import type { ValidationAdapterOption } from "../validator/types"
 
 /**
@@ -10,8 +15,10 @@ import type { ValidationAdapterOption } from "../validator/types"
  *
  * 实例级数据（schemas / initialValues）、实例级回调
  * （onFinish 等）、`lifecycleHooks` 与 `onRuleError` 不纳入全局配置。
+ *
+ * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
  */
-export interface SchemxConfig {
+export interface SchemxConfig<TValues extends Values = Values> {
   /**
    * 后续 Form 继承的字段默认值。
    *
@@ -19,6 +26,12 @@ export interface SchemxConfig {
    * 表单值和生命周期回调等实例级选项。
    */
   readonly schemaConfig?: Partial<SchemxSchemaConfig>
+  /**
+   * 按 Renderer 类型配置的静态默认 Props。
+   *
+   * 字段 `componentProps`、动态依赖结果和 Runtime 受控属性拥有更高优先级。
+   */
+  readonly rendererProps?: SchemxRendererPropsMap<TValues>
   /**
    * 后续 Form 创建 Validator 时注册的全局 adapter 列表。
    *
@@ -29,7 +42,7 @@ export interface SchemxConfig {
   /**
    * 字段未指定 `componentType` 时使用的默认渲染器类型。
    */
-  readonly defaultRendererType?: SchemxRendererKey
+  readonly defaultRendererType?: SchemxRendererKey<TValues>
   /**
    * 后续 Form 默认共享的渲染器注册表。
    *
@@ -88,6 +101,8 @@ function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
   return Object.freeze({
     // 复制并冻结字段默认值，避免配置后继续修改源对象影响后续 Form。
     schemaConfig: Object.freeze({ ...(source.schemaConfig ?? {}) }),
+    // Renderer Props 只复制配置边界；嵌套 Prop 值保持调用方传入的引用语义。
+    rendererProps: normalizeRendererProps(source.rendererProps),
     // 复制 adapter 列表，保持全局列表与调用方数组相互独立。
     validatorAdapters: Object.freeze([...(source.validatorAdapters ?? [])]),
     defaultRendererType: source.defaultRendererType,
@@ -95,4 +110,25 @@ function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
     rendererRegistry: source.rendererRegistry,
     validationRuleRegistry: source.validationRuleRegistry,
   })
+}
+
+/**
+ * 复制并冻结 Renderer Props Map 外层及每个 Renderer 的 Props 对象。
+ *
+ * @param source - 待标准化的 Renderer Props Map。
+ * @returns 与输入隔离一层的只读配置；任意嵌套 Prop 值仍保留原引用。
+ */
+function normalizeRendererProps(
+  source: SchemxRendererPropsMap | undefined
+): SchemxRendererPropsMap | undefined {
+  if (source === undefined) {
+    return undefined
+  }
+
+  // 每个 Renderer 的 Props 对象单独复制，避免调用方替换顶层属性影响快照。
+  const entries = Object.entries(source).map(([type, props]) => {
+    return [type, props === undefined ? undefined : Object.freeze({ ...props })]
+  })
+
+  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
 }

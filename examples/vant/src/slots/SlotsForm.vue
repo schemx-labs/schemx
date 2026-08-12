@@ -1,5 +1,5 @@
 <template>
-  <div class="example-container">
+  <div class="example-container slot-container">
     <h2>插槽系统示例</h2>
     <p class="description">
       演示 schemx 的完整插槽体系，每种插槽用不同颜色边框标识。 所有插槽名均支持 camelCase

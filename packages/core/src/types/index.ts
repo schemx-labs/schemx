@@ -33,6 +33,8 @@ export type { SchemxRendererKey, SchemxRendererDefinition } from "./renderer"
 export type {
   SchemxBaseComponentProps,
   SchemxComponentProps,
+  SchemxRuntimeInjectedProp,
+  SchemxRendererPropsMap,
   SchemxFieldDefinition,
   SchemxGroupFieldDefinition,
   SchemxBase,

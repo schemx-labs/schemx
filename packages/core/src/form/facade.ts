@@ -69,6 +69,12 @@ export function createFormApi<TValues extends Values>(
     bindings.getConnectedController()?.validate() ??
     model.validator.validate(model.store.getFieldsValue())
 
+  /**
+   * 通过已连接的 Controller 重置整表，确保生命周期回调一致。
+   */
+  const reset: SchemxFormApi<TValues>["reset"] = () =>
+    bindings.getConnectedController()?.reset() ?? model.reset()
+
   return {
     setValue,
     setValues,
@@ -83,7 +89,7 @@ export function createFormApi<TValues extends Values>(
     setErrors,
     clearErrors,
     resetFields,
-    reset: model.reset,
+    reset,
     validateField,
     validate,
   }
@@ -154,6 +160,12 @@ export function createFormFacade<TValues extends Values>(options: {
   const getPendingFields = model.store.getPendingFields.bind(model.store)
 
   /**
+   * 读取 Controller 的提交状态；断开后表单不再处于提交中。
+   */
+  const isLoading: SchemxInstance<TValues>["isLoading"] = () =>
+    bindings.getConnectedController()?.isLoading() ?? false
+
+  /**
    * 将字段校验委托给已连接的 Controller。
    */
   const validateField: SchemxInstance<TValues>["validateField"] = (name) =>
@@ -176,6 +188,12 @@ export function createFormFacade<TValues extends Values>(options: {
 
   // 绑定字段重置方法。
   const resetFields = model.store.resetFields.bind(model.store)
+
+  /**
+   * 通过已连接的 Controller 重置整表；断开后仅恢复本地状态。
+   */
+  const reset: SchemxInstance<TValues>["reset"] = () =>
+    bindings.getConnectedController()?.reset() ?? model.reset()
 
   /**
    * 通过已连接的 Controller 提交；断开后回退为本地校验。
@@ -261,13 +279,14 @@ export function createFormFacade<TValues extends Values>(options: {
     setFieldPending,
     isFieldPending,
     getPendingFields,
+    isLoading,
     validateField,
     validate,
     getFieldErrors,
     setFieldErrors,
     clearFieldErrors,
     resetFields,
-    reset: model.reset,
+    reset,
     submit,
     setFieldRules,
     removeFieldRules,

@@ -12,3 +12,11 @@ export {
   RendererRegistry,
   type RendererMap,
 } from "./registry/rendererRegistry"
+
+export {
+  createFormExternalStore,
+  type ExternalStore,
+  type FieldStateSnapshot,
+  type FieldExternalStore,
+  type FormExternalStore,
+} from "./store/externalStore"

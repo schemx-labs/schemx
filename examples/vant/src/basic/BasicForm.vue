@@ -143,6 +143,7 @@
             formatter: (value) => value.replace(/^(\d{3})(\d{4})(\d+)$/, "$1 $2 $3"),
           },
           required: true,
+          readonly: true,
           rules: [
             // {
             //   pattern: /^(?:(?:\+|00)86)?1[3-9]\d{9}$/,
@@ -312,6 +313,16 @@
       componentProps: {
         accept: "image/*",
       },
+      initialValue: [
+        {
+          name: "证明图片.jpeg",
+          url: "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg",
+        },
+        {
+          name: "证明图片.zip",
+          url: "https://minio-test.sjdit.com:9017//sz-dev/upload/20260617/ddc68a8dc9be78b8292d430b92a5a98e.zip",
+        },
+      ],
     },
     {
       name: "region",

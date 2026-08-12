@@ -115,6 +115,26 @@ export type SchemxComponentProps<
     : SchemxBaseComponentProps<TValues>
 
 /**
+ * 由 Form Runtime 注入、不能作为 Renderer 默认值配置的 Props。
+ */
+export type SchemxRuntimeInjectedProp =
+  "value" | "onUpdate:value" | "formInstance" | "formItemProps"
+
+/**
+ * 按 Renderer 类型配置的静态默认 Props。
+ *
+ * Renderer key 与 Props 通过 {@link SchemxRendererDefinition} 保持关联；字段自身的
+ * `componentProps`、动态依赖结果和 Runtime 受控属性可以继续覆盖这些默认值。
+ *
+ * @typeParam TValues - 用于解析 Renderer 声明和表单值相关 Props 的表单值类型。
+ */
+export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
+  [TKey in SchemxRendererKey<TValues>]: Partial<
+    Omit<SchemxComponentProps<TValues, TKey>, SchemxRuntimeInjectedProp>
+  >
+}>
+
+/**
  * 自定义 Schema 基础字段扩展接口
  *
  * 空接口占位，供业务方通过 TypeScript 声明合并（declaration merging）

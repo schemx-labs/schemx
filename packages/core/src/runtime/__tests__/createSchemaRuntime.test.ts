@@ -82,6 +82,7 @@ function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TVa
   const initialValues = new Map<string, unknown>()
 
   return {
+    registerFieldPath() {},
     getFieldValue(name) {
       return values.get(String(name)) as never
     },

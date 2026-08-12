@@ -5,4 +5,4 @@
  */
 
 export { default } from "./index.vue"
-export type { UploadFile, UploadRendererProps, UploadValue } from "./types"
+export type { UploadFile, UploadListType, UploadRendererProps, UploadValue } from "./types"

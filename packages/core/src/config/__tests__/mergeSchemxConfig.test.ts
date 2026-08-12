@@ -54,6 +54,81 @@ describe("mergeSchemxConfig", () => {
     })
   })
 
+  it("按 Renderer 浅合并 Props 并保留高优先级显式 undefined", () => {
+    const lowPriorityNested = { source: "low", retained: true }
+
+    const highPriorityNested = { source: "high" }
+
+    const lowPriorityOptions = [{ label: "低优先级" }]
+
+    const highPriorityOptions = [{ label: "高优先级" }]
+
+    const lowPriorityRendererProps = {
+      input: {
+        align: "left",
+        disabled: false,
+        options: lowPriorityOptions,
+        placeholder: "低优先级",
+        nested: lowPriorityNested,
+      },
+      picker: {
+        readonly: true,
+      },
+    }
+
+    const highPriorityRendererProps = {
+      input: {
+        disabled: true,
+        options: highPriorityOptions,
+        placeholder: undefined,
+        nested: highPriorityNested,
+      },
+    }
+
+    const result = mergeSchemxConfig(
+      { rendererProps: highPriorityRendererProps as never },
+      { rendererProps: lowPriorityRendererProps as never }
+    )
+
+    expect(result.rendererProps).toEqual({
+      input: {
+        align: "left",
+        disabled: true,
+        options: highPriorityOptions,
+        placeholder: undefined,
+        nested: highPriorityNested,
+      },
+      picker: {
+        readonly: true,
+      },
+    })
+    expect(result.rendererProps).not.toBe(highPriorityRendererProps)
+    expect(result.rendererProps).not.toBe(lowPriorityRendererProps)
+    expect(result.rendererProps?.input).not.toBe(highPriorityRendererProps.input)
+    expect(
+      Object.prototype.hasOwnProperty.call(result.rendererProps?.input, "placeholder")
+    ).toBe(true)
+    expect((result.rendererProps?.input as { nested?: unknown }).nested).toBe(
+      highPriorityNested
+    )
+    expect((result.rendererProps?.input as { options?: unknown }).options).toBe(
+      highPriorityOptions
+    )
+    expect(lowPriorityRendererProps.input).toEqual({
+      align: "left",
+      disabled: false,
+      options: lowPriorityOptions,
+      placeholder: "低优先级",
+      nested: lowPriorityNested,
+    })
+    expect(highPriorityRendererProps.input).toEqual({
+      disabled: true,
+      options: highPriorityOptions,
+      placeholder: undefined,
+      nested: highPriorityNested,
+    })
+  })
+
   it("按低到高优先级排列 validatorAdapters，且不修改输入数组", () => {
     // 低优先级 adapter 列表。
     const lowPriorityAdapters = [{ id: "low" }]

@@ -89,7 +89,7 @@ export default defineConfig(({ mode }) => {
   return {
     resolve: {
       alias: useSource
-          ? [
+        ? [
             { find: /^@schemx\/core\/(.+)$/, replacement: `${pkgRoots.core}/$1` },
             { find: /^@schemx\/core$/, replacement: resolve(pkgRoots.core, "index.ts") },
             { find: /^@schemx\/vue\/(.+)$/, replacement: `${pkgRoots.vue}/$1` },
@@ -101,7 +101,7 @@ export default defineConfig(({ mode }) => {
     },
     css: {
       preprocessorOptions: {
-        scss: { api: "modern-compiler" },
+        scss: { api: "modern-compiler", silenceDeprecations: ["legacy-js-api"] },
       },
     },
     plugins: [...(useSource ? [dynamicAtAlias(pkgRoots)] : []), vue(), vueJsx()],

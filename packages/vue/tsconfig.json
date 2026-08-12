@@ -5,6 +5,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@schemx/core": ["../core/src/index.ts"],
+      "@schemx/core/adapter": ["../core/src/adapter.ts"],
       "@schemx/core/*": ["../core/src/*"]
     },
     "rootDir": "./src",

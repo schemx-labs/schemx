@@ -3,7 +3,9 @@
  *
  * SlotsForm.vue 和 SlotsFormJsx.tsx 共用
  */
-
+.slot-container {
+  padding: 10px 14px;
+}
 .slot-demo {
   padding: 10px 14px;
   border-radius: 6px;

@@ -7,6 +7,9 @@
 /** useForm - 表单状态管理 */
 export { useForm } from "./useForm"
 
+/** Vue Form Facade - 在 Vue effect 中可追踪的 Form 实例。 */
+export { getCoreForm, type VueSchemxInstance } from "../formBridge"
+
 /** createFormContext - 表单上下文注入与消费 */
 export { createFormContext, useFormContext } from "./provideFormContext"
 
@@ -34,3 +37,9 @@ export { useStableRef } from "./useStableRef"
 
 /** useViewSchemas - ViewSchemas Vue 桥接 */
 export { useViewSchemas } from "./useViewSchemas"
+
+/** useFormSelector - 表单值 Selector Vue 桥接 */
+export {
+  useFormSelector,
+  type UseFormSelectorOptions,
+} from "./useFormSelector"

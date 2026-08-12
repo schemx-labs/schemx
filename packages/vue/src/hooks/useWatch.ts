@@ -40,6 +40,8 @@ import { onUnmounted } from "vue"
 
 import { createWatch } from "@schemx/core"
 
+import { getCoreForm } from "../formBridge"
+
 import { useFormContext } from "./provideFormContext"
 
 import type { NamePath, Values } from "@schemx/core"
@@ -127,7 +129,7 @@ export function useWatch<TValues extends Values>(
   const form = useFormContext<TValues>()
 
   const dispose = (createWatch as any)(
-    form,
+    getCoreForm(form),
     nameOrNamesOrCallback,
     callbackOrOptions,
     maybeOptions

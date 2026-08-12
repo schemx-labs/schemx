@@ -15,8 +15,32 @@ const invalidComponentProps: SchemxFormProps<FormValues> = {
   schemaConfig: { readonly: true },
 }
 
+const actionProps: SchemxFormProps<FormValues> = {
+  submitter: {
+    text: "保存",
+    buttonProps: { disabled: true },
+  },
+  resetter: true,
+  loading: false,
+  onReset: () => {},
+  onLoadingChange: (loading) => {
+    const loadingState: boolean = loading
+
+    void loadingState
+  },
+}
+
+const invalidActionProps: SchemxFormProps<FormValues> = {
+  submitter: {
+    // @ts-expect-error 内置操作按钮不允许覆盖 type。
+    buttonProps: { type: "submit" },
+  },
+}
+
 void componentProps
 void invalidComponentProps
+void actionProps
+void invalidActionProps
 
 declare const field: FieldInstance<FormValues>
 

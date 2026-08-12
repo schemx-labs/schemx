@@ -79,6 +79,8 @@ export interface FormModel<TValues extends Values> {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface RuntimeFormModelPort<TValues extends Values> {
+  /** 注册 Schema 字段路径，建立批量值写入的原子边界。 */
+  registerFieldPath<TName extends NamePath<TValues>>(name: TName): void
   /**
    * 读取指定字段的当前值。
    */
@@ -123,6 +125,8 @@ export function createRuntimeFormModelPort<TValues extends Values>(
   model: FormModel<TValues>
 ): RuntimeFormModelPort<TValues> {
   // 绑定方法以隔离 Runtime 与 Store/ValidationController 的具体实现。
+  const registerFieldPath = model.store.registerFieldPath.bind(model.store)
+
   // 为 Runtime 安全绑定单字段值读取方法。
   const getFieldValue = model.store.getFieldValue.bind(model.store)
 
@@ -139,9 +143,12 @@ export function createRuntimeFormModelPort<TValues extends Values>(
   const removeValidationField = model.validation.removeField.bind(model.validation)
 
   // 为 Runtime 安全绑定临时移除 Schema 规则的方法。
-  const removeSchemaValidationField = model.validation.removeSchemaField.bind(model.validation)
+  const removeSchemaValidationField = model.validation.removeSchemaField.bind(
+    model.validation
+  )
 
   return {
+    registerFieldPath,
     getFieldValue,
     setFieldValue,
     setInitialValues,

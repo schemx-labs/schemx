@@ -18,6 +18,15 @@
   padding-bottom: var(--schemx-form-padding-bottom);
 }
 
+/** 表单内置操作区保持框架无关的原生 button 外观。 */
+.schemx-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--schemx-padding-sm);
+  padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline) 0;
+}
+
 .schemx-schemas {
   background-color: var(--schemx-background-color);
   padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);

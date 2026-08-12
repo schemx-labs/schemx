@@ -129,6 +129,8 @@ export type {
   SchemxGroupFieldDefinition,
   SchemxBaseComponentProps,
   SchemxComponentProps,
+  SchemxRuntimeInjectedProp,
+  SchemxRendererPropsMap,
   SchemxBase,
   SchemxGroupField,
   SchemxBaseField,

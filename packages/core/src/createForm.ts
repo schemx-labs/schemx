@@ -75,6 +75,7 @@ export function createForm<TValues extends Values>(
     instance,
     formApi,
     schemaConfig: merged.schemaConfig,
+    rendererProps: merged.rendererProps,
     defaultRendererType: merged.defaultRendererType,
     lifecycleHooks: merged.lifecycleHooks,
     debug: merged.debug,
@@ -87,6 +88,8 @@ export function createForm<TValues extends Values>(
     callbacks: {
       onFinish: merged.onFinish,
       onFinishFailed: merged.onFinishFailed,
+      onReset: merged.onReset,
+      onLoadingChange: merged.onLoadingChange,
     },
   })
 

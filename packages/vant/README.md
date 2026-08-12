@@ -158,7 +158,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 | `rate`           | `RateRenderer`           | `RateValue`           | —                                     | 不支持     | `Rate`、`Cell`                                  |
 | `slider`         | `SliderRenderer`         | `SliderValue`         | —                                     | 不支持     | `Slider`、`Cell`                                |
 | `stepper`        | `StepperRenderer`        | `StepperValue`        | —                                     | 不支持     | `Stepper`、`Cell`                               |
-| `upload`         | `UploadRenderer`         | `UploadValue`         | `UploadFile`（文件项）                | 不支持     | `Uploader`                                      |
+| `upload`         | `UploadRenderer`         | `UploadValue`         | `UploadFile`（文件项）                | 不支持     | `Uploader`、`ImagePreview`                      |
 | `cascader`       | `CascaderRenderer`       | `CascaderValue`       | Vant `CascaderOption`（未从本包导出） | 完整支持   | `Cascader`、`Popup`、`Cell`                     |
 
 全部 Renderer 都接受 Schemx 字段上下文提供的基础契约。下文只列继承来源、排除或重写字段，以及本包显式增加的字段；Vant 的完整通用 Props 请查阅 Vant 文档。
@@ -596,7 +596,6 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 | `formatter`                   | 完整值展示格式化。                                                         |
 | `maskFormatter`               | 脱敏格式化；未传时使用子目录内的 `defaultMaskFormatter`。                  |
 | `defaultRevealed`             | 非受控初始展开状态。                                                       |
-| `revealed` / `onRevealChange` | 类型兼容字段；当前实现不接管受控状态或调用该回调，展开状态由组件内部维护。 |
 | `revealable`                  | 是否允许展开。                                                             |
 | `revealText` / `hideText`     | 按钮文案。                                                                 |
 | `revealIcon` / `hideIcon`     | 按钮图标。                                                                 |
@@ -604,7 +603,7 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 | `hideOnBlur`                  | 失焦后是否重新脱敏。                                                       |
 | `revealWhenReadonly`          | 只读时是否允许展开。                                                       |
 
-组件实际通过 `reveal-change` 事件通知展开状态变化；该事件参数为 `(revealed: boolean)`。`revealed` 和 `onRevealChange` 仍保留在 Props 类型中，但当前不会改变内部状态或触发回调。
+组件通过 `reveal-change` 事件通知展开状态变化；该事件参数为 `(revealed: boolean)`。展开状态由内部管理，初始状态可通过 `defaultRevealed` 设置。
 
 ### `rate` / `RateRenderer`
 
@@ -658,9 +657,9 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 ### `upload` / `UploadRenderer`
 
 - **值与选项：** `UploadValue = UploadFile[]`；`UploadFile` 是兼容 Vant 文件项的本包结构。
-- **Props：** 同时继承 Schemx 基础契约与 `Partial<Omit<UploaderProps, "modelValue" | "onUpdate:modelValue" | "imageFit">>`。
+- **Props：** 同时继承 Schemx 基础契约与 `Partial<Omit<UploaderProps, "modelValue" | "onUpdate:modelValue" | "imageFit">>`，并补充文件列表与预览配置。
 - **Dictionary：** 不支持。
-- **行为：** 默认 `afterRead` 调用 `uploader`，维护 uploading / done / failed 状态；上传成功或删除后回调 `onChange`；删除即清空对应项；`readonly` 隐藏上传和删除，且无文件时展示 `readonlyPlaceholder`；`disabled` 禁用 Uploader；`disableUpload` 仅隐藏新增入口，保留已有文件删除能力。`multiple` 默认 `true`，也可显式设为 `false`。
+- **行为：** 默认 `afterRead` 调用 `uploader`，维护 uploading / done / failed 状态；上传成功或删除后回调 `onChange`。`listType: "card"` 使用图片卡片布局，`listType: "list"` 使用横向附件列表；图片可通过 `previewFullImage` 打开 `ImagePreview`。`beforeDelete` 会在实际删除前执行，支持同步或异步拦截。`readonly` 隐藏上传和删除，且无文件时展示 `readonlyPlaceholder`；`disabled` 禁用 Uploader；`disableUpload` 仅隐藏新增入口，保留已有文件删除能力。`multiple` 默认 `true`，也可显式设为 `false`。
 
 | 包内重写 / 新增字段     | 类型 / 说明                                                      |
 | ----------------------- | ---------------------------------------------------------------- |
@@ -670,6 +669,10 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 | `className`             | 根元素类名。                                                     |
 | `showUpload`            | 是否显示上传入口。                                               |
 | `multiple`              | 是否允许多文件选择，默认 `true`。                                |
+| `listType`              | `"card" \| "list"`；图片卡片或横向附件列表，默认 `"card"`。   |
+| `imageFit`              | 图片缩略图填充方式，默认 `"cover"`。                            |
+| `previewFullImage`      | 是否允许点击图片打开全屏预览，默认 `true`。                      |
+| `previewOptions`        | 透传给 Vant `ImagePreview` 的配置；图片与起始位置由组件控制。     |
 | `disableUpload`         | 隐藏上传入口，不影响已有文件的删除。                             |
 | `deletable`             | 是否可删除。                                                     |
 | `readonly` / `disabled` | 只读、禁用状态。                                                 |
@@ -886,6 +889,7 @@ rendererRegistry.register("input", CustomInputRenderer)
 | Upload         | `UploadRendererProps`         | Upload Renderer 的 Props。         |
 | Upload         | `UploadFile`                  | 单个上传文件项。                   |
 | Upload         | `UploadValue`                 | 上传文件项数组。                   |
+| Upload         | `UploadListType`              | 上传文件列表展示方式。             |
 | Cascader       | `CascaderRendererProps`       | Cascader Renderer 的 Props。       |
 | Cascader       | `CascaderFieldNames`          | Cascader 选项字段映射。            |
 | Cascader       | `CascaderValue`               | Cascader 路径或末级值数组。        |
@@ -980,7 +984,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 
 | 分类          | 导出                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Renderer 类型 | `InputRendererProps`、`InputValue`、`TextRendererProps`、`TextValue`、`TextAreaRendererProps`、`TextAreaAutosize`、`TextAreaValue`、`CheckboxRendererProps`、`CheckboxOption`、`CheckboxValue`、`DateRendererProps`、`DateValue`、`CalendarRendererProps`、`CalendarValue`、`NumberRendererProps`、`NumberValue`、`PickerRendererProps`、`PickerFieldNames`、`PickerValue`、`RadioRendererProps`、`RadioOption`、`RadioValue`、`RateRendererProps`、`RateValue`、`SliderRendererProps`、`SliderValue`、`StepperRendererProps`、`StepperValue`、`SwitchRendererProps`、`SwitchValue`、`UploadRendererProps`、`UploadFile`、`UploadValue`、`CascaderRendererProps`、`CascaderFieldNames`、`CascaderValue`、`SelectorRendererProps`、`SelectorOption`、`SelectorProps`、`SelectValue`、`SelectPickerFieldNames`、`SelectPickerOption`、`SelectPickerRendererProps`、`SelectPickerValue`、`SensitiveInputRendererProps`、`SensitiveInputValue` |
+| Renderer 类型 | `InputRendererProps`、`InputValue`、`TextRendererProps`、`TextValue`、`TextAreaRendererProps`、`TextAreaAutosize`、`TextAreaValue`、`CheckboxRendererProps`、`CheckboxOption`、`CheckboxValue`、`DateRendererProps`、`DateValue`、`CalendarRendererProps`、`CalendarValue`、`NumberRendererProps`、`NumberValue`、`PickerRendererProps`、`PickerFieldNames`、`PickerValue`、`RadioRendererProps`、`RadioOption`、`RadioValue`、`RateRendererProps`、`RateValue`、`SliderRendererProps`、`SliderValue`、`StepperRendererProps`、`StepperValue`、`SwitchRendererProps`、`SwitchValue`、`UploadRendererProps`、`UploadFile`、`UploadListType`、`UploadValue`、`CascaderRendererProps`、`CascaderFieldNames`、`CascaderValue`、`SelectorRendererProps`、`SelectorOption`、`SelectorProps`、`SelectValue`、`SelectPickerFieldNames`、`SelectPickerOption`、`SelectPickerRendererProps`、`SelectPickerValue`、`SensitiveInputRendererProps`、`SensitiveInputValue` |
 | 工具类型      | `RendererMode`、`FindTreeItemResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ### Vue 自有传递运行时值

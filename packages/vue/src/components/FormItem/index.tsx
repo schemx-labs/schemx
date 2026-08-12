@@ -9,7 +9,7 @@
  */
 
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, h, onUnmounted, PropType, shallowRef } from "vue"
+import { computed, defineComponent, h, PropType } from "vue"
 import type { VNodeChild } from "vue"
 
 import { isSchemxViewFieldSchema, isViewGroupSchema } from "@schemx/core"
@@ -24,6 +24,7 @@ import {
   useFormContext,
   useStableRef,
 } from "../../hooks"
+import { useViewSchema } from "../../hooks/useViewSchemas"
 import { mergeTrigger, resolveSlot, shouldValidateOn } from "../../utils"
 import FormGroup from "../FormGroup"
 
@@ -41,7 +42,7 @@ import type {
 /**
  * FormItem 属性。
  *
- * @typeParam TValues - 表单值类型
+ * 提供待渲染的原始 ViewSchema；具体字段或分组类型由组件内部运行时收窄。
  */
 export interface SchemxItemProps {
   schema: unknown
@@ -57,6 +58,12 @@ const FormItem = defineComponent({
     },
   },
 
+  /**
+   * 根据 schema 类型分发字段组或字段项渲染。
+   *
+   * @param props - 当前组件的 schema 属性。
+   * @param slots - Vue setup 上下文提供的插槽集合。
+   */
   setup(props, { slots }) {
     return (): VNodeChild => {
       const schema = props.schema as SchemxViewSchema<Values>
@@ -81,30 +88,28 @@ const FieldFormItem = defineComponent({
     },
   },
 
+  /**
+   * 初始化字段上下文，并组合响应式 schema、校验处理器与插槽渲染器。
+   *
+   * @param props - 当前字段项的 schema 属性。
+   * @param attrs - Vue setup 上下文提供的透传属性。
+   * @param slots - Vue setup 上下文提供的插槽集合。
+   */
   setup(props, { attrs, slots }) {
     const form = useFormContext<Values>()
 
-    const inputSchema = props.schema as SchemxViewFieldSchema<Values>
+    const inputSchema = computed<SchemxViewFieldSchema<Values>>(
+      () => props.schema as SchemxViewFieldSchema<Values>
+    )
 
-    const schemaVersion = shallowRef(0)
+    // 按 key 复用表单级 ViewSchema 订阅，避免每个 FormItem 建立独立 Core effect。
+    const latestSchema = useViewSchema(form, () => inputSchema.value.key)
 
-    const disposeSchemaEffect = form.effect(() => {
-      form.getViewSchemas()
-      schemaVersion.value++
-    })
-
-    onUnmounted(disposeSchemaEffect)
-
+    // 优先使用桥接中的最新字段；首帧或字段暂不存在时回退到输入 schema。
     const schemaRef = computed<SchemxViewFieldSchema<Values>>(() => {
-      void schemaVersion.value
-
-      const latestSchema = form
-        .getViewSchemas()
-        .find((viewSchema) => viewSchema.key === inputSchema.key)
-
-      return latestSchema && isSchemxViewFieldSchema(latestSchema)
-        ? latestSchema
-        : inputSchema
+      return latestSchema.value && isSchemxViewFieldSchema(latestSchema.value)
+        ? latestSchema.value
+        : inputSchema.value
     })
 
     const formContext = useFormConfigContext()
@@ -124,7 +129,7 @@ const FieldFormItem = defineComponent({
     /**
      * 是否需要进行校验。
      *
-     * 当字段不可见、详情展示、只读或禁用时，无需进行校验。
+     * 当字段不可见、只读或禁用时，无需进行校验。
      */
     const canVerified = computed(() => {
       const isOperate =
@@ -137,7 +142,11 @@ const FieldFormItem = defineComponent({
       return isOperate && (Boolean(schemaRef.value.required) || hasRules)
     })
 
-    /** 值变化处理，设置值后根据触发时机决定是否校验 */
+    /**
+     * 处理字段值变化，设置值后根据触发时机决定是否校验。
+     *
+     * @param v - 渲染器提交的最新字段值。
+     */
     const handleChange = (v: FieldValue<Values, NamePath<Values>>) => {
       field.setValue(v)
       schemaRef.value.componentProps?.onChange?.(v)
@@ -147,7 +156,11 @@ const FieldFormItem = defineComponent({
       }
     }
 
-    /** 失焦处理，根据触发时机决定是否校验 */
+    /**
+     * 处理字段失焦，并根据触发时机决定是否校验。
+     *
+     * @param v - 触发失焦事件时对应的字段值。
+     */
     const handleBlur = (v: FieldValue<Values, NamePath<Values>>) => {
       schemaRef.value.componentProps?.onBlur?.(v)
 
@@ -156,6 +169,11 @@ const FieldFormItem = defineComponent({
       }
     }
 
+    /**
+     * 处理组件的 v-model 更新，只同步字段值，不主动触发校验。
+     *
+     * @param v - 渲染器提交的最新字段值。
+     */
     const handleValueUpdate = (v: FieldValue<Values, NamePath<Values>>) => {
       field.setValue(v)
     }
@@ -163,31 +181,11 @@ const FieldFormItem = defineComponent({
     // 使用 useStableRef 避免每次生成新对象引用
     const componentProps = useStableRef<SchemxComponentProps<Values>>(
       (): SchemxComponentProps<Values> => {
-        const currentSchema = schemaRef.value
-
-        const currentComponentProps = currentSchema.componentProps ?? {}
-
-        const formItemProps = {
-          name: currentSchema.name,
-          label: currentSchema.label,
-          componentType: currentSchema.componentType,
-          ...currentComponentProps.formItemProps,
-        }
+        const currentComponentProps = schemaRef.value.componentProps ?? {}
 
         return {
           ...currentComponentProps,
           value: field.value.value,
-          disabled: currentSchema.disabled,
-          readonly: currentSchema.readonly,
-          readonlyPlaceholder: currentSchema.readonlyPlaceholder,
-          placeholder: currentSchema.placeholder,
-          formItemProps: {
-            ...formItemProps,
-            disabled: currentSchema.disabled,
-            readonly: currentSchema.readonly,
-            readonlyPlaceholder: currentSchema.readonlyPlaceholder,
-            placeholder: currentSchema.placeholder,
-          },
           onChange: handleChange,
           onBlur: handleBlur,
           "onUpdate:value": handleValueUpdate,

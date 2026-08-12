@@ -28,7 +28,13 @@ import {
   createSignal,
   onBatchComplete,
 } from "../reactivity"
-import { collectObjectPathsByLeaf, getByPath, setByPath } from "../utils"
+import {
+  collectObjectPathsByLeaf,
+  createFieldKey,
+  getByPath,
+  setByPath,
+  toNamePathSegments,
+} from "../utils"
 
 import type { FieldSignal } from "../reactivity"
 import type { FieldValue, NamePath, Values } from "../types"
@@ -41,7 +47,7 @@ import type { FieldValue, NamePath, Values } from "../types"
 export interface StoreOptions<TValues extends Partial<Values>> {
   /**
    * 创建 Store 时写入的初始字段值。
-   */
+  */
   initialValues?: TValues
 }
 
@@ -53,11 +59,11 @@ export interface StoreOptions<TValues extends Partial<Values>> {
 export interface StoreState<TValues extends Values> {
   /**
    * 当前字段值快照。
-   */
+  */
   values: TValues
   /**
    * 用于重置字段的初始值快照。
-   */
+  */
   initialValues: TValues
 }
 
@@ -72,11 +78,11 @@ export interface StorePending<
 > {
   /**
    * 正在执行异步操作的字段路径。
-   */
+  */
   field: TName
   /**
    * 操作进行期间向用户显示的提示消息。
-   */
+  */
   message: string[]
 }
 
@@ -98,6 +104,14 @@ class StoreImpl<TValues extends Values = Values> {
    * 每个字段路径对应一个 FieldSignal。
    */
   private fieldSignals = createFieldSignalMap<NamePath<TValues>, unknown>()
+
+  /**
+   * 已由 Schema Runtime 注册的字段值边界。
+   *
+   * 批量写入命中该路径时，数组和对象都作为该字段的整体值保存，
+   * 不再继续展开为子路径 Signal。
+   */
+  private readonly registeredFieldPaths = new Map<string, NamePath<TValues>>()
 
   /** 当前值变更的单调 revision；完整快照按此 revision 缓存。 */
   private readonly valueRevision = createSignal(0)
@@ -190,6 +204,118 @@ class StoreImpl<TValues extends Values = Values> {
     this.snapshotCache = result
 
     return result
+  }
+
+  /**
+   * 注册 Schema 字段路径，作为批量写入的原子值边界。
+   *
+   * Runtime 在字段挂载时调用。若 Store 已因初始值或提前批量写入创建了
+   * 该字段的后代 Signal，则将它们归并为当前字段的整体 Signal。
+   */
+  registerFieldPath<TName extends NamePath<TValues>>(path: TName): void {
+    const key = createFieldKey(path)
+
+    if (this.registeredFieldPaths.has(key)) {
+      return
+    }
+
+    for (const registeredPath of this.registeredFieldPaths.values()) {
+      if (areOverlappingFieldPaths(path, registeredPath)) {
+        throw new Error(
+          `[schemx] Field paths "${formatNamePath(path)}" and ` +
+            `"${formatNamePath(registeredPath)}" overlap. ` +
+            "A value subtree can only be owned by one schema field."
+        )
+      }
+    }
+
+    const currentValues = this.getFieldsSnapshot()
+
+    const currentValue = getByPath<TValues, TName>(currentValues, path)
+
+    const initialValue = getByPath<TValues, TName>(this.initialValues, path)
+
+    const descendantPaths = [...this.fieldSignals.keys()].filter((candidate) =>
+      isDescendantFieldPath(candidate, path)
+    )
+
+    const existingSignal = this.fieldSignals.peek(path) as
+      FieldSignal<FieldValue<TValues, TName>> | undefined
+
+    this.registeredFieldPaths.set(key, path)
+
+    if (existingSignal && descendantPaths.length === 0) {
+      return
+    }
+
+    batchUpdates(() => {
+      for (const descendantPath of descendantPaths) {
+        this.fieldSignals.delete(descendantPath)
+      }
+
+      if (existingSignal) {
+        if (!isEqual(existingSignal.value.peek(), currentValue)) {
+          existingSignal.setValue(currentValue)
+        }
+
+        existingSignal.setInitialValue(initialValue)
+      } else if (currentValue !== undefined || initialValue !== undefined) {
+        this.fieldSignals.set(
+          path,
+          createFieldSignal<FieldValue<TValues, TName>>({
+            value: currentValue,
+            initialValue,
+          })
+        )
+      }
+
+      if (descendantPaths.length > 0 || existingSignal === undefined) {
+        this.markValueChanged(path)
+      }
+    })
+  }
+
+  /**
+   * 按已注册字段边界将一个嵌套值对象拆为写入条目。
+   */
+  private collectValueEntries(
+    values: Partial<TValues>
+  ): Array<[NamePath<TValues>, unknown]> {
+    const entries: Array<[NamePath<TValues>, unknown]> = []
+
+    const visit = (value: unknown, path: string): void => {
+      const name = path as NamePath<TValues>
+
+      if (this.registeredFieldPaths.has(createFieldKey(name))) {
+        entries.push([name, value])
+
+        return
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+          visit(item, `${path}[${index}]`)
+        })
+
+        return
+      }
+
+      if (value !== null && typeof value === "object") {
+        for (const [key, child] of Object.entries(value)) {
+          visit(child, path ? `${path}.${key}` : key)
+        }
+
+        return
+      }
+
+      entries.push([name, value])
+    }
+
+    for (const [key, value] of Object.entries(values)) {
+      visit(value, key)
+    }
+
+    return entries
   }
 
   /**
@@ -287,7 +413,7 @@ class StoreImpl<TValues extends Values = Values> {
    * store.getFieldsValue()                  // => { name: 'John', age: 25 }
    * store.getFieldsValue(['name', 'age'])   // => { name: 'John', age: 25 }
    * ```
-  */
+   */
   getFieldsValue(): TValues
   /** 按指定字段路径返回部分表单值。 */
   getFieldsValue<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
@@ -317,11 +443,11 @@ class StoreImpl<TValues extends Values = Values> {
    * ```
    */
   setFieldsValue(values: Partial<TValues>): void {
-    const paths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(values)
+    const entries = this.collectValueEntries(values)
 
     batchUpdates(() => {
-      for (const path of paths) {
-        this.setFieldValue(path, getByPath<TValues, typeof path>(values, path))
+      for (const [path, value] of entries) {
+        this.setFieldValue(path, value as FieldValue<TValues, typeof path>)
       }
     })
   }
@@ -364,7 +490,7 @@ class StoreImpl<TValues extends Values = Values> {
    * const snapshot = store.getFieldsSnapshot()
    * const partial = store.getFieldsSnapshot(['name', 'age'])
    * ```
-  */
+   */
   getFieldsSnapshot(): TValues
   /** 按指定字段路径返回部分表单快照。 */
   getFieldsSnapshot<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
@@ -422,7 +548,7 @@ class StoreImpl<TValues extends Values = Values> {
    * store.getInitialValues()         // => { name: 'John', age: 25 }
    * store.getInitialValues(['name']) // => { name: 'John' }
    * ```
-  */
+   */
   getInitialValues(): Partial<TValues>
   /** 按指定字段路径返回部分初始值。 */
   getInitialValues<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
@@ -473,13 +599,13 @@ class StoreImpl<TValues extends Values = Values> {
    * ```
    */
   setInitialValues(values: Partial<TValues>): void {
-    const paths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(values)
+    const entries = this.collectValueEntries(values)
 
-    if (!paths.length) return
+    if (!entries.length) return
 
     batchUpdates(() => {
-      for (const path of paths) {
-        const next = getByPath<TValues, typeof path>(values, path)
+      for (const [path, value] of entries) {
+        const next = value as FieldValue<TValues, typeof path>
 
         setByPath(this.initialValues, path, next)
 
@@ -519,7 +645,7 @@ class StoreImpl<TValues extends Values = Values> {
    * store.isFieldsTouched(['name', 'age']) // => true（全部被修改时）
    * store.isFieldsTouched()               // => true（任一字段被修改时）
    * ```
-  */
+   */
   isFieldsTouched(): boolean
   /** 检查指定字段是否全部被修改。 */
   isFieldsTouched<TName extends NamePath<TValues>>(paths: TName[]): boolean
@@ -621,7 +747,7 @@ class StoreImpl<TValues extends Values = Values> {
    * store.isFieldsPending(['name', 'age']) // => true（全部处于操作中时）
    * store.isFieldsPending()               // => true（任一字段处于操作中时）
    * ```
-  */
+   */
   isFieldsPending(): boolean
   /** 检查指定字段是否全部处于 pending 状态。 */
   isFieldsPending<TName extends NamePath<TValues>>(paths: TName[]): boolean
@@ -652,7 +778,7 @@ class StoreImpl<TValues extends Values = Values> {
 
     for (const [field, signal] of this.fieldSignals.entries()) {
       if (signal.pending.value) {
-        fields.push({ field, message: signal.pendingMessage.peek() })
+        fields.push({ field, message: signal.pendingMessage.value })
       }
     }
 
@@ -780,7 +906,9 @@ class StoreImpl<TValues extends Values = Values> {
       this.initialValues = cloneDeep(resetValues)
     }
 
-    const nextPaths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(resetValues)
+    const nextEntries = this.collectValueEntries(resetValues)
+
+    const nextPaths = nextEntries.map(([path]) => path)
 
     const nextPathSet = new Set(nextPaths)
 
@@ -792,8 +920,8 @@ class StoreImpl<TValues extends Values = Values> {
         }
       }
 
-      for (const path of nextPaths) {
-        const next = getByPath<TValues, typeof path>(resetValues, path)
+      for (const [path, value] of nextEntries) {
+        const next = value as FieldValue<TValues, typeof path>
 
         const signal = this.fieldSignals.peek(path)
 
@@ -830,10 +958,39 @@ class StoreImpl<TValues extends Values = Values> {
    */
   destroy(): void {
     this.fieldSignals.clear()
+    this.registeredFieldPaths.clear()
     this.changedPaths.clear()
     this.snapshotCache = undefined
     this.disposeBatchListener()
   }
+}
+
+/** 判断 candidate 是否位于 ancestor 的严格后代路径。 */
+function isDescendantFieldPath<TValues extends Values>(
+  candidate: NamePath<TValues>,
+  ancestor: NamePath<TValues>
+): boolean {
+  const candidateSegments = toNamePathSegments(candidate)
+
+  const ancestorSegments = toNamePathSegments(ancestor)
+
+  return (
+    candidateSegments.length > ancestorSegments.length &&
+    ancestorSegments.every((segment, index) => segment === candidateSegments[index])
+  )
+}
+
+/** 判断两个字段路径是否互为自身或父子路径。 */
+function areOverlappingFieldPaths<TValues extends Values>(
+  first: NamePath<TValues>,
+  second: NamePath<TValues>
+): boolean {
+  return isDescendantFieldPath(first, second) || isDescendantFieldPath(second, first)
+}
+
+/** 将路径转为用于诊断的可读字符串。 */
+function formatNamePath<TValues extends Values>(path: NamePath<TValues>): string {
+  return toNamePathSegments(path).join(".")
 }
 
 /**

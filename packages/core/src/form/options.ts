@@ -17,6 +17,7 @@ import type {
   NamePath,
   ResolvedSchemxSchemaConfig,
   SchemxRendererKey,
+  SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
 } from "../types"
@@ -50,13 +51,17 @@ export interface FormSchemaOptions<TValues extends Values = Values> {
 }
 
 /**
- * `createForm` 的 Registry 配置。
+ * `createForm` 的 Renderer、Registry 与 Validator 配置。
+ *
+ * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
  */
-export interface FormRegistryOptions {
+export interface FormRegistryOptions<TValues extends Values = Values> {
+  /** 按 Renderer 类型配置的静态默认 Props。 */
+  rendererProps?: SchemxRendererPropsMap<TValues>
   /** 自定义渲染器注册表。 */
   rendererRegistry?: RendererRegistry
   /** 未显式指定 componentType 时使用的默认渲染器类型。 */
-  defaultRendererType?: SchemxRendererKey
+  defaultRendererType?: SchemxRendererKey<TValues>
   /** 自定义校验规则注册表。 */
   validationRuleRegistry?: ValidationRuleRegistry
   /** 第三方校验器适配器列表。 */
@@ -85,6 +90,20 @@ export interface FormCallbackOptions<
    * 校验失败后的提交回调。
    */
   onFinishFailed?: (failure: ValidationFailure<TValues>) => void
+  /**
+   * 完整表单重置完成后调用。
+   *
+   * 不会在 `resetFields()` 时触发。
+   */
+  onReset?: () => void
+  /**
+   * 提交流程开始或结束时调用。
+   *
+   * 状态覆盖依赖等待、校验和 `onFinish` 返回的异步任务。
+   *
+   * @param loading - 当前是否处于提交流程中。
+   */
+  onLoadingChange?: (loading: boolean) => void
   /**
    * 字段值变化后的回调。
    */
@@ -125,7 +144,7 @@ export interface CreateFormOptions<
 >
   extends
     FormSchemaOptions<TValues>,
-    FormRegistryOptions,
+    FormRegistryOptions<TValues>,
     FormCallbackOptions<TValues, TName>,
     FormLifecycleOptions<TValues> {}
 
@@ -170,7 +189,8 @@ export function mergeCreateFormOptions<TValues extends Values>(
   // 按 Form、全局的优先级合并可继承配置。
   const configuredOptions = mergeAndResolveSchemxConfig(
     getFormSchemxConfig(options),
-    getGlobalSchemxConfig()
+    // 全局配置以 Values 存储；在 Form 装配边界关联到当前 TValues。
+    getGlobalSchemxConfig() as SchemxConfig<TValues>
   )
 
   return {
@@ -182,11 +202,14 @@ export function mergeCreateFormOptions<TValues extends Values>(
     validationRuleRegistry:
       configuredOptions.validationRuleRegistry ?? createValidationRuleRegistry(),
     schemaConfig: configuredOptions.schemaConfig,
+    rendererProps: configuredOptions.rendererProps,
     defaultRendererType: configuredOptions.defaultRendererType,
     validatorAdapters: configuredOptions.validatorAdapters ?? [],
     onRuleError,
     onFinish: options.onFinish,
     onFinishFailed: options.onFinishFailed,
+    onReset: options.onReset,
+    onLoadingChange: options.onLoadingChange,
     onValuesChange: options.onValuesChange,
     onFieldsChange: options.onFieldsChange,
     lifecycleHooks: options.lifecycleHooks,
@@ -205,9 +228,10 @@ export function mergeCreateFormOptions<TValues extends Values>(
  */
 export function getFormSchemxConfig<TValues extends Values>(
   options: CreateFormOptions<TValues>
-): SchemxConfig {
+): SchemxConfig<TValues> {
   const {
     schemaConfig = {},
+    rendererProps = undefined,
     validatorAdapters = [],
     defaultRendererType = undefined,
     rendererRegistry = undefined,
@@ -216,6 +240,7 @@ export function getFormSchemxConfig<TValues extends Values>(
 
   return {
     schemaConfig,
+    rendererProps,
     defaultRendererType,
     rendererRegistry,
     validationRuleRegistry,

@@ -1,9 +1,12 @@
-import { defineComponent, effectScope, h, markRaw } from "vue"
+import { defineComponent, effectScope, h, markRaw, nextTick } from "vue"
 
 import {
   configureSchemx,
+  createForm,
   createRendererRegistry,
   getGlobalSchemxConfig,
+  isSchemxViewFieldSchema,
+  type SchemxConfig,
   type ValidationAdapter,
 } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
@@ -19,6 +22,22 @@ const ConfiguredRenderer = defineComponent({
   name: "ConfiguredRenderer",
   setup() {
     return () => h("input")
+  },
+})
+
+const RendererPropsProbe = defineComponent({
+  name: "RendererPropsProbe",
+  props: {
+    marker: String,
+    shared: String,
+  },
+  setup(props) {
+    return () =>
+      h("div", {
+        "data-testid": "renderer-props-probe",
+        "data-marker": props.marker,
+        "data-shared": props.shared,
+      })
   },
 })
 
@@ -310,5 +329,242 @@ describe("Schemx Vue 插件安装", () => {
     expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true })
 
     wrapper.unmount()
+  })
+
+  it("按 Core、App、Form、字段优先级浅合并 rendererProps", () => {
+    configureSchemx({
+      rendererProps: {
+        configured: {
+          coreOnly: "core",
+          shared: "core",
+          nested: { source: "core" },
+        },
+      } as never,
+    })
+
+    const { form, wrapper } = mountUseForm(
+      {
+        rendererProps: {
+          configured: {
+            appOnly: "app",
+            shared: "app",
+            nested: { source: "app" },
+          },
+        } as never,
+      },
+      {
+        rendererProps: {
+          configured: {
+            formOnly: "form",
+            shared: "form",
+            nested: { source: "form" },
+          },
+        } as never,
+        schemas: [
+          {
+            name: "name",
+            label: "姓名",
+            componentType: "configured",
+            componentProps: {
+              fieldOnly: "field",
+              shared: "field",
+            } as never,
+          },
+        ],
+      }
+    )
+
+    const fieldSchema = form.getViewSchemas()[0]
+
+    if (!fieldSchema || !isSchemxViewFieldSchema(fieldSchema)) {
+      throw new Error("测试字段未生成 Field ViewSchema")
+    }
+
+    expect(fieldSchema.componentProps).toMatchObject({
+      coreOnly: "core",
+      appOnly: "app",
+      formOnly: "form",
+      fieldOnly: "field",
+      shared: "field",
+      nested: { source: "form" },
+    })
+
+    wrapper.unmount()
+  })
+
+  it("App rendererProps 使用只冻结一层的配置快照", () => {
+    const nested = { source: "nested" }
+
+    const configuredProps = {
+      marker: "app",
+      nested,
+    }
+
+    const rendererProps = {
+      configured: configuredProps,
+    }
+
+    const app = {
+      component: vi.fn(),
+      provide: vi.fn(),
+    }
+
+    Schemx.install(app as never, { rendererProps: rendererProps as never })
+
+    const providedConfig = app.provide.mock.calls[0]?.[1] as SchemxConfig
+
+    const normalizedRendererProps = providedConfig.rendererProps as
+      Record<string, Record<string, unknown>> | undefined
+
+    const normalizedConfiguredProps = normalizedRendererProps?.configured
+
+    expect(Object.isFrozen(normalizedRendererProps)).toBe(true)
+    expect(Object.isFrozen(normalizedConfiguredProps)).toBe(true)
+    expect(normalizedRendererProps).not.toBe(rendererProps)
+    expect(normalizedConfiguredProps).not.toBe(configuredProps)
+    expect(normalizedConfiguredProps?.nested).toBe(nested)
+
+    configuredProps.marker = "mutated"
+    ;(rendererProps as Record<string, Record<string, unknown>>).later = {
+      marker: "later",
+    }
+
+    expect(normalizedConfiguredProps?.marker).toBe("app")
+    expect(normalizedRendererProps).not.toHaveProperty("later")
+  })
+
+  it("dependencies.componentProps 覆盖 rendererProps 默认值", async () => {
+    const { form, wrapper } = mountUseForm(
+      {},
+      {
+        initialValues: { mode: "dynamic" },
+        rendererProps: {
+          configured: {
+            defaultOnly: "default",
+            shared: "default",
+          },
+        } as never,
+        schemas: [
+          {
+            name: "mode",
+            label: "模式",
+            componentType: "configured",
+          },
+          {
+            name: "target",
+            label: "目标",
+            componentType: "configured",
+            dependencies: {
+              triggerFields: ["mode"],
+              componentProps: (() => ({
+                dynamicOnly: "dynamic",
+                shared: "dynamic",
+              })) as never,
+            },
+          },
+        ],
+      }
+    )
+
+    await form.waitForDependencies()
+
+    const target = form
+      .getViewSchemas()
+      .find((schema) => isSchemxViewFieldSchema(schema) && schema.name === "target")
+
+    if (!target || !isSchemxViewFieldSchema(target)) {
+      throw new Error("依赖测试字段未生成 Field ViewSchema")
+    }
+
+    expect(target.componentProps).toMatchObject({
+      defaultOnly: "default",
+      dynamicOnly: "dynamic",
+      shared: "dynamic",
+    })
+
+    wrapper.unmount()
+  })
+
+  it("SchemxForm 将 rendererProps 传给内部创建的 Form", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("probe", markRaw(RendererPropsProbe))
+
+    const wrapper = mount(Schemx, {
+      props: {
+        rendererRegistry,
+        rendererProps: {
+          probe: { marker: "component" },
+        } as never,
+        schemas: [
+          {
+            name: "name",
+            label: "姓名",
+            componentType: "probe",
+          },
+        ],
+      },
+    })
+
+    await nextTick()
+
+    expect(
+      wrapper.get('[data-testid="renderer-props-probe"]').attributes("data-marker")
+    ).toBe("component")
+
+    wrapper.unmount()
+  })
+
+  it("SchemxForm 不向 external form 追加组件或 App rendererProps", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const schemas = [
+      {
+        name: "name",
+        label: "姓名",
+        componentType: "probe",
+      },
+    ]
+
+    rendererRegistry.register("probe", markRaw(RendererPropsProbe))
+
+    const externalForm = createForm({
+      rendererRegistry,
+      rendererProps: {
+        probe: { marker: "external" },
+      } as never,
+      schemas,
+    })
+
+    const wrapper = mount(Schemx, {
+      props: {
+        form: externalForm,
+        rendererProps: {
+          probe: { marker: "component" },
+        } as never,
+        schemas,
+      },
+      global: {
+        plugins: [
+          [
+            Schemx,
+            {
+              rendererProps: {
+                probe: { marker: "app" },
+              } as never,
+            },
+          ],
+        ],
+      },
+    })
+
+    await nextTick()
+
+    expect(
+      wrapper.get('[data-testid="renderer-props-probe"]').attributes("data-marker")
+    ).toBe("external")
+
+    wrapper.unmount()
+    externalForm.destroy()
   })
 })

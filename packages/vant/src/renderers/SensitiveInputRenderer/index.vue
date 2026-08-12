@@ -77,13 +77,13 @@
     maskFormatter: defaultMaskFormatter,
     defaultRevealed: false,
     revealable: true,
-    revealText: "显示",
-    hideText: "隐藏",
+    revealText: "",
+    hideText: "",
     revealIcon: "eye-o",
     hideIcon: "closed-eye",
     focusOnReveal: true,
     hideOnBlur: false,
-    revealWhenReadonly: false,
+    revealWhenReadonly: true,
     placeholder: "",
     readonlyPlaceholder: "-",
     disabled: false,
@@ -107,6 +107,7 @@
 
   const isEmpty = computed(() => isEmptyDisplayValue(rawValue.value))
 
+  console.log(" > ~ props:", props)
   const canReveal = computed(() => {
     if (isEmpty.value || !props.revealable || props.disabled) return false
     if (props.readonly && !props.revealWhenReadonly) return false

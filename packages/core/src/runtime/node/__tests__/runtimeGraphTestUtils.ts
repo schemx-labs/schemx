@@ -161,6 +161,16 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     removeSchemaField: vi.fn(),
   }
 
+  const model = {
+    registerFieldPath: vi.fn(),
+    getFieldValue: readValue,
+    setFieldValue: writeValue,
+    setInitialValues: instance.setInitialValues,
+    syncValidationField: validation.syncField,
+    removeValidationField: validation.removeField,
+    removeSchemaValidationField: validation.removeSchemaField,
+  }
+
   const compile = createCompile<TValues>({
     schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     formInstance: instance as any,
@@ -169,6 +179,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   const context = {
     schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     instance,
+    model,
     formApi,
     compile,
     scheduler,

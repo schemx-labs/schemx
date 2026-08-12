@@ -61,7 +61,7 @@
       name: "username",
       label: "用户名",
       componentType: "text",
-      required: false,
+      required: true,
       validationTrigger: "onChange",
       rules: z
         .string()

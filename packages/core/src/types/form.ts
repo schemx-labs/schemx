@@ -355,6 +355,20 @@ export interface SchemxInstance<TValues extends Values = Values> {
   getPendingFields: () => StorePending<TValues, NamePath<TValues>>[]
 
   /**
+   * 返回当前是否正在提交表单。
+   *
+   * 在 `effect()` 中调用时会追踪提交状态变化。
+   *
+   * @example
+   * ```typescript
+   * if (form.isLoading()) {
+   *   console.log('正在提交')
+   * }
+   * ```
+   */
+  isLoading: () => boolean
+
+  /**
    * 重置指定字段到初始值
    *
    * @param names - 要重置的字段路径数组

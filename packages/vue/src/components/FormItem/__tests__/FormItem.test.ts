@@ -304,7 +304,7 @@ describe("FormItem 集成测试", () => {
     // 将 province 设为空字符串
     form.setFieldValue("province", "")
     await form.waitForDependencies()
-    await wrapper.setProps({ schema: form.getViewSchemas()[0] })
+    await new Promise((resolve) => setTimeout(resolve, 30))
     await nextTick()
 
     // province 为空 → visible 应为 false → 组件不应渲染
@@ -773,7 +773,7 @@ describe("FormItem 集成测试", () => {
 
     form.setFieldValue("deliveryMethod", "selfPickup")
     await form.waitForDependencies()
-    await wrapper.setProps({ schema: form.getViewSchemas()[0] })
+    await new Promise((resolve) => setTimeout(resolve, 30))
     await nextTick()
 
     const input = wrapper.get('[data-testid="probe-renderer"]')

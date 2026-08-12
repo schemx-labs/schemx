@@ -1,5 +1,19 @@
 # Release Notes
 
+## Unreleased
+
+### 新增功能
+
+- 新增 `Button` 组件，支持 `loading`、`loadingText`、`disabled`、三档 `size` 以及 `prefix` / `suffix` 插槽；同时导出 `SchemxButtonProps`、`SchemxButtonSize`。
+- `Schemx` 新增内置提交与重置操作区：通过 `submitter`、`resetter` 配置默认按钮，或使用同名插槽完全替换，并可通过 `loading` 覆盖操作区显示状态。
+- 新增 `useFormSelector()`、`getCoreForm()` 与共享 Form Bridge；`useForm()`、`useField()`、Context 和视图 Schema 读取可复用同一份 Vue 响应式订阅。
+
+### 优化与调整
+
+- `SchemxFormProps` 支持 `rendererProps`、`onReset` 和 `onLoadingChange`，并将对应能力传递给内部创建的 Core Form。
+- `useForm()` 返回 `VueSchemxInstance`：常用值、错误、touched、pending 与 loading 读取可被 Vue effect 追踪；需要无依赖快照或原始实例时可使用已有快照 API 或 `getCoreForm()`。
+- `FormItem` 字段插槽与动态 ViewSchema 更新使用共享 Bridge，减少重复订阅并保持字段状态同步。
+
 ## 版本信息
 
 - 基准版本：`@schemx/vue@0.2.3`

@@ -108,7 +108,7 @@ ui__render_command() {
   if ui__can_style; then
     local foreground="$(ui__color muted)" || return
     local border="$(ui__color rail)" || return
-    gum style --foreground "$foreground" --border rounded --border-foreground "$border" --padding '0 1' --margin "0 0 0 $((depth * 2))" -- "\$ ${command_text}" >&2
+    gum style --foreground "$foreground" --border rounded --border-foreground "$border" --padding '0 1' --margin "0 0 0 $((depth * 2))" --width 72 -- "\$ ${command_text}" >&2
   else
     printf '%s[命令] %s\n' "$indent" "$command_text" >&2
   fi

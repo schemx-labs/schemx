@@ -1,3 +1,4 @@
+import { createSignal } from "../reactivity"
 import { withLock } from "../utils"
 
 import type { FormModel } from "./model"
@@ -24,6 +25,14 @@ export interface FormCallbacks<TValues extends Values> {
    * 校验失败后接收失败详情的回调。
    */
   onFinishFailed?: (failure: ValidationFailure<TValues>) => void
+  /**
+   * 完整表单重置完成后调用。
+   */
+  onReset?: () => void
+  /**
+   * 提交流程状态变化时调用。
+   */
+  onLoadingChange?: (loading: boolean) => void
 }
 
 /**
@@ -46,6 +55,14 @@ export interface FormController<TValues extends Values> {
    * 校验并按结果触发提交成功或失败回调。
    */
   submit(): Promise<ValidationResult<TValues>>
+  /**
+   * 重置整个表单并触发重置回调。
+   */
+  reset(): void
+  /**
+   * 返回当前提交流程是否仍在进行中。
+   */
+  isLoading(): boolean
   /**
    * 设置字段校验规则覆盖。
    */
@@ -73,6 +90,30 @@ export function createFormController<TValues extends Values>(options: {
 }): FormController<TValues> {
   // 控制器直接委托状态与校验给 Model，并使用 Runtime 等待依赖状态。
   const { model, runtime, callbacks } = options
+
+  // 提交流程状态必须独立于字段 pending，以便 UI 区分表单提交与字段异步操作。
+  const loading = createSignal(false)
+
+  /**
+   * 同步提交 loading 并通知创建期回调。
+   */
+  const setLoading = (nextLoading: boolean): void => {
+    loading.value = nextLoading
+    callbacks.onLoadingChange?.(nextLoading)
+  }
+
+  /**
+   * 返回当前提交 loading，并允许 Form effect 追踪该状态。
+   */
+  const isLoading: FormController<TValues>["isLoading"] = () => loading.value
+
+  /**
+   * 完成整表重置后再触发回调，保证回调能读取最终状态。
+   */
+  const reset: FormController<TValues>["reset"] = () => {
+    model.reset()
+    callbacks.onReset?.()
+  }
 
   /**
    * 校验单个字段，并确保字段依赖已经完成解析。
@@ -138,23 +179,31 @@ export function createFormController<TValues extends Values>(options: {
    * 带并发锁的提交流程，并负责触发提交回调。
    */
   const submit = withLock(async (): Promise<ValidationResult<TValues>> => {
-    // 提交前等待所有字段依赖稳定。
-    const depsReady = await runtime.waitForIdle()
+    try {
+      setLoading(true)
 
-    if (!depsReady) {
-      return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
+      // 提交前等待所有字段依赖稳定。
+      const depsReady = await runtime.waitForIdle()
+
+      if (!depsReady) {
+        return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
+      }
+
+      // 提交已经等待过 Runtime 空闲，直接执行校验，避免重复等待。
+      const result = await validateAfterIdle()
+
+      if (result.valid) {
+        await callbacks.onFinish?.(result.values)
+      } else if (!result.cancelled) {
+        callbacks.onFinishFailed?.(result)
+      }
+
+      return result
+    } finally {
+      if (loading.value) {
+        setLoading(false)
+      }
     }
-
-    // 提交已经等待过 Runtime 空闲，直接执行校验，避免重复等待。
-    const result = await validateAfterIdle()
-
-    if (result.valid) {
-      await callbacks.onFinish?.(result.values)
-    } else if (!result.cancelled) {
-      callbacks.onFinishFailed?.(result)
-    }
-
-    return result
   })
 
   /**
@@ -187,6 +236,8 @@ export function createFormController<TValues extends Values>(options: {
     validateField,
     validate,
     submit,
+    reset,
+    isLoading,
     setFieldRules,
     removeFieldRules,
   }

@@ -12,6 +12,7 @@ import type {
   SchemxField,
   SchemxInstance,
   SchemxRendererKey,
+  SchemxRendererPropsMap,
   Values,
 } from "../../types"
 import type { RuntimeNodeInput } from "../node/input"
@@ -28,6 +29,8 @@ export interface CompileOptions<TValues extends Values> {
    * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
    */
   schemaConfig: ResolvedSchemxSchemaConfig
+  /** 按 Renderer 类型配置的静态默认 Props。 */
+  rendererProps?: SchemxRendererPropsMap<TValues>
   /**
    * 缺失 `componentType` 的 field 使用的显式默认渲染器类型。
    *
@@ -38,7 +41,7 @@ export interface CompileOptions<TValues extends Values> {
    * createCompile({ defaultRendererType: "input" })
    * ```
    */
-  defaultRendererType?: SchemxRendererKey
+  defaultRendererType?: SchemxRendererKey<TValues>
   /**
    * 表单实例方法，用于在编译时提供表单操作能力。
    */

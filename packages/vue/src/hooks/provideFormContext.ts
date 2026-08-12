@@ -7,13 +7,21 @@
  *
  * @module hooks/provideFormContext
  */
-import { inject, type InjectionKey, provide } from "vue"
+import { inject, type InjectionKey, onScopeDispose, provide } from "vue"
+
+import {
+  getVueFormBridge,
+  getVueFormFacade,
+  retainVueFormBridge,
+  type VueSchemxInstance,
+} from "../formBridge"
 
 import type { SchemxInstance, Values } from "@schemx/core"
 
 // provide/inject 只传递运行时实例，不在此边界固定表单值泛型；
 // 否则 SchemxInstance 的方法参数会使具体 TValues 与默认 Values 不兼容。
-type FormContextInstance = SchemxInstance<any>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FormContextInstance = VueSchemxInstance<any>
 
 /**
  * SchemxInstance 在 Vue provide/inject 中使用的注入 key。
@@ -54,8 +62,15 @@ export const FORM_INSTANCE_KEY = SCHEMX_FORM_INSTANCE_KEY
  */
 export function createFormContext<TValues extends Values = Values>(
   instance: SchemxInstance<TValues>
-): void {
-  provide<FormContextInstance>(SCHEMX_FORM_INSTANCE_KEY, instance)
+): VueSchemxInstance<TValues> {
+  const form = getVueFormFacade(instance)
+
+  const releaseBridge = retainVueFormBridge(getVueFormBridge(form))
+
+  provide<FormContextInstance>(SCHEMX_FORM_INSTANCE_KEY, form as FormContextInstance)
+  onScopeDispose(releaseBridge)
+
+  return form
 }
 
 /**
@@ -78,7 +93,7 @@ export function createFormContext<TValues extends Values = Values>(
  */
 export function useFormContext<
   TValues extends Values = Values,
->(): SchemxInstance<TValues> {
+>(): VueSchemxInstance<TValues> {
   const instance = inject<FormContextInstance | null>(SCHEMX_FORM_INSTANCE_KEY, null)
 
   if (!instance) {
@@ -88,5 +103,5 @@ export function useFormContext<
     )
   }
 
-  return instance as SchemxInstance<TValues>
+  return instance as VueSchemxInstance<TValues>
 }

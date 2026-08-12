@@ -1,5 +1,18 @@
 # Release Notes
 
+## Unreleased
+
+### 新增功能
+
+- 新增 `rendererProps`，可按 Renderer 类型设置静态默认 Props；字段 `componentProps`、动态依赖结果与 Runtime 注入属性仍具更高优先级。
+- 新增 `createFormExternalStore()` 及 `ExternalStore`、`FormExternalStore`、`FieldExternalStore`、`FieldStateSnapshot` 类型，为 UI 适配层提供稳定快照与按需订阅协议。
+
+### 优化与调整
+
+- `SchemxInstance` 新增 `isLoading()`；提交 loading 覆盖依赖等待、校验和异步 `onFinish`。
+- `createForm()` 支持 `onReset` 与 `onLoadingChange` 回调；完整 `reset()` 会触发 `onReset`，`resetFields()` 不会触发。
+- `SchemxRuntimeInjectedProp` 与 `SchemxRendererPropsMap` 已从根入口导出，便于为自定义 Renderer 编写类型安全的默认 Props。
+
 ## 版本信息
 
 - 基准版本：`@schemx/core@0.2.3`

@@ -1,10 +1,12 @@
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
-import { defineComponent, h, markRaw, nextTick, ref } from "vue"
+import { defineComponent, h, markRaw, nextTick, ref, watchEffect } from "vue"
 
 import {
+  createForm,
   createRendererRegistry,
   createValidationRuleRegistry,
   type ValidationAdapter,
+  type Values,
 } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vitest"
@@ -131,6 +133,100 @@ describe("SchemxForm 动态 schemas", () => {
     await nextTick()
 
     expect(wrapper.get('[data-testid="username-slot"]').text()).toBe("Alice")
+
+    wrapper.unmount()
+  })
+
+  it("受控 modelValue 回显后应更新子渲染器的字段 props", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const modelValue = ref<{ username?: string }>({})
+
+    const receivedValues: Array<string | undefined> = []
+
+    const ValueRenderer = defineComponent({
+      name: "ValueRenderer",
+      props: {
+        value: String,
+      },
+      setup(props) {
+        watchEffect(() => {
+          receivedValues.push(props.value)
+        })
+
+        return () => h("span", { "data-testid": "value-renderer" }, props.value)
+      },
+    })
+
+    rendererRegistry.register("value", markRaw(ValueRenderer))
+
+    const ControlledForm = defineComponent({
+      setup() {
+        return () =>
+          h(SchemxForm, {
+            rendererRegistry,
+            modelValue: modelValue.value,
+            schemas: [
+              {
+                name: "username",
+                label: "用户名",
+                componentType: "value",
+              },
+            ],
+          })
+      },
+    })
+
+    const wrapper = mount(ControlledForm)
+
+    modelValue.value = { username: "Alice" }
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="value-renderer"]').text()).toBe("Alice")
+    expect(receivedValues).toEqual([undefined, "Alice"])
+
+    wrapper.unmount()
+  })
+
+  it("通过组件 expose 的 setFieldsValue 回显后应更新子渲染器的字段 props", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const receivedValues: Array<string | undefined> = []
+
+    const ValueRenderer = defineComponent({
+      name: "ValueRenderer",
+      props: {
+        value: String,
+      },
+      setup(props) {
+        watchEffect(() => {
+          receivedValues.push(props.value)
+        })
+
+        return () => h("span", { "data-testid": "value-renderer" }, props.value)
+      },
+    })
+
+    rendererRegistry.register("value", markRaw(ValueRenderer))
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        schemas: [
+          {
+            name: "username",
+            label: "用户名",
+            componentType: "value",
+          },
+        ],
+      },
+    })
+
+    ;(wrapper.vm as any).setFieldsValue({ username: "Alice" })
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="value-renderer"]').text()).toBe("Alice")
+    expect(receivedValues).toEqual([undefined, "Alice"])
 
     wrapper.unmount()
   })
@@ -388,6 +484,27 @@ describe("SchemxForm 动态 schemas", () => {
     expect(emissions?.at(-1)).toEqual([{ name: "Bob" }])
 
     wrapper.unmount()
+  })
+
+  it("外部 Core Form 会归一化为 Facade，并保持 v-model 同步", async () => {
+    const form = createForm<Values>({ initialValues: { name: "Alice" } })
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        form,
+        modelValue: { name: "Alice" },
+        schemas: [],
+      },
+    })
+
+    ;(wrapper.vm as any).setFieldValue("name", "Bob")
+    await nextTick()
+
+    expect(form.getFieldValue("name")).toBe("Bob")
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([{ name: "Bob" }])
+
+    wrapper.unmount()
+    form.destroy()
   })
 
   it("外部 schemas prop 更新后同步 ViewSchemas", async () => {

@@ -12,10 +12,16 @@ import { onScopeDispose } from "vue"
 import { createForm, mergeSchemxConfig, type SchemxConfig } from "@schemx/core"
 
 import { getSchemxAppConfig } from "../config"
+import {
+  getVueFormBridge,
+  getVueFormFacade,
+  retainVueFormBridge,
+  type VueSchemxInstance,
+} from "../formBridge"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
 import { validationRuleRegistry as globalValidationRuleRegistry } from "../utils/rulesProvider"
 
-import type { CreateFormOptions, NamePath, SchemxInstance, Values } from "@schemx/core"
+import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
 
 /**
  * useForm 配置选项。
@@ -75,11 +81,12 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  */
 export function useForm<TValues extends Values = Values>(
   options: UseFormOptions<TValues> = {}
-): SchemxInstance<TValues> {
+): VueSchemxInstance<TValues> {
   // 按表单、App、Vue 包默认值的优先级解析可继承配置。
-  const configuredOptions = mergeSchemxConfig(
+  const configuredOptions = mergeSchemxConfig<TValues>(
     getUseFormSchemxConfig(options),
-    getSchemxAppConfig(),
+    // App 安装配置以 Values 存储；在 useForm 边界关联到当前 TValues。
+    getSchemxAppConfig() as SchemxConfig<TValues>,
     {
       rendererRegistry: globalRendererRegistry,
       validationRuleRegistry: globalValidationRuleRegistry,
@@ -95,12 +102,17 @@ export function useForm<TValues extends Values = Values>(
   // 表单实例是当前 scope 内的一次性资源，不需要使用 computed 包装。
   const instance = createForm<TValues>(mergedOptions)
 
+  const form = getVueFormFacade(instance)
+
+  const releaseBridge = retainVueFormBridge(getVueFormBridge(instance))
+
   // useForm 创建的实例归当前 effect scope 所有，因此由当前 scope 负责销毁。
   onScopeDispose(() => {
-    instance.destroy()
+    releaseBridge()
+    form.destroy()
   })
 
-  return instance
+  return form
 }
 
 /**
@@ -111,9 +123,10 @@ export function useForm<TValues extends Values = Values>(
  */
 function getUseFormSchemxConfig<TValues extends Values>(
   options: UseFormOptions<TValues>
-): SchemxConfig {
+): SchemxConfig<TValues> {
   const {
     schemaConfig = {},
+    rendererProps = undefined,
     validatorAdapters = [],
     defaultRendererType = undefined,
     rendererRegistry = undefined,
@@ -122,6 +135,7 @@ function getUseFormSchemxConfig<TValues extends Values>(
 
   return {
     schemaConfig,
+    rendererProps,
     defaultRendererType,
     rendererRegistry,
     validationRuleRegistry,

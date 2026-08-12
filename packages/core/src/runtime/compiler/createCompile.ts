@@ -16,6 +16,7 @@ import { type Compile, type CompileOptions } from "./types"
 import type {
   NamePath,
   ResolvedSchemxSchemaConfig,
+  SchemxComponentProps,
   SchemxContainerDependencies,
   SchemxFieldDependencies,
   SchemxInstance,
@@ -66,6 +67,7 @@ export function createCompile<TValues extends Values = Values>(
   const compileOptions: CompileOptions<TValues> = {
     // createForm 传入的是与 context 共享的已合并对象，必须保留其引用。
     schemaConfig: options.schemaConfig ?? mergeAndResolveSchemxConfig().schemaConfig,
+    rendererProps: options.rendererProps,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
   }
@@ -263,18 +265,39 @@ function buildFieldStaticSchema<TValues extends Values>(
     ...rest
   } = schema
 
+  // 按当前 Schema 的精确类型读取默认值，不切换到 Registry fallback key。
+  const rendererComponentProps = options.rendererProps?.[schema.componentType]
+
+  // Renderer 默认值先于字段 Props 展开，保留字段级覆盖语义。
+  const mergedComponentProps = {
+    ...rendererComponentProps,
+    ...componentProps,
+  } as SchemxComponentProps<TValues>
+
   const mergedReadonly = readonly ?? schemaConfig.readonly
 
   const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
 
-  const mergedPlaceholder = getPlaceholder(schema)
+  const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
+
+  // 字段显式配置优先于 Renderer 默认值，并沿用 Component Props 高于顶层字段的语义。
+  const mergedReadonlyPlaceholder =
+    componentProps?.readonlyPlaceholder ??
+    readonlyPlaceholder ??
+    rendererComponentProps?.readonlyPlaceholder
+
+  const mergedAlign =
+    componentProps?.align ??
+    contentAlign ??
+    rendererComponentProps?.align ??
+    schemaConfig.contentAlign
 
   const normalizedSchema = {
     ...rest,
     key,
     visible: visible ?? schemaConfig.visible,
     readonly: mergedReadonly,
-    readonlyPlaceholder: componentProps?.readonlyPlaceholder ?? readonlyPlaceholder,
+    readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: disabled ?? schemaConfig.disabled,
     required: required ?? schemaConfig.required,
     placeholder: mergedPlaceholder,
@@ -297,10 +320,10 @@ function buildFieldStaticSchema<TValues extends Values>(
   }
 
   normalizedSchema.componentProps = {
-    ...componentProps,
-    align: mergedReadonly ? "right" : (componentProps?.align ?? mergedContentAlign),
+    ...mergedComponentProps,
+    align: mergedReadonly ? "right" : mergedAlign,
     readonly: mergedReadonly,
-    readonlyPlaceholder: componentProps?.readonlyPlaceholder ?? readonlyPlaceholder,
+    readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: disabled ?? schemaConfig.disabled,
     placeholder: mergedPlaceholder,
     formItemProps: { ...normalizedSchema },
@@ -310,11 +333,21 @@ function buildFieldStaticSchema<TValues extends Values>(
   return normalizedSchema
 }
 
-/** 按字段配置和组件类型计算最终占位文案。 */
+/**
+ * 按字段配置和组件类型计算最终占位文案。
+ *
+ * @param schema - 当前已规范化的字段 Schema。
+ * @param rendererComponentProps - 当前 Renderer 的静态默认 Props。
+ * @returns 字段最终传给 Renderer 的占位文案。
+ */
 function getPlaceholder<TValues extends Values>(
-  schema: SchemxBaseField<TValues>
+  schema: SchemxBaseField<TValues>,
+  rendererComponentProps: Partial<SchemxComponentProps<TValues>> | undefined
 ): string {
-  const placeholder = schema.componentProps?.placeholder ?? schema.placeholder
+  const placeholder =
+    schema.componentProps?.placeholder ??
+    schema.placeholder ??
+    rendererComponentProps?.placeholder
 
   if (placeholder != null) {
     return placeholder

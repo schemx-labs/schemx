@@ -124,6 +124,24 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
   validationTrigger: SchemxResolvedBaseField<TValues>["validationTrigger"]
 }
 
+/** Renderer 与 FormItem 共同消费的最终展示属性。 */
+type RendererEffectiveProps = Pick<
+  FieldEffectiveSchema,
+  "disabled" | "readonly" | "placeholder" | "readonlyPlaceholder"
+>
+
+/** 合并最终 Renderer Props 所需的静态、动态与有效状态。 */
+interface ResolveComponentPropsOptions<TValues extends Values> {
+  /** 编译阶段生成的 Renderer Props。 */
+  readonly staticProps: SchemxComponentProps<TValues> | undefined
+  /** dependencies 返回的 Renderer Props 覆盖。 */
+  readonly dynamicProps: SchemxComponentProps<TValues> | undefined
+  /** 当前最终生效的展示属性。 */
+  readonly effectiveProps: RendererEffectiveProps
+  /** 静态 Schema 对应的展示属性，用于判断能否复用原始引用。 */
+  readonly staticEffectiveProps: RendererEffectiveProps
+}
+
 /** 仅供 Validator 消费的字段有效配置切片。 */
 export interface FieldValidationSchema<TValues extends Values = Values> {
   /** 字段是否可见。 */
@@ -289,15 +307,29 @@ export function createFieldRuntimeState<TValues extends Values>(
 
     const readonlyPlaceholder = overrides.readonlyPlaceholder ?? base.readonlyPlaceholder
 
+    const placeholder = overrides.placeholder ?? base.placeholder ?? ""
+
     const showRequiredMark =
       overrides.showRequiredMark ?? base.showRequiredMark ?? Boolean(validation.required)
 
-    const componentProps = resolveComponentProps(
-      base.componentProps,
-      overrides.componentProps,
+    const effectiveRendererProps: RendererEffectiveProps = {
+      disabled: validation.disabled,
+      readonly: validation.readonly,
+      placeholder,
       readonlyPlaceholder,
-      base.readonlyPlaceholder
-    )
+    }
+
+    const componentProps = resolveComponentProps({
+      staticProps: base.componentProps,
+      dynamicProps: overrides.componentProps,
+      effectiveProps: effectiveRendererProps,
+      staticEffectiveProps: {
+        disabled: base.disabled ?? false,
+        readonly: base.readonly ?? false,
+        placeholder: base.placeholder ?? "",
+        readonlyPlaceholder: base.readonlyPlaceholder,
+      },
+    })
 
     // 动态覆盖优先；未覆盖属性依次回退到静态值与运行时默认值。
     return {
@@ -310,7 +342,7 @@ export function createFieldRuntimeState<TValues extends Values>(
       readonly: validation.readonly,
       required: validation.required,
       showRequiredMark,
-      placeholder: overrides.placeholder ?? base.placeholder ?? "",
+      placeholder,
       readonlyPlaceholder,
       componentProps,
       rules: validation.rules,
@@ -355,21 +387,41 @@ function areFieldRulesEqual<TValues extends Values>(
   return previous.length === next.length && previous.every((rule, index) => rule === next[index])
 }
 
-/** 合并 Renderer Props；无覆盖时保留静态对象引用与原型。 */
+/**
+ * 合并最终 Renderer Props，并同步 FormItem 展示属性。
+ *
+ * 静态状态未变化且没有 dependencies Props 覆盖时，保留编译阶段对象的
+ * 引用与原型；否则以字段有效状态覆盖 Renderer 和 FormItem 中的展示属性。
+ */
 function resolveComponentProps<TValues extends Values>(
-  staticProps: SchemxComponentProps<TValues> | undefined,
-  dynamicProps: SchemxComponentProps<TValues> | undefined,
-  readonlyPlaceholder: string | undefined,
-  staticReadonlyPlaceholder: string | undefined
+  options: ResolveComponentPropsOptions<TValues>
 ): SchemxComponentProps<TValues> {
-  if (!dynamicProps && readonlyPlaceholder === staticReadonlyPlaceholder) {
+  const { staticProps, dynamicProps, effectiveProps, staticEffectiveProps } = options
+
+  const hasEffectivePropsChanged =
+    effectiveProps.disabled !== staticEffectiveProps.disabled ||
+    effectiveProps.readonly !== staticEffectiveProps.readonly ||
+    effectiveProps.placeholder !== staticEffectiveProps.placeholder ||
+    effectiveProps.readonlyPlaceholder !== staticEffectiveProps.readonlyPlaceholder
+
+  if (!dynamicProps && !hasEffectivePropsChanged) {
     return staticProps ?? ({} as SchemxComponentProps<TValues>)
   }
 
-  return {
+  // dependencies 只覆盖 Renderer 自有 Props；Core 注入引用必须保留静态值。
+  const mergedProps = {
     ...staticProps,
     ...dynamicProps,
-    readonlyPlaceholder,
+  }
+
+  return {
+    ...mergedProps,
+    ...effectiveProps,
+    formInstance: staticProps?.formInstance,
+    formItemProps: {
+      ...staticProps?.formItemProps,
+      ...effectiveProps,
+    },
   } as SchemxComponentProps<TValues>
 }
 

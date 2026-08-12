@@ -10,10 +10,21 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
+import { createFormExternalStore } from "../adapter"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
 import { CompileError } from "../runtime/compiler"
+
+interface StudentFormValues {
+  student: Array<{
+    id: string
+    studentName: string
+  }>
+  profile: {
+    name: string
+  }
+}
 
 describe("字段初始值", () => {
   it("Schema initialValue 初始化不应触发 onValuesChange", () => {
@@ -55,6 +66,76 @@ describe("字段初始值", () => {
     form.reset()
 
     expect(form.getFieldValue("name")).toBe("Alice")
+    form.destroy()
+  })
+})
+
+describe("字段值边界", () => {
+  it("Schema 数组字段应作为整体接收 setFieldsValue 回填", () => {
+    const form = createForm<StudentFormValues>({
+      initialValues: {
+        student: [],
+        profile: { name: "Ada" },
+      },
+      schemas: [
+        { name: "student", label: "学生", componentType: "picker" },
+        { name: "profile.name", label: "姓名", componentType: "input" },
+      ],
+    })
+
+    const externalStore = createFormExternalStore(form)
+
+    const studentStore = externalStore.field("student")
+
+    const listener = vi.fn()
+
+    const unsubscribe = studentStore.subscribe(listener)
+
+    const student = [{ id: "1", studentName: "唐馨语" }]
+
+    form.setFieldsValue({ student })
+
+    expect(form.getFieldValue("student")).toEqual(student)
+    expect(form.getFieldsValue()).toEqual({
+      student,
+      profile: { name: "Ada" },
+    })
+    expect(studentStore.getSnapshot().value).toEqual(student)
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    unsubscribe()
+    externalStore.dispose()
+    form.destroy()
+  })
+
+  it("注册数组字段前写入的叶子路径应在字段挂载时归并", () => {
+    const form = createForm<StudentFormValues>()
+
+    const student = [{ id: "1", studentName: "唐馨语" }]
+
+    form.setFieldsValue({ student })
+    form.setSchemas([{ name: "student", label: "学生", componentType: "picker" }])
+
+    expect(form.getFieldValue("student")).toEqual(student)
+
+    form.destroy()
+  })
+
+  it("数组字段的初始值与 reset 应共享字段边界", () => {
+    const form = createForm<StudentFormValues>({
+      schemas: [{ name: "student", label: "学生", componentType: "picker" }],
+    })
+
+    const initialStudent = [{ id: "1", studentName: "唐馨语" }]
+
+    const nextStudent = [{ id: "2", studentName: "林默" }]
+
+    form.setInitialValues({ student: initialStudent })
+    form.setFieldValue("student", nextStudent)
+    form.reset()
+
+    expect(form.getFieldValue("student")).toEqual(initialStudent)
+
     form.destroy()
   })
 })

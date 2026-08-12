@@ -16,7 +16,7 @@
 .schemx-item-wrapper--last {
   border-bottom-left-radius: var(--schemx-border-radius-md);
   border-bottom-right-radius: var(--schemx-border-radius-md);
-  margin-bottom: var(--schemx-padding-sm);
+  /* margin-bottom: var(--schemx-padding-sm); */
 }
 
 .is-disabled {

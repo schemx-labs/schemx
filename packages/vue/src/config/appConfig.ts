@@ -9,7 +9,7 @@
 
 import { type App, getCurrentInstance, inject, type InjectionKey } from "vue"
 
-import type { SchemxConfig } from "@schemx/core"
+import type { SchemxConfig, SchemxRendererPropsMap } from "@schemx/core"
 
 // Vue App 级配置在组件树中的私有注入 key。
 const SCHEMX_APP_CONFIG_KEY: InjectionKey<SchemxConfig> = Symbol("schemx:app-config")
@@ -38,11 +38,33 @@ function normalizeSchemxAppConfig(config: SchemxConfig): SchemxConfig {
 
   return Object.freeze({
     schemaConfig,
+    rendererProps: normalizeRendererProps(config.rendererProps),
     validatorAdapters,
     defaultRendererType: config.defaultRendererType,
     rendererRegistry: config.rendererRegistry,
     validationRuleRegistry: config.validationRuleRegistry,
   })
+}
+
+/**
+ * 复制并冻结 Renderer Props Map 外层及每个 Renderer 的 Props 对象。
+ *
+ * @param source - 待标准化的 Renderer Props Map。
+ * @returns 与输入隔离一层的只读 App 配置；任意嵌套 Prop 值仍保留原引用。
+ */
+function normalizeRendererProps(
+  source: SchemxRendererPropsMap | undefined
+): SchemxRendererPropsMap | undefined {
+  if (source === undefined) {
+    return undefined
+  }
+
+  // 每个 Renderer 的 Props 对象单独复制，避免安装后修改源对象影响当前 App。
+  const entries = Object.entries(source).map(([type, props]) => {
+    return [type, props === undefined ? undefined : Object.freeze({ ...props })]
+  })
+
+  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
 }
 
 /**

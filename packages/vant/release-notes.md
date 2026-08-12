@@ -1,5 +1,17 @@
 # Release Notes
 
+## Unreleased
+
+### 新增功能
+
+- `UploadRenderer` 新增 `listType: "card" | "list"`，可在图片卡片网格与横向附件列表之间切换。
+- `UploadRenderer` 新增图片全屏预览、`previewOptions`、`imageFit` 与 `beforeDelete` 删除拦截支持；导出 `UploadListType`。
+
+### 优化与调整
+
+- 上传文件展示会统一解析文件名、扩展名、图片类型与上传状态；只读、禁用、删除和 pending 状态在两种列表模式下保持一致。
+- `SensitiveInputRenderer` 的展开状态改由内部管理，使用 `defaultRevealed` 设置初始值，并继续通过 `reveal-change` 通知变化。
+
 ## 版本信息
 
 - 基准版本：`@schemx/vant@0.2.3`

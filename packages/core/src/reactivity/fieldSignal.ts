@@ -15,6 +15,7 @@
 
 import { cloneDeep } from "es-toolkit"
 
+import { batchUpdates } from "./batch"
 import { createSignal } from "./signal"
 
 import type { Signal } from "./signal"
@@ -237,15 +238,17 @@ export function createFieldSignal<TValue>(
    * 写入字段 pending signal。
    */
   const setPending = (next: boolean, message?: string | string[]): void => {
-    pendingSignal.value = next
+    batchUpdates(() => {
+      pendingSignal.value = next
 
-    if (next) {
-      if (message) {
-        pendingMessageSignal.value = Array.isArray(message) ? message : [message]
+      if (next) {
+        if (message) {
+          pendingMessageSignal.value = Array.isArray(message) ? message : [message]
+        }
+      } else {
+        pendingMessageSignal.value = []
       }
-    } else {
-      pendingMessageSignal.value = []
-    }
+    })
   }
 
   /**
@@ -255,6 +258,7 @@ export function createFieldSignal<TValue>(
     valueSignal.value = cloneDeep(next)
     touchedSignal.value = false
     pendingSignal.value = false
+    pendingMessageSignal.value = []
   }
 
   /**

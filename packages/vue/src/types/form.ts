@@ -1,5 +1,6 @@
 import type { StyleValue } from "vue"
 
+import type { SchemxButtonProps } from "../components/Button"
 import type {
   DefinedFieldValue,
   FormCallbackOptions,
@@ -36,13 +37,34 @@ interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
 }
 
 /**
+ * 内置表单操作按钮的显示配置。
+ *
+ * `buttonProps` 会透传到内置 Button；`type` 和 `onClick` 由表单组件管理，不能覆盖。
+ */
+export interface SchemxFormActionConfig {
+  /**
+   * 按钮展示文本；未提供时使用操作的默认文案。
+   */
+  text?: string
+  /**
+   * 透传给内置 Button 的属性。
+   */
+  buttonProps?: Omit<SchemxButtonProps, "type" | "onClick">
+}
+
+/**
+ * 内置表单操作按钮的启用配置。
+ */
+export type SchemxFormAction = boolean | SchemxFormActionConfig
+
+/**
  * schemx 组件 Props
  *
  * @typeParam TValues - 表单值类型
  */
 export interface SchemxFormProps<TValues extends Values = Values>
   extends
-    Omit<SchemxConfig, "schemaConfig">,
+    Omit<SchemxConfig<TValues>, "schemaConfig">,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
     SchemxFormSchemaConfigProps<TValues> {
@@ -65,6 +87,21 @@ export interface SchemxFormProps<TValues extends Values = Values>
    * 外部传入的表单实例；传入后由组件复用该实例。
    */
   form?: SchemxInstance<TValues>
+
+  /**
+   * 覆盖内置操作区展示的提交状态；不改变 Core 的真实提交状态。
+   */
+  loading?: boolean
+
+  /**
+   * 提交按钮配置；未提供时不渲染。
+   */
+  submitter?: SchemxFormAction
+
+  /**
+   * 重置按钮配置；未提供时不渲染。
+   */
+  resetter?: SchemxFormAction
 
   /**
    * 自定义 CSS 类名

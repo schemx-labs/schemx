@@ -42,6 +42,15 @@ function createRuntimeContext<
   return {
     schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     instance,
+    model: {
+      registerFieldPath: () => undefined,
+      getFieldValue: () => undefined,
+      setFieldValue: () => undefined,
+      setInitialValues: () => undefined,
+      syncValidationField: () => false,
+      removeValidationField: () => undefined,
+      removeSchemaValidationField: () => undefined,
+    },
     formApi,
     compile: createCompile({
       schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,

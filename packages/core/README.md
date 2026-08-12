@@ -178,18 +178,19 @@ declare module "@schemx/core" {
 
 ### 值与字段状态
 
-| 成员                                                                | 说明                                         |
-| ------------------------------------------------------------------- | -------------------------------------------- |
-| `getFieldValue(name)` / `getFieldsValue(names?)`                    | 读取字段值或值快照。                         |
-| `setFieldValue(name, value)` / `setFieldsValue(values)`             | 写入一个或多个字段值。                       |
-| `getFieldSnapshot(name)` / `getFieldsSnapshot(names?)`              | 读取不参与响应式追踪的值快照。               |
-| `getInitialValue(name)` / `getInitialValues(names?)`                | 读取字段或表单初始值。                       |
-| `setInitialValues(values)`                                          | 更新重置使用的初始值。                       |
-| `setFieldTouched(name, touched)` / `isFieldTouched(name)`           | 写入或读取 touched 状态。                    |
-| `getTouchedFields()`                                                | 获取当前已触摸字段路径。                     |
-| `setFieldPending(name, pending, message?)` / `isFieldPending(name)` | 写入或读取异步操作状态。                     |
-| `getPendingFields()`                                                | 获取当前处于 pending 状态的字段。            |
-| `resetFields(names)` / `reset()`                                    | 恢复字段或全表初始状态；规则保留，错误清除。 |
+| 成员                                                                | 说明                                                                         |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `getFieldValue(name)` / `getFieldsValue(names?)`                    | 读取字段值或值快照。                                                         |
+| `setFieldValue(name, value)` / `setFieldsValue(values)`             | 写入一个或多个字段值。                                                       |
+| `getFieldSnapshot(name)` / `getFieldsSnapshot(names?)`              | 读取不参与响应式追踪的值快照。                                               |
+| `getInitialValue(name)` / `getInitialValues(names?)`                | 读取字段或表单初始值。                                                       |
+| `setInitialValues(values)`                                          | 更新重置使用的初始值。                                                       |
+| `setFieldTouched(name, touched)` / `isFieldTouched(name)`           | 写入或读取 touched 状态。                                                    |
+| `getTouchedFields()`                                                | 获取当前已触摸字段路径。                                                     |
+| `setFieldPending(name, pending, message?)` / `isFieldPending(name)` | 写入或读取异步操作状态。                                                     |
+| `getPendingFields()`                                                | 获取当前处于 pending 状态的字段。                                            |
+| `resetFields(names)` / `reset()`                                    | 恢复字段或全表初始状态；规则保留，错误清除。`reset()` 完成后触发 `onReset`。 |
+| `isLoading()`                                                       | 返回当前提交流程状态；在 `effect()` 中读取时可追踪变化。                     |
 
 ### 校验
 
@@ -302,6 +303,12 @@ dispose()
 
 UI 适配层也可以从 `@schemx/core/adapter` 子路径导入 `createRendererRegistry`、`RendererRegistry` 和 `RendererMap`。该子路径是独立的公开构建入口；业务代码不应依赖 `src` 或 `dist` 内部路径。
 
+## External Store Adapter
+
+`@schemx/core/adapter` 还提供框架适配层使用的只读订阅协议：`createFormExternalStore(form)`、`ExternalStore`、`FormExternalStore`、`FieldExternalStore` 与 `FieldStateSnapshot`。它不创建第二份可写状态，也不销毁传入的 Form。
+
+`FormExternalStore` 提供全表 `values`、聚合 `touchedFields` / `pendingFields` 以及按规范化字段路径缓存的 `field(name)` Store。每个 Store 通过 `getSnapshot()` 返回稳定快照，并通过 `subscribe(listener)` 在状态真实变化时通知；首个 listener 才会启动 Core effect，最后一个 listener 取消后停止。`dispose()` 只释放这些订阅与字段缓存，且可重复调用。
+
 ## 其他入口
 
 - `createSchemas()`：创建可替换、可订阅的根 Schema source。
@@ -348,6 +355,22 @@ Form 级 Schema 配置同样通过 `schemaConfig` 聚合：
 ```ts
 const form = createForm({
   schemaConfig: { readonly: true },
+})
+```
+
+`rendererProps` 用于按 `componentType` 配置静态 Renderer 默认 Props。字段自身的 `componentProps`、动态依赖结果与 Runtime 注入的 `value`、`onUpdate:value`、`formInstance`、`formItemProps` 会覆盖这些默认值；因此无需在每个字段中重复稳定的展示配置。
+
+```ts
+const form = createForm({
+  rendererProps: {
+    input: { clearable: true },
+  },
+  onReset: () => {
+    console.log("表单已重置")
+  },
+  onLoadingChange: (loading) => {
+    console.log(loading ? "提交中" : "提交结束")
+  },
 })
 ```
 
