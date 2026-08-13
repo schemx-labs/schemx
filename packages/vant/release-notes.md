@@ -1,17 +1,5 @@
 # Release Notes
 
-## Unreleased
-
-### 新增功能
-
-- `UploadRenderer` 新增 `listType: "card" | "list"`，可在图片卡片网格与横向附件列表之间切换。
-- `UploadRenderer` 新增图片全屏预览、`previewOptions`、`imageFit` 与 `beforeDelete` 删除拦截支持；导出 `UploadListType`。
-
-### 优化与调整
-
-- 上传文件展示会统一解析文件名、扩展名、图片类型与上传状态；只读、禁用、删除和 pending 状态在两种列表模式下保持一致。
-- `SensitiveInputRenderer` 的展开状态改由内部管理，使用 `defaultRevealed` 设置初始值，并继续通过 `reveal-change` 通知变化。
-
 ## 版本信息
 
 - 基准版本：`@schemx/vant@0.2.3`
@@ -58,6 +46,11 @@ const result = findTreeItem<TreeOption, string>(tree, "guangzhou", {
 })
 ```
 
+## Features
+
+- `UploadRenderer` 新增 `listType: "card" | "list"`，可在图片卡片网格与横向附件列表之间切换。
+- `UploadRenderer` 新增图片全屏预览、`previewOptions`、`imageFit` 与 `beforeDelete` 删除拦截支持；导出 `UploadListType`。
+
 ## Fixes
 
 - `findTreeItem` 现在将节点标签路径显式转换为字符串，返回的 `labels: string[]` 与实际运行时值保持一致；节点值路径继续按 `TValue` 保留类型。
@@ -69,6 +62,8 @@ const result = findTreeItem<TreeOption, string>(tree, "guangzhou", {
 - `findTreeItem` 的节点、目标值和返回结果支持泛型推导；`getReadonlyDisplayValue`、渲染器类型扩展和 Vant 对 Core `SchemxRendererDefinition<TValues>` 的声明使用了更明确的泛型命名。
 - Picker 的 `columns` 明确为 `computed<PickerOption[]>`，多个 renderer Props 的 `@vue-ignore` 标注位置同步调整，减少 Vue SFC 类型解析误报。
 - Vant 包的 `build` 流程在 Vite 构建前执行 `type-check`，把公共类型错误提前纳入发布检查。
+- 上传文件展示会统一解析文件名、扩展名、图片类型与上传状态；只读、禁用、删除和 pending 状态在两种列表模式下保持一致。
+- `SensitiveInputRenderer` 的展开状态改由内部管理，使用 `defaultRevealed` 设置初始值，并继续通过 `reveal-change` 通知变化。
 
 ## Dependencies and Compatibility
 

@@ -303,11 +303,11 @@ dispose()
 
 UI 适配层也可以从 `@schemx/core/adapter` 子路径导入 `createRendererRegistry`、`RendererRegistry` 和 `RendererMap`。该子路径是独立的公开构建入口；业务代码不应依赖 `src` 或 `dist` 内部路径。
 
-## External Store Adapter
+## Form State Adapter
 
-`@schemx/core/adapter` 还提供框架适配层使用的只读订阅协议：`createFormExternalStore(form)`、`ExternalStore`、`FormExternalStore`、`FieldExternalStore` 与 `FieldStateSnapshot`。它不创建第二份可写状态，也不销毁传入的 Form。
+`@schemx/core/adapter` 还提供框架适配层使用的只读快照协议：`createFormStateAdapter(form)`、`SnapshotSource`、`FormStateAdapter`、`FieldSnapshotSource` 与 `FieldStateSnapshot`。它不创建第二份可写状态，也不销毁传入的 Form。
 
-`FormExternalStore` 提供全表 `values`、聚合 `touchedFields` / `pendingFields` 以及按规范化字段路径缓存的 `field(name)` Store。每个 Store 通过 `getSnapshot()` 返回稳定快照，并通过 `subscribe(listener)` 在状态真实变化时通知；首个 listener 才会启动 Core effect，最后一个 listener 取消后停止。`dispose()` 只释放这些订阅与字段缓存，且可重复调用。
+`FormStateAdapter` 提供全表 `values`、聚合 `touchedFields` / `pendingFields`、提交流程 `loading` 以及按规范化字段路径缓存的 `field(name)` 快照来源。每个 `SnapshotSource` 通过 `getSnapshot()` 返回稳定快照，并通过 `subscribe(listener)` 在状态真实变化时通知；首个 listener 才会启动 Core effect，最后一个 listener 取消后停止。`dispose()` 只释放这些订阅与字段缓存，且可重复调用。
 
 ## 其他入口
 

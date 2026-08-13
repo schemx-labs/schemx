@@ -8,7 +8,7 @@
 export { useForm } from "./useForm"
 
 /** Vue Form Facade - 在 Vue effect 中可追踪的 Form 实例。 */
-export { getCoreForm, type VueSchemxInstance } from "../formBridge"
+export { getCoreForm, type VueSchemxInstance } from "../bridge"
 
 /** createFormContext - 表单上下文注入与消费 */
 export { createFormContext, useFormContext } from "./provideFormContext"

@@ -7,7 +7,7 @@
 import { onScopeDispose, readonly, shallowRef, watch } from "vue"
 import type { ShallowRef } from "vue"
 
-import { getCoreForm, getVueFormBridge, retainVueFormBridge } from "../formBridge"
+import { getCoreForm, getVueFormBridge, retainVueFormBridge } from "../bridge"
 
 import type { SchemxInstance, Values } from "@schemx/core"
 

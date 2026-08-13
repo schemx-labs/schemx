@@ -1,0 +1,49 @@
+/**
+ * Vue Bridge 使用的 Ref 和快照比较工具。
+ *
+ * @module vue/bridge/helpers
+ */
+
+import { shallowRef } from "vue"
+import type { ShallowRef } from "vue"
+
+/**
+ * 创建类型为 `ShallowRef` 的 Vue 浅层 Ref。
+ *
+ * 运行时直接委托 Vue 的 `shallowRef`，类型断言用于保留当前 Bridge 对快照引用的控制。
+ *
+ * @typeParam TValue - Ref 中保存的值类型。
+ * @param value - 要包装为 shallow Ref 的当前值。
+ * @returns 包装后的 shallow Ref。
+ *
+ * @example
+ * ```ts
+ * const ready = createVueShallowRef(false)
+ * ready.value = true
+ * ```
+ */
+export function createVueShallowRef<TValue>(value: TValue): ShallowRef<TValue> {
+  return shallowRef(value) as ShallowRef<TValue>
+}
+
+/**
+ * 比较两份错误消息列表，避免无变化时写入 Vue Ref。
+ *
+ * @param previous - 当前 Ref 中保存的错误消息列表。
+ * @param next - SnapshotSource 返回的最新错误消息列表。
+ * @returns 两个列表的长度和每一项都相同时返回 `true`。
+ *
+ * @example
+ * ```ts
+ * const changed = !areStringListsEqual(previous, next)
+ * ```
+ */
+export function areStringListsEqual(
+  previous: readonly string[],
+  next: readonly string[]
+): boolean {
+  return (
+    previous.length === next.length &&
+    previous.every((value, index) => value === next[index])
+  )
+}

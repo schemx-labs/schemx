@@ -17,7 +17,7 @@ import {
   getVueFormBridge,
   type VueFieldBridge,
   type VueSchemxInstance,
-} from "../formBridge"
+} from "../bridge"
 
 import { useFormContext } from "./provideFormContext"
 

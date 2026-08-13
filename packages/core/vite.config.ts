@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
       lib: {
         entry: {
           index: resolve(__dirname, "src/index.ts"),
-          adapter: resolve(__dirname, "src/adapter.ts"),
+          adapter: resolve(__dirname, "src/adapter/index.ts"),
         },
         name: "schemxCore",
         formats: ["es", "cjs"],

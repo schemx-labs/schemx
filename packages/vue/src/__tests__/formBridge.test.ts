@@ -14,7 +14,7 @@ import {
   getVueFormBridge,
   getVueFormFacade,
   retainVueFormBridge,
-} from "../formBridge"
+} from "../bridge"
 import { useForm } from "../hooks/useForm"
 
 describe("Vue Form Facade", () => {

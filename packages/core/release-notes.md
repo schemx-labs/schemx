@@ -1,18 +1,5 @@
 # Release Notes
 
-## Unreleased
-
-### 新增功能
-
-- 新增 `rendererProps`，可按 Renderer 类型设置静态默认 Props；字段 `componentProps`、动态依赖结果与 Runtime 注入属性仍具更高优先级。
-- 新增 `createFormExternalStore()` 及 `ExternalStore`、`FormExternalStore`、`FieldExternalStore`、`FieldStateSnapshot` 类型，为 UI 适配层提供稳定快照与按需订阅协议。
-
-### 优化与调整
-
-- `SchemxInstance` 新增 `isLoading()`；提交 loading 覆盖依赖等待、校验和异步 `onFinish`。
-- `createForm()` 支持 `onReset` 与 `onLoadingChange` 回调；完整 `reset()` 会触发 `onReset`，`resetFields()` 不会触发。
-- `SchemxRuntimeInjectedProp` 与 `SchemxRendererPropsMap` 已从根入口导出，便于为自定义 Renderer 编写类型安全的默认 Props。
-
 ## 版本信息
 
 - 基准版本：`@schemx/core@0.2.3`
@@ -157,6 +144,8 @@ const schemas = [
 - 新增 `configureSchemx`、`getGlobalSchemxConfig`、`mergeSchemxConfig`、`resolveSchemxConfig` 和 `mergeAndResolveSchemxConfig`。全局配置只影响后续创建的 Form，表单显式配置优先；合并函数可分别执行纯合并、默认值解析或两者组合。
 - 原生规则、Standard Schema 和第三方适配器共享新的校验协议；`ValidationRuleRegistry` 支持注册、批量注册、解析、订阅和动态更新，`ValidationAdapterV1` 提供显式协议版本。
 - `required` 与 `showRequiredMark` 分离：前者控制必填校验，后者只控制视觉标记；未显式配置标记时跟随当前有效的 `required` 值。
+- 新增 `rendererProps`，可按 Renderer 类型设置静态默认 Props；字段 `componentProps`、动态依赖结果与 Runtime 注入属性仍具更高优先级。
+- 新增 `createFormStateAdapter()` 及 `SnapshotSource`、`FormStateAdapter`、`FieldSnapshotSource`、`FieldStateSnapshot` 类型，为 UI 适配层提供稳定快照与按需订阅协议。
 
 ## Fixes
 
@@ -172,6 +161,9 @@ const schemas = [
 - 表单装配拆分为 Model、Runtime、Controller、Observer、Bindings 和 Facade，运行时内部进一步拆分为编译、描述、节点、协调和 View 子系统；包的 `exports` 未新增内部运行时子路径，根入口仍是公共边界。
 - 统一泛型参数命名，补充 `SchemxExactBaseField` 等精确类型，并新增 `pnpm run type-test` 覆盖公共类型契约。
 - `@schemx/core` 的版本、`exports` 和运行时依赖在本范围内未改变；新增的是用于公共类型契约检查的 `type-test` 脚本。
+- `SchemxInstance` 新增 `isLoading()`；提交 loading 覆盖依赖等待、校验和异步 `onFinish`。
+- `createForm()` 支持 `onReset` 与 `onLoadingChange` 回调；完整 `reset()` 会触发 `onReset`，`resetFields()` 不会触发。
+- `SchemxRuntimeInjectedProp` 与 `SchemxRendererPropsMap` 已从根入口导出，便于为自定义 Renderer 编写类型安全的默认 Props。
 
 ## Dependencies and Compatibility
 

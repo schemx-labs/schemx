@@ -37,11 +37,11 @@
     },
     "./adapter": {
       "import": {
-        "types": "./dist/adapter.d.ts",
+        "types": "./dist/adapter/index.d.ts",
         "default": "./dist/adapter.mjs"
       },
       "require": {
-        "types": "./dist/adapter.d.ts",
+        "types": "./dist/adapter/index.d.ts",
         "default": "./dist/adapter.cjs"
       }
     }

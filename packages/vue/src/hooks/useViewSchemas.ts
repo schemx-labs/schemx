@@ -14,7 +14,7 @@ import {
   type Values,
 } from "@schemx/core"
 
-import { getCoreForm } from "../formBridge"
+import { getCoreForm } from "../bridge"
 
 /**
  * 同一表单内共享的 ViewSchema 响应式桥接。

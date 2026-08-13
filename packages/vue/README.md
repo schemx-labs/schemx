@@ -756,7 +756,7 @@ createFormContext(form)
 
 同一 Core Form 始终复用一个 Facade；Vue Bridge 按需创建，并在存活期间由各个 Vue owner 共享。Facade 的写入、校验、提交、Schema 与 Registry 方法都委托原始 Core Form；仅常用状态读取会额外建立 Vue 依赖。`getFieldsValue()` 无参数时依赖全表值，传入路径时仅依赖这些字段。`getFieldSnapshot()`、`getFieldsSnapshot()`、`getInitialValue()` 与 `getInitialValues()` 保持 Core 的无依赖快照语义。
 
-`useFormSelector()` 和 `useField()` 复用这个 Bridge；前者返回 selector 结果的只读 Ref，后者复用字段 `value`、`errors`、`touched` 和 `pending` Ref。最后一个 Vue owner 释放或手动调用 `form.destroy()` 后，Bridge 会停止订阅并释放 Core External Store。
+`useFormSelector()` 和 `useField()` 复用这个 Bridge；前者返回 selector 结果的只读 Ref，后者复用字段 `value`、`errors`、`touched` 和 `pending` Ref。Bridge 通过 `@schemx/core/adapter` 的 `createFormStateAdapter()` 消费 Core `SnapshotSource`。最后一个 Vue owner 释放或手动调用 `form.destroy()` 后，Bridge 会停止订阅并释放这些快照来源。
 
 ### 3 组 Context API
 
@@ -833,7 +833,7 @@ function useField<TValues extends Values = Values>(
 
 Hook 从 `useFormContext()` 取得 Facade，为 `name` 创建 Core 字段控制器，并复用共享 Vue Field Bridge。它保留 Core `SchemxFieldInstance` 的全部成员，并增加 `value: Ref<FieldValue<...> | undefined>`、`errors: ComputedRef<readonly string[]>`、`dirty: ComputedRef<boolean>` 与 `pending: ComputedRef<boolean>`；`dirty` 读取字段 touched Ref。`getValue()`、`getErrors()`、`isTouched()` 和 `isPending()` 都读取对应 Vue Ref，`getValues()` 则通过 Facade 读取全表值。只有 `value` 可通过 `.value` 写入，其余三个 computed 状态只读。Core 方法的完整签名见 [Core 单字段控制器](../core#单字段控制器)。
 
-`useField()` 不缓存字段控制器对象；每次调用只创建轻量的 Core 控制器包装，并复用当前 Form Bridge 中按 Field External Store 身份缓存的字段 Ref。Bridge 以公开 `NamePath` 规范化结果复用字段；当前公开类型仅支持字符串路径。Form Bridge 由 `useForm()`、Form Context 和 `useFormSelector()` 等 Vue owner 的引用计数持有，最后一个 owner 释放或手动销毁后停止订阅。`FieldInstance` 可从 `@schemx/vue` 根入口导入；不需要依赖深层路径。
+`useField()` 不缓存字段控制器对象；每次调用只创建轻量的 Core 控制器包装，并复用当前 Form Bridge 中按字段 `SnapshotSource` 缓存的字段 Ref。Bridge 以公开 `NamePath` 规范化结果复用字段；当前公开类型仅支持字符串路径。Form Bridge 由 `useForm()`、Form Context 和 `useFormSelector()` 等 Vue owner 的引用计数持有，最后一个 owner 释放或手动销毁后停止订阅。`FieldInstance` 可从 `@schemx/vue` 根入口导入；不需要依赖深层路径。
 
 ```ts
 import { createFieldContext, useField } from "@schemx/vue"

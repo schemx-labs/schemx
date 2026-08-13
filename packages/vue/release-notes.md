@@ -1,19 +1,5 @@
 # Release Notes
 
-## Unreleased
-
-### 新增功能
-
-- 新增 `Button` 组件，支持 `loading`、`loadingText`、`disabled`、三档 `size` 以及 `prefix` / `suffix` 插槽；同时导出 `SchemxButtonProps`、`SchemxButtonSize`。
-- `Schemx` 新增内置提交与重置操作区：通过 `submitter`、`resetter` 配置默认按钮，或使用同名插槽完全替换，并可通过 `loading` 覆盖操作区显示状态。
-- 新增 `useFormSelector()`、`getCoreForm()` 与共享 Form Bridge；`useForm()`、`useField()`、Context 和视图 Schema 读取可复用同一份 Vue 响应式订阅。
-
-### 优化与调整
-
-- `SchemxFormProps` 支持 `rendererProps`、`onReset` 和 `onLoadingChange`，并将对应能力传递给内部创建的 Core Form。
-- `useForm()` 返回 `VueSchemxInstance`：常用值、错误、touched、pending 与 loading 读取可被 Vue effect 追踪；需要无依赖快照或原始实例时可使用已有快照 API 或 `getCoreForm()`。
-- `FormItem` 字段插槽与动态 ViewSchema 更新使用共享 Bridge，减少重复订阅并保持字段状态同步。
-
 ## 版本信息
 
 - 基准版本：`@schemx/vue@0.2.3`
@@ -171,6 +157,9 @@ onUnmounted(stop)
 - 配置优先级明确为表单显式配置 > App 安装配置 > Vue 模块默认注册表 > Core 全局配置 > Core 默认值；`validatorAdapters` 支持累积注册，并可通过 `{ adapter, override: true }` 覆盖同 ID 适配器。
 - FormGroup 状态契约得到扩展：支持 `visible`、`readonly`、`disabled`、受控 `collapsed`、`onCollapsedChange`、`destroyOnCollapse` 以及对应的 ARIA 属性和关联 ID。默认折叠时销毁内容，`destroyOnCollapse=false` 时保留内容并隐藏。
 - `FormItem` 将必填校验与 `showRequiredMark` 视觉标记分开处理；未显式设置标记时跟随 `required`，只读或禁用字段不显示标记且不参与交互校验。
+- 新增 `Button` 组件，支持 `loading`、`loadingText`、`disabled`、三档 `size` 以及 `prefix` / `suffix` 插槽；同时导出 `SchemxButtonProps`、`SchemxButtonSize`。
+- `Schemx` 新增内置提交与重置操作区：通过 `submitter`、`resetter` 配置默认按钮，或使用同名插槽完全替换，并可通过 `loading` 覆盖操作区显示状态。
+- 新增 `useFormSelector()`、`getCoreForm()` 与共享 Form Bridge；`useForm()`、`useField()`、Context 和视图 Schema 读取可复用同一份 Vue 响应式订阅。
 
 ## Fixes
 
@@ -185,10 +174,15 @@ onUnmounted(stop)
 - Vue 表单组件、Hooks 和公共类型统一使用 `TValues` 泛型命名，并新增 `tsconfig.type-tests.json`；`build` 现在会先执行 `type-check`，且类型检查包含公共类型测试。
 - `FieldInstance` 将 Core 字段状态映射为更明确的 Vue 响应式类型，`dirty`、`pending` 和 `errors` 使用只读计算值表达。
 - Vue 层的 Core 类型扩展和表单组件泛型声明更加显式，`class`、`style` 等 Schema 扩展属性集中在公共类型入口声明，便于 Vue SFC 类型推导。
+- `SchemxFormProps` 支持 `rendererProps`、`onReset` 和 `onLoadingChange`，并将对应能力传递给内部创建的 Core Form。
+- `useForm()` 返回 `VueSchemxInstance`：常用值、错误、touched、pending 与 loading 读取可被 Vue effect 追踪；需要无依赖快照或原始实例时可使用已有快照 API 或 `getCoreForm()`。
+- `FormItem` 字段插槽与动态 ViewSchema 更新使用共享 Bridge，减少重复订阅并保持字段状态同步。
+- Vue Form Bridge 按表单、字段、Facade 与类型职责拆分为独立内部模块，并统一消费 Core 的 `FormStateAdapter` / `SnapshotSource`；`@schemx/vue` 根入口和公开 Hooks 保持不变，业务不应依赖内部源码路径。
 
 ## Dependencies and Compatibility
 
 - `@schemx/vue` 继续依赖 `@schemx/core`，本范围内 `package.json` 的版本、`exports`、peerDependencies 和运行时依赖未改变；主要兼容性风险来自 Core 公共配置、Schema 和校验契约的同步重构。
+- Vue Bridge 已切换到 `@schemx/core/adapter` 的 `createFormStateAdapter()` 与 `SnapshotSource`；升级时应将 `@schemx/core` 与 `@schemx/vue` 作为同一兼容性批次检查。
 - `@schemx/vant` 通过 Vue/Core 导出链继承新的注册表、字段错误和配置类型；升级时应将 `@schemx/core`、`@schemx/vue` 与 `@schemx/vant` 作为同一兼容性批次检查。
 
 ## Documentation

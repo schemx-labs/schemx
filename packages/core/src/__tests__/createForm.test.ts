@@ -10,7 +10,7 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
-import { createFormExternalStore } from "../adapter"
+import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
@@ -83,9 +83,9 @@ describe("字段值边界", () => {
       ],
     })
 
-    const externalStore = createFormExternalStore(form)
+    const stateAdapter = createFormStateAdapter(form)
 
-    const studentStore = externalStore.field("student")
+    const studentStore = stateAdapter.field("student")
 
     const listener = vi.fn()
 
@@ -104,7 +104,7 @@ describe("字段值边界", () => {
     expect(listener).toHaveBeenCalledTimes(1)
 
     unsubscribe()
-    externalStore.dispose()
+    stateAdapter.dispose()
     form.destroy()
   })
 

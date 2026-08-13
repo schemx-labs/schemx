@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createFormExternalStore } from "../adapter"
+import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
 
 import type { SchemxFormApi } from "../types"
@@ -154,7 +154,7 @@ describe("Form submit loading", () => {
     form.destroy()
   })
 
-  it("通过 External Store 发布提交 loading 快照", async () => {
+  it("通过 FormStateAdapter 发布提交 loading 快照", async () => {
     const deferred = createDeferred()
 
     const form = createForm({
@@ -162,7 +162,7 @@ describe("Form submit loading", () => {
       onFinish: () => deferred.promise,
     })
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const listener = vi.fn()
 

@@ -11,13 +11,13 @@ import { onScopeDispose } from "vue"
 
 import { createForm, mergeSchemxConfig, type SchemxConfig } from "@schemx/core"
 
-import { getSchemxAppConfig } from "../config"
 import {
   getVueFormBridge,
   getVueFormFacade,
   retainVueFormBridge,
   type VueSchemxInstance,
-} from "../formBridge"
+} from "../bridge"
+import { getSchemxAppConfig } from "../config"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
 import { validationRuleRegistry as globalValidationRuleRegistry } from "../utils/rulesProvider"
 

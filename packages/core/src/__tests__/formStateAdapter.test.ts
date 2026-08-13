@@ -1,14 +1,14 @@
 /**
- * Form External Store 单元测试。
+ * FormStateAdapter 状态适配器单元测试。
  *
- * 验证 adapter 公共订阅协议的稳定快照、生命周期与字段缓存语义。
+ * 验证 adapter 公共快照协议的稳定快照、生命周期与字段缓存语义。
  *
- * @module core/__tests__/externalStore
+ * @module core/__tests__/formStateAdapter
  */
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createFormExternalStore } from "../adapter"
+import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
 
 interface FormValues {
@@ -28,11 +28,11 @@ const createTestForm = () =>
     },
   })
 
-describe("createFormExternalStore", () => {
+describe("createFormStateAdapter", () => {
   it("提供稳定的全表快照，并且只在值变化后通知", () => {
     const form = createTestForm()
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const listener = vi.fn()
 
@@ -65,7 +65,7 @@ describe("createFormExternalStore", () => {
   it("无 listener 时同步刷新快照，且 batch 只发布最终值", () => {
     const form = createTestForm()
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const listener = vi.fn()
 
@@ -114,7 +114,7 @@ describe("createFormExternalStore", () => {
       }
     })
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const first = store.values.subscribe(vi.fn())
 
@@ -139,7 +139,7 @@ describe("createFormExternalStore", () => {
   it("复用同一路径的字段 Store，并仅在字段状态变化后通知", () => {
     const form = createTestForm()
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const first = store.field("profile.name")
 
@@ -183,7 +183,7 @@ describe("createFormExternalStore", () => {
   it("为 touched 和 pending 提供按内容稳定的聚合快照", () => {
     const form = createTestForm()
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const touchedListener = vi.fn()
 
@@ -221,7 +221,7 @@ describe("createFormExternalStore", () => {
   it("dispose 幂等且不销毁原始 Form", () => {
     const form = createTestForm()
 
-    const store = createFormExternalStore(form)
+    const store = createFormStateAdapter(form)
 
     const listener = vi.fn()
 
@@ -234,7 +234,7 @@ describe("createFormExternalStore", () => {
 
     expect(listener).not.toHaveBeenCalled()
     expect(form.getFieldValue("name")).toBe("Grace")
-    expect(() => store.field("name")).toThrow("FormExternalStore has been disposed")
+    expect(() => store.field("name")).toThrow("FormStateAdapter has been disposed")
 
     form.destroy()
   })

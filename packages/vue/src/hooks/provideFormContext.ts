@@ -14,7 +14,7 @@ import {
   getVueFormFacade,
   retainVueFormBridge,
   type VueSchemxInstance,
-} from "../formBridge"
+} from "../bridge"
 
 import type { SchemxInstance, Values } from "@schemx/core"
 

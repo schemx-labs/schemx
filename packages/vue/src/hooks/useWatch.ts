@@ -40,7 +40,7 @@ import { onUnmounted } from "vue"
 
 import { createWatch } from "@schemx/core"
 
-import { getCoreForm } from "../formBridge"
+import { getCoreForm } from "../bridge"
 
 import { useFormContext } from "./provideFormContext"
 
