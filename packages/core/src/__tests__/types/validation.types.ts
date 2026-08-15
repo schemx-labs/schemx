@@ -31,6 +31,10 @@ type _RemovedCreateRequiredRule = CoreExports["createRequiredRule"]
 type _RemovedCreateValidatorsRegistry = CoreExports["createValidatorsRegistry"]
 // @ts-expect-error 品牌规则工厂不得从 Core 公共入口导出。
 type _RemovedCreateAdapterRule = CoreExports["createAdapterRule"]
+// @ts-expect-error 底层 Validator 工厂不再作为 Core 公共入口。
+type _RemovedCreateValidator = CoreExports["createValidator"]
+// @ts-expect-error 中间层 Controller 工厂不再作为 Core 公共入口。
+type _RemovedCreateValidationController = CoreExports["createValidationController"]
 
 // @ts-expect-error 旧迁移别名不得从 Core 公共入口导出。
 type _RemovedSchemxRuleDefinition = CoreExports["SchemxRuleDefinition"]
@@ -310,7 +314,7 @@ const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
   typedForm.validateField("email")
 
 declare const fieldErrors: ReturnType<
-  import("../../index").Validator<FormValues>["getFieldErrors"]
+  import("../../index").Validation<FormValues>["getFieldErrors"]
 >
 // @ts-expect-error 字段错误快照是只读数组。
 fieldErrors.push("外部修改")

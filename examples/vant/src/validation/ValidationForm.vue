@@ -11,6 +11,7 @@
       ref="formRef"
       v-model="formData"
       :schemas="schemas"
+      :validatorAdapters="[adapter]"
       @finish="handleSubmit"
       @finish-failed="handleSubmitFailed"
       @values-change="handleValuesChange"
@@ -37,11 +38,13 @@
   import { Button } from "vant"
 
   import Schemx from "@schemx/vant"
+  import { createAsyncValidatorAdapter } from "@schemx/validator"
   import { z } from "zod"
 
   import type { ValidationFormValues } from "../types"
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
+  const adapter = createAsyncValidatorAdapter()
   /** 表单实例引用，提供 submit、validate、validateField、setFieldErrors 等方法 */
   const formRef = ref<SchemxInstance<ValidationFormValues>>()
 
@@ -169,6 +172,15 @@
         clearable: true,
       },
       rules: z.string().email("请输入有效的邮箱地址"),
+    },
+    {
+      name: "avatar",
+      label: "头像",
+      componentType: "upload",
+      componentProps: {
+        accept: "image/*",
+      },
+      rules: [{ required: true, message: "请上传头像" }],
     },
   ]
 

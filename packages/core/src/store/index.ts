@@ -4,10 +4,6 @@
  * @module core/store
  */
 
-export {
-  createStore,
-  type Store,
-  type StoreState,
-  type StoreOptions,
-  type StorePending,
-} from "./store"
+export { createStore } from "./store"
+
+export type { Store, StoreState, StoreOptions, StorePending } from "./types"

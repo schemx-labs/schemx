@@ -249,6 +249,17 @@ export interface SchemxInstance<TValues extends Values = Values> {
   }
 
   /**
+   * 设置单个字段的初始值。
+   *
+   * @param name - 字段路径
+   * @param value - 要写入的初始值
+   */
+  setInitialValue<TName extends NamePath<TValues>>(
+    name: TName,
+    value: FieldValue<TValues, TName>
+  ): void
+
+  /**
    * 批量设置多个字段的初始值。
    *
    * @param values - 要设置的字段值对象
@@ -275,6 +286,14 @@ export interface SchemxInstance<TValues extends Values = Values> {
   isFieldTouched<TName extends NamePath<TValues>>(name: TName): boolean
 
   /**
+   * 判断多个字段是否处于 touched 状态。
+   *
+   * 不传路径时判断任一字段，传入路径数组时判断所有指定字段。
+   */
+  isFieldsTouched(): boolean
+  isFieldsTouched<TName extends NamePath<TValues>>(names: TName[]): boolean
+
+  /**
    * 设置字段交互状态。
    *
    * 传入路径设置字段修改状态。
@@ -288,6 +307,14 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * ```
    */
   setFieldTouched<TName extends NamePath<TValues>>(name: TName, value: boolean): void
+
+  /**
+   * 批量设置多个字段的 touched 状态。
+   *
+   * @param names - 字段路径数组
+   * @param value - 目标状态，默认为 `true`
+   */
+  setFieldsTouched<TName extends NamePath<TValues>>(names: TName[], value?: boolean): void
 
   /**
    * 获取所有发生过显式交互的字段路径。
@@ -325,6 +352,19 @@ export interface SchemxInstance<TValues extends Values = Values> {
   ): void
 
   /**
+   * 批量设置多个字段的 pending 状态。
+   *
+   * @param names - 字段路径数组
+   * @param pending - 目标状态，默认为 `true`
+   * @param message - 可选的操作中提示信息
+   */
+  setFieldsPending<TName extends NamePath<TValues>>(
+    names: TName[],
+    pending?: boolean,
+    message?: string | string[]
+  ): void
+
+  /**
    * 检查单个字段是否处于操作中
    *
    * 返回响应式值，在 effect 中使用时自动追踪变化。
@@ -338,6 +378,14 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * ```
    */
   isFieldPending<TName extends NamePath<TValues>>(name: TName): boolean
+
+  /**
+   * 判断多个字段是否处于 pending 状态。
+   *
+   * 不传路径时判断任一字段，传入路径数组时判断所有指定字段。
+   */
+  isFieldsPending(): boolean
+  isFieldsPending<TName extends NamePath<TValues>>(names: TName[]): boolean
 
   /**
    * 获取所有处于操作中的字段信息
@@ -369,7 +417,14 @@ export interface SchemxInstance<TValues extends Values = Values> {
   isLoading: () => boolean
 
   /**
-   * 重置指定字段到初始值
+   * 重置单个字段到初始值。
+   *
+   * @param name - 要重置的字段路径
+   */
+  resetField<TName extends NamePath<TValues>>(name: TName): void
+
+  /**
+   * 重置多个字段到初始值。
    *
    * @param names - 要重置的字段路径数组
    *
@@ -441,6 +496,16 @@ export interface SchemxInstance<TValues extends Values = Values> {
   getFieldErrors<TName extends NamePath<TValues>>(name: TName): readonly string[]
 
   /**
+   * 获取多个字段的错误信息快照。
+   *
+   * 不传路径时返回当前存在错误的字段；传入路径时按传入顺序返回。
+   */
+  getFieldsErrors(names?: readonly NamePath<TValues>[]): readonly {
+    readonly name: NamePath<TValues>
+    readonly errors: readonly string[]
+  }[]
+
+  /**
    * 手动设置字段的错误信息
    *
    * @param name - 字段路径
@@ -457,11 +522,35 @@ export interface SchemxInstance<TValues extends Values = Values> {
   ): void
 
   /**
+   * 批量设置多个字段的错误信息。
+   *
+   * @param fields - 字段路径及其错误消息数组
+   */
+  setFieldsErrors(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly errors: readonly string[]
+    }[]
+  ): void
+
+  /**
    * 清除指定字段的全部错误消息。
    *
    * @param name - 要清除错误的字段路径。
    */
   clearFieldErrors<TName extends NamePath<TValues>>(name: TName): void
+
+  /**
+   * 清除多个字段的全部错误来源。
+   *
+   * @param names - 要清除错误的字段路径数组
+   */
+  clearFieldsErrors(names: readonly NamePath<TValues>[]): void
+
+  /**
+   * 清除全部字段的错误信息。
+   */
+  clearErrors: () => void
 
   /**
    * 提交表单
@@ -725,6 +814,25 @@ export interface SchemxInstance<TValues extends Values = Values> {
   removeFieldRules: <TName extends NamePath<TValues>>(name: TName) => void
 
   /**
+   * 批量替换多个字段的全部校验规则。
+   *
+   * @param fields - 字段路径及其规则声明
+   */
+  setFieldsRules<TName extends NamePath<TValues>>(
+    fields: readonly {
+      readonly name: TName
+      readonly rules: FieldRules<TValues, TName>
+    }[]
+  ): void
+
+  /**
+   * 批量移除多个字段的校验规则。
+   *
+   * @param names - 要移除规则的字段路径数组
+   */
+  removeFieldsRules(names: readonly NamePath<TValues>[]): void
+
+  /**
    * 销毁表单实例
    *
    * 清除所有订阅回调，释放资源。通常在组件卸载时调用。
@@ -752,7 +860,44 @@ export interface SchemxGlobalContext {
  *
  * @typeParam TValues - 表单值类型
  */
-export interface SchemxFormApi<TValues extends Values = Values> {
+export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
+  SchemxInstance<TValues>,
+  | "getFieldValue"
+  | "getFieldsValue"
+  | "setFieldValue"
+  | "setFieldsValue"
+  | "getFieldSnapshot"
+  | "getFieldsSnapshot"
+  | "getInitialValue"
+  | "getInitialValues"
+  | "setInitialValue"
+  | "setInitialValues"
+  | "isFieldTouched"
+  | "isFieldsTouched"
+  | "getTouchedFields"
+  | "setFieldTouched"
+  | "setFieldsTouched"
+  | "isFieldPending"
+  | "isFieldsPending"
+  | "getPendingFields"
+  | "setFieldPending"
+  | "setFieldsPending"
+  | "resetField"
+  | "resetFields"
+  | "reset"
+  | "validateField"
+  | "validate"
+  | "getFieldErrors"
+  | "getFieldsErrors"
+  | "setFieldErrors"
+  | "setFieldsErrors"
+  | "clearFieldErrors"
+  | "clearFieldsErrors"
+  | "setFieldRules"
+  | "setFieldsRules"
+  | "removeFieldRules"
+  | "removeFieldsRules"
+> {
   /**
    * 设置字段值。
    *
@@ -782,6 +927,16 @@ export interface SchemxFormApi<TValues extends Values = Values> {
   ): FieldValue<TValues, TName> | undefined
 
   /**
+   * `getFieldSnapshot` 的兼容别名。
+   *
+   * @param name - 字段路径
+   * @returns 字段当前快照
+   */
+  getSnapshot<TName extends NamePath<TValues>>(
+    name: TName
+  ): FieldValue<TValues, TName> | undefined
+
+  /**
    * 获取多个字段值。
    *
    * @param name - 可选的字段路径数组；不传时返回全部字段值。
@@ -798,6 +953,7 @@ export interface SchemxFormApi<TValues extends Values = Values> {
    * @param names - 可选的字段路径数组；不传时返回全部字段快照。
    * @returns 当前字段值快照对象。
    */
+  getSnapshots(): TValues
   getSnapshots<TName extends NamePath<TValues>>(names?: TName[]): Partial<TValues>
 
   /**
@@ -828,7 +984,11 @@ export interface SchemxFormApi<TValues extends Values = Values> {
    * @param name - 字段路径
    * @param pending - 是否处于操作中
    */
-  setPending<TName extends NamePath<TValues>>(name: TName, pending: boolean): void
+  setPending<TName extends NamePath<TValues>>(
+    name: TName,
+    pending: boolean,
+    message?: string | string[]
+  ): void
 
   /**
    * 检查单个字段是否处于操作中
@@ -891,9 +1051,10 @@ export interface SchemxFormApi<TValues extends Values = Values> {
   getErrors<TName extends NamePath<TValues>>(name: TName): readonly string[]
 
   /**
-   * 清除字段错误列表。
+   * 清除字段错误列表；不传参数时清除全部字段错误。
    *
-   * @param name - 字段路径。
+   * @param name - 可选的字段路径。
    */
+  clearErrors(): void
   clearErrors<TName extends NamePath<TValues>>(name: TName): void
 }

@@ -97,4 +97,5 @@ export interface ValidationFormValues {
   age?: number
   idCard?: string
   contactEmail?: string
+  avatar?: any[]
 }

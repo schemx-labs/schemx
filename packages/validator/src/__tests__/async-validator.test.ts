@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest"
 import {
   type AsyncValidatorDescriptor,
   createAsyncValidatorAdapter,
-} from "../async-validator"
+} from "../async-validator.adapter"
 
 import type { NamePath, ValidationRuleContext, Values } from "@schemx/core"
 

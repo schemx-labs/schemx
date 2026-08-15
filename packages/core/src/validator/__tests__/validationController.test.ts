@@ -12,14 +12,27 @@ import type {
   ValidationRule,
 } from "../types"
 
+/**
+ * 测试用的表单值结构。
+ */
 interface FormValues {
   email: string
 }
 
+/**
+ * 用于验证原生规则旁路 adapter 的测试规则。
+ */
 const nativeRule: ValidationRule = {
   validate: () => ({ valid: true as const }),
 }
 
+/**
+ * 创建仅供测试使用的品牌 adapter。
+ *
+ * @typeParam TInput - adapter 接收的测试输入类型。
+ * @param id - adapter 的标识。
+ * @param resolve - 将品牌规则转换为原生规则的测试解析器。
+ */
 function createTestAdapter<TInput>(
   id: ValidationAdapterID,
   resolve: (rule: AdapterRule | TInput) => readonly ValidationRule[]
@@ -42,6 +55,9 @@ function createTestAdapter<TInput>(
   }
 }
 
+/**
+ * 多数控制器测试复用的基础字段配置。
+ */
 const fieldConfig = {
   name: "email" as const,
   label: "邮箱",

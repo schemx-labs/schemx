@@ -24,8 +24,6 @@ export * from "./hooks"
 export { WithRemoteOptions } from "./hocs"
 
 /** 组件 */
-export { default as Button } from "./components/Button"
-export type { SchemxButtonProps, SchemxButtonSize } from "./components/Button"
 export { default as FormItem } from "./components/FormItem"
 export { default as FormGroup } from "./components/FormGroup"
 

@@ -74,6 +74,37 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     name: TName,
     rules: readonly ValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName>[]
   ): void {
+    this.replaceFieldRules(name, rules)
+  }
+
+  /**
+   * 替换多个字段的全部规则。
+   *
+   * @param fields - 字段路径及其对应的原生规则数组。
+   */
+  public setFieldsRules(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly rules: readonly ValidationRule[]
+    }[]
+  ): void {
+    if (this.destroyed) return
+
+    for (const field of fields) {
+      this.replaceFieldRules(field.name, field.rules)
+    }
+  }
+
+  /**
+   * 替换一个字段的规则并取消由旧规则启动的运行。
+   *
+   * @param name - 要替换规则的字段路径。
+   * @param rules - 新的原生规则数组。
+   */
+  private replaceFieldRules(
+    name: NamePath<TValues>,
+    rules: readonly ValidationRule[]
+  ): void {
     if (this.destroyed) return
 
     // 规则和运行状态共享的稳定字段身份。
@@ -99,6 +130,17 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   }
 
   /**
+   * 移除多个字段的规则，并中止这些字段仍在进行的校验。
+   *
+   * @param names - 要移除规则的字段路径数组。
+   */
+  public removeFieldsRules(names: readonly NamePath<TValues>[]): void {
+    for (const name of names) {
+      this.removeFieldRules(name)
+    }
+  }
+
+  /**
    * 返回字段当前可展示错误消息的防御性快照。
    *
    * @param name - 要读取的字段路径。
@@ -112,6 +154,24 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   }
 
   /**
+   * 获取多个字段当前错误消息的不可变快照。
+   *
+   * @param names - 可选的字段路径数组。
+   * @returns 带字段路径和错误消息的只读条目数组。
+   */
+  public getFieldsErrors(names?: readonly NamePath<TValues>[]): readonly {
+    readonly name: NamePath<TValues>
+    readonly errors: readonly string[]
+  }[] {
+    const targetNames = names ?? this.errors.entries().map((entry) => entry.name)
+
+    return targetNames.map((name) => ({
+      name,
+      errors: this.getFieldErrors(name),
+    }))
+  }
+
+  /**
    * 覆盖字段 external 错误，不影响正在运行的规则校验。
    *
    * @param name - 要写入的字段路径。
@@ -121,6 +181,22 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     if (this.destroyed) return
 
     this.errors.replaceExternal(name, messages)
+  }
+
+  /**
+   * 替换多个字段的错误消息。
+   *
+   * @param fields - 字段路径及其对应的错误消息数组。
+   */
+  public setFieldsErrors(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly messages: readonly string[]
+    }[]
+  ): void {
+    for (const field of fields) {
+      this.setFieldErrors(field.name, field.messages)
+    }
   }
 
   /**
@@ -139,6 +215,22 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   }
 
   /**
+   * 覆盖多个字段规则配置解析产生的问题。
+   *
+   * @param fields - 字段路径及其对应的配置问题数组。
+   */
+  public setFieldsConfigurationIssues(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly issues: readonly ValidationRuleIssue[]
+    }[]
+  ): void {
+    for (const field of fields) {
+      this.setFieldConfigurationIssues(field.name, field.issues)
+    }
+  }
+
+  /**
    * 清除字段规则配置解析失败问题。
    *
    * @param name - 要清除的字段路径。
@@ -150,12 +242,34 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   }
 
   /**
+   * 清除多个字段规则配置解析产生的问题。
+   *
+   * @param names - 要清除配置问题的字段路径数组。
+   */
+  public clearFieldsConfigurationIssues(names: readonly NamePath<TValues>[]): void {
+    for (const name of names) {
+      this.clearFieldConfigurationIssues(name)
+    }
+  }
+
+  /**
    * 清除字段全部错误来源。
    *
    * @param name - 要清除的字段路径。
    */
   public clearFieldErrors(name: NamePath<TValues>): void {
     this.errors.clearField(name)
+  }
+
+  /**
+   * 清除多个字段的全部错误来源。
+   *
+   * @param names - 要清除错误的字段路径数组。
+   */
+  public clearFieldsErrors(names: readonly NamePath<TValues>[]): void {
+    for (const name of names) {
+      this.clearFieldErrors(name)
+    }
   }
 
   /**

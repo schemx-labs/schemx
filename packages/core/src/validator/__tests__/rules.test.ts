@@ -8,12 +8,20 @@ import {
 import type { StandardSchemaV1 } from "../../types/standardSchema"
 import type { ValidationRuleContext } from "../types"
 
+/**
+ * 创建最小规则执行上下文。
+ */
 const createContext = (): ValidationRuleContext => ({
   name: "field",
   values: {},
   signal: new AbortController().signal,
 })
 
+/**
+ * 创建最小 Standard Schema 测试对象。
+ *
+ * @param validate - 测试用的 Schema 校验函数。
+ */
 const createSchema = (
   validate: StandardSchemaV1["~standard"]["validate"]
 ): StandardSchemaV1 => ({

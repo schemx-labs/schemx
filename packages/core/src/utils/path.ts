@@ -223,6 +223,40 @@ export function toNamePathSegments<TValues extends Values = Values>(
 }
 
 /**
+ * 判断 candidate 是否位于 ancestor 的严格后代路径。
+ *
+ * @param candidate - 待判断的字段路径。
+ * @param ancestor - 作为祖先路径的字段路径。
+ * @returns candidate 是否是 ancestor 的严格后代。
+ */
+export function isDescendantFieldPath<TValues extends Values>(
+  candidate: NamePath<TValues>,
+  ancestor: NamePath<TValues>
+): boolean {
+  const candidateSegments = toNamePathSegments(candidate)
+  const ancestorSegments = toNamePathSegments(ancestor)
+
+  return (
+    candidateSegments.length > ancestorSegments.length &&
+    ancestorSegments.every((segment, index) => segment === candidateSegments[index])
+  )
+}
+
+/**
+ * 判断两个字段路径是否存在父子关系。
+ *
+ * @param first - 第一个字段路径。
+ * @param second - 第二个字段路径。
+ * @returns 两个路径是否互为父路径和严格后代路径。
+ */
+export function areOverlappingFieldPaths<TValues extends Values>(
+  first: NamePath<TValues>,
+  second: NamePath<TValues>
+): boolean {
+  return isDescendantFieldPath(first, second) || isDescendantFieldPath(second, first)
+}
+
+/**
  * 创建碰撞安全的字段身份 key。
  *
  * @param path - 要标识的字段路径。

@@ -15,6 +15,7 @@
       :readonly="globalReadonly"
       :disabled="globalDisibled"
       :colon="true"
+      :validatorAdapters="[adapter]"
       @finish="handleSubmit"
       @values-change="handleValuesChange"
     />
@@ -45,10 +46,12 @@
   import { Button } from "vant"
 
   import Schemx from "@schemx/vant"
+  import { createAsyncValidatorAdapter } from "@schemx/validator"
 
   import { createCachedRequest } from "./createCachedRequest"
   import type { BasicFormValues } from "../types"
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
+  const adapter = createAsyncValidatorAdapter()
 
   /** 表单实例引用，提供 submit、validate、reset 等方法 */
   const formRef = ref<SchemxInstance<BasicFormValues>>()
@@ -323,6 +326,7 @@
           url: "https://minio-test.sjdit.com:9017//sz-dev/upload/20260617/ddc68a8dc9be78b8292d430b92a5a98e.zip",
         },
       ],
+      rules: [{ required: true, message: "请上传头像" }],
     },
     {
       name: "region",

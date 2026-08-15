@@ -36,17 +36,12 @@ export type ValidationAdapterRule<TInput = unknown> =
 export type ValidationAdapterID = ValidationAdapterV1.ID
 
 /**
- * 将第三方规则输入转换为原生校验规则的扩展点。
- *
- * 这是 Core 对外公开的通用 adapter 协议。消费端可仅依赖 `@schemx/core` 实现此接口，
- * 并通过 Form 或全局配置注册自己的校验库 adapter。
- *
- * @typeParam TInput - adapter 接收的规则输入类型。
- */
-/**
  * {@link ValidationAdapterV1} 的兼容别名。
  *
- * 新适配器建议直接声明为 `ValidationAdapterV1`，以显式绑定协议版本。
+ * 该类型用于将第三方规则输入转换为 Core 原生校验规则；新适配器建议直接声明为
+ * `ValidationAdapterV1`，以显式绑定协议版本。
+ *
+ * @typeParam TInput - adapter 接收的规则输入类型。
  */
 export type ValidationAdapter<TInput = unknown> = ValidationAdapterV1<TInput>
 
@@ -54,7 +49,7 @@ export type ValidationAdapter<TInput = unknown> = ValidationAdapterV1<TInput>
  * 注册校验 adapter 时的可选行为。
  */
 export interface ValidationAdapterRegistration {
-  // 要注册的 adapter。
+  /** 要注册的 adapter 实例。 */
   readonly adapter: ValidationAdapter
   /**
    * 是否覆盖此前注册的同 ID adapter。
@@ -94,7 +89,7 @@ export interface FieldValidationError<TName extends PropertyKey = string> {
    * 产生错误的字段路径。
    */
   readonly name: TName
-  // 完整的字段校验问题，保留稳定 code 与原始 cause。
+  /** 完整的字段校验问题，保留稳定 code 与原始 cause。 */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
@@ -116,7 +111,7 @@ export interface FormValidationError {
    * 标识此错误不归属于特定字段。
    */
   readonly scope: "form"
-  // 完整的表单级校验问题，保留稳定 code 与原始 cause。
+  /** 完整的表单级校验问题，保留稳定 code 与原始 cause。 */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
@@ -138,7 +133,7 @@ export type ValidationError<TName extends PropertyKey = string> =
  * @typeParam TValues - 本次校验使用的表单值类型。
  */
 export interface ValidationSuccess<TValues extends Values> {
-  // 表示本次校验已完成且没有问题。
+  /** 表示本次校验已完成且没有问题。 */
   readonly valid: true
   /**
    * 用于本次校验的表单值。
@@ -169,9 +164,9 @@ export interface ValidationFailure<
   TValues extends Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > {
-  // 表示本次校验完成但存在问题。
+  /** 表示本次校验完成但存在问题。 */
   readonly valid: false
-  // 非取消失败固定为 false 或不存在。
+  /** 非取消失败固定为 false 或不存在。 */
   readonly cancelled?: false
   /**
    * 用于本次校验的表单值。
@@ -272,11 +267,28 @@ export interface Validator<TValues extends Values> {
     rules: readonly ValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName>[]
   ): void
   /**
+   * 替换多个字段的全部规则。
+   *
+   * @param fields - 字段路径及其对应的原生规则数组。
+   */
+  setFieldsRules(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly rules: readonly ValidationRule[]
+    }[]
+  ): void
+  /**
    * 移除字段规则，并中止该字段仍在进行的校验。
    *
    * @param name - 要移除的字段路径。
    */
   removeFieldRules(name: NamePath<TValues>): void
+  /**
+   * 移除多个字段的规则，并中止这些字段仍在进行的校验。
+   *
+   * @param names - 要移除规则的字段路径数组。
+   */
+  removeFieldsRules(names: readonly NamePath<TValues>[]): void
   /**
    * 获取字段当前错误消息的不可变快照。
    *
@@ -285,12 +297,36 @@ export interface Validator<TValues extends Values> {
    */
   getFieldErrors(name: NamePath<TValues>): readonly string[]
   /**
+   * 获取多个字段当前错误消息的不可变快照。
+   *
+   * 未传入路径时返回当前存在错误的字段；传入路径时按传入顺序返回结果，
+   * 即使某个字段没有错误也会包含空数组。
+   *
+   * @param names - 可选的字段路径数组。
+   * @returns 带字段路径和错误消息的只读条目数组。
+   */
+  getFieldsErrors(names?: readonly NamePath<TValues>[]): readonly {
+    readonly name: NamePath<TValues>
+    readonly errors: readonly string[]
+  }[]
+  /**
    * 直接设置字段错误消息。
    *
    * @param name - 要写入的字段路径。
    * @param messages - 要展示的错误消息；校验器会复制该数组。
    */
   setFieldErrors(name: NamePath<TValues>, messages: readonly string[]): void
+  /**
+   * 替换多个字段的错误消息。
+   *
+   * @param fields - 字段路径及其对应的错误消息数组。
+   */
+  setFieldsErrors(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly messages: readonly string[]
+    }[]
+  ): void
   /**
    * 覆盖字段规则配置解析产生的问题。
    *
@@ -305,17 +341,40 @@ export interface Validator<TValues extends Values> {
     issues: readonly ValidationRuleIssue[]
   ): void
   /**
+   * 覆盖多个字段规则配置解析产生的问题。
+   *
+   * @param fields - 字段路径及其对应的配置问题数组。
+   */
+  setFieldsConfigurationIssues(
+    fields: readonly {
+      readonly name: NamePath<TValues>
+      readonly issues: readonly ValidationRuleIssue[]
+    }[]
+  ): void
+  /**
    * 清除字段规则配置解析产生的问题。
    *
    * @param name - 要清除的字段路径。
    */
   clearFieldConfigurationIssues(name: NamePath<TValues>): void
   /**
+   * 清除多个字段规则配置解析产生的问题。
+   *
+   * @param names - 要清除配置问题的字段路径数组。
+   */
+  clearFieldsConfigurationIssues(names: readonly NamePath<TValues>[]): void
+  /**
    * 清除指定字段的错误消息。
    *
    * @param name - 要清除的字段路径。
    */
   clearFieldErrors(name: NamePath<TValues>): void
+  /**
+   * 清除多个字段的全部错误来源。
+   *
+   * @param names - 要清除错误的字段路径数组。
+   */
+  clearFieldsErrors(names: readonly NamePath<TValues>[]): void
   /**
    * 清除全部字段错误消息。
    */

@@ -6,7 +6,12 @@
  * @module core
  */
 
-export { createValidator, type Validator, type CreateValidatorOptions } from "./validator"
+export {
+  createValidation,
+  type CreateValidationOptions,
+  type Validation,
+  type ValidationFieldConfig,
+} from "./validator"
 
 export {
   createValidationRuleRegistry,
@@ -121,6 +126,7 @@ export type {
   ValidationTrigger,
   StandardSchemaV1,
   SchemxInstance,
+  SchemxFormApi,
   SchemxSchemaConfig,
   SchemxGlobalContext,
   SchemxRendererKey,

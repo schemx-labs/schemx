@@ -1,4 +1,4 @@
-import type { NamePath, RequiredRule, StandardSchemaV1, Values } from "../types"
+import type { NamePath, RequiredRule, Values } from "../types"
 import type { ValidationRule } from "./types"
 
 // required 规则默认采用的空值判定。
@@ -46,44 +46,9 @@ export function createRequiredValidationRule<
 
   return {
     validate(value) {
+      // 必填规则失败后中止后续规则，避免在空值上产生级联错误。
       return isEmpty(value)
         ? { valid: false, issues: [{ message, code: "required" }], bail: true }
-        : { valid: true }
-    },
-  }
-}
-
-/**
- * 将 Standard Schema 包装为原生校验规则。
- *
- * 仅转换 Standard Schema 的错误信息，不会使用其输出值改写表单状态。
- *
- * @typeParam TValue - Standard Schema 接收的字段值类型。
- * @typeParam TValues - 表单值类型。
- * @typeParam TName - 当前字段路径类型。
- * @param schema - 实现 Standard Schema V1 协议的校验器。
- * @returns 可注册到 Validator 的校验规则。
- *
- * @example
- * ```ts
- * const rule = createStandardSchemaValidationRule(emailSchema)
- * ```
- */
-export function createStandardSchemaValidationRule<
-  TValue,
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
->(schema: StandardSchemaV1<TValue, unknown>): ValidationRule<TValue, TValues, TName> {
-  return {
-    async validate(value) {
-      // Standard Schema 的输出值不参与表单写入，仅消费问题列表。
-      const result = await schema["~standard"].validate(value)
-
-      // 将协议问题收敛到 Core 的公开 issue 形状。
-      const issues = result.issues?.map((issue) => ({ message: issue.message })) ?? []
-
-      return issues.length > 0
-        ? { valid: false, issues: [issues[0], ...issues.slice(1)] }
         : { valid: true }
     },
   }

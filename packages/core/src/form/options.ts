@@ -22,7 +22,7 @@ import type {
   Values,
 } from "../types"
 import type {
-  CreateValidatorOptions,
+  CreateValidationOptions,
   ValidationAdapterOption,
   ValidationFailure,
 } from "../validator"
@@ -81,7 +81,7 @@ export interface FormCallbackOptions<
   /**
    * 无法解析校验规则时调用的回调。
    */
-  onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
+  onRuleError?: CreateValidationOptions<TValues>["onRuleError"]
   /**
    * 校验成功后的提交回调。
    */

@@ -19,7 +19,7 @@ import type {
   SchemxInstance,
   Values,
 } from "../types"
-import type { FieldValidationConfig } from "../validator"
+import type { ValidationFieldConfig } from "../validator"
 
 /**
  * Runtime 同步字段校验所需的最小能力端口。
@@ -31,7 +31,7 @@ export interface RuntimeValidationPort<TValues extends Values = Values> {
    * 同步字段校验配置，并返回配置是否发生变化。
    */
   syncField<TName extends NamePath<TValues>>(
-    config: FieldValidationConfig<TValues, TName>
+    config: ValidationFieldConfig<TValues, TName>
   ): boolean
   /**
    * 移除字段校验配置。

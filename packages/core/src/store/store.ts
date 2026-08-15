@@ -29,62 +29,20 @@ import {
   onBatchComplete,
 } from "../reactivity"
 import {
+  areOverlappingFieldPaths,
   collectObjectPathsByLeaf,
   createFieldKey,
   getByPath,
+  isDescendantFieldPath,
+  normalizeNamePath,
   setByPath,
-  toNamePathSegments,
 } from "../utils"
 
 import type { FieldSignal } from "../reactivity"
 import type { FieldValue, NamePath, Values } from "../types"
+import type { Store, StoreOptions, StorePending } from "./types"
 
-/**
- * Store 配置选项。
- *
- * @typeParam TValues - 表单值类型
- */
-export interface StoreOptions<TValues extends Partial<Values>> {
-  /**
-   * 创建 Store 时写入的初始字段值。
-  */
-  initialValues?: TValues
-}
-
-/**
- * Store 状态接口。
- *
- * @typeParam TValues - 表单值类型
- */
-export interface StoreState<TValues extends Values> {
-  /**
-   * 当前字段值快照。
-  */
-  values: TValues
-  /**
-   * 用于重置字段的初始值快照。
-  */
-  initialValues: TValues
-}
-
-/**
- * Pending 字段类型。
- *
- * 正在操作中的字段信息。
- */
-export interface StorePending<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-> {
-  /**
-   * 正在执行异步操作的字段路径。
-  */
-  field: TName
-  /**
-   * 操作进行期间向用户显示的提示消息。
-  */
-  message: string[]
-}
+export type { Store, StoreOptions, StorePending, StoreState } from "./types"
 
 /**
  * 基于 FieldSignal 的表单数据存储中心。
@@ -99,7 +57,7 @@ export interface StorePending<
  * store.getFieldValue('name') // => 'John'
  * ```
  */
-class StoreImpl<TValues extends Values = Values> {
+class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   /**
    * 每个字段路径对应一个 FieldSignal。
    */
@@ -222,8 +180,8 @@ class StoreImpl<TValues extends Values = Values> {
     for (const registeredPath of this.registeredFieldPaths.values()) {
       if (areOverlappingFieldPaths(path, registeredPath)) {
         throw new Error(
-          `[schemx] Field paths "${formatNamePath(path)}" and ` +
-            `"${formatNamePath(registeredPath)}" overlap. ` +
+          `[schemx] Field paths "${normalizeNamePath(path)}" and ` +
+            `"${normalizeNamePath(registeredPath)}" overlap. ` +
             "A value subtree can only be owned by one schema field."
         )
       }
@@ -271,6 +229,21 @@ class StoreImpl<TValues extends Values = Values> {
 
       if (descendantPaths.length > 0 || existingSignal === undefined) {
         this.markValueChanged(path)
+      }
+    })
+  }
+
+  /**
+   * 批量注册 Schema 字段路径。
+   *
+   * 每个路径仍通过 `registerFieldPath` 执行，以保持重复路径和重叠路径的校验语义一致。
+   *
+   * @param paths - 要注册的字段路径数组。
+   */
+  registerFieldPaths<TName extends NamePath<TValues>>(paths: TName[]): void {
+    batchUpdates(() => {
+      for (const path of paths) {
+        this.registerFieldPath(path)
       }
     })
   }
@@ -964,41 +937,6 @@ class StoreImpl<TValues extends Values = Values> {
     this.disposeBatchListener()
   }
 }
-
-/** 判断 candidate 是否位于 ancestor 的严格后代路径。 */
-function isDescendantFieldPath<TValues extends Values>(
-  candidate: NamePath<TValues>,
-  ancestor: NamePath<TValues>
-): boolean {
-  const candidateSegments = toNamePathSegments(candidate)
-
-  const ancestorSegments = toNamePathSegments(ancestor)
-
-  return (
-    candidateSegments.length > ancestorSegments.length &&
-    ancestorSegments.every((segment, index) => segment === candidateSegments[index])
-  )
-}
-
-/** 判断两个字段路径是否互为自身或父子路径。 */
-function areOverlappingFieldPaths<TValues extends Values>(
-  first: NamePath<TValues>,
-  second: NamePath<TValues>
-): boolean {
-  return isDescendantFieldPath(first, second) || isDescendantFieldPath(second, first)
-}
-
-/** 将路径转为用于诊断的可读字符串。 */
-function formatNamePath<TValues extends Values>(path: NamePath<TValues>): string {
-  return toNamePathSegments(path).join(".")
-}
-
-/**
- * Store 的实例类型。
- */
-export type Store<TValues extends Values = Values> = InstanceType<
-  typeof StoreImpl<TValues>
->
 
 /**
  * 创建 Store 实例的工厂函数。

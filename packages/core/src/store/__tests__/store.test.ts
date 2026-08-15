@@ -33,6 +33,24 @@ interface NestedForm {
 
 // 单元测试：验证 Store 的构造、字段读写、嵌套字段、快照、touched/pending 状态、reset/destroy 等完整 API
 describe("Store", () => {
+  describe("字段注册", () => {
+    it("支持单个和批量注册字段路径", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "" } },
+      })
+
+      store.registerFieldPath("profile.name")
+      store.registerFieldPaths(["profile.email"])
+
+      store.setFieldsValue({ profile: { name: "Jane", email: "jane@example.com" } })
+
+      expect(store.getFieldValue("profile.name")).toBe("Jane")
+      expect(store.getFieldValue("profile.email")).toBe("jane@example.com")
+    })
+  })
+
   // 验证 Store 无参/有参构造、initialValues 深拷贝
   describe("构造", () => {
     it("无参构造创建空 store", () => {
@@ -201,7 +219,6 @@ describe("Store", () => {
       store.setFieldValue("name", "Changed")
       expect(snap.name).toBe("John")
     })
-
   })
 
   // 验证 getInitialValue/getInitialValues/setInitialValue/setInitialValues 的读写行为

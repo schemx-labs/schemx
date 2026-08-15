@@ -1,7 +1,7 @@
 import { configureSchemx, createForm } from "@schemx/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createAsyncValidatorAdapter } from "../async-validator"
+import { createAsyncValidatorAdapter } from "../async-validator.adapter"
 
 const asyncValidator = createAsyncValidatorAdapter()
 

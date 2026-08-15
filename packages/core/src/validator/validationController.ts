@@ -2,6 +2,7 @@ import { createFieldKey } from "../utils"
 
 import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 import { createRequiredValidationRule } from "./rules"
+import { createStandardSchemaAdapter } from "./standardSchema.adapter"
 
 import type {
   ValidationAdapter,
@@ -29,6 +30,18 @@ type ResolvedValidationRule<
   TValues extends Values,
   TName extends NamePath<TValues>,
 > = ValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName>
+
+/**
+ * 单个字段在 Schema 与运行时覆盖下的完整校验状态。
+ */
+interface FieldValidationState<TValues extends Values> {
+  /** Schema Runtime 当前同步的字段配置。 */
+  schemaConfig?: FieldValidationConfig<TValues, NamePath<TValues>>
+  /** 运行时 API 提供的字段配置覆盖。 */
+  overrideConfig?: FieldValidationConfig<TValues, NamePath<TValues>>
+  /** 当前生效配置引用的命名规则名称。 */
+  indexedRuleNames: readonly string[]
+}
 
 /**
  * 同步单个字段校验规则时所需的字段配置。
@@ -148,19 +161,23 @@ export interface CreateValidationControllerOptions<TValues extends Values> {
 class ValidationControllerImpl<
   TValues extends Values,
 > implements ValidationController<TValues> {
+  /**
+   * 接收归一化字段规则和错误状态操作的校验器。
+   */
+  private readonly validator: Validator<TValues>
+  /**
+   * 用于解析 `rules` 中命名规则的注册中心。
+   */
+  private readonly registry: ValidationRuleRegistry
+
   // 已警告的缺失命名规则，防止重复同步时刷屏。
   private readonly warnedUnknownRules = new Set<string>()
   // 已警告的无法识别字段，按稳定字段身份去重。
   private readonly warnedUnrecognizedFields = new Set<string>()
   // 内置与用户 adapter 按唯一 id 建立的只读路由表。
   private readonly adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>
-  // 供动态 Registry 变更重新解析的原始字段配置。
-  private readonly configs = new Map<
-    string,
-    FieldValidationConfig<TValues, NamePath<TValues>>
-  >()
-  // 运行时 API 写入的 rules 覆盖；不参与 Registry 反向索引。
-  private readonly ruleOverrides = new Map<string, FieldRules<TValues, NamePath<TValues>>>()
+  // 每个字段的 Schema 配置、运行时覆盖和反向索引元数据统一保存在同一状态中。
+  private readonly fields = new Map<string, FieldValidationState<TValues>>()
   // 从命名规则反查受影响字段的索引。
   private readonly fieldsByRuleName = new Map<string, Set<string>>()
   // 销毁时释放 Registry 订阅的函数。
@@ -171,10 +188,18 @@ class ValidationControllerImpl<
    *
    * @param options - Validator、Registry 和 adapter 注册配置。
    */
-  public constructor(
-    private readonly options: CreateValidationControllerOptions<TValues>
-  ) {
-    this.adapters = createValidationAdapterMap(options.validatorAdapters ?? [])
+  public constructor(options: CreateValidationControllerOptions<TValues>) {
+    const { validatorAdapters } = options
+    this.validator = options.validator
+
+    this.registry = options.registry
+
+    const standardSchemaAdapter = createStandardSchemaAdapter()
+
+    this.adapters = createValidationAdapterMap([
+      standardSchemaAdapter,
+      ...(validatorAdapters ?? []),
+    ])
 
     this.unsubscribeRegistry = options.registry.subscribe((change) => {
       this.syncAffectedFields(change)
@@ -190,32 +215,12 @@ class ValidationControllerImpl<
   public syncField<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
   ): boolean {
-    // 擦除窄路径类型后保存，用于后续动态重同步。
-    const storedConfig = config as FieldValidationConfig<TValues, NamePath<TValues>>
+    this.updateFieldState(config.name, (state) => ({
+      ...state,
+      schemaConfig: config as FieldValidationConfig<TValues, NamePath<TValues>>,
+    }))
 
-    this.trackConfig(storedConfig)
-
-    try {
-      // 在替换 Validator 规则前完成全量解析，避免部分规则泄漏。
-      const rules = this.normalizeRules(this.getEffectiveConfig(config))
-
-      this.options.validator.clearFieldConfigurationIssues(config.name)
-      this.options.validator.setFieldRules(config.name, rules)
-
-      return true
-    } catch (error) {
-      this.options.validator.setFieldRules(config.name, [])
-      this.options.validator.setFieldConfigurationIssues(config.name, [
-        {
-          message: "字段校验配置错误",
-          code: "validation_config",
-          cause: error,
-        },
-      ])
-      console.error(`[schemx] 字段 "${String(config.name)}" 校验配置错误`, error)
-
-      return false
-    }
+    return this.applyField(config.name)
   }
 
   /**
@@ -224,17 +229,12 @@ class ValidationControllerImpl<
   public setFieldRules<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
   ): boolean {
-    const key = createFieldKey(config.name)
+    this.updateFieldState(config.name, (state) => ({
+      ...state,
+      overrideConfig: config as FieldValidationConfig<TValues, NamePath<TValues>>,
+    }))
 
-    this.ruleOverrides.set(key, config.rules as FieldRules<TValues, NamePath<TValues>>)
-
-    const schemaConfig = this.configs.get(key)
-
-    if (schemaConfig) {
-      return this.syncField(schemaConfig)
-    }
-
-    return this.applyConfig(config)
+    return this.applyField(config.name)
   }
 
   /**
@@ -242,18 +242,12 @@ class ValidationControllerImpl<
    */
   public removeFieldRules(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
+    const state = this.fields.get(key)
 
-    if (!this.ruleOverrides.delete(key)) return
+    if (!state?.overrideConfig) return
 
-    const schemaConfig = this.configs.get(key)
-
-    if (schemaConfig) {
-      this.syncField(schemaConfig)
-
-      return
-    }
-
-    this.options.validator.removeFieldRules(name)
+    this.updateFieldState(name, (current) => ({ ...current, overrideConfig: undefined }))
+    this.applyOrRemoveField(name)
   }
 
   /**
@@ -261,26 +255,12 @@ class ValidationControllerImpl<
    */
   public removeSchemaField(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
+    const state = this.fields.get(key)
 
-    if (!this.ruleOverrides.has(key)) {
-      this.options.validator.removeFieldRules(name)
+    if (!state?.schemaConfig) return
 
-      return
-    }
-
-    const schemaConfig = this.configs.get(key)
-
-    if (schemaConfig) {
-      this.applyConfig(this.getEffectiveConfig(schemaConfig))
-
-      return
-    }
-
-    const rules = this.ruleOverrides.get(key)
-
-    if (rules) {
-      this.applyConfig({ name, label: "", required: undefined, rules })
-    }
+    this.updateFieldState(name, (current) => ({ ...current, schemaConfig: undefined }))
+    this.applyOrRemoveField(name)
   }
 
   /**
@@ -289,9 +269,8 @@ class ValidationControllerImpl<
    * @param name - 要移除的字段路径。
    */
   public removeField(name: NamePath<TValues>): void {
-    this.untrackConfig(name)
-    this.ruleOverrides.delete(createFieldKey(name))
-    this.options.validator.removeFieldRules(name)
+    this.deleteFieldState(name)
+    this.validator.removeFieldRules(name)
   }
 
   /**
@@ -299,8 +278,7 @@ class ValidationControllerImpl<
    */
   public destroy(): void {
     this.unsubscribeRegistry()
-    this.configs.clear()
-    this.ruleOverrides.clear()
+    this.fields.clear()
     this.fieldsByRuleName.clear()
   }
 
@@ -332,38 +310,20 @@ class ValidationControllerImpl<
     return normalized
   }
 
-  /**
-   * 使用当前覆盖规则构造要写入 Validator 的有效字段配置。
-   */
-  private getEffectiveConfig<TName extends NamePath<TValues>>(
-    config: FieldValidationConfig<TValues, TName>
-  ): FieldValidationConfig<TValues, TName> {
-    const override = this.ruleOverrides.get(createFieldKey(config.name))
-
-    if (override === undefined) return config
-
-    return {
-      ...config,
-      rules: override as FieldRules<TValues, TName>,
-    }
-  }
-
-  /**
-   * 将未挂载在 Schema Runtime 中的运行时规则直接应用到 Validator。
-   */
+  /** 将已解析的字段配置写入 Validator。 */
   private applyConfig<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
   ): boolean {
     try {
       const rules = this.normalizeRules(config)
 
-      this.options.validator.clearFieldConfigurationIssues(config.name)
-      this.options.validator.setFieldRules(config.name, rules)
+      this.validator.clearFieldConfigurationIssues(config.name)
+      this.validator.setFieldRules(config.name, rules)
 
       return true
     } catch (error) {
-      this.options.validator.setFieldRules(config.name, [])
-      this.options.validator.setFieldConfigurationIssues(config.name, [
+      this.validator.setFieldRules(config.name, [])
+      this.validator.setFieldConfigurationIssues(config.name, [
         {
           message: "字段校验配置错误",
           code: "validation_config",
@@ -374,6 +334,69 @@ class ValidationControllerImpl<
 
       return false
     }
+  }
+
+  /** 根据字段的完整状态获得当前生效配置。 */
+  private getEffectiveConfig(
+    state: FieldValidationState<TValues>
+  ): FieldValidationConfig<TValues, NamePath<TValues>> | undefined {
+    if (state.schemaConfig && state.overrideConfig) {
+      return {
+        ...state.schemaConfig,
+        rules: state.overrideConfig.rules,
+      }
+    }
+
+    return state.schemaConfig ?? state.overrideConfig
+  }
+
+  /** 更新字段状态，并同步命名规则的反向索引。 */
+  private updateFieldState(
+    name: NamePath<TValues>,
+    update: (state: FieldValidationState<TValues>) => FieldValidationState<TValues>
+  ): void {
+    const key = createFieldKey(name)
+    const current = this.fields.get(key) ?? { indexedRuleNames: [] }
+    const next = update(current)
+    const config = this.getEffectiveConfig(next)
+    const ruleNames = getRuleNames(config?.rules)
+
+    this.updateRuleIndex(key, current.indexedRuleNames, ruleNames)
+    this.fields.set(key, { ...next, indexedRuleNames: ruleNames })
+  }
+
+  /** 删除字段状态及其全部命名规则索引。 */
+  private deleteFieldState(name: NamePath<TValues>): void {
+    const key = createFieldKey(name)
+    const state = this.fields.get(key)
+
+    if (!state) return
+
+    this.updateRuleIndex(key, state.indexedRuleNames, [])
+    this.fields.delete(key)
+  }
+
+  /** 将字段状态应用到 Validator；没有有效配置时移除字段规则。 */
+  private applyOrRemoveField(name: NamePath<TValues>): void {
+    const state = this.fields.get(createFieldKey(name))
+
+    if (!state || !this.getEffectiveConfig(state)) {
+      this.validator.removeFieldRules(name)
+
+      return
+    }
+
+    this.applyField(name)
+  }
+
+  /** 编译并写入字段当前生效的规则。 */
+  private applyField(name: NamePath<TValues>): boolean {
+    const state = this.fields.get(createFieldKey(name))
+    const config = state && this.getEffectiveConfig(state)
+
+    if (!config) return true
+
+    return this.applyConfig(config)
   }
 
   /**
@@ -405,7 +428,7 @@ class ValidationControllerImpl<
     config: FieldValidationConfig<TValues, TName>
   ): readonly ResolvedValidationRule<TValues, TName>[] {
     // 使用字段元数据延迟解析命名规则工厂。
-    const rule = this.options.registry.resolve(name, {
+    const rule = this.registry.resolve(name, {
       name: config.name,
       label: config.label,
       required: Boolean(config.required),
@@ -504,40 +527,15 @@ class ValidationControllerImpl<
     console.warn(`[schemx] 字段 "${String(name)}" 存在无法识别的校验规则，配置失败`)
   }
 
-  /**
-   * 记录字段配置及其引用的命名规则，供 Registry 变更精确重同步。
-   */
-  private trackConfig(config: FieldValidationConfig<TValues, NamePath<TValues>>): void {
-    this.untrackConfig(config.name)
+  /** 更新字段在命名规则反向索引中的引用。 */
+  private updateRuleIndex(
+    key: string,
+    previousNames: readonly string[],
+    nextNames: readonly string[]
+  ): void {
+    for (const ruleName of previousNames) {
+      if (nextNames.includes(ruleName)) continue
 
-    // 反向索引使用与 Validator 一致的稳定字段身份。
-    const key = createFieldKey(config.name)
-
-    // 只有字符串规则名会受 Registry 事件影响。
-    const ruleNames = getRuleNames(config.rules)
-
-    this.configs.set(key, config)
-
-    for (const ruleName of ruleNames) {
-      // 同名规则可被多个字段引用。
-      const fields = this.fieldsByRuleName.get(ruleName) ?? new Set<string>()
-
-      fields.add(key)
-      this.fieldsByRuleName.set(ruleName, fields)
-    }
-  }
-
-  /**
-   * 移除字段配置及其所有命名规则反向索引。
-   */
-  private untrackConfig(name: NamePath<TValues>): void {
-    // 根据稳定身份找到字段此前注册的配置，并重新提取命名规则。
-    const key = createFieldKey(name)
-
-    const ruleNames = getRuleNames(this.configs.get(key)?.rules)
-
-    for (const ruleName of ruleNames) {
-      // 规则名对应的受影响字段集合。
       const fields = this.fieldsByRuleName.get(ruleName)
 
       if (!fields) continue
@@ -545,7 +543,14 @@ class ValidationControllerImpl<
       if (fields.size === 0) this.fieldsByRuleName.delete(ruleName)
     }
 
-    this.configs.delete(key)
+    for (const ruleName of nextNames) {
+      if (previousNames.includes(ruleName)) continue
+
+      const fields = this.fieldsByRuleName.get(ruleName) ?? new Set<string>()
+
+      fields.add(key)
+      this.fieldsByRuleName.set(ruleName, fields)
+    }
   }
 
   /**
@@ -560,10 +565,10 @@ class ValidationControllerImpl<
     }
 
     for (const key of affected) {
-      // 字段仍存在时才基于最新 Registry 重新解析。
-      const config = this.configs.get(key)
+      const state = this.fields.get(key)
+      const config = state && this.getEffectiveConfig(state)
 
-      if (config) this.syncField(config)
+      if (config) this.applyConfig(config)
     }
   }
 }

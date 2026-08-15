@@ -5,28 +5,50 @@ import { createValidator } from "../validator"
 
 import type { ValidationRule, ValidationRuleResult } from "../types"
 
+/**
+ * 覆盖字段路径、错误聚合和取消行为的测试表单。
+ */
 interface TestForm {
   name: string
   age: number
   email: string
 }
 
+/**
+ * 各校验器测试默认使用的表单快照。
+ */
 const baseValues: TestForm = { name: "John", age: 25, email: "j@t.com" }
 
+/**
+ * 创建通过校验的测试规则。
+ */
 const passingRule = (): ValidationRule<string, TestForm, "name"> => ({
   validate: () => ({ valid: true }),
 })
 
+/**
+ * 创建带指定消息的失败测试规则。
+ *
+ * @param message - 规则返回的错误消息。
+ */
 const failingRule = (message: string): ValidationRule<string, TestForm, "name"> => ({
   validate: () => ({ valid: false, issues: [{ message }] }),
 })
 
+/**
+ * 创建抛出指定异常的测试规则。
+ *
+ * @param error - 规则执行时抛出的异常。
+ */
 const throwingRule = (error: Error): ValidationRule<string, TestForm, "name"> => ({
   validate: () => {
     throw error
   },
 })
 
+/**
+ * 创建可由测试手动完成的 Promise。
+ */
 const deferred = <TValue>() => {
   let resolve!: (value: TValue) => void
 
@@ -37,6 +59,12 @@ const deferred = <TValue>() => {
   return { promise, resolve }
 }
 
+/**
+ * 创建按调用顺序返回两个异步结果的测试规则。
+ *
+ * @param first - 第一次调用返回的结果。
+ * @param second - 后续调用返回的结果。
+ */
 const sequencedRule = (
   first: Promise<ValidationRuleResult>,
   second: Promise<ValidationRuleResult>
@@ -48,6 +76,11 @@ const sequencedRule = (
   }
 }
 
+/**
+ * 创建记录 AbortSignal 且保持挂起的测试规则。
+ *
+ * @param signals - 接收规则上下文中取消信号的数组。
+ */
 const captureSignalRule = (
   signals: AbortSignal[]
 ): ValidationRule<string, TestForm, "name"> => ({
@@ -72,6 +105,47 @@ describe("Validator", () => {
     })
   })
 
+  it("支持规则和错误的单字段与多字段操作", async () => {
+    const validator = createValidator<TestForm>()
+
+    validator.setFieldsRules([
+      { name: "name", rules: [failingRule("姓名错误")] },
+      {
+        name: "email",
+        rules: [
+          { validate: () => ({ valid: false, issues: [{ message: "邮箱错误" }] }) },
+        ],
+      },
+    ])
+    validator.setFieldsErrors([
+      { name: "name", messages: ["姓名已存在"] },
+      { name: "age", messages: ["年龄无效"] },
+    ])
+
+    await validator.validate(baseValues)
+
+    expect(validator.getFieldsErrors(["age", "name"])).toEqual([
+      { name: "age", errors: ["年龄无效"] },
+      { name: "name", errors: ["姓名错误", "姓名已存在"] },
+    ])
+
+    validator.clearFieldsErrors(["name"])
+    expect(validator.getFieldErrors("name")).toEqual([])
+    validator.clearFieldsErrors(["age"])
+
+    validator.setFieldsConfigurationIssues([
+      { name: "age", issues: [{ message: "年龄规则配置错误" }] },
+    ])
+    expect(validator.getFieldErrors("age")).toEqual(["年龄规则配置错误"])
+    validator.clearFieldsConfigurationIssues(["age"])
+
+    validator.removeFieldsRules(["name", "email"])
+    await expect(validator.validate(baseValues)).resolves.toMatchObject({
+      valid: true,
+      errors: [],
+    })
+  })
+
   it("等价字符串与数组路径共享同一字段身份", async () => {
     const validator = createValidator<{ profile: { email: string } }>()
 
@@ -80,7 +154,9 @@ describe("Validator", () => {
     ])
 
     await expect(
-      validator.validateField(["profile", "email"] as never, { profile: { email: "invalid" } })
+      validator.validateField(["profile", "email"] as never, {
+        profile: { email: "invalid" },
+      })
     ).resolves.toMatchObject({
       valid: false,
       errors: [{ name: ["profile", "email"], issues: [{ message: "邮箱错误" }] }],

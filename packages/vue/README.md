@@ -4,6 +4,8 @@
 
 如果项目使用 Vant，推荐直接安装 [`@schemx/vant`](../vant)。该包已经注册常用的移动端表单 Renderer。
 
+适用于使用自研组件或设计系统的 Vue 3 项目。该包提供表单组件、响应式 Hook 和 Renderer 注册机制，但不内置具体输入控件；每种 `componentType` 都需要由应用自行注册 Renderer。
+
 ## 安装与样式
 
 ```bash
@@ -83,7 +85,7 @@ console.log(Schemx === schemxForm) // true
 | `modelValue`             | `T`                                              | `{}`                          | `v-model` 的输入端；非空值参与初始快照，后续替换会同步到内部表单，字段变化会通过 `update:modelValue` 输出                       |
 | `initialValues`          | `T`                                              | `{}`                          | 创建内部表单时的初始值，也是 `reset()` 的还原基准                                                                               |
 | `form`                   | `SchemxInstance<T>`                              | `undefined`                   | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件级回调不会写入该实例，`v-model` 仍监听实例变化 |
-| `rendererProps`           | `SchemxRendererPropsMap<T>`                      | `undefined`                   | 按 Renderer 类型设置静态默认 Props；字段 `componentProps` 与 Runtime 注入值优先                                             |
+| `rendererProps`          | `SchemxRendererPropsMap<T>`                      | `undefined`                   | 按 Renderer 类型设置静态默认 Props；字段 `componentProps` 与 Runtime 注入值优先                                                 |
 | `rendererRegistry`       | `RendererRegistry`                               | 全局 `rendererRegistry`       | 当前表单使用的 Renderer Registry                                                                                                |
 | `defaultRendererType`    | `SchemxRendererKey`                              | `undefined`                   | 创建内部表单且未传 `rendererRegistry` 时的默认 Renderer 类型；Vue 全局 Registry 存在时由该 Registry 的 fallback 决定            |
 | `validationRuleRegistry` | `ValidationRuleRegistry`                         | 全局 `validationRuleRegistry` | 当前表单使用的校验规则 Registry                                                                                                 |
@@ -101,13 +103,13 @@ console.log(Schemx === schemxForm) // true
 | `colon`                  | `boolean`                                        | `undefined`                   | 表单级标签冒号默认值；字段自身配置优先，均未配置时为 `true`                                                                     |
 | `onFinish`               | `(values: Readonly<T>) => void \| Promise<void>` | `undefined`                   | `submit()` 校验通过后的回调 Prop                                                                                                |
 | `onFinishFailed`         | `(failure: ValidationFailure<T>) => void`        | `undefined`                   | `submit()` 校验失败后的回调 Prop                                                                                                |
-| `onReset`                | `() => void`                                     | `undefined`                   | 内部表单完整 `reset()` 完成后的回调；不在 `resetFields()` 后触发                                                               |
-| `onLoadingChange`        | `(loading: boolean) => void`                     | `undefined`                   | 内部表单提交开始和结束时的回调                                                                          |
+| `onReset`                | `() => void`                                     | `undefined`                   | 内部表单完整 `reset()` 完成后的回调；不在 `resetFields()` 后触发                                                                |
+| `onLoadingChange`        | `(loading: boolean) => void`                     | `undefined`                   | 内部表单提交开始和结束时的回调                                                                                                  |
 | `onValuesChange`         | `(changedValues, latestSnapshot) => void`        | `undefined`                   | 字段值变化后的回调 Prop                                                                                                         |
 | `onFieldsChange`         | `(changedFields, allFields) => void`             | `undefined`                   | 字段路径变化后的回调 Prop                                                                                                       |
 | `onRuleError`            | `CreateValidatorOptions<T>["onRuleError"]`       | `undefined`                   | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
-| `loading`                | `boolean`                                        | `undefined`                   | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                       |
-| `submitter` / `resetter` | `boolean \| SchemxFormActionConfig`              | `undefined`                   | 控制内置提交 / 重置按钮；未配置时不渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                 |
+| `loading`                | `boolean`                                        | `undefined`                   | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
+| `submitter` / `resetter` | `boolean \| SchemxFormActionConfig`              | `undefined`                   | 控制内置提交 / 重置按钮；未配置时不渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                  |
 | `class`                  | `string`                                         | `""`                          | 添加到根 `.schemx` 元素的类名                                                                                                   |
 | `style`                  | `StyleValue`                                     | `{}`                          | 绑定到根 `.schemx` 元素                                                                                                         |
 
@@ -138,24 +140,34 @@ console.log(Schemx === schemxForm) // true
 
 ### Slots
 
-`Schemx` 把收到的所有 Slots 继续传给每个 `FormItem`。字符串字段名直接参与 Slot 命名。数组路径目前存在两种不同的字符串化规则：整体字段 Slot 和 Renderer 子 Slot 会先经过 `normalizeNameKey()`，用 `.` 连接；标签、内容和错误 Slot 则直接把数组插入模板字符串，使用 JavaScript 默认的逗号连接。这是当前实现差异，并非统一的命名约定。
+`Schemx` 把收到的所有 Slots 继续传给每个 `FormItem`。字符串字段名直接参与 Slot 命名。数组路径目前存在两种不同的字符串化规则：整体字段 Slot 和 Renderer 子 Slot 会先经过 `normalizeNameKey()`，用 `.` 连接；标签、前置、内容、后置和错误 Slot 则直接把数组插入模板字符串，使用 JavaScript 默认的逗号连接。这是当前实现差异，并非统一的命名约定。
 
 | Slot 名称           | Slot Props                             | 行为                                                                                                     |
 | ------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `{name}`            | 当前字段的 `SchemxViewSchema`          | 完全接管整个字段，不渲染默认 FormItem 结构；数组路径 `['user', 'name']` 对应 `user.name`                 |
 | `{name}Label`       | 当前字段的 `SchemxViewSchema`          | 替换标签区域；同一数组路径当前对应 `user,nameLabel`                                                      |
+| `{name}Before`      | 当前字段的 `value` 与 Renderer Props   | 渲染在 Renderer 前；同一数组路径当前对应 `user,nameBefore`                                               |
 | `{name}Content`     | 当前字段 Schema 字段及 `columnElement` | 替换控件内容区域；`columnElement` 是已经创建的 Renderer VNode；同一数组路径当前对应 `user,nameContent`   |
+| `{name}After`       | 当前字段的 `value` 与 Renderer Props   | 渲染在 Renderer 后、错误区域前；同一数组路径当前对应 `user,nameAfter`                                   |
 | `{name}Error`       | 当前字段 Schema 字段及 `errors`        | 替换错误区域；同一数组路径当前对应 `user,nameError`                                                      |
 | `{name}:{slotName}` | 原样传给 Renderer                      | 去掉 `{name}:` 前缀后作为 Renderer 命名 Slot；同一数组路径的前缀为 `user.name:`，例如 `user.name:prefix` |
-| `submitter`         | `{ form, loading, disabled, submit }`  | 替换内置提交按钮。                                                                                         |
-| `resetter`          | `{ form, loading, disabled, reset }`   | 替换内置重置按钮。                                                                                         |
+| `submitter`         | `{ form, loading, disabled, submit }`  | 替换内置提交按钮。                                                                                       |
+| `resetter`          | `{ form, loading, disabled, reset }`   | 替换内置重置按钮。                                                                                       |
 
-字段名和 `Label` / `Content` / `Error` 组合支持 camelCase 与 kebab-case 互查。子 Renderer Slot 的字段名前缀也支持这两种形式。
+字段名和 `Label` / `Before` / `Content` / `After` / `Error` 组合支持 camelCase 与 kebab-case 互查。子 Renderer Slot 的字段名前缀也支持这两种形式。
 
 ```vue
 <Schemx :schemas="schemas">
   <template #nicknameLabel="schema">
     <strong>{{ schema.label }}</strong>
+  </template>
+
+  <template #nicknameBefore>
+    <span>@</span>
+  </template>
+
+  <template #nicknameAfter="{ value }">
+    <small>{{ String(value).length }}/20</small>
   </template>
 
   <template #nicknameError="{ errors }">
@@ -166,18 +178,6 @@ console.log(Schemx === schemxForm) // true
     <span>@</span>
   </template>
 </Schemx>
-```
-
-### `Button`
-
-根入口导出独立的 `Button` 组件及 `SchemxButtonProps`、`SchemxButtonSize` 类型。它支持原生按钮属性、`loading`、`loadingText`、`disabled` 与 `size`（`small`、`medium`、`large`）；加载时会自动禁用按钮并设置 `aria-busy`。`prefix`、默认与 `suffix` 插槽依次渲染，`loadingText` 仅替换默认插槽内容。
-
-```vue
-<Button :loading="saving" loading-text="保存中" size="small">
-  <template #prefix>✓</template>
-  保存
-  <template #suffix>→</template>
-</Button>
 ```
 
 ### 组件 ref 暴露实例
@@ -721,8 +721,8 @@ componentProps: {
 | `useDictionary()`           | 管理依赖字段的函数式选项来源                                                                           |
 | `useStableRef()`            | 创建引用保持稳定的 `shallowRef`                                                                        |
 | `useViewSchemas()`          | 把 `subscribeViewSchemas()` 桥接为 Vue `shallowRef`                                                    |
-| `useFormSelector()`         | 从共享表单值 Bridge 派生只读 Vue Ref                                                                    |
-| `getCoreForm()`             | 从 Vue Facade 取得原始 Core Form                                                                        |
+| `useFormSelector()`         | 从共享表单值 Bridge 派生只读 Vue Ref                                                                   |
+| `getCoreForm()`             | 从 Vue Facade 取得原始 Core Form                                                                       |
 
 `useForm()` 只负责创建和销毁实例。如需让自定义组件树中的 `useField()`、`useDictionary()` 或 `FormItem` 找到实例，Provider 必须在 `setup()` 的同步调用栈中调用 `createFormContext(form)`；展示层还应调用 `createFormConfigContext({ schemaConfig })`。直接使用 `<Schemx>` 时，这两种上下文已经由组件提供。
 
@@ -781,11 +781,11 @@ function useFormConfigContext(): FormContextProps
 
 上面签名中的 `FieldInstance` 已从 `@schemx/vue` 根入口导出。`createFieldContext()` 当前只有 `TValues extends Values = Values`，**没有独立的 `TName` 泛型**；`field` 必须是 `useField()` 返回的 Vue 字段控制器，字段路径已由创建该返回值时的 `name` 捕获。调用方可以显式导入 `FieldInstance`，也可以依靠 `useField()` 推导参数。
 
-| Provider 签名                                                      | Reader 签名                                | 职责、所有权与缺失行为                                                                                                                      |
-| ------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider 签名                                                         | Reader 签名                                 | 职责、所有权与缺失行为                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createFormContext<T>(form: SchemxInstance<T>): VueSchemxInstance<T>` | `useFormContext<T>(): VueSchemxInstance<T>` | 将 Core Form 或已有 Facade 归一化后提供 / 读取。Provider 只持有 Bridge，不销毁外部 Core Form；缺失时 Reader 抛出带 `createFormContext(form)` 指引的 `Error`。 |
-| `createFieldContext<TValues extends Values = Values>(field): void` | `useFieldContext(): FieldInstance<Values>` | 提供 / 读取 `useField()` 返回的字段控制器。Provider 不创建字段、不接管订阅；缺失时 Reader 抛出指向 `createFieldContext(field)` 的 `Error`。 |
-| `createFormConfigContext<T>(props: FormContextProps<T>): void`     | `useFormConfigContext(): FormContextProps` | 提供 / 读取表单展示配置。Provider 不复制、不更新传入对象；缺失时 Reader 抛出带 `createFormConfigContext(props)` 指引的 `Error`。            |
+| `createFieldContext<TValues extends Values = Values>(field): void`    | `useFieldContext(): FieldInstance<Values>`  | 提供 / 读取 `useField()` 返回的字段控制器。Provider 不创建字段、不接管订阅；缺失时 Reader 抛出指向 `createFieldContext(field)` 的 `Error`。                   |
+| `createFormConfigContext<T>(props: FormContextProps<T>): void`        | `useFormConfigContext(): FormContextProps`  | 提供 / 读取表单展示配置。Provider 不复制、不更新传入对象；缺失时 Reader 抛出带 `createFormConfigContext(props)` 指引的 `Error`。                              |
 
 ```ts
 import {
@@ -1072,39 +1072,37 @@ Vue 根入口自有以下公开类型：
 
 ### Vue 自有导出
 
-| 分类            | 导出                       | 用途                                          |
-| --------------- | -------------------------- | --------------------------------------------- |
-| 表单组件        | `schemxForm`               | 可安装的表单组件；与 `default` 指向同一对象。 |
-| 组件            | `FormItem`                 | 渲染字段或分组 ViewSchema。                   |
-| 组件            | `FormGroup`                | 渲染分组 ViewSchema。                         |
-| 组件            | `Button`                   | 支持 loading、尺寸与前后缀插槽的基础按钮。    |
-| HOC             | `WithRemoteOptions`        | 为 Renderer 接入 Dictionary。                 |
-| Registry        | `rendererRegistry`         | Vue 全局 Renderer Registry。                  |
-| Registry        | `validationRuleRegistry`   | Vue 全局 ValidationRuleRegistry。             |
-| Hook            | `useForm`                  | 创建并按 Vue scope 销毁表单。                 |
-| Context         | `createFormContext`        | 提供表单实例。                                |
-| Context         | `useFormContext`           | 读取表单实例。                                |
-| Hook            | `useField`                 | 创建 Vue 字段控制器。                         |
-| Context         | `createFieldContext`       | 提供字段控制器。                              |
-| Context         | `useFieldContext`          | 读取字段控制器。                              |
-| Context         | `createFormConfigContext`  | 提供表单展示配置。                            |
-| Context         | `useFormConfigContext`     | 读取表单展示配置。                            |
-| Watch           | `useWatch`                 | 统一分发 Vue Watch。                          |
-| Watch           | `useWatchField`            | 单字段 Vue Watch。                            |
-| Watch           | `useWatchFields`           | 多字段 Vue Watch。                            |
-| Watch           | `useWatchAll`              | 全表 Vue Watch。                              |
-| Dictionary      | `useDictionary`            | 管理函数式选项源。                            |
-| Vue 响应式      | `useStableRef`             | 建立浅比较稳定 Ref。                          |
-| ViewSchema      | `useViewSchemas`           | 桥接 ViewSchemas 为 Ref。                     |
-| 默认导出        | `default`                  | 与 `schemxForm` 严格相等。                    |
-| Context 类型    | `FormContextProps`         | 表单展示 Context。                            |
-| Dictionary 类型 | `SchemxDictionary`         | 函数式选项源配置。                            |
-| 插件类型        | `SchemxInstallOptions`     | 当前 Vue App 的默认配置安装选项。             |
-| Dictionary 类型 | `SchemxWithDictionary`     | 为 Props 增加 `dict`。                        |
-| Dictionary 类型 | `UseDictionaryReturn`      | `useDictionary()` 返回值。                    |
-| 表单类型        | `SchemxFormProps<TValues>` | `<Schemx>` 组件 Props 类型。                  |
-| 按钮类型        | `SchemxButtonProps`、`SchemxButtonSize` | `Button` 的 Props 与尺寸类型。       |
-| 字段类型        | `FieldInstance<TValues>`   | Vue Ref / Computed 桥接后的字段控制器类型。   |
+| 分类            | 导出                                    | 用途                                          |
+| --------------- | --------------------------------------- | --------------------------------------------- |
+| 表单组件        | `schemxForm`                            | 可安装的表单组件；与 `default` 指向同一对象。 |
+| 组件            | `FormItem`                              | 渲染字段或分组 ViewSchema。                   |
+| 组件            | `FormGroup`                             | 渲染分组 ViewSchema。                         |
+| HOC             | `WithRemoteOptions`                     | 为 Renderer 接入 Dictionary。                 |
+| Registry        | `rendererRegistry`                      | Vue 全局 Renderer Registry。                  |
+| Registry        | `validationRuleRegistry`                | Vue 全局 ValidationRuleRegistry。             |
+| Hook            | `useForm`                               | 创建并按 Vue scope 销毁表单。                 |
+| Context         | `createFormContext`                     | 提供表单实例。                                |
+| Context         | `useFormContext`                        | 读取表单实例。                                |
+| Hook            | `useField`                              | 创建 Vue 字段控制器。                         |
+| Context         | `createFieldContext`                    | 提供字段控制器。                              |
+| Context         | `useFieldContext`                       | 读取字段控制器。                              |
+| Context         | `createFormConfigContext`               | 提供表单展示配置。                            |
+| Context         | `useFormConfigContext`                  | 读取表单展示配置。                            |
+| Watch           | `useWatch`                              | 统一分发 Vue Watch。                          |
+| Watch           | `useWatchField`                         | 单字段 Vue Watch。                            |
+| Watch           | `useWatchFields`                        | 多字段 Vue Watch。                            |
+| Watch           | `useWatchAll`                           | 全表 Vue Watch。                              |
+| Dictionary      | `useDictionary`                         | 管理函数式选项源。                            |
+| Vue 响应式      | `useStableRef`                          | 建立浅比较稳定 Ref。                          |
+| ViewSchema      | `useViewSchemas`                        | 桥接 ViewSchemas 为 Ref。                     |
+| 默认导出        | `default`                               | 与 `schemxForm` 严格相等。                    |
+| Context 类型    | `FormContextProps`                      | 表单展示 Context。                            |
+| Dictionary 类型 | `SchemxDictionary`                      | 函数式选项源配置。                            |
+| 插件类型        | `SchemxInstallOptions`                  | 当前 Vue App 的默认配置安装选项。             |
+| Dictionary 类型 | `SchemxWithDictionary`                  | 为 Props 增加 `dict`。                        |
+| Dictionary 类型 | `UseDictionaryReturn`                   | `useDictionary()` 返回值。                    |
+| 表单类型        | `SchemxFormProps<TValues>`              | `<Schemx>` 组件 Props 类型。                  |
+| 字段类型        | `FieldInstance<TValues>`                | Vue Ref / Computed 桥接后的字段控制器类型。   |
 
 根入口没有名为 `SchemxForm` 的命名导出。
 

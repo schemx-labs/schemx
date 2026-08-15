@@ -159,7 +159,7 @@ describe("UploadRenderer", () => {
           { url: "https://example.com/photo.png", name: "照片.png" },
           { url: "https://example.com/report.pdf", name: "报告.pdf" },
         ],
-        previewOptions: { loop: false, show: false },
+        previewOptions: { loop: false },
       },
     })
 

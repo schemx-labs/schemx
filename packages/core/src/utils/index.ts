@@ -21,6 +21,8 @@ export {
   collectObjectPathsByLeaf,
   normalizeNamePath,
   toNamePathSegments,
+  isDescendantFieldPath,
+  areOverlappingFieldPaths,
   createFieldKey,
   type FieldKey,
 } from "./path"

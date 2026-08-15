@@ -12,15 +12,15 @@ describe("FormModel", () => {
     })
 
     model.store.setFieldValue("name", "Bob")
-    model.validator.setFieldErrors("name", ["invalid"])
+    model.validation.setFieldErrors("name", ["invalid"])
 
     expect(model.store.getFieldValue("name")).toBe("Bob")
-    expect(model.validator.getFieldErrors("name")).toEqual(["invalid"])
+    expect(model.validation.getFieldErrors("name")).toEqual(["invalid"])
 
     model.reset()
 
     expect(model.store.getFieldValue("name")).toBe("Alice")
-    expect(model.validator.getFieldErrors("name")).toEqual([])
+    expect(model.validation.getFieldErrors("name")).toEqual([])
 
     model.dispose()
   })

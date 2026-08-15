@@ -1,3 +1,3 @@
-export { createAsyncValidatorAdapter } from "./async-validator"
+export { createAsyncValidatorAdapter } from "./async-validator.adapter"
 
-export type { AsyncValidatorValidationAdapter } from "./async-validator"
+export type { AsyncValidatorValidationAdapter } from "./async-validator.adapter"

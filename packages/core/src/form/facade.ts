@@ -1,7 +1,7 @@
 import type { FormBindings } from "./bindings"
 import type { FormModel } from "./model"
 import type { RendererRegistry, ValidationRuleRegistry } from "../registry"
-import type { SchemxFormApi, SchemxInstance, Values } from "../types"
+import type { NamePath, SchemxFormApi, SchemxInstance, Values } from "../types"
 
 /**
  * 创建传递给动态 renderer 的轻量 Form API。
@@ -15,59 +15,39 @@ export function createFormApi<TValues extends Values>(
   model: FormModel<TValues>,
   bindings: FormBindings<TValues>
 ): SchemxFormApi<TValues> {
-  // 仅向动态 renderer 暴露字段状态读写与校验所需的最小 API。
-  // 绑定字段值写入方法，保持调用时的 Store 上下文。
-  const setValue = model.store.setFieldValue.bind(model.store)
+  // 把公开的 errors 字段转换为内部 messages 字段。
+  const setFieldsErrors: SchemxFormApi<TValues>["setFieldsErrors"] = (fields) => {
+    model.validation.setFieldsErrors(
+      fields.map(({ name, errors }) => ({ name, messages: errors }))
+    )
+  }
 
-  // 绑定批量字段值写入方法。
-  const setValues = model.store.setFieldsValue.bind(model.store)
+  // 绑定 Controller 的规则操作；未连接 Runtime 时保持 no-op 语义。
+  const setFieldRules: SchemxFormApi<TValues>["setFieldRules"] = (name, rules) =>
+    bindings.getConnectedController()?.setFieldRules(name, rules)
 
-  // 绑定单字段值读取方法。
-  const getValue = model.store.getFieldValue.bind(model.store)
+  const setFieldsRules: SchemxFormApi<TValues>["setFieldsRules"] = (fields) =>
+    bindings.getConnectedController()?.setFieldsRules(fields)
 
-  // 绑定全部字段值读取方法。
-  const getValues = model.store.getFieldsValue.bind(model.store)
+  const removeFieldRules: SchemxFormApi<TValues>["removeFieldRules"] = (name) =>
+    bindings.getConnectedController()?.removeFieldRules(name)
 
-  // 绑定字段快照读取方法，为 renderer 提供一致的值视图。
-  const getSnapshots = model.store.getFieldsSnapshot.bind(model.store)
-
-  // 绑定字段 pending 状态写入方法。
-  const setPending = model.store.setFieldPending.bind(model.store)
-
-  // 绑定字段 pending 状态读取方法。
-  const isPending = model.store.isFieldPending.bind(model.store)
-
-  // 绑定字段 touched 状态写入方法。
-  const setTouched = model.store.setFieldTouched.bind(model.store)
-
-  // 绑定字段 touched 状态读取方法。
-  const isTouched = model.store.isFieldTouched.bind(model.store)
-
-  // 绑定字段错误读取方法。
-  const getErrors = model.validator.getFieldErrors.bind(model.validator)
-
-  // 绑定字段错误写入方法。
-  const setErrors = model.validator.setFieldErrors.bind(model.validator)
-
-  // 绑定字段错误清理方法。
-  const clearErrors = model.validator.clearFieldErrors.bind(model.validator)
-
-  // 绑定字段重置方法，支持 renderer 恢复字段状态。
-  const resetFields = model.store.resetFields.bind(model.store)
+  const removeFieldsRules: SchemxFormApi<TValues>["removeFieldsRules"] = (names) =>
+    bindings.getConnectedController()?.removeFieldsRules(names)
 
   /**
    * 通过已连接的 Controller 校验字段；未连接时回退到本地 Validator。
    */
   const validateField: SchemxFormApi<TValues>["validateField"] = (name) =>
     bindings.getConnectedController()?.validateField(name) ??
-    model.validator.validateField(name, model.store.getFieldsValue())
+    model.validation.validateField(name, model.store.getFieldsValue())
 
   /**
    * 通过已连接的 Controller 校验整个表单；未连接时回退到本地 Validator。
    */
   const validate: SchemxFormApi<TValues>["validate"] = () =>
     bindings.getConnectedController()?.validate() ??
-    model.validator.validate(model.store.getFieldsValue())
+    model.validation.validate(model.store.getFieldsValue())
 
   /**
    * 通过已连接的 Controller 重置整表，确保生命周期回调一致。
@@ -75,20 +55,64 @@ export function createFormApi<TValues extends Values>(
   const reset: SchemxFormApi<TValues>["reset"] = () =>
     bindings.getConnectedController()?.reset() ?? model.reset()
 
+  function clearErrors(): void
+  function clearErrors<TName extends NamePath<TValues>>(name: TName): void
+  function clearErrors(name?: NamePath<TValues>): void {
+    if (name === undefined) {
+      model.validation.clearErrors()
+
+      return
+    }
+
+    model.validation.clearFieldErrors(name)
+  }
+
   return {
-    setValue,
-    setValues,
-    getValue,
-    getValues,
-    getSnapshots,
-    setPending,
-    isPending,
-    setTouched,
-    isTouched,
-    getErrors,
-    setErrors,
+    setFieldValue: model.store.setFieldValue.bind(model.store),
+    setFieldsValue: model.store.setFieldsValue.bind(model.store),
+    getFieldValue: model.store.getFieldValue.bind(model.store),
+    getFieldsValue: model.store.getFieldsValue.bind(model.store),
+    getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
+    getFieldsSnapshot: model.store.getFieldsSnapshot.bind(model.store),
+    getInitialValue: model.store.getInitialValue.bind(model.store),
+    getInitialValues: model.store.getInitialValues.bind(model.store),
+    setInitialValue: model.store.setInitialValue.bind(model.store),
+    setInitialValues: model.store.setInitialValues.bind(model.store),
+    isFieldTouched: model.store.isFieldTouched.bind(model.store),
+    isFieldsTouched: model.store.isFieldsTouched.bind(model.store),
+    getTouchedFields: model.store.getTouchedFields.bind(model.store),
+    setFieldTouched: model.store.setFieldTouched.bind(model.store),
+    setFieldsTouched: model.store.setFieldsTouched.bind(model.store),
+    isFieldPending: model.store.isFieldPending.bind(model.store),
+    isFieldsPending: model.store.isFieldsPending.bind(model.store),
+    getPendingFields: model.store.getPendingFields.bind(model.store),
+    setFieldPending: model.store.setFieldPending.bind(model.store),
+    setFieldsPending: model.store.setFieldsPending.bind(model.store),
+    resetField: model.store.resetField.bind(model.store),
+    resetFields: model.store.resetFields.bind(model.store),
+    getFieldErrors: model.validation.getFieldErrors.bind(model.validation),
+    getFieldsErrors: model.validation.getFieldsErrors.bind(model.validation),
+    setFieldErrors: model.validation.setFieldErrors.bind(model.validation),
+    setFieldsErrors,
+    clearFieldErrors: model.validation.clearFieldErrors.bind(model.validation),
+    clearFieldsErrors: model.validation.clearFieldsErrors.bind(model.validation),
+    setFieldRules,
+    setFieldsRules,
+    removeFieldRules,
+    removeFieldsRules,
+    setValue: model.store.setFieldValue.bind(model.store),
+    setValues: model.store.setFieldsValue.bind(model.store),
+    getValue: model.store.getFieldValue.bind(model.store),
+    getValues: model.store.getFieldsValue.bind(model.store),
+    getSnapshot: model.store.getFieldSnapshot.bind(model.store),
+    getSnapshots: model.store.getFieldsSnapshot.bind(model.store),
+    setPending: model.store.setFieldPending.bind(model.store),
+    isPending: model.store.isFieldPending.bind(model.store),
+    setTouched: model.store.setFieldTouched.bind(model.store),
+    isTouched: model.store.isFieldTouched.bind(model.store),
+    getErrors: model.validation.getFieldErrors.bind(model.validation),
+    setErrors: model.validation.setFieldErrors.bind(model.validation),
     clearErrors,
-    resetFields,
     reset,
     validateField,
     validate,
@@ -114,51 +138,6 @@ export function createFormFacade<TValues extends Values>(options: {
   // FormFacade 只组装公开方法，不持有 Runtime 的内部实现细节。
   const { model, bindings, rendererRegistry, validationRuleRegistry } = options
 
-  // 绑定单字段值写入方法。
-  const setFieldValue = model.store.setFieldValue.bind(model.store)
-
-  // 绑定批量字段值写入方法。
-  const setFieldsValue = model.store.setFieldsValue.bind(model.store)
-
-  // 绑定单字段值读取方法。
-  const getFieldValue = model.store.getFieldValue.bind(model.store)
-
-  // 绑定全部字段值读取方法。
-  const getFieldsValue = model.store.getFieldsValue.bind(model.store)
-
-  // 绑定单字段当前快照读取方法。
-  const getFieldSnapshot = model.store.getFieldSnapshot.bind(model.store)
-
-  // 绑定全部字段当前快照读取方法。
-  const getFieldsSnapshot = model.store.getFieldsSnapshot.bind(model.store)
-
-  // 绑定单字段初始值读取方法。
-  const getInitialValue = model.store.getInitialValue.bind(model.store)
-
-  // 绑定全部字段初始值读取方法。
-  const getInitialValues = model.store.getInitialValues.bind(model.store)
-
-  // 绑定初始值更新方法。
-  const setInitialValues = model.store.setInitialValues.bind(model.store)
-
-  // 绑定字段 touched 状态读取方法。
-  const isFieldTouched = model.store.isFieldTouched.bind(model.store)
-
-  // 绑定字段 touched 状态写入方法。
-  const setFieldTouched = model.store.setFieldTouched.bind(model.store)
-
-  // 绑定已 touched 字段列表读取方法。
-  const getTouchedFields = model.store.getTouchedFields.bind(model.store)
-
-  // 绑定字段 pending 状态写入方法。
-  const setFieldPending = model.store.setFieldPending.bind(model.store)
-
-  // 绑定字段 pending 状态读取方法。
-  const isFieldPending = model.store.isFieldPending.bind(model.store)
-
-  // 绑定 pending 字段列表读取方法。
-  const getPendingFields = model.store.getPendingFields.bind(model.store)
-
   /**
    * 读取 Controller 的提交状态；断开后表单不再处于提交中。
    */
@@ -177,17 +156,12 @@ export function createFormFacade<TValues extends Values>(options: {
   const validate: SchemxInstance<TValues>["validate"] = () =>
     bindings.getController().validate()
 
-  // 绑定字段错误读取方法。
-  const getFieldErrors = model.validator.getFieldErrors.bind(model.validator)
-
-  // 绑定字段错误写入方法。
-  const setFieldErrors = model.validator.setFieldErrors.bind(model.validator)
-
-  // 绑定字段错误清理方法。
-  const clearFieldErrors = model.validator.clearFieldErrors.bind(model.validator)
-
-  // 绑定字段重置方法。
-  const resetFields = model.store.resetFields.bind(model.store)
+  // 绑定多个字段错误写入方法，并转换公开错误字段名。
+  const setFieldsErrors: SchemxInstance<TValues>["setFieldsErrors"] = (fields) => {
+    model.validation.setFieldsErrors(
+      fields.map(({ name, errors }) => ({ name, messages: errors }))
+    )
+  }
 
   /**
    * 通过已连接的 Controller 重置整表；断开后仅恢复本地状态。
@@ -200,7 +174,7 @@ export function createFormFacade<TValues extends Values>(options: {
    */
   const submit: SchemxInstance<TValues>["submit"] = () =>
     bindings.getConnectedController()?.submit() ??
-    model.validator.validate(model.store.getFieldsValue())
+    model.validation.validate(model.store.getFieldsValue())
 
   /**
    * Controller 连接期间，将字段规则同步委托给 Controller。
@@ -208,9 +182,17 @@ export function createFormFacade<TValues extends Values>(options: {
   const setFieldRules: SchemxInstance<TValues>["setFieldRules"] = (path, rules) =>
     bindings.getConnectedController()?.setFieldRules(path, rules)
 
+  // 委托批量设置字段规则；Controller 断开后操作失效。
+  const setFieldsRules: SchemxInstance<TValues>["setFieldsRules"] = (fields) =>
+    bindings.getConnectedController()?.setFieldsRules(fields)
+
   // 委托移除字段规则；Controller 断开后操作失效。
   const removeFieldRules: SchemxInstance<TValues>["removeFieldRules"] = (path) =>
     bindings.getConnectedController()?.removeFieldRules(path)
+
+  // 委托批量移除字段规则；Controller 断开后操作失效。
+  const removeFieldsRules: SchemxInstance<TValues>["removeFieldsRules"] = (names) =>
+    bindings.getConnectedController()?.removeFieldsRules(names)
 
   // 委托替换根 Schema；Runtime 断开后操作失效。
   const setSchemas: SchemxInstance<TValues>["setSchemas"] = (schemas) =>
@@ -241,55 +223,45 @@ export function createFormFacade<TValues extends Values>(options: {
   const waitForDependencies: SchemxInstance<TValues>["waitForDependencies"] = (timeout) =>
     bindings.getConnectedRuntime()?.waitForIdle(timeout) ?? Promise.resolve(true)
 
-  // 绑定 Renderer Registry 的渲染器解析方法。
-  const getRenderer = rendererRegistry.resolve.bind(rendererRegistry)
-
-  // 绑定 Renderer Registry 的渲染器注册方法。
-  const registerRenderer = rendererRegistry.register.bind(rendererRegistry)
-
-  // 绑定 Renderer Registry 的渲染器存在性检查方法。
-  const hasRenderer = rendererRegistry.has.bind(rendererRegistry)
-
-  // 绑定 Validation Rule Registry 的规则读取方法，并适配公开接口类型。
-  const getRule = validationRuleRegistry.get.bind(
-    validationRuleRegistry
-  ) as SchemxInstance<TValues>["getRule"]
-
-  // 绑定 Validation Rule Registry 的规则注册方法，并适配公开接口类型。
-  const registerRule = validationRuleRegistry.register.bind(
-    validationRuleRegistry
-  ) as SchemxInstance<TValues>["registerRule"]
-
-  // 绑定 Validation Rule Registry 的规则存在性检查方法。
-  const hasRule = validationRuleRegistry.has.bind(validationRuleRegistry)
-
   return {
-    setFieldValue,
-    setFieldsValue,
-    getFieldValue,
-    getFieldsValue,
-    getFieldSnapshot,
-    getFieldsSnapshot,
-    getInitialValue,
-    getInitialValues,
-    setInitialValues,
-    isFieldTouched,
-    setFieldTouched,
-    getTouchedFields,
-    setFieldPending,
-    isFieldPending,
-    getPendingFields,
+    setFieldValue: model.store.setFieldValue.bind(model.store),
+    setFieldsValue: model.store.setFieldsValue.bind(model.store),
+    getFieldValue: model.store.getFieldValue.bind(model.store),
+    getFieldsValue: model.store.getFieldsValue.bind(model.store),
+    getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
+    getFieldsSnapshot: model.store.getFieldsSnapshot.bind(model.store),
+    getInitialValue: model.store.getInitialValue.bind(model.store),
+    getInitialValues: model.store.getInitialValues.bind(model.store),
+    setInitialValue: model.store.setInitialValue.bind(model.store),
+    setInitialValues: model.store.setInitialValues.bind(model.store),
+    isFieldTouched: model.store.isFieldTouched.bind(model.store),
+    isFieldsTouched: model.store.isFieldsTouched.bind(model.store),
+    setFieldTouched: model.store.setFieldTouched.bind(model.store),
+    setFieldsTouched: model.store.setFieldsTouched.bind(model.store),
+    getTouchedFields: model.store.getTouchedFields.bind(model.store),
+    setFieldPending: model.store.setFieldPending.bind(model.store),
+    setFieldsPending: model.store.setFieldsPending.bind(model.store),
+    isFieldPending: model.store.isFieldPending.bind(model.store),
+    isFieldsPending: model.store.isFieldsPending.bind(model.store),
+    getPendingFields: model.store.getPendingFields.bind(model.store),
+    resetField: model.store.resetField.bind(model.store),
+    resetFields: model.store.resetFields.bind(model.store),
     isLoading,
     validateField,
     validate,
-    getFieldErrors,
-    setFieldErrors,
-    clearFieldErrors,
-    resetFields,
+    getFieldErrors: model.validation.getFieldErrors.bind(model.validation),
+    getFieldsErrors: model.validation.getFieldsErrors.bind(model.validation),
+    setFieldErrors: model.validation.setFieldErrors.bind(model.validation),
+    setFieldsErrors,
+    clearFieldErrors: model.validation.clearFieldErrors.bind(model.validation),
+    clearFieldsErrors: model.validation.clearFieldsErrors.bind(model.validation),
+    clearErrors: model.validation.clearErrors.bind(model.validation),
     reset,
     submit,
     setFieldRules,
+    setFieldsRules,
     removeFieldRules,
+    removeFieldsRules,
     effect: model.effect,
     batch: model.batch,
     setSchemas,
@@ -299,12 +271,16 @@ export function createFormFacade<TValues extends Values>(options: {
     getViewSchemas,
     subscribeViewSchemas,
     waitForDependencies,
-    getRenderer,
-    registerRenderer,
-    hasRenderer,
-    getRule,
-    registerRule,
-    hasRule,
+    getRenderer: rendererRegistry.resolve.bind(rendererRegistry),
+    registerRenderer: rendererRegistry.register.bind(rendererRegistry),
+    hasRenderer: rendererRegistry.has.bind(rendererRegistry),
+    getRule: validationRuleRegistry.get.bind(
+      validationRuleRegistry
+    ) as SchemxInstance<TValues>["getRule"],
+    registerRule: validationRuleRegistry.register.bind(
+      validationRuleRegistry
+    ) as SchemxInstance<TValues>["registerRule"],
+    hasRule: validationRuleRegistry.has.bind(validationRuleRegistry),
     destroy: bindings.destroy,
   }
 }

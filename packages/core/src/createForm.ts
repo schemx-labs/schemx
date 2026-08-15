@@ -44,11 +44,16 @@ export function createForm<TValues extends Values>(
   // 所有 Form 子系统共享的标准化配置。
   const merged = mergeCreateFormOptions(options)
 
+  const validationRuleRegistry =
+    merged.validationRuleRegistry ?? createValidationRuleRegistry()
+
+  const rendererRegistry =
+    merged.rendererRegistry ?? createRendererRegistry(merged.defaultRendererType)
+
   // Form 持有的状态、值存储和校验模型。
   const model = createFormModel<TValues>({
     initialValues: merged.initialValues ?? ({} as TValues),
-    validationRuleRegistry:
-      merged.validationRuleRegistry ?? createValidationRuleRegistry(),
+    validationRuleRegistry,
     validatorAdapters: [...(merged.validatorAdapters ?? [])],
     onRuleError: merged.onRuleError,
   })
@@ -63,10 +68,8 @@ export function createForm<TValues extends Values>(
   const instance = createFormFacade({
     model,
     bindings,
-    rendererRegistry:
-      merged.rendererRegistry ?? createRendererRegistry(merged.defaultRendererType),
-    validationRuleRegistry:
-      merged.validationRuleRegistry ?? createValidationRuleRegistry(),
+    rendererRegistry,
+    validationRuleRegistry,
   })
 
   // 负责编译并协调当前 Schema 的 Runtime。

@@ -84,6 +84,7 @@ export default defineConfig(({ mode }) => {
     core: resolve(packagesDir, "core/src"),
     vue: resolve(packagesDir, "vue/src"),
     vant: resolve(packagesDir, "vant/src"),
+    validator: resolve(packagesDir, "validator/src"),
   }
 
   return {
@@ -96,6 +97,14 @@ export default defineConfig(({ mode }) => {
             { find: /^@schemx\/vue$/, replacement: resolve(pkgRoots.vue, "index.ts") },
             { find: /^@schemx\/vant\/(.+)$/, replacement: `${pkgRoots.vant}/$1` },
             { find: /^@schemx\/vant$/, replacement: resolve(pkgRoots.vant, "index.ts") },
+            {
+              find: /^@schemx\/validator\/(.+)$/,
+              replacement: `${pkgRoots.validator}/$1`,
+            },
+            {
+              find: /^@schemx\/validator$/,
+              replacement: resolve(pkgRoots.validator, "index.ts"),
+            },
           ]
         : [],
     },

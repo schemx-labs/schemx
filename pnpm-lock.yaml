@@ -216,6 +216,9 @@ importers:
       '@schemx/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@schemx/validator':
+        specifier: workspace:*
+        version: link:../../packages/validator
       '@schemx/vant':
         specifier: workspace:*
         version: link:../../packages/vant

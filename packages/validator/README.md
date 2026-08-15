@@ -1,49 +1,106 @@
 # @schemx/validator
 
-`@schemx/validator` 为 `@schemx/core` 提供非 Standard Schema 第三方校验器适配器。
-当前包含 `async-validator` 自描述规则适配器，可直接将其 descriptor 交给 Core Validator 执行。
+`@schemx/validator` 提供 `async-validator` 与 `@schemx/core` 的集成。注册 adapter 后，可以直接在字段 `rules` 中使用 `async-validator` 的规则对象。
 
-Zod 等实现 Standard Schema V1 的校验器可以直接作为 Core 字段规则使用，只需安装对应的校验库，
-不需要安装 `@schemx/validator` 或注册额外 adapter。
+适用于已经使用 `async-validator` 的项目，包括必填、类型、长度、正则、嵌套对象和异步自定义校验等场景。
 
 ## 安装
-
-只安装需要的校验器即可：
 
 ```bash
 pnpm add @schemx/core @schemx/validator async-validator
 ```
 
-`async-validator` 是可选 peer dependency。包仅提供一个 adapter 工厂，由宿主应用决定如何注册它。
+`async-validator` 是 peer dependency，需要由业务项目显式安装。
 
-## 使用
+## 快速开始
+
+创建 adapter，并在创建 Form 时通过 `validatorAdapters` 注册：
 
 ```ts
 import { createForm } from "@schemx/core"
 import { createAsyncValidatorAdapter } from "@schemx/validator"
 
-const asyncValidatorAdapter = createAsyncValidatorAdapter()
-
 const form = createForm({
-  validatorAdapters: [asyncValidatorAdapter],
-  // schemas、initialValues 等其他配置
+  initialValues: {
+    email: "",
+  },
+  validatorAdapters: [createAsyncValidatorAdapter()],
+  schemas: [
+    {
+      name: "email",
+      label: "邮箱",
+      componentType: "input",
+      rules: [
+        {
+          required: true,
+          type: "email",
+          message: "请输入有效的邮箱地址",
+        },
+      ],
+    },
+  ],
 })
+
+const result = await form.validate()
+
+if (!result.valid) {
+  console.log(result.errors)
+}
 ```
 
-业务代码可直接将 async-validator descriptor 放入字段 `rules`。descriptor 可以是单个 `RuleItem`，也可以是只读数组。适配器会把当前字段值写回完整表单快照，因此自定义 validator 可以读取关联字段；校验被新一轮校验或销毁操作取消时，过期结果不会写入错误状态。
+## 规则写法
 
-## API 与导出
+字段 `rules` 中的每个 `async-validator` 规则对象都会由 adapter 识别并执行。可使用 `required`、`type`、`pattern`、`min`、`max`、`len`、`enum`、`whitespace`、`fields`、`validator` 和 `asyncValidator` 等 `async-validator` 配置。
 
-| 入口                | 运行时导出                       | 说明                                     |
-| ------------------- | -------------------------------- | ---------------------------------------- |
-| `@schemx/validator` | `createAsyncValidatorAdapter`   | 创建可直接注册的 async-validator adapter。 |
+```ts
+const schemas = [
+  {
+    name: "password",
+    label: "密码",
+    componentType: "input",
+    rules: [
+      { required: true, message: "请输入密码" },
+      { min: 8, message: "密码至少为 8 位" },
+      { pattern: /[A-Z]/, message: "密码需包含大写字母" },
+    ],
+  },
+]
+```
 
-适配器需要通过 `createForm({ validatorAdapters })`、`configureSchemx({ validatorAdapters })` 或其他 Core 表单创建入口注册。Core 内置的原生 `ValidationRule` 与 Standard Schema 不需要额外适配器。完整的结果类型和错误模型见 [`@schemx/core`](../core)。
+### 异步与关联字段校验
 
-同 ID adapter 默认会被拒绝；如需显式覆盖前一项，使用 `{ adapter, override: true }`。
+`asyncValidator` 执行时会收到当前表单的完整值快照，可用于比较关联字段：
 
-## 注意事项
+```ts
+const schemas = [
+  {
+    name: "confirmPassword",
+    label: "确认密码",
+    componentType: "input",
+    rules: [
+      {
+        asyncValidator(_rule, value, _callback, source) {
+          return value === source.password
+            ? Promise.resolve()
+            : Promise.reject(new Error("两次输入的密码不一致"))
+        },
+      },
+    ],
+  },
+]
+```
 
-- `rules` 中的 async-validator descriptor 可直接传入；未被已注册 adapter 识别的对象会作为字段配置错误处理。
-- `ValidationResult` 的错误详情使用 `issues`，每项包含 `message`，并可能包含 `code` 与 `cause`。
-- 适配器不会改变 Core 的校验生命周期；同一字段开始新的校验时，旧校验可能返回 `cancelled: true`。
+当某次校验已被新的校验或表单销毁取消时，adapter 不会将过期结果写入字段错误状态。
+
+## API
+
+| 导出 | 说明 |
+| --- | --- |
+| `createAsyncValidatorAdapter()` | 创建 ID 为 `"async-validator"` 的校验 adapter，并用于 `createForm({ validatorAdapters })`。 |
+| `AsyncValidatorValidationAdapter` | adapter 的 TypeScript 类型。 |
+
+同一个 Form 中不应重复注册 ID 相同的 adapter。需要覆盖既有注册时，使用 Core 的 `{ adapter, override: true }` 配置形式。
+
+## 错误结果
+
+校验失败会按 Core 的统一结果格式返回。字段错误位于 `result.errors` 中；每条 issue 都包含 `message`，并保留 `async-validator` 原始错误对象作为 `cause`，便于记录或排查。

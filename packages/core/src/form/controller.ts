@@ -6,8 +6,8 @@ import type { SchemaRuntime } from "../runtime/createSchemaRuntime"
 import type { NamePath, Values } from "../types"
 import type { FieldRules } from "../types/rule"
 import type {
-  FieldValidationConfig,
   ValidationFailure,
+  ValidationFieldConfig,
   ValidationResult,
 } from "../validator"
 
@@ -71,9 +71,22 @@ export interface FormController<TValues extends Values> {
     rules: FieldRules<TValues, TName>
   ): void
   /**
+   * 批量设置字段校验规则覆盖。
+   */
+  setFieldsRules<TName extends NamePath<TValues>>(
+    fields: readonly {
+      readonly name: TName
+      readonly rules: FieldRules<TValues, TName>
+    }[]
+  ): void
+  /**
    * 移除字段校验规则覆盖。
    */
   removeFieldRules<TName extends NamePath<TValues>>(path: TName): void
+  /**
+   * 批量移除字段校验规则覆盖。
+   */
+  removeFieldsRules(names: readonly NamePath<TValues>[]): void
 }
 
 /**
@@ -121,7 +134,7 @@ export function createFormController<TValues extends Values>(options: {
   const validateField: FormController<TValues>["validateField"] = async (name) => {
     await runtime.waitForIdle()
 
-    return model.validator.validateField(name, model.store.getFieldsValue())
+    return model.validation.validateField(name, model.store.getFieldsValue())
   }
 
   /**
@@ -144,7 +157,7 @@ export function createFormController<TValues extends Values>(options: {
           // 优先使用字段自定义消息，否则返回统一的处理中提示。
           const messages = message.length ? message : ["字段正在处理中，请稍后重试"]
 
-          model.validator.setFieldErrors(field as NamePath<TValues>, messages)
+          model.validation.setFieldErrors(field as NamePath<TValues>, messages)
 
           return {
             scope: "field" as const,
@@ -158,7 +171,7 @@ export function createFormController<TValues extends Values>(options: {
       }
     }
 
-    return model.validator.validate(model.store.getFieldsValue())
+    return model.validation.validate(model.store.getFieldsValue())
   }
 
   /**
@@ -212,10 +225,10 @@ export function createFormController<TValues extends Values>(options: {
   const setFieldRules: FormController<TValues>["setFieldRules"] = (path, rules) => {
     const effective = runtime.getEffectiveFieldSchema(path)
 
-    const config: FieldValidationConfig<TValues, typeof path> = {
+    const config: ValidationFieldConfig<TValues, typeof path> = {
       name: path,
       label: effective?.label ?? "",
-      required: (effective?.required ?? false) as FieldValidationConfig<
+      required: (effective?.required ?? false) as ValidationFieldConfig<
         TValues,
         typeof path
       >["required"],
@@ -226,10 +239,28 @@ export function createFormController<TValues extends Values>(options: {
   }
 
   /**
+   * 批量同步字段校验规则覆盖。
+   */
+  const setFieldsRules: FormController<TValues>["setFieldsRules"] = (fields) => {
+    for (const field of fields) {
+      setFieldRules(field.name, field.rules)
+    }
+  }
+
+  /**
    * 移除字段校验配置及延迟同步任务。
    */
   const removeFieldRules: FormController<TValues>["removeFieldRules"] = (path) => {
     model.validation.removeFieldRules(path)
+  }
+
+  /**
+   * 批量移除字段校验规则覆盖。
+   */
+  const removeFieldsRules: FormController<TValues>["removeFieldsRules"] = (names) => {
+    for (const name of names) {
+      removeFieldRules(name)
+    }
   }
 
   return {
@@ -239,7 +270,9 @@ export function createFormController<TValues extends Values>(options: {
     reset,
     isLoading,
     setFieldRules,
+    setFieldsRules,
     removeFieldRules,
+    removeFieldsRules,
   }
 }
 

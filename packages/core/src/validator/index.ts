@@ -4,16 +4,14 @@
  * @module core/validator
  */
 
-export { createValidator, type Validator, type CreateValidatorOptions } from "./validator"
-
-export { createRequiredValidationRule, createStandardSchemaValidationRule } from "./rules"
-
 export {
-  createValidationController,
-  type CreateValidationControllerOptions,
-  type FieldValidationConfig,
-  type ValidationController,
-} from "./validationController"
+  createValidation,
+  type CreateValidationOptions,
+  type Validation,
+  type ValidationFieldConfig,
+} from "./validation"
+
+export { createRequiredValidationRule } from "./rules"
 
 export type {
   ValidationRuleContext,

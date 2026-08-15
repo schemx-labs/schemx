@@ -1,26 +1,22 @@
 # @schemx/vant
 
-`@schemx/vant` 是基于 Vue 3、Vant 4 与 Schemx 的移动端 Schema 表单渲染包。导入根入口时会注册内置 Renderer，并重新导出 `@schemx/vue` 的公开 API。
+`@schemx/vant` 是 Schemx 的 Vant 4 Renderer 适配包。导入根入口后，会将内置 Vant Renderer 注册到 `@schemx/vue` 的全局 `rendererRegistry`，并重新导出 Vue 与 Core 的公开 API。
 
-## 安装与样式
+适用于 Vue 3 + Vant 4 的移动端 Schema 表单。使用其他组件库或自研控件时，请使用 `@schemx/vue` 并自行注册 Renderer。
+
+## 安装
 
 ```bash
-pnpm add @schemx/vant @schemx/vue @schemx/core vant vue
+pnpm add @schemx/core @schemx/vue @schemx/vant vant vue
 ```
 
-`@schemx/core`、`@schemx/vue`、`vant` 和 `vue` 都是 peer dependencies，业务项目需要显式安装。直接使用 `@schemx/vant` 不需要额外配置 Schemx Vite 插件。
+这些包均为运行所需依赖。Schemx 的样式由 ESM 根入口自动加载；Vant 自身样式需按项目现有方案加载：
 
 ```ts
-import Schemx from "@schemx/vant"
 import "vant/lib/index.css"
 ```
 
-样式有两个独立来源：
-
-- `@schemx/vant` 的 ESM 根入口会自动导入 `@schemx/vant/style.css`，并经 `@schemx/vue` 根入口自动导入其基础样式。常规 Vite / Vue ESM 项目不需要再手动导入这两份 Schemx CSS。
-- `vant/lib/index.css` 是 Vant 自身的组件样式，`@schemx/vant` 不会替业务项目加载。若项目已使用 Vant 官方插件或其他按需样式方案，则按该方案处理，不要重复导入。
-
-若使用 CommonJS 入口，或构建工具没有保留入口中的 CSS import，请显式导入：
+若使用 CommonJS，或构建工具未处理入口 CSS import，请显式导入：
 
 ```ts
 import "@schemx/vue/style.css"
@@ -33,10 +29,9 @@ import "vant/lib/index.css"
 ```vue
 <script setup lang="ts">
   import { ref } from "vue"
-  import "vant/lib/index.css"
 
   import Schemx from "@schemx/vant"
-  import type { SchemxField, SchemxInstance } from "@schemx/vant"
+  import type { SchemxField } from "@schemx/vant"
 
   type ProfileValues = {
     name: string
@@ -44,8 +39,7 @@ import "vant/lib/index.css"
     notification: boolean
   }
 
-  const formRef = ref<SchemxInstance<ProfileValues>>()
-  const formData = ref<ProfileValues>({
+  const modelValue = ref<ProfileValues>({
     name: "",
     city: "",
     notification: true,
@@ -79,39 +73,12 @@ import "vant/lib/index.css"
       componentType: "switch",
     },
   ]
-
-  function handleFinish(values: Readonly<ProfileValues>) {
-    console.log(values)
-  }
 </script>
 
 <template>
-  <Schemx
-    ref="formRef"
-    v-model="formData"
-    :schemas="schemas"
-    :initial-values="formData"
-    @finish="handleFinish"
-  />
-
-  <button type="button" @click="formRef?.submit()">提交</button>
+  <Schemx v-model="modelValue" :schemas="schemas" />
 </template>
 ```
-
-根入口默认导出也是可安装的 Vue 插件，可以在 `app.use()` 中设置当前 App 的默认配置：
-
-```ts
-import Schemx from "@schemx/vant"
-
-app.use(Schemx, {
-  schemaConfig: { showRequiredMark: false },
-  validatorAdapters: [adapter],
-})
-```
-
-`SchemxInstallOptions` 与 `@schemx/vue` 保持一致。安装配置只作用于当前 Vue App，优先级为表单显式配置 → App 安装配置 → Vue 模块级 Registry → Core 模块级配置 → Core 内置默认值；`app.use()` 不会调用 Core 的模块级 `configureSchemx()`。
-
-`componentProps` 由 `componentType` 自动关联到对应 Renderer Props；Renderer 的值仍由字段 `name` 对应的表单值类型决定。
 
 ## Group 与 Dependency 容器
 
@@ -240,6 +207,87 @@ export const addressSchemas: SchemxField<AddressValues>[] = [
 ```
 
 ## Renderer API
+
+## 内置 Renderer
+
+以下 Renderer 在导入 `@schemx/vant` 后自动注册，可直接写入 Schema 的 `componentType`。
+
+| `componentType`  | 值形态                                 | 用途与关键 `componentProps`                                                                                                |
+| ---------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `input`          | 字符串                                 | 通用单行输入。可配置 `type`、`maxlength`、`clearable`、`formatter`、图标和字数统计。                                       |
+| `text`           | 字符串                                 | 文本输入，`type: "password"` 时内置密码显隐切换。支持 `clearable`、`formatter`、图标和字数统计。                           |
+| `textarea`       | 字符串                                 | 多行文本输入。使用 `rows`、`autosize`（或兼容别名 `autoSize`）、`maxlength` 和 `showWordLimit`。                           |
+| `sensitiveInput` | 字符串                                 | 脱敏文本输入。使用 `maskFormatter`、`revealed`、`defaultRevealed`、`revealable` 和 `hideOnBlur` 控制完整值展示。           |
+| `number`         | 字符串                                 | 数字或整数键盘输入。使用 `type: "number" \| "digit"`、`min`、`max`、`maxlength` 和 `clearable`。                           |
+| `switch`         | `boolean`、字符串或数字                | 开关选择。使用 `activeValue`、`inactiveValue`、`activeText`、`inactiveText`；`onChange` 可返回 Promise。                   |
+| `radio`          | 单个选项值                             | 单选组。使用 `options` 和 `fieldNames` 配置选项及其标签、值、禁用字段。                                                    |
+| `checkbox`       | 选项值数组或字符串                     | 多选组。使用 `options` 和 `fieldNames` 配置选项；单个选项可独立设置 Vant Checkbox Props。                                  |
+| `picker`         | 单值或列值数组                         | 底部弹窗选择器。使用 `options` 或 Vant 原生 `columns`，并可配置 `fieldNames`、`showAllLevels`、`separator`、`popupProps`。 |
+| `selectPicker`   | 单值或选项值数组                       | 单选/多选弹窗。使用 `type: "radio" \| "checkbox"`、`options`、`fieldNames`、`title` 和 `popupProps`。                      |
+| `selector`       | 单值或选项值数组                       | 行内选项选择器。使用 `options`、`multiple` 和 `fieldNames`；适合不需要弹窗的选项组。                                       |
+| `cascader`       | 级联路径数组                           | 级联选择弹窗。使用 `options`、`fieldNames`、`showAllLevels`、`separator`、`title` 和 `popupProps`。                        |
+| `date`           | 字符串、字符串数组或 `Date`            | 底部日期/时间选择器。使用 Vant DatePicker Props、`format`、`title`、`popupProps` 和 `onConfirm`。                          |
+| `calendar`       | 字符串、字符串数组、`Date` 或 `Date[]` | 日历选择。通过 `type: "single" \| "range" \| "multiple"` 指定选择模式，并使用 `format`、`title`、`separator`。             |
+| `rate`           | 数字                                   | 星级评分。使用 `count`、`allowHalf` 及 Vant Rate Props。                                                                   |
+| `slider`         | 数字或数值范围                         | 滑块选择。使用 `min`、`max`、`step` 和 `range`。                                                                           |
+| `stepper`        | 数字                                   | 步进器。使用 `min`、`max`、`step`、`integer`、`decimalLength` 和 `allowEmpty`。                                            |
+| `upload`         | `UploadFile[]`                         | 文件上传与预览。使用 `accept`、`maxCount`、`uploader`、`propsHttp`、`listType`、`deletable` 和 `previewOptions`。          |
+
+`radio`、`checkbox`、`picker`、`selectPicker`、`selector` 和 `cascader` 支持在 `componentProps.dict` 中配置远程选项；其余兼容的 Vant Props 也可直接放入 `componentProps`。
+
+每个 Renderer 的 Props 都通过字段 `componentProps` 配置。例如：
+
+```ts
+const schemas: SchemxField[] = [
+  {
+    name: "level",
+    label: "满意度",
+    componentType: "rate",
+    componentProps: {
+      count: 5,
+      allowHalf: true,
+    },
+  },
+  {
+    name: "attachments",
+    label: "附件",
+    componentType: "upload",
+    componentProps: {
+      maxCount: 3,
+      accept: ".pdf,.doc,.docx",
+    },
+  },
+]
+```
+
+根入口导出各 Renderer 组件及其 Props 类型，例如 `InputRenderer`、`InputRendererProps`、`UploadRenderer` 和 `UploadRendererProps`，便于覆盖默认注册或单独使用。
+
+## Schema
+
+`@schemx/vant` 重新导出 `SchemxField` 与 Core 的所有类型。Schema 有 3 种结构：
+
+| 类型         | 关键字段                                           | 用途                                 |
+| ------------ | -------------------------------------------------- | ------------------------------------ |
+| 普通字段     | `name`、`label`、`componentType`、`componentProps` | 使用一个 Vant Renderer 渲染字段。    |
+| 分组字段     | `label`、`children`、`collapsible`、`collapsed`    | 组织静态字段子树，并控制收起与展开。 |
+| 动态依赖字段 | `to`、`renderer`                                   | 根据当前表单值动态返回一组字段。     |
+
+Schema 通用状态、分组折叠参数和动态依赖示例见 [`@schemx/core`](../core)。Vue 组件 Props、Slots 和组合式 API 见 [`@schemx/vue`](../vue)。
+
+## 覆盖或新增 Renderer
+
+根入口的自动注册使用 Vue 全局 `rendererRegistry`。可通过同一实例覆盖某个类型，或注册新类型：
+
+```ts
+import { rendererRegistry } from "@schemx/vant"
+
+import CustomInput from "./CustomInput.vue"
+
+rendererRegistry.register("input", CustomInput)
+rendererRegistry.register("addressPicker", AddressPicker)
+```
+
+需要避免全局共享时，创建独立 `RendererRegistry` 并将其传给 `<Schemx :renderer-registry="registry" />` 或 `useForm({ rendererRegistry: registry })`。
 
 ### `input` / `InputRenderer`
 
@@ -589,19 +637,19 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 - **Dictionary：** 不支持。
 - **行为：** 默认使用 Renderer 子目录内实现的 `defaultMaskFormatter` 脱敏，展开后 `formatter` 只改变展示、不改变真实回传值；无确认步骤，展开输入继承清空能力；`disabled` 不可展开，`readonly` 仅在 `revealWhenReadonly` 为真时可查看完整值。`defaultMaskFormatter` 不从 `@schemx/vant` 根入口导出。
 
-| 包内重写 / 新增字段           | 类型 / 说明                                                                |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| `value`                       | `SensitiveInputValue`，真实值。                                            |
-| `onChange`                    | 始终回传真实字符串。                                                       |
-| `formatter`                   | 完整值展示格式化。                                                         |
-| `maskFormatter`               | 脱敏格式化；未传时使用子目录内的 `defaultMaskFormatter`。                  |
-| `defaultRevealed`             | 非受控初始展开状态。                                                       |
-| `revealable`                  | 是否允许展开。                                                             |
-| `revealText` / `hideText`     | 按钮文案。                                                                 |
-| `revealIcon` / `hideIcon`     | 按钮图标。                                                                 |
-| `focusOnReveal`               | 展开后是否聚焦。                                                           |
-| `hideOnBlur`                  | 失焦后是否重新脱敏。                                                       |
-| `revealWhenReadonly`          | 只读时是否允许展开。                                                       |
+| 包内重写 / 新增字段       | 类型 / 说明                                               |
+| ------------------------- | --------------------------------------------------------- |
+| `value`                   | `SensitiveInputValue`，真实值。                           |
+| `onChange`                | 始终回传真实字符串。                                      |
+| `formatter`               | 完整值展示格式化。                                        |
+| `maskFormatter`           | 脱敏格式化；未传时使用子目录内的 `defaultMaskFormatter`。 |
+| `defaultRevealed`         | 非受控初始展开状态。                                      |
+| `revealable`              | 是否允许展开。                                            |
+| `revealText` / `hideText` | 按钮文案。                                                |
+| `revealIcon` / `hideIcon` | 按钮图标。                                                |
+| `focusOnReveal`           | 展开后是否聚焦。                                          |
+| `hideOnBlur`              | 失焦后是否重新脱敏。                                      |
+| `revealWhenReadonly`      | 只读时是否允许展开。                                      |
 
 组件通过 `reveal-change` 事件通知展开状态变化；该事件参数为 `(revealed: boolean)`。展开状态由内部管理，初始状态可通过 `defaultRevealed` 设置。
 
@@ -669,10 +717,10 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 | `className`             | 根元素类名。                                                     |
 | `showUpload`            | 是否显示上传入口。                                               |
 | `multiple`              | 是否允许多文件选择，默认 `true`。                                |
-| `listType`              | `"card" \| "list"`；图片卡片或横向附件列表，默认 `"card"`。   |
-| `imageFit`              | 图片缩略图填充方式，默认 `"cover"`。                            |
+| `listType`              | `"card" \| "list"`；图片卡片或横向附件列表，默认 `"card"`。      |
+| `imageFit`              | 图片缩略图填充方式，默认 `"cover"`。                             |
 | `previewFullImage`      | 是否允许点击图片打开全屏预览，默认 `true`。                      |
-| `previewOptions`        | 透传给 Vant `ImagePreview` 的配置；图片与起始位置由组件控制。     |
+| `previewOptions`        | 透传给 Vant `ImagePreview` 的配置；图片与起始位置由组件控制。    |
 | `disableUpload`         | 隐藏上传入口，不影响已有文件的删除。                             |
 | `deletable`             | 是否可删除。                                                     |
 | `readonly` / `disabled` | 只读、禁用状态。                                                 |
@@ -982,10 +1030,10 @@ const schemas = [
 
 Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型的结构见 [工具函数](#工具函数)。
 
-| 分类          | 导出                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 分类          | 导出                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Renderer 类型 | `InputRendererProps`、`InputValue`、`TextRendererProps`、`TextValue`、`TextAreaRendererProps`、`TextAreaAutosize`、`TextAreaValue`、`CheckboxRendererProps`、`CheckboxOption`、`CheckboxValue`、`DateRendererProps`、`DateValue`、`CalendarRendererProps`、`CalendarValue`、`NumberRendererProps`、`NumberValue`、`PickerRendererProps`、`PickerFieldNames`、`PickerValue`、`RadioRendererProps`、`RadioOption`、`RadioValue`、`RateRendererProps`、`RateValue`、`SliderRendererProps`、`SliderValue`、`StepperRendererProps`、`StepperValue`、`SwitchRendererProps`、`SwitchValue`、`UploadRendererProps`、`UploadFile`、`UploadListType`、`UploadValue`、`CascaderRendererProps`、`CascaderFieldNames`、`CascaderValue`、`SelectorRendererProps`、`SelectorOption`、`SelectorProps`、`SelectValue`、`SelectPickerFieldNames`、`SelectPickerOption`、`SelectPickerRendererProps`、`SelectPickerValue`、`SensitiveInputRendererProps`、`SensitiveInputValue` |
-| 工具类型      | `RendererMode`、`FindTreeItemResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 工具类型      | `RendererMode`、`FindTreeItemResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### Vue 自有传递运行时值
 

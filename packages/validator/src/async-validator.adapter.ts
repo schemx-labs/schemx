@@ -12,13 +12,13 @@ import type {
 import type { Rule, RuleItem } from "async-validator"
 
 /**
- * async-validator 单字段 descriptor。
+ * async-validator 字段规则输入。
  *
- * 可以传入单条 descriptor，也可以传入按声明顺序执行的 descriptor 数组。
+ * 类型上支持单个 `RuleItem` 或按声明顺序组织的规则数组。
  */
 export type AsyncValidatorDescriptor = RuleItem | readonly RuleItem[]
 
-// async-validator descriptor 中允许触发校验的字段名。
+// 用于识别 async-validator 规则输入的配置字段名。
 const asyncValidatorDescriptorKeys = [
   "type",
   "required",
@@ -40,7 +40,8 @@ const asyncValidatorDescriptorKeys = [
 /**
  * async-validator 校验规则适配器。
  *
- * async-validator descriptor 是自描述规则：注册 adapter 后可直接放入字段 `rules`。
+ * 适配器通过规则对象中的已知配置字段识别输入，并将其转换为 Core 原生校验规则。
+ * 注册 adapter 后，async-validator 规则可直接放入字段 `rules`。
  */
 export interface AsyncValidatorValidationAdapter extends ValidationAdapter<AsyncValidatorDescriptor> {
   /**
@@ -48,23 +49,21 @@ export interface AsyncValidatorValidationAdapter extends ValidationAdapter<Async
    */
   readonly id: "async-validator"
   /**
-   * 判断值是否为合法的 async-validator 单字段 descriptor。
+   * 判断值是否包含可由 async-validator 适配器处理的规则配置。
    *
-   * @param value - 待识别的规则值。
-   * @returns 值是否为 descriptor 对象或仅含 descriptor 对象的数组。
+   * @param value - 待识别的规则输入。
+   * @returns 值是否包含 async-validator 支持的规则字段。
    */
   isRule(value: unknown): value is AsyncValidatorDescriptor
   /**
-   * 把 async-validator descriptor 解析为原生校验规则。
+   * 将 async-validator 规则输入转换为 Core 原生校验规则。
    *
-   * 直接复用 Core `ValidationAdapter<AsyncValidatorDescriptor>` 的 `resolve` 签名，
-   * 与 Core 契约完全一致。
-   *
+   * @typeParam TValue - 当前字段值类型。
    * @typeParam TValues - 表单值类型。
    * @typeParam TName - 当前字段路径。
-   * @param rule - 已通过 `isRule()` 识别的 descriptor。
-   * @param context - 当前字段的校验配置。
-   * @returns 单条原生校验规则，由 Validator 执行 descriptor 并映射错误。
+   * @param rule - 已通过 `isRule()` 识别的 async-validator 规则输入。
+   * @param context - 当前字段的名称和标签等解析上下文。
+   * @returns 由 Validator 执行的原生校验规则列表。
    */
   resolve: ValidationAdapter<AsyncValidatorDescriptor>["resolve"]
 }
@@ -82,7 +81,7 @@ export interface AsyncValidatorValidationAdapter extends ValidationAdapter<Async
  *
  */
 export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
-  // 将外部 descriptor 解析为 Core 原生校验规则的适配函数。
+  // 将外部规则输入解析为 Core 原生校验规则的适配函数。
   const resolve: AsyncValidatorValidationAdapter["resolve"] = <
     TValue,
     TValues extends Values,
@@ -91,7 +90,7 @@ export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
     input: unknown
   ) => {
     if (!isAsyncValidatorDescriptor(input)) {
-      throw new TypeError("async-validator descriptor 必须为对象或对象数组")
+      throw new TypeError("async-validator 规则输入必须为包含有效规则字段的对象")
     }
 
     return [createAsyncValidatorValidationRule<TValue, TValues, TName>(input)]
@@ -101,14 +100,14 @@ export function createAsyncValidatorAdapter(): AsyncValidatorValidationAdapter {
 }
 
 /**
- * 将 async-validator descriptor 包装为原生校验规则。
+ * 将 async-validator 规则输入包装为 Core 原生校验规则。
  *
- * 规则执行时把当前字段值注入完整表单值快照作为校验来源，使 descriptor 的自定义
- * validator 可读取关联字段；校验被中止时按无问题处理，避免返回陈旧错误。
+ * 规则执行时把当前字段值注入完整表单值快照作为校验来源，使自定义 validator
+ * 可以读取关联字段；校验被中止时按无问题处理，避免返回陈旧错误。
  *
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 当前字段路径。
- * @param descriptor - 已校验的单字段 async-validator descriptor。
+ * @param descriptor - 已通过规则识别的 async-validator 规则输入。
  * @returns 供 Validator 执行的原生校验规则。
  */
 function createAsyncValidatorValidationRule<
@@ -124,10 +123,15 @@ function createAsyncValidatorValidationRule<
 }
 
 /**
- * 用 async-validator 执行单字段 descriptor 校验，并映射为 Schemx 校验结果。
+ * 用 async-validator 执行当前字段规则，并映射为 Schemx 校验结果。
  *
- * 将当前字段值注入完整表单值快照作为校验来源，使 descriptor 的自定义 validator
+ * 将当前字段值注入完整表单值快照作为校验来源，使规则中的自定义 validator
  * 可读取关联字段；校验被中止时按无问题处理，避免返回陈旧错误。
+ *
+ * @param descriptor - 当前字段的 async-validator 规则输入。
+ * @param value - 当前字段待校验的值。
+ * @param context - 当前校验运行的上下文及取消信号。
+ * @returns Core 统一格式的校验结果。
  */
 async function validateDescriptor(
   descriptor: AsyncValidatorDescriptor,
@@ -137,13 +141,13 @@ async function validateDescriptor(
   // 校验已被新一轮校验或销毁中止：返回成功以避免写入陈旧错误。
   if (context.signal.aborted) return { valid: true }
 
-  // async-validator 以字符串 key 注册 descriptor，需将字段路径转为字符串。
+  // async-validator 以字符串 key 注册规则输入，需将字段路径转为字符串。
   const name = String(context.name)
 
   // 保留其他字段，供 async-validator 的自定义 validator 读取完整表单上下文。
   const source = { ...context.values, [name]: value }
 
-  // 只为当前字段创建 async-validator descriptor。
+  // 只为当前字段创建 async-validator 规则配置。
   const schema = new Schema({ [name]: descriptor as Rule })
 
   try {
@@ -160,24 +164,25 @@ async function validateDescriptor(
 }
 
 /**
- * 校验值是否为合法的 async-validator descriptor。
+ * 判断值是否为可识别的 async-validator 规则输入。
  *
- * descriptor 可为单条对象或对象数组；数组中的每个元素也必须为对象。
+ * 当前实现要求输入为非数组对象，并且至少包含一个 async-validator 规则字段。
  */
 function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDescriptor {
   if (value === null || typeof value !== "object") {
     return false
   }
 
-  // 将单条 descriptor 统一包装成待检查数组。
-  const rules = Array.isArray(value) ? value : [value]
+  // Standard Schema（包括 Zod）交给内置 adapter
+  if ("~standard" in value) {
+    return false
+  }
 
-  return rules.every(
-    (item) =>
-      typeof item === "object" &&
-      item !== null &&
-      !Array.isArray(item) &&
-      Object.keys(item).some((key) => asyncValidatorDescriptorKeys.includes(key as any))
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).some((key) => asyncValidatorDescriptorKeys.includes(key as any))
   )
 }
 
@@ -186,6 +191,9 @@ function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDesc
  *
  * 按声明顺序映射每条错误，并保留原始错误对象作为 issue 的 `cause`；
  * 若错误中不含可识别的校验失败，视为非预期异常重新抛出。
+ *
+ * @param error - async-validator 抛出的异常对象。
+ * @returns Core 统一格式的失败结果。
  */
 function toValidationResult(error: unknown): ValidationRuleResult {
   // 提取 async-validator 提供的结构化错误列表。
@@ -209,6 +217,9 @@ function toValidationResult(error: unknown): ValidationRuleResult {
  *
  * async-validator 校验失败时抛出的异常带有 `errors` 数组；其他异常返回空列表，
  * 交由调用方决定是否重新抛出。
+ *
+ * @param error - 待检查的异常值。
+ * @returns 经过基本结构过滤的 async-validator 错误列表。
  */
 function getValidationErrors(error: unknown): readonly AsyncValidatorError[] {
   if (typeof error !== "object" || error === null || !("errors" in error)) return []
@@ -220,9 +231,12 @@ function getValidationErrors(error: unknown): readonly AsyncValidatorError[] {
 }
 
 /**
- * 判断值是否为 async-validator 单条错误对象。
+ * 判断值是否为 async-validator 的单条错误对象。
  *
  * 错误对象为非 null 对象；此处仅做宽松结构判定，具体字段在映射时再安全读取。
+ *
+ * @param value - 待检查的错误值。
+ * @returns 值是否为非 null 对象。
  */
 function isAsyncValidatorError(value: unknown): value is AsyncValidatorError {
   return typeof value === "object" && value !== null
@@ -233,11 +247,11 @@ function isAsyncValidatorError(value: unknown): value is AsyncValidatorError {
  */
 interface AsyncValidatorError {
   /**
-   * 失败时由 descriptor 或库默认提供的展示消息。
+   * 失败时由规则输入或库默认提供的展示消息。
    */
   readonly message?: string
   /**
-   * 失败字段路径，用于在多字段 descriptor 中定位错误来源。
+   * 失败字段路径，用于定位校验错误所属的字段。
    */
   readonly field?: string
 }

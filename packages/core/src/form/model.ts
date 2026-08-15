@@ -1,13 +1,11 @@
 import { batchUpdates, createSignalEffect } from "../reactivity"
 import { createStore, type Store } from "../store"
 import {
-  createValidationController,
-  createValidator,
-  type CreateValidatorOptions,
-  type FieldValidationConfig,
+  createValidation,
+  type CreateValidationOptions,
+  type ValidationFieldConfig,
   type ValidationAdapterOption,
-  type ValidationController,
-  type Validator,
+  type Validation,
 } from "../validator"
 
 import type { ValidationRuleRegistry } from "../registry"
@@ -34,7 +32,7 @@ export interface CreateFormModelOptions<TValues extends Values> {
   /**
    * 无法解析规则时调用的错误回调。
    */
-  onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
+  onRuleError?: CreateValidationOptions<TValues>["onRuleError"]
 }
 
 /**
@@ -48,13 +46,9 @@ export interface FormModel<TValues extends Values> {
    */
   readonly store: Store<TValues>
   /**
-   * 执行字段与表单校验的 Validator。
+   * 管理字段规则编译、执行、错误状态和生命周期的校验域。
    */
-  readonly validator: Validator<TValues>
-  /**
-   * 维护字段校验配置同步的 Controller。
-   */
-  readonly validation: ValidationController<TValues>
+  readonly validation: Validation<TValues>
   /**
    * 重置字段值并清空校验错误。
    */
@@ -102,7 +96,7 @@ export interface RuntimeFormModelPort<TValues extends Values> {
    * 同步字段校验配置并返回是否发生变化。
    */
   syncValidationField<TName extends NamePath<TValues>>(
-    config: FieldValidationConfig<TValues, TName>
+    config: ValidationFieldConfig<TValues, TName>
   ): boolean
   /**
    * 移除指定字段的校验配置。
@@ -137,10 +131,10 @@ export function createRuntimeFormModelPort<TValues extends Values>(
   const setInitialValues = model.store.setInitialValues.bind(model.store)
 
   // 为 Runtime 安全绑定字段校验配置同步方法。
-  const syncValidationField = model.validation.syncField.bind(model.validation)
+  const syncValidationField = model.validation.syncSchemaField.bind(model.validation)
 
   // 为 Runtime 安全绑定字段校验配置移除方法。
-  const removeValidationField = model.validation.removeField.bind(model.validation)
+  const removeValidationField = model.validation.removeSchemaField.bind(model.validation)
 
   // 为 Runtime 安全绑定临时移除 Schema 规则的方法。
   const removeSchemaValidationField = model.validation.removeSchemaField.bind(
@@ -171,14 +165,10 @@ export function createFormModel<TValues extends Values>(
   // Store 保存字段值与交互状态。
   const store = createStore<TValues>({ initialValues: options.initialValues })
 
-  // Validator 执行原生规则并归档校验错误。
-  const validator = createValidator<TValues>({ onRuleError: options.onRuleError })
-
-  // ValidationController 将字段配置解析为 Validator 可执行规则。
-  const validation = createValidationController({
-    validator,
-    registry: options.validationRuleRegistry,
+  const validation = createValidation<TValues>({
+    validationRuleRegistry: options.validationRuleRegistry,
     validatorAdapters: options.validatorAdapters,
+    onRuleError: options.onRuleError,
   })
 
   // 防止销毁后重复注册或释放响应式副作用。
@@ -192,7 +182,7 @@ export function createFormModel<TValues extends Values>(
    */
   const reset: FormModel<TValues>["reset"] = () => {
     store.reset()
-    validator.clearErrors()
+    validation.clearErrors()
   }
 
   /**
@@ -242,13 +232,11 @@ export function createFormModel<TValues extends Values>(
 
     effectDisposers.clear()
     validation.destroy()
-    validator.destroy()
     store.destroy()
   }
 
   return {
     store,
-    validator,
     validation,
     reset,
     effect,

@@ -96,6 +96,90 @@ describe("Form reset callbacks", () => {
 
     form.destroy()
   })
+
+  it("Form 与 formApi 提供 Store 和 Validator 的单字段与多字段操作", async () => {
+    let formApi: SchemxFormApi<{ name: string; age: number }> | undefined
+
+    const form = createForm<{ name: string; age: number }>({
+      initialValues: { name: "Ada", age: 20 },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          dependencies: {
+            triggerFields: ["name"],
+            trigger: (_values, nextFormApi) => {
+              formApi = nextFormApi
+            },
+          },
+        },
+      ],
+    })
+
+    await form.waitForDependencies()
+
+    expect(formApi).toBeDefined()
+
+    form.setInitialValue("name", "初始姓名")
+    form.setFieldValue("name", "修改后的姓名")
+    form.resetField("name")
+    expect(form.getFieldValue("name")).toBe("初始姓名")
+
+    form.setFieldsValue({ name: "Ada", age: 21 })
+    form.setFieldsTouched(["name", "age"])
+    expect(form.isFieldsTouched(["name", "age"])).toBe(true)
+
+    form.setFieldsPending(["name", "age"], true)
+    expect(form.isFieldsPending(["name", "age"])).toBe(true)
+
+    form.setFieldsErrors([
+      { name: "name", errors: ["姓名错误"] },
+      { name: "age", errors: ["年龄错误"] },
+    ])
+    expect(form.getFieldsErrors(["name", "age"])).toEqual([
+      { name: "name", errors: ["姓名错误"] },
+      { name: "age", errors: ["年龄错误"] },
+    ])
+    form.clearFieldsErrors(["name", "age"])
+
+    form.setFieldsRules([
+      {
+        name: "name",
+        rules: [{ validate: () => ({ valid: true }) }],
+      },
+    ])
+    form.removeFieldsRules(["name"])
+
+    if (!formApi) {
+      throw new Error("formApi 未初始化")
+    }
+
+    const api = formApi
+
+    api.setFieldsValue({ name: "Grace", age: 22 })
+    expect(api.getFieldsValue(["name", "age"])).toEqual({ name: "Grace", age: 22 })
+    api.setFieldsTouched(["name", "age"], true)
+    expect(api.isFieldsTouched(["name", "age"])).toBe(true)
+    api.setFieldsPending(["name", "age"], true)
+    expect(api.isFieldsPending(["name", "age"])).toBe(true)
+    api.setFieldsErrors([{ name: "name", errors: ["接口错误"] }])
+    expect(api.getFieldsErrors(["name"])).toEqual([
+      { name: "name", errors: ["接口错误"] },
+    ])
+    api.clearFieldsErrors(["name"])
+    api.clearErrors()
+
+    api.setFieldsRules([
+      {
+        name: "name",
+        rules: [{ validate: () => ({ valid: true }) }],
+      },
+    ])
+    api.removeFieldsRules(["name"])
+
+    form.destroy()
+  })
 })
 
 describe("Form submit loading", () => {

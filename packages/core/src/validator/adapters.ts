@@ -1,33 +1,14 @@
-import { createStandardSchemaValidationRule } from "./rules"
-
 import type {
-  AdapterRule,
   ValidationAdapter,
   ValidationAdapterID,
   ValidationAdapterOption,
-  ValidationRule,
 } from "./types"
-import type { NamePath, StandardSchemaV1, Values } from "../types"
-
-// 处理所有实现 Standard Schema V1 协议的规则。
-const standardSchemaAdapter: ValidationAdapter<StandardSchemaV1<unknown, unknown>> = {
-  id: Symbol("built-in-standard-schema"),
-  isRule: isStandardSchema,
-  resolve<TValue, TValues extends Values, TName extends NamePath<TValues>>(
-    rule: AdapterRule | StandardSchemaV1<unknown, unknown>
-  ): readonly ValidationRule<TValue, TValues, TName>[] {
-    return [
-      createStandardSchemaValidationRule<TValue, TValues, TName>(
-        rule as StandardSchemaV1<TValue, unknown>
-      ),
-    ]
-  },
-}
 
 /**
- * 创建当前 Form 的 adapter 路由表。
+ * 将当前 Form 的 adapter 注册项整理为路由表。
  *
- * Standard Schema adapter 始终最先注册，并使用模块私有 symbol ID，不能被外部覆盖。
+ * 内置 adapter 与用户 adapter 均由调用方传入；本函数只负责统一归一化注册项、
+ * 校验 adapter ID，并处理重复 ID 的覆盖规则。
  *
  * @param validatorAdapters - 要注册的 adapter 或带覆盖选项的注册项。
  * @returns 按 adapter ID 建立的只读路由表。
@@ -36,10 +17,8 @@ const standardSchemaAdapter: ValidationAdapter<StandardSchemaV1<unknown, unknown
 export function createValidationAdapterMap(
   validatorAdapters: readonly ValidationAdapterOption[]
 ): ReadonlyMap<ValidationAdapterID, ValidationAdapter> {
-  // 当前 Form 的 adapter 路由表，先放入不可覆盖的 Standard Schema adapter。
-  const map = new Map<ValidationAdapterID, ValidationAdapter>([
-    [standardSchemaAdapter.id, standardSchemaAdapter],
-  ])
+  // 当前 Form 的 adapter 路由表；内置 adapter 的注册顺序由调用方决定。
+  const map = new Map<ValidationAdapterID, ValidationAdapter>()
 
   for (const option of validatorAdapters) {
     // 将简写注册项统一为 adapter 与覆盖标志。
@@ -99,16 +78,6 @@ export function findValidationAdapter(
   }
 
   return matched[0]
-}
-
-/**
- * 判断值是否为 Standard Schema V1 协议对象。
- *
- * @param value - 待识别的规则值。
- * @returns 值是否包含 Standard Schema V1 的 `~standard` 标记。
- */
-function isStandardSchema(value: unknown): value is StandardSchemaV1<unknown, unknown> {
-  return typeof value === "object" && value !== null && "~standard" in value
 }
 
 /**
