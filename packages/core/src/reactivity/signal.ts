@@ -16,10 +16,10 @@
  * @module core/reactivity/signal
  */
 
-import { signal, Signal } from "@preact/signals-core"
+import { signal } from "@preact/signals-core"
 
 import type { DeepReadonly } from "../types/utils"
-import type { ReadonlySignal, SignalOptions } from "@preact/signals-core"
+import type { ReadonlySignal, Signal, SignalOptions } from "@preact/signals-core"
 
 /**
  * 深层只读响应式 signal 类型。
@@ -87,5 +87,4 @@ export function createSignal<TValue>(
   return signal(value, options)
 }
 
-export { Signal }
-export type { SignalOptions, ReadonlySignal }
+export type { ReadonlySignal, Signal, SignalOptions }

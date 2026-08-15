@@ -234,6 +234,7 @@ export function isDescendantFieldPath<TValues extends Values>(
   ancestor: NamePath<TValues>
 ): boolean {
   const candidateSegments = toNamePathSegments(candidate)
+
   const ancestorSegments = toNamePathSegments(ancestor)
 
   return (

@@ -3,9 +3,9 @@ import { createStore, type Store } from "../store"
 import {
   createValidation,
   type CreateValidationOptions,
-  type ValidationFieldConfig,
-  type ValidationAdapterOption,
   type Validation,
+  type ValidationAdapterOption,
+  type ValidationFieldConfig,
 } from "../validator"
 
 import type { ValidationRuleRegistry } from "../registry"

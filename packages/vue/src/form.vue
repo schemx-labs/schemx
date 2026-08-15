@@ -373,11 +373,13 @@
   /**
    * 暴露当前表单 Facade 的完整控制 API，供模板 ref 调用。
    */
-  defineExpose({
+  const exposed: SchemxInstance<TValues> = {
     ...formInstance,
     submit: handleSubmit,
     reset: handleReset,
-  })
+  }
+
+  defineExpose(exposed)
 </script>
 
 <template>

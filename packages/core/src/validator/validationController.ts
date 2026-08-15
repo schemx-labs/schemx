@@ -190,6 +190,7 @@ class ValidationControllerImpl<
    */
   public constructor(options: CreateValidationControllerOptions<TValues>) {
     const { validatorAdapters } = options
+
     this.validator = options.validator
 
     this.registry = options.registry
@@ -242,6 +243,7 @@ class ValidationControllerImpl<
    */
   public removeFieldRules(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
+
     const state = this.fields.get(key)
 
     if (!state?.overrideConfig) return
@@ -255,6 +257,7 @@ class ValidationControllerImpl<
    */
   public removeSchemaField(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
+
     const state = this.fields.get(key)
 
     if (!state?.schemaConfig) return
@@ -356,9 +359,13 @@ class ValidationControllerImpl<
     update: (state: FieldValidationState<TValues>) => FieldValidationState<TValues>
   ): void {
     const key = createFieldKey(name)
+
     const current = this.fields.get(key) ?? { indexedRuleNames: [] }
+
     const next = update(current)
+
     const config = this.getEffectiveConfig(next)
+
     const ruleNames = getRuleNames(config?.rules)
 
     this.updateRuleIndex(key, current.indexedRuleNames, ruleNames)
@@ -368,6 +375,7 @@ class ValidationControllerImpl<
   /** 删除字段状态及其全部命名规则索引。 */
   private deleteFieldState(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
+
     const state = this.fields.get(key)
 
     if (!state) return
@@ -392,6 +400,7 @@ class ValidationControllerImpl<
   /** 编译并写入字段当前生效的规则。 */
   private applyField(name: NamePath<TValues>): boolean {
     const state = this.fields.get(createFieldKey(name))
+
     const config = state && this.getEffectiveConfig(state)
 
     if (!config) return true
@@ -566,6 +575,7 @@ class ValidationControllerImpl<
 
     for (const key of affected) {
       const state = this.fields.get(key)
+
       const config = state && this.getEffectiveConfig(state)
 
       if (config) this.applyConfig(config)

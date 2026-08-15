@@ -93,7 +93,7 @@ export function createStandardSchemaAdapter(): StandardSchemaValidationAdapter {
  * const rule = createStandardSchemaValidationRule(emailSchema)
  * ```
  */
-function createStandardSchemaValidationRule<
+export function createStandardSchemaValidationRule<
   TValue,
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,

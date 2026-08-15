@@ -8,10 +8,10 @@
  */
 
 export {
-  Signal,
   createSignal,
   type DeepReadonlySignal,
   type ReadonlySignal,
+  type Signal,
   type SignalOptions,
 } from "./signal"
 

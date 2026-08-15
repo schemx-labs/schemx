@@ -1,6 +1,8 @@
 import type { NamePath, RequiredRule, Values } from "../types"
 import type { ValidationRule } from "./types"
 
+export { createStandardSchemaValidationRule } from "./standardSchema.adapter"
+
 // required 规则默认采用的空值判定。
 const defaultIsEmpty = (value: unknown): boolean =>
   value === undefined ||

@@ -19,7 +19,7 @@ import type { Rule, RuleItem } from "async-validator"
 export type AsyncValidatorDescriptor = RuleItem | readonly RuleItem[]
 
 // 用于识别 async-validator 规则输入的配置字段名。
-const asyncValidatorDescriptorKeys = [
+const asyncValidatorDescriptorKeys: ReadonlySet<string> = new Set([
   "type",
   "required",
   "pattern",
@@ -35,7 +35,7 @@ const asyncValidatorDescriptorKeys = [
   "message",
   "asyncValidator",
   "validator",
-] as const
+])
 
 /**
  * async-validator 校验规则适配器。
@@ -166,24 +166,35 @@ async function validateDescriptor(
 /**
  * 判断值是否为可识别的 async-validator 规则输入。
  *
- * 当前实现要求输入为非数组对象，并且至少包含一个 async-validator 规则字段。
+ * 对象输入必须至少包含一个 async-validator 规则字段；数组输入中的每一项都必须
+ * 满足相同条件，空数组表示没有规则，也属于合法 descriptor。
  */
 function isAsyncValidatorDescriptor(value: unknown): value is AsyncValidatorDescriptor {
   if (value === null || typeof value !== "object") {
     return false
   }
 
-  // Standard Schema（包括 Zod）交给内置 adapter
+  if (Array.isArray(value)) {
+    return value.every(isAsyncValidatorRuleItem)
+  }
+
+  return isAsyncValidatorRuleItem(value)
+}
+
+/**
+ * 判断值是否为包含有效配置字段的 async-validator 单条规则。
+ */
+function isAsyncValidatorRuleItem(value: unknown): value is RuleItem {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false
+  }
+
+  // Standard Schema（包括 Zod）交给内置 adapter。
   if ("~standard" in value) {
     return false
   }
 
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value).some((key) => asyncValidatorDescriptorKeys.includes(key as any))
-  )
+  return Object.keys(value).some((key) => asyncValidatorDescriptorKeys.has(key))
 }
 
 /**

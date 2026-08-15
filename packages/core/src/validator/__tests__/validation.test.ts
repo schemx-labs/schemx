@@ -15,7 +15,7 @@ describe("createValidation", () => {
 
     validation.registerRule("email", {
       validate: (value) =>
-        value.includes("@")
+        value?.includes("@")
           ? { valid: true }
           : { valid: false, issues: [{ message: "邮箱格式不正确", code: "email" }] },
     })
