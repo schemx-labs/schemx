@@ -40,9 +40,7 @@ import { onUnmounted } from "vue"
 
 import { createWatch } from "@schemx/core"
 
-import { getCoreForm } from "../bridge"
-
-import { useFormContext } from "./provideFormContext"
+import { useFormRuntimeContext } from "./provideFormContext"
 
 import type { NamePath, Values } from "@schemx/core"
 import type {
@@ -126,10 +124,10 @@ export function useWatch<TValues extends Values>(
     WatchFieldCallback<TValues> | WatchFieldsCallback<TValues> | CreateWatchOptions,
   maybeOptions?: CreateWatchOptions
 ): () => void {
-  const form = useFormContext<TValues>()
+  const runtime = useFormRuntimeContext<TValues>()
 
   const dispose = (createWatch as any)(
-    getCoreForm(form),
+    runtime.core,
     nameOrNamesOrCallback,
     callbackOrOptions,
     maybeOptions

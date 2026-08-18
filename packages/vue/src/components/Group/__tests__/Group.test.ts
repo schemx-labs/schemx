@@ -1,21 +1,23 @@
 /**
- * FormGroup 容器行为测试。
+ * Group 容器行为测试。
  *
  * 覆盖可见性、受控折叠、禁用交互、销毁策略和 ARIA 属性。
  *
- * @module components/FormGroup/__tests__/FormGroup
+ * @module components/Group/__tests__/Group
  */
+
+import { h } from "vue"
 
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
-import FormGroup from "../index"
+import Group from "../index"
 
 import type { SchemxViewGroupSchema } from "@schemx/core"
 
-describe("FormGroup", () => {
+describe("Group", () => {
   it("visible=false 时不渲染 Group DOM", () => {
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: { schema: createSchema({ visible: false }) },
     })
 
@@ -25,7 +27,7 @@ describe("FormGroup", () => {
   it("非受控模式使用 defaultCollapsed 初始化并触发变更回调", async () => {
     const onCollapsedChange = vi.fn()
 
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -46,7 +48,7 @@ describe("FormGroup", () => {
   it("受控模式由 collapsed 驱动且不会自行修改状态", async () => {
     const onCollapsedChange = vi.fn()
 
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -73,7 +75,7 @@ describe("FormGroup", () => {
   })
 
   it("从受控模式切回非受控模式时应保留最后一个受控值", async () => {
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -100,7 +102,7 @@ describe("FormGroup", () => {
   it("disabled 时禁止鼠标和键盘折叠交互", async () => {
     const onCollapsedChange = vi.fn()
 
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -119,13 +121,13 @@ describe("FormGroup", () => {
     expect(onCollapsedChange).not.toHaveBeenCalled()
     expect(header.attributes("tabindex")).toBe("-1")
     expect(header.attributes("aria-disabled")).toBe("true")
-    expect(wrapper.classes()).toContain("is-disabled")
+    expect(wrapper.find(".schemx-group").classes()).toContain("is-disabled")
   })
 
   it("readonly 仅约束后代字段，不阻止 Group 折叠", async () => {
     const onCollapsedChange = vi.fn()
 
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -138,12 +140,12 @@ describe("FormGroup", () => {
     await wrapper.find(".schemx-group__header").trigger("click")
 
     expect(onCollapsedChange).toHaveBeenCalledWith(true)
-    expect(wrapper.classes()).toContain("is-readonly")
+    expect(wrapper.find(".schemx-group").classes()).toContain("is-readonly")
     expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
   })
 
   it("destroyOnCollapse=true 时卸载后代实例", () => {
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -159,7 +161,7 @@ describe("FormGroup", () => {
   })
 
   it("destroyOnCollapse=false 时隐藏 Body 但保留后代实例", () => {
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           collapsible: true,
@@ -178,7 +180,7 @@ describe("FormGroup", () => {
   })
 
   it("可折叠标题和 Body 应建立完整的 ARIA 关联", () => {
-    const wrapper = mount(FormGroup, {
+    const wrapper = mount(Group, {
       props: {
         schema: createSchema({
           key: "profile/basic",
@@ -206,17 +208,83 @@ describe("FormGroup", () => {
   })
 
   it("清洗后 key 相同的独立 Group 仍应生成不同 ARIA ID", () => {
-    const first = mount(FormGroup, {
+    const first = mount(Group, {
       props: { schema: createSchema({ key: "profile/basic", collapsible: true }) },
     })
 
-    const second = mount(FormGroup, {
+    const second = mount(Group, {
       props: { schema: createSchema({ key: "profile-basic", collapsible: true }) },
     })
 
     expect(first.find(".schemx-group__header").attributes("id")).not.toBe(
       second.find(".schemx-group__header").attributes("id")
     )
+  })
+
+  it("应支持以 Group key 命名的 Header、Label 与 Content 插槽", () => {
+    const wrapper = mount(Group, {
+      props: { schema: createSchema({ key: "profile.basic", collapsible: true }) },
+      slots: {
+        "profile.basicHeader": ({
+          collapsed,
+          toggle,
+        }: {
+          collapsed: boolean
+          toggle: () => void
+        }) =>
+          h(
+            "button",
+            { "data-testid": "header-slot", onClick: toggle },
+            String(collapsed)
+          ),
+        "profile.basicLabel": () => h("span", { "data-testid": "label-slot" }),
+        "profile.basicContent": () => h("div", { "data-testid": "content-slot" }),
+      },
+    })
+
+    expect(wrapper.find('[data-testid="header-slot"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="label-slot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="content-slot"]').exists()).toBe(true)
+  })
+
+  it("Label 插槽应替换默认标题并保留默认折叠控制", async () => {
+    const wrapper = mount(Group, {
+      props: { schema: createSchema({ key: "profile", collapsible: true }) },
+      slots: {
+        profileLabel: () => h("span", { "data-testid": "label-slot" }, "自定义资料"),
+      },
+    })
+
+    expect(wrapper.get('[data-testid="label-slot"]').text()).toBe("自定义资料")
+    expect(wrapper.find(".schemx-group__title").exists()).toBe(false)
+
+    await wrapper.find(".schemx-group__header").trigger("click")
+
+    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+  })
+
+  it("应合并内部、父级和 Schema 的 class/style 到 Group wrapper", () => {
+    const wrapper = mount(Group, {
+      props: {
+        schema: createSchema({
+          class: "schema-group",
+          style: { color: "red" },
+        }),
+        class: "parent-group",
+        style: { color: "blue", marginTop: "4px" },
+      },
+    })
+
+    const group = wrapper.find(".schemx-group")
+
+    const groupWrapper = wrapper.find(".schemx-group-wrapper")
+
+    expect(groupWrapper.exists()).toBe(true)
+    expect(groupWrapper.classes()).toContain("parent-group")
+    expect(groupWrapper.classes()).toContain("schema-group")
+    expect(groupWrapper.attributes("style")).toContain("color: red")
+    expect(groupWrapper.attributes("style")).toContain("margin-top: 4px")
+    expect(group.classes()).toContain("schemx-group")
   })
 })
 

@@ -94,7 +94,7 @@ export interface FormController<TValues extends Values> {
  *
  * @typeParam TValues - 表单值对象类型。
  * @param options - 控制器依赖的 Model、Runtime 和提交回调。
- * @returns 可供 FormFacade 调用的控制器。
+ * @returns 可供 FormInstance 调用的控制器。
  */
 export function createFormController<TValues extends Values>(options: {
   model: FormModel<TValues>
@@ -132,7 +132,7 @@ export function createFormController<TValues extends Values>(options: {
    * 校验单个字段，并确保字段依赖已经完成解析。
    */
   const validateField: FormController<TValues>["validateField"] = async (name) => {
-    await runtime.waitForIdle()
+    await runtime.waitForCriticalIdle()
 
     return model.validation.validateField(name, model.store.getFieldsValue())
   }
@@ -179,7 +179,7 @@ export function createFormController<TValues extends Values>(options: {
    */
   const validate = withLock(async (): Promise<ValidationResult<TValues>> => {
     // 依赖解析是否在超时前完成。
-    const depsReady = await runtime.waitForIdle()
+    const depsReady = await runtime.waitForCriticalIdle()
 
     if (!depsReady) {
       return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
@@ -196,7 +196,7 @@ export function createFormController<TValues extends Values>(options: {
       setLoading(true)
 
       // 提交前等待所有字段依赖稳定。
-      const depsReady = await runtime.waitForIdle()
+      const depsReady = await runtime.waitForCriticalIdle()
 
       if (!depsReady) {
         return createDependencyTimeoutResult(model.store.getFieldsSnapshot())

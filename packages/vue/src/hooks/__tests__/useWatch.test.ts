@@ -1,5 +1,5 @@
 /**
- * useWatch 与 Vue Facade 兼容测试。
+ * useWatch 与 Vue Instance 兼容测试。
  *
  * @module hooks/__tests__/useWatch
  */
@@ -14,7 +14,7 @@ import { createFormContext } from "../provideFormContext"
 import { useWatch } from "../useWatch"
 
 describe("useWatch", () => {
-  it("通过 Facade Context 仍使用原始 Core 订阅语义", () => {
+  it("通过 Instance Context 仍使用原始 Core 订阅语义", () => {
     const form = createForm({ initialValues: { name: "Ada" } })
 
     const values: Array<string | undefined> = []

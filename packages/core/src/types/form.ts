@@ -1,7 +1,7 @@
 /**
  * 表单组件 Props 类型
  *
- * 定义 schemx 组件及 FormItem 组件的 Props 接口。
+ * 定义 schemx 组件及 Field 展示层的 Props 接口。
  *
  * @module types/form
  */
@@ -14,6 +14,7 @@ import { SchemxRendererKey } from "./renderer"
 import { FieldRules } from "./rule"
 
 import type { SchemxConfigKey } from "../config"
+import type { FieldArrayInstance, FieldArrayPath } from "../fieldArray"
 import type { RegistryOptions, ValidationRuleEntry } from "../registry"
 import type { SchemxBaseField, SchemxField } from "./schema"
 import type { SchemxViewSchema } from "../runtime/view"
@@ -174,6 +175,16 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * ```
    */
   setFieldsValue: (values: Partial<TValues>) => void
+
+  /**
+   * 获取指定数组字段的动态结构控制器。
+   *
+   * FieldArray 会把数组根作为原子值边界，同时允许通过
+   * `users.0.name` 这样的普通路径访问数组项内部字段。
+   */
+  getOrCreateFieldArray<TPath extends FieldArrayPath<TValues>>(
+    name: TPath
+  ): FieldArrayInstance<TValues, TPath>
 
   /**
    * 获取单个字段值的快照
@@ -866,6 +877,7 @@ export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
   | "getFieldsValue"
   | "setFieldValue"
   | "setFieldsValue"
+  | "getOrCreateFieldArray"
   | "getFieldSnapshot"
   | "getFieldsSnapshot"
   | "getInitialValue"
@@ -927,16 +939,6 @@ export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
   ): FieldValue<TValues, TName> | undefined
 
   /**
-   * `getFieldSnapshot` 的兼容别名。
-   *
-   * @param name - 字段路径
-   * @returns 字段当前快照
-   */
-  getSnapshot<TName extends NamePath<TValues>>(
-    name: TName
-  ): FieldValue<TValues, TName> | undefined
-
-  /**
    * 获取多个字段值。
    *
    * @param name - 可选的字段路径数组；不传时返回全部字段值。
@@ -946,6 +948,16 @@ export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
   getValues(): TValues
   /** 按字段路径返回部分表单值。 */
   getValues<TName extends NamePath<TValues>>(name?: TName[]): Partial<TValues>
+
+  /**
+   * `getFieldSnapshot` 的兼容别名。
+   *
+   * @param name - 字段路径
+   * @returns 字段当前快照
+   */
+  getSnapshot<TName extends NamePath<TValues>>(
+    name: TName
+  ): FieldValue<TValues, TName> | undefined
 
   /**
    * 获取当前表单值的快照

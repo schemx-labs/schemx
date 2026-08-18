@@ -89,8 +89,8 @@ export function WithRemoteOptions(WrappedComponent: Component): Component {
     setup(props, { attrs, slots }: SetupContext) {
       const dictionary = normalizeDictionary(props.dict)
 
-      // 内嵌于 FormItem 时自动从字段 Context 获取目标字段；显式 fieldName
-      // 保留给脱离 FormItem 的独立使用场景。
+      // 内嵌于 Field 时自动从字段 Context 获取目标字段；显式 fieldName
+      // 保留给脱离 Field 的独立使用场景。
       const fieldName = dictionary
         ? (attrs.fieldName as string | undefined) ?? useFieldContext().name
         : undefined

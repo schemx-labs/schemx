@@ -15,8 +15,8 @@
     "noEmit": true
   },
   "files": [
-    "packages/vue/src/components/FormGroup/index.tsx",
-    "packages/vue/src/components/FormItem/index.tsx"
+    "packages/vue/src/components/Group/index.tsx",
+    "packages/vue/src/components/Field/index.tsx"
   ],
   "include": [
     "packages/*/src/**/*.ts",

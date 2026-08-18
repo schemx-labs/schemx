@@ -1,7 +1,7 @@
 /**
  * useField - 字段控制 Hook。
  *
- * 复用共享 Vue Form Bridge 的字段 Ref，并将 Core 的字段写入、校验和规则操作
+ * 复用共享 Vue Runtime 的字段 Ref，并将 Core 的字段写入、校验和规则操作
  * 保持在原始 `createField()` 实例上。
  *
  * @module hooks/useField
@@ -11,54 +11,47 @@ import { computed } from "vue"
 
 import { createField } from "@schemx/core"
 
-import {
-  getCoreForm,
-  getVueFieldBridge,
-  getVueFormBridge,
-  type VueFieldBridge,
-  type VueSchemxInstance,
-} from "../bridge"
+import { type VueFieldState, type VueSchemxInstance } from "../bridge"
 
-import { useFormContext } from "./provideFormContext"
+import { useFormContext, useFormRuntimeContext } from "./provideFormContext"
 
 import type { FieldInstance } from "../types/field"
-import type { NamePath, Values } from "@schemx/core"
+import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
 /**
- * 创建一份字段控制器，并将所有读取状态投影到共享 Vue Field Bridge。
+ * 创建一份字段控制器，并将所有读取状态投影到共享 Vue Field State。
  */
 function createFieldHook<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 >(
   form: VueSchemxInstance<TValues>,
+  coreForm: SchemxInstance<TValues>,
   name: TName,
-  fieldBridge: VueFieldBridge<TValues, TName>
+  fieldState: VueFieldState<TValues, TName>
 ): FieldInstance<TValues> {
-  const coreForm = getCoreForm(form)
-
   const coreField = createField<TValues>(coreForm, name)
 
-  const errors = computed(() => fieldBridge.errors.value)
+  const errors = computed(() => fieldState.errors.value)
 
-  const dirty = computed(() => fieldBridge.touched.value)
+  const dirty = computed(() => fieldState.touched.value)
 
-  const pending = computed(() => fieldBridge.pending.value)
+  const pending = computed(() => fieldState.pending.value)
 
-  const getValue = (): ReturnType<typeof coreField.getValue> => fieldBridge.value.value
+  const getValue = (): ReturnType<typeof coreField.getValue> => fieldState.value.value
 
-  const getErrors = (): ReturnType<typeof coreField.getErrors> => fieldBridge.errors.value
+  const getErrors = (): ReturnType<typeof coreField.getErrors> => fieldState.errors.value
 
-  const isTouched = (): boolean => fieldBridge.touched.value
+  const isTouched = (): boolean => fieldState.touched.value
 
-  const isPending = (): boolean => fieldBridge.pending.value
+  const isPending = (): boolean => fieldState.pending.value
 
   const getValues = (): Readonly<TValues> => form.getFieldsValue()
 
   return {
     ...coreField,
     name,
-    value: fieldBridge.value,
+    value: fieldState.value,
     errors,
     dirty,
     pending,
@@ -81,13 +74,11 @@ export const useField = <TValues extends Values = Values>(
 ): FieldInstance<TValues> => {
   const form = useFormContext<TValues>()
 
-  const coreForm = getCoreForm(form)
+  const runtime = useFormRuntimeContext<TValues>()
 
-  const formBridge = getVueFormBridge(coreForm)
+  const fieldState = runtime.getFieldState(name)
 
-  const fieldBridge = getVueFieldBridge(formBridge, name)
-
-  return createFieldHook(form, name, fieldBridge)
+  return createFieldHook(form, runtime.core, name, fieldState)
 }
 
 export default useField

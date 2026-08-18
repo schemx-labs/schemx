@@ -22,6 +22,7 @@ import { subscribeViewSchemas } from "./view"
 import { createRootRuntimeViewState } from "./view/createViewState"
 
 import type { SchemaRuntimeContext } from "./context"
+import type { SchedulerDiagnostics, SchedulerOptions } from "./scheduler"
 import type { SchemxViewSchema } from "./view"
 import type { RuntimeFormModelPort } from "../form/model"
 import type {
@@ -72,6 +73,8 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   lifecycleHooks?: LifecycleListener<RuntimeNode<TValues>>
   /** 是否启用 Runtime diagnostics。 */
   debug?: boolean
+  /** Scheduler 时间片与 idle 任务配置。 */
+  schedulerOptions?: SchedulerOptions
 }
 
 /**
@@ -150,6 +153,12 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   waitForIdle(timeout?: number): Promise<boolean>
   /**
+   * 仅等待 normal/post 任务及其异步工作完成，不等待 idle 后台任务。
+   */
+  waitForCriticalIdle(timeout?: number): Promise<boolean>
+  /** 读取 Scheduler 调度诊断快照。 */
+  getSchedulerDiagnostics(): SchedulerDiagnostics
+  /**
    * 安排一次 Runtime 空闲后的 post 任务。
    *
    * @param id - 用于调度去重的任务标识。
@@ -179,7 +188,11 @@ export function createSchemaRuntime<TValues extends Values>(
   const scope = createScope()
 
   // 执行 dependency 与 post 阶段任务。
-  const scheduler = createScheduler()
+  const scheduler = createScheduler({
+    ...options.schedulerOptions,
+    collectDiagnostics:
+      options.schedulerOptions?.collectDiagnostics ?? options.debug === true,
+  })
 
   // 提供跨节点资源索引和字段查询能力。
   const runtimeRegistry = createRuntimeRegistry<TValues>()
@@ -421,6 +434,17 @@ export function createSchemaRuntime<TValues extends Values>(
   }
 
   /**
+   * 提交与校验使用的关键空闲边界，不被后台 idle 任务阻塞。
+   */
+  const waitForCriticalIdle = (timeout = 10000): Promise<boolean> => {
+    return scheduler.whenIdle({ timeout, includeIdle: false })
+  }
+
+  const getSchedulerDiagnostics = (): SchedulerDiagnostics => {
+    return scheduler.getDiagnostics()
+  }
+
+  /**
    * 在当前 Runtime 的作用域内注册 post 阶段任务。
    */
   const deferPostTask = (id: string, task: () => void): void => {
@@ -458,6 +482,8 @@ export function createSchemaRuntime<TValues extends Values>(
     getViewSchemas,
     subscribeViewSchemas: subscribeRuntimeViewSchemas,
     waitForIdle,
+    waitForCriticalIdle,
+    getSchedulerDiagnostics,
     deferPostTask,
     dispose,
   }

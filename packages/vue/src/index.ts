@@ -24,8 +24,8 @@ export * from "./hooks"
 export { WithRemoteOptions } from "./hocs"
 
 /** 组件 */
-export { default as FormItem } from "./components/FormItem"
-export { default as FormGroup } from "./components/FormGroup"
+export { default as Field } from "./components/Field"
+export { default as Group } from "./components/Group"
 
 /** schemx/core 导出 */
 export * from "@schemx/core"

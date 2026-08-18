@@ -1,11 +1,11 @@
 /**
- * FormItem 集成测试
+ * Field 集成测试
  *
- * 验证 FormItem 组件与 core 处理后的 ViewSchema 的集成行为：
+ * 验证 Field 组件与 core 处理后的 ViewSchema 的集成行为：
  * - 新格式 Dependency_Object 由 core 解析并驱动动态渲染
  * - 无 dependencies 时静态值直接生效
  *
- * @module components/FormItem/__tests__/FormItem
+ * @module components/Field/__tests__/Field
  */
 
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
@@ -22,7 +22,7 @@ import {
 } from "@/hooks/provideFormConfigContext"
 import { SCHEMX_FORM_INSTANCE_KEY } from "@/hooks/provideFormContext"
 
-import FormItem from "../index"
+import Field from "../index"
 
 import type { SchemxBaseField } from "@schemx/core"
 
@@ -129,12 +129,14 @@ const DictionaryRenderer = defineComponent({
 
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
-describe("FormItem 集成测试", () => {
+describe("Field 集成测试", () => {
   it("字段整体插槽应接收并更新当前字段值", async () => {
     const schema: SchemxBaseField = {
       name: "website",
       label: "个人网站",
       componentType: "input" as any,
+      class: "schema-website",
+      style: { color: "red" },
     }
 
     const form = createForm({
@@ -144,8 +146,15 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("input" as any, InputRenderer)
 
-    const wrapper = mount(FormItem, {
-      props: { schema: form.getViewSchemas()[0] },
+    const wrapper = mount(Field, {
+      props: {
+        schema: form.getViewSchemas()[0],
+        class: "parent-website",
+        style: { color: "blue", marginTop: "4px" },
+      },
+      attrs: {
+        "data-testid": "website-wrapper",
+      },
       slots: {
         website: (slotProps: { value?: string }) =>
           h("span", { "data-testid": "website-slot" }, slotProps.value),
@@ -158,12 +167,132 @@ describe("FormItem 集成测试", () => {
       },
     })
 
+    const fieldWrapper = wrapper.get('[data-testid="website-wrapper"]')
+
+    expect(fieldWrapper.classes()).toContain("schemx-field-wrapper")
+    expect(fieldWrapper.classes()).toContain("parent-website")
+    expect(fieldWrapper.classes()).toContain("schema-website")
+    expect(fieldWrapper.attributes("style")).toContain("color: red")
+    expect(fieldWrapper.attributes("style")).toContain("margin-top: 4px")
+    expect(wrapper.find(".schemx-field").exists()).toBe(false)
     expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schemx.dev")
 
     form.setFieldValue("website", "schema-form.dev")
     await nextTick()
 
     expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schema-form.dev")
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("应渲染字段各区域插槽", () => {
+    const slotProps: Record<string, Record<string, unknown>> = {}
+
+    const form = createForm({
+      initialValues: { "profile.name": "Schemx" },
+      schemas: [
+        {
+          name: "profile.name",
+          label: "名称",
+          componentType: "input",
+        } as any,
+      ],
+    })
+
+    form.registerRenderer("input", InputRenderer)
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      slots: {
+        "profile.nameLabel": (props: Record<string, unknown>) => {
+          slotProps.label = props
+
+          return h("span", { "data-testid": "label-slot" })
+        },
+        "profile.nameBefore": (props: Record<string, unknown>) => {
+          slotProps.before = props
+
+          return h("span", { "data-testid": "before-slot" })
+        },
+        "profile.nameContent": (props: Record<string, unknown>) => {
+          slotProps.content = props
+
+          return h("div", { "data-testid": "content-slot" }, [props.columnElement as any])
+        },
+        "profile.nameAfter": (props: Record<string, unknown>) => {
+          slotProps.after = props
+
+          return h("span", { "data-testid": "after-slot" })
+        },
+        "profile.nameError": (props: Record<string, unknown>) => {
+          slotProps.error = props
+
+          return h("span", { "data-testid": "error-slot" })
+        },
+      },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    for (const name of ["label", "before", "content", "after", "error"]) {
+      expect(wrapper.find(`[data-testid="${name}-slot"]`).exists()).toBe(true)
+      expect(slotProps[name].schema).toEqual(form.getViewSchemas()[0])
+      expect(slotProps[name].componentProps).toEqual(expect.any(Object))
+      expect(slotProps[name].value).toBe("Schemx")
+      expect(slotProps[name].field).toBeDefined()
+      expect(slotProps[name].form).toBe(form)
+    }
+
+    expect(slotProps.content.columnElement).toBeDefined()
+    expect(slotProps.error.errors).toEqual([])
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("应合并内部、父级和 Schema 的 class/style 到字段容器", () => {
+    const form = createForm({
+      initialValues: { username: "Schemx" },
+      schemas: [
+        {
+          name: "username",
+          label: "用户名",
+          componentType: "input",
+          class: "schema-item",
+          style: { color: "red" },
+        } as any,
+      ],
+    })
+
+    form.registerRenderer("input", InputRenderer)
+
+    const wrapper = mount(Field, {
+      props: {
+        schema: form.getViewSchemas()[0],
+        class: "parent-item",
+        style: { color: "blue", marginTop: "4px" },
+      },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    const itemWrapper = wrapper.find(".schemx-field-wrapper")
+
+    expect(itemWrapper.classes()).toContain("schemx-field-wrapper")
+    expect(itemWrapper.classes()).toContain("parent-item")
+    expect(itemWrapper.classes()).toContain("schema-item")
+    expect(itemWrapper.attributes("style")).toContain("color: red")
+    expect(itemWrapper.attributes("style")).toContain("margin-top: 4px")
+    expect(wrapper.find(".schemx-field").classes()).not.toContain("schema-item")
 
     wrapper.unmount()
     form.destroy()
@@ -194,7 +323,7 @@ describe("FormItem 集成测试", () => {
     form.destroy()
   })
 
-  it("Dictionary HOC 脱离 FormItem 时仍可使用显式 fieldName", async () => {
+  it("Dictionary HOC 脱离 Field 时仍可使用显式 fieldName", async () => {
     const form = createForm({
       initialValues: { province: "GD", city: "Guangzhou" },
     })
@@ -247,7 +376,7 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("dictionary" as any, DictionaryRendererWithRemoteOptions)
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -286,7 +415,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("input", InputRenderer)
     await form.waitForDependencies()
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -299,7 +428,7 @@ describe("FormItem 集成测试", () => {
     await nextTick()
 
     // province 有值 → visible 应为 true → 组件应渲染
-    expect(wrapper.find(".schemx-item-wrapper").exists()).toBe(true)
+    expect(wrapper.find(".schemx-field-wrapper").exists()).toBe(true)
 
     // 将 province 设为空字符串
     form.setFieldValue("province", "")
@@ -308,7 +437,7 @@ describe("FormItem 集成测试", () => {
     await nextTick()
 
     // province 为空 → visible 应为 false → 组件不应渲染
-    expect(wrapper.find(".schemx-item-wrapper").exists()).toBe(false)
+    expect(wrapper.find(".schemx-field-wrapper").exists()).toBe(false)
 
     wrapper.unmount()
     form.destroy()
@@ -328,7 +457,7 @@ describe("FormItem 集成测试", () => {
       visible: false,
     }
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema },
       global: {
         provide: {
@@ -341,7 +470,7 @@ describe("FormItem 集成测试", () => {
     await nextTick()
 
     // visible 为 false（静态值），组件不应渲染
-    expect(wrapper.find(".schemx-item-wrapper").exists()).toBe(false)
+    expect(wrapper.find(".schemx-field-wrapper").exists()).toBe(false)
 
     wrapper.unmount()
     form.destroy()
@@ -362,7 +491,7 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("input", InputRenderer)
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -395,7 +524,7 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("controlled" as any, ControlledRenderer)
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -432,7 +561,7 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("change" as any, ChangeRenderer)
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -469,7 +598,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -505,7 +634,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -546,7 +675,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -562,8 +691,8 @@ describe("FormItem 集成测试", () => {
 
     expect(input.attributes("data-readonly")).toBe("true")
     expect(input.attributes("data-disabled")).toBe("false")
-    expect(wrapper.find(".schemx-item__required").exists()).toBe(false)
-    expect(wrapper.find(".schemx-item.is-readonly").exists()).toBe(true)
+    expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
+    expect(wrapper.find(".schemx-field.is-readonly").exists()).toBe(true)
 
     await input.setValue("")
     await input.trigger("blur")
@@ -593,7 +722,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -605,7 +734,7 @@ describe("FormItem 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-item__required").exists()).toBe(false)
+    expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
@@ -637,7 +766,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -649,7 +778,7 @@ describe("FormItem 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-item__required").exists()).toBe(true)
+    expect(wrapper.find(".schemx-field__required").exists()).toBe(true)
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
@@ -680,7 +809,7 @@ describe("FormItem 集成测试", () => {
 
       form.registerRenderer("input", InputRenderer)
 
-      const wrapper = mount(FormItem, {
+      const wrapper = mount(Field, {
         props: { schema: form.getViewSchemas()[0] },
         global: {
           provide: {
@@ -692,7 +821,7 @@ describe("FormItem 集成测试", () => {
 
       await nextTick()
 
-      expect(wrapper.find(".schemx-item__required").exists()).toBe(false)
+      expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
 
       wrapper.unmount()
       form.destroy()
@@ -718,7 +847,7 @@ describe("FormItem 集成测试", () => {
 
     form.registerRenderer("probe" as any, ProbeRenderer)
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {
@@ -730,7 +859,7 @@ describe("FormItem 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-item__required").exists()).toBe(expected)
+    expect(wrapper.find(".schemx-field__required").exists()).toBe(expected)
 
     wrapper.unmount()
     form.destroy()
@@ -755,7 +884,7 @@ describe("FormItem 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     await form.waitForDependencies()
 
-    const wrapper = mount(FormItem, {
+    const wrapper = mount(Field, {
       props: { schema: form.getViewSchemas()[0] },
       global: {
         provide: {

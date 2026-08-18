@@ -1,9 +1,10 @@
-import { createFieldKey } from "../utils"
+import { createFieldKey, toNamePathSegments } from "../utils"
 
 import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 import { createRequiredValidationRule } from "./rules"
 import { createStandardSchemaAdapter } from "./standardSchema.adapter"
 
+import type { FieldArrayChange } from "../fieldArray"
 import type {
   ValidationAdapter,
   ValidationAdapterID,
@@ -126,6 +127,8 @@ export interface ValidationController<TValues extends Values> {
    * @param name - 要移除的字段路径。
    */
   removeField(name: NamePath<TValues>): void
+  /** 清理 FieldArray 结构变化后的过期配置结果。 */
+  invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void
   /**
    * 取消 Registry 订阅并清除 Controller 持有的字段配置索引。
    */
@@ -274,6 +277,31 @@ class ValidationControllerImpl<
   public removeField(name: NamePath<TValues>): void {
     this.deleteFieldState(name)
     this.validator.removeFieldRules(name)
+  }
+
+  /** 清理超出长度的索引配置，并使受影响的校验运行失效。 */
+  public invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void {
+    for (const state of [...this.fields.values()]) {
+      const name = state.schemaConfig?.name ?? state.overrideConfig?.name
+
+      if (!name) continue
+
+      const segments = toNamePathSegments(name)
+
+      const pathSegments = toNamePathSegments(path)
+
+      const index = Number(segments[pathSegments.length])
+
+      if (!pathSegments.every((segment, position) => segments[position] === segment)) {
+        continue
+      }
+
+      if (Number.isInteger(index) && index >= change.nextLength) {
+        this.deleteFieldState(name)
+      }
+    }
+
+    this.validator.invalidateFieldArray(path, change)
   }
 
   /**

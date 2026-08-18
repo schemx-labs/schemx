@@ -12,6 +12,7 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
+import { createSignalEffect } from "../../reactivity"
 import { createStore } from "../store"
 
 interface TestForm {
@@ -33,6 +34,42 @@ interface NestedForm {
 
 // 单元测试：验证 Store 的构造、字段读写、嵌套字段、快照、touched/pending 状态、reset/destroy 等完整 API
 describe("Store", () => {
+  it("新组合根保留普通字段、owner 和数组根行为", () => {
+    const store = createStore<{
+      name: string
+      profile: { city?: string }
+      users: Array<{ name: string }>
+    }>({
+      initialValues: {
+        name: "John",
+        profile: {},
+        users: [{ name: "Alice" }],
+      },
+    })
+
+    store.setFieldValue("name", "Jane")
+    store.registerFieldPath("profile")
+    store.setFieldValue("profile.city", "Shanghai" as never)
+
+    const handle = store.getFieldArrayHandle("users")
+
+    handle.register()
+    const initialKey = handle.getStructure()[0]
+
+    store.setFieldValue("users", [{ name: "Bob" }])
+    const replacedKey = handle.getStructure()[0]
+
+    expect(store.getFieldValue("name")).toBe("Jane")
+    expect(store.getFieldValue("profile.city" as never)).toBe("Shanghai")
+    expect(replacedKey).not.toBe(initialKey)
+
+    store.resetField("users")
+    expect(handle.getStructure()[0]).not.toBe(replacedKey)
+    expect(store.getFieldSnapshot("users")).toEqual([{ name: "Alice" }])
+
+    store.destroy()
+  })
+
   describe("字段注册", () => {
     it("支持单个和批量注册字段路径", () => {
       const store = createStore<{
@@ -48,6 +85,104 @@ describe("Store", () => {
 
       expect(store.getFieldValue("profile.name")).toBe("Jane")
       expect(store.getFieldValue("profile.email")).toBe("jane@example.com")
+    })
+
+    it("普通复合 owner 的子路径使用细粒度响应式", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "john@example.com" } },
+      })
+
+      store.registerFieldPath("profile")
+
+      let nameRuns = 0
+
+      let emailRuns = 0
+
+      const disposeName = createSignalEffect(() => {
+        nameRuns += 1
+        store.getFieldValue("profile.name" as any)
+      })
+
+      const disposeEmail = createSignalEffect(() => {
+        emailRuns += 1
+        store.getFieldValue("profile.email" as any)
+      })
+
+      store.setFieldValue("profile.email" as any, "jane@example.com")
+
+      expect(nameRuns).toBe(1)
+      expect(emailRuns).toBe(2)
+      expect(store.getFieldsSnapshot()).toEqual({
+        profile: { name: "John", email: "jane@example.com" },
+      })
+
+      store.setFieldValue("profile.name" as any, "Jane")
+
+      expect(nameRuns).toBe(2)
+      expect(emailRuns).toBe(2)
+
+      disposeName()
+      disposeEmail()
+      store.destroy()
+    })
+
+    it("普通复合 owner 的初始值、reset 和交互状态保持一致", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "john@example.com" } },
+      })
+
+      store.registerFieldPath("profile")
+      store.setInitialValue("profile.name" as any, "Default")
+      store.setFieldValue("profile.name" as any, "Changed")
+      store.setFieldValue("profile.email" as any, "changed@example.com")
+      store.setFieldTouched("profile.name" as any, true)
+      store.setFieldPending("profile.email" as any, true, "保存中")
+
+      store.resetField("profile.name" as any)
+
+      expect(store.getFieldValue("profile.name" as any)).toBe("Default")
+      expect(store.getFieldValue("profile.email" as any)).toBe("changed@example.com")
+      expect(store.isFieldTouched("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(true)
+      expect(store.getInitialValue("profile.name" as any)).toBe("Default")
+
+      store.reset({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+
+      expect(store.getFieldsSnapshot()).toEqual({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+      expect(store.getInitialValues()).toEqual({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+      expect(store.isFieldTouched("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(false)
+
+      store.destroy()
+    })
+
+    it("不同子路径即使值相同也保持独立状态", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "same", email: "same" } },
+      })
+
+      store.registerFieldPath("profile")
+      store.setFieldTouched("profile.name" as any, true)
+      store.setFieldPending("profile.email" as any, true)
+
+      expect(store.isFieldTouched("profile.name" as any)).toBe(true)
+      expect(store.isFieldTouched("profile.email" as any)).toBe(false)
+      expect(store.isFieldPending("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(true)
+
+      store.destroy()
     })
   })
 

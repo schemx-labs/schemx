@@ -177,7 +177,7 @@ onUnmounted(stop)
 - `SchemxFormProps` 支持 `rendererProps`、`onReset` 和 `onLoadingChange`，并将对应能力传递给内部创建的 Core Form。
 - `useForm()` 返回 `VueSchemxInstance`：常用值、错误、touched、pending 与 loading 读取可被 Vue effect 追踪；需要无依赖快照或原始实例时可使用已有快照 API 或 `getCoreForm()`。
 - `FormItem` 字段插槽与动态 ViewSchema 更新使用共享 Bridge，减少重复订阅并保持字段状态同步。
-- Vue Form Bridge 按表单、字段、Facade 与类型职责拆分为独立内部模块，并统一消费 Core 的 `FormStateAdapter` / `SnapshotSource`；`@schemx/vue` 根入口和公开 Hooks 保持不变，业务不应依赖内部源码路径。
+- Vue Form Bridge 按表单、字段、Instance 与类型职责拆分为独立内部模块，并统一消费 Core 的 `FormStateAdapter` / `SnapshotSource`；`@schemx/vue` 根入口和公开 Hooks 保持不变，业务不应依赖内部源码路径。
 
 ## Dependencies and Compatibility
 

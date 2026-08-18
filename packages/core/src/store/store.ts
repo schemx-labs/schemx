@@ -1,244 +1,108 @@
 /**
- * Store - 基于 FieldSignal 的表单数据存储中心
- *
- * 每个字段路径对应一个独立的 FieldSignal。字段值、初始值、
- * touched 和 pending 由同一个字段状态单元管理，支持自动依赖追踪和精确更新。
- *
- * @module core/store
- *
- * @example
- * ```typescript
- * const store = new Store({ initialValues: { name: 'John', age: 25 } })
- *
- * // 读写值
- * store.getFieldValue('name') // => 'John'
- * store.setFieldValue('name', 'Jane')
- *
- * // 批量操作
- * store.setFieldsValue({ name: 'Bob', age: 30 })
- * ```
+ * 组合 owner、字段状态、数组状态和快照模块，提供完整 Store 能力。
  */
+import { cloneDeep } from "es-toolkit"
 
-import { cloneDeep, isEqual } from "es-toolkit"
+import { batchUpdates } from "../reactivity"
+import { createFieldKey, getByPath } from "../utils"
 
-import {
-  batchUpdates,
-  createFieldSignal,
-  createFieldSignalMap,
-  createSignal,
-  onBatchComplete,
-} from "../reactivity"
-import {
-  areOverlappingFieldPaths,
-  collectObjectPathsByLeaf,
-  createFieldKey,
-  getByPath,
-  isDescendantFieldPath,
-  normalizeNamePath,
-  setByPath,
-} from "../utils"
+import { createFieldArrayStore, type FieldArrayStore } from "./fieldArrayStore"
+import { createFieldStateStore, type FieldStateStore } from "./fieldStateStore"
+import { createOwnedSubtreeRegistry, type OwnedSubtreeRegistry } from "./ownedSubtree"
+import { createStoreSnapshot, type StoreSnapshot } from "./storeSnapshot"
 
-import type { FieldSignal } from "../reactivity"
+import type { FieldArrayHandle, FieldArrayItemValue, FieldArrayPath } from "../fieldArray"
 import type { FieldValue, NamePath, Values } from "../types"
 import type { Store, StoreOptions, StorePending } from "./types"
 
-export type { Store, StoreOptions, StorePending, StoreState } from "./types"
-
 /**
- * 基于 FieldSignal 的表单数据存储中心。
- *
- * 每个字段路径对应一个独立的字段状态 signal。所有状态变更通过 reactive
- * effect 自动感知，无需手动订阅。
- *
- * @typeParam TValues - 表单值类型，默认为 Values
- * @example
- * ```typescript
- * const store = new Store({ initialValues: { name: 'John' } })
- * store.getFieldValue('name') // => 'John'
- * ```
+ * Store 的唯一组合根；实现类仅在模块内部使用。
  */
 class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   /**
-   * 每个字段路径对应一个 FieldSignal。
+   * 管理普通字段与数组根的 owner 归属。
    */
-  private fieldSignals = createFieldSignalMap<NamePath<TValues>, unknown>()
+  private readonly registry: OwnedSubtreeRegistry<TValues>
+  /**
+   * 管理完整值快照 revision 和缓存。
+   */
+  private readonly snapshot: StoreSnapshot<TValues>
+  /**
+   * 管理字段值、初始值及 touched/pending 状态。
+   */
+  private readonly fieldState: FieldStateStore<TValues>
+  /**
+   * 管理数组结构 key、数组根 replace 和结构监听。
+   */
+  private readonly fieldArray: FieldArrayStore<TValues>
+  /**
+   * 将值变更通知快照管理器的回调。
+   */
+  private readonly markValueChanged: (path: NamePath<TValues>) => void
+  /**
+   * 在当前 revision 内读取完整值快照的回调。
+   */
+  private readonly readFullSnapshot: () => TValues
 
   /**
-   * 已由 Schema Runtime 注册的字段值边界。
+   * 创建 Store 子模块并建立它们之间的窄依赖关系。
    *
-   * 批量写入命中该路径时，数组和对象都作为该字段的整体值保存，
-   * 不再继续展开为子路径 Signal。
-   */
-  private readonly registeredFieldPaths = new Map<string, NamePath<TValues>>()
-
-  /** 当前值变更的单调 revision；完整快照按此 revision 缓存。 */
-  private readonly valueRevision = createSignal(0)
-
-  /** 当前 batch 中发生值或字段结构变化的精确路径。 */
-  private readonly changedPaths = new Set<NamePath<TValues>>()
-
-  /** 已缓存完整快照对应的 revision。 */
-  private snapshotRevision = -1
-
-  /** 同一 revision 内复用的完整值快照。 */
-  private snapshotCache: TValues | undefined
-
-  /** 释放 batch 完成监听，避免 Store 销毁后保留引用。 */
-  private readonly disposeBatchListener: () => void
-
-  /**
-   * 与当前值隔离存储的初始字段值。
-   */
-  private initialValues: Partial<TValues>
-
-  /**
-   * 创建 Store 实例。
-   *
-   * 对 initialValues 进行深拷贝，确保内部状态与外部引用隔离。
-   * 为每个初始字段路径创建对应的 reactive value。
-   *
-   * @param options - 配置选项
+   * @param options Store 初始值配置。
    */
   constructor(options: StoreOptions<TValues> = {}) {
-    const initialValues = (options.initialValues ?? {}) as Partial<TValues>
-
-    this.initialValues = cloneDeep(initialValues)
-
-    // 为初始值的每个叶子路径创建 reactive value
-    const paths = collectObjectPathsByLeaf<TValues, NamePath<TValues>>(initialValues)
-
-    for (const path of paths) {
-      const value = getByPath<TValues, typeof path>(initialValues, path)
-
-      this.fieldSignals.set(
-        path,
-        createFieldSignal<typeof value>({
-          value: value,
-          initialValue: value,
-        })
-      )
+    this.registry = createOwnedSubtreeRegistry<TValues>()
+    this.snapshot = createStoreSnapshot<TValues>()
+    this.markValueChanged = (path) => {
+      this.snapshot.markValueChanged(path)
     }
 
-    this.disposeBatchListener = onBatchComplete(() => {
-      this.commitValueChanges()
+    this.fieldState = createFieldStateStore<TValues>({
+      initialValues: options.initialValues,
+      registry: this.registry,
+      markValueChanged: this.markValueChanged,
+    })
+    this.readFullSnapshot = () =>
+      this.snapshot.read(() => this.fieldState.buildFullSnapshot())
+    this.fieldArray = createFieldArrayStore<TValues>({
+      registry: this.registry,
+      fieldState: this.fieldState,
+      readSnapshot: this.readFullSnapshot,
+      markValueChanged: this.markValueChanged,
     })
   }
 
   /**
-   * 记录值或字段结构变化，延后到最外层 batch 一次性提交 revision。
-   */
-  private markValueChanged(path: NamePath<TValues>): void {
-    this.changedPaths.add(path)
-  }
-
-  /**
-   * 提交当前 batch 的字段变更并使完整快照缓存失效。
-   */
-  private commitValueChanges(): void {
-    if (this.changedPaths.size === 0) return
-
-    this.changedPaths.clear()
-    this.snapshotRevision = -1
-    this.valueRevision.value += 1
-  }
-
-  /**
-   * 返回当前 revision 的完整值快照；同一 revision 最多构建一次。
-   */
-  private getFullSnapshot(): TValues {
-    const revision = this.valueRevision.peek()
-
-    if (this.snapshotRevision === revision && this.snapshotCache) {
-      return this.snapshotCache
-    }
-
-    const result = {} as TValues
-
-    for (const path of this.fieldSignals.keys()) {
-      setByPath(result, path, this.getFieldSnapshot(path))
-    }
-
-    this.snapshotRevision = revision
-    this.snapshotCache = result
-
-    return result
-  }
-
-  /**
-   * 注册 Schema 字段路径，作为批量写入的原子值边界。
+   * 注册一个字段 owner；数组后代字段只实体化对应 Signal。
    *
-   * Runtime 在字段挂载时调用。若 Store 已因初始值或提前批量写入创建了
-   * 该字段的后代 Signal，则将它们归并为当前字段的整体 Signal。
+   * @param path 要注册的字段路径。
+   * @throws 当路径与已有不兼容 owner 重叠时抛出错误。
    */
   registerFieldPath<TName extends NamePath<TValues>>(path: TName): void {
-    const key = createFieldKey(path)
+    const plan = this.registry.prepareFieldRegistration(path)
 
-    if (this.registeredFieldPaths.has(key)) {
-      return
-    }
+    if (plan.action === "noop") return
 
-    for (const registeredPath of this.registeredFieldPaths.values()) {
-      if (areOverlappingFieldPaths(path, registeredPath)) {
-        throw new Error(
-          `[schemx] Field paths "${normalizeNamePath(path)}" and ` +
-            `"${normalizeNamePath(registeredPath)}" overlap. ` +
-            "A value subtree can only be owned by one schema field."
-        )
-      }
-    }
+    if (plan.action === "materializeDescendant") {
+      this.fieldState.materializeOwnedSignal(path, plan.resolved)
 
-    const currentValues = this.getFieldsSnapshot()
-
-    const currentValue = getByPath<TValues, TName>(currentValues, path)
-
-    const initialValue = getByPath<TValues, TName>(this.initialValues, path)
-
-    const descendantPaths = [...this.fieldSignals.keys()].filter((candidate) =>
-      isDescendantFieldPath(candidate, path)
-    )
-
-    const existingSignal = this.fieldSignals.peek(path) as
-      FieldSignal<FieldValue<TValues, TName>> | undefined
-
-    this.registeredFieldPaths.set(key, path)
-
-    if (existingSignal && descendantPaths.length === 0) {
       return
     }
 
     batchUpdates(() => {
-      for (const descendantPath of descendantPaths) {
-        this.fieldSignals.delete(descendantPath)
-      }
+      const currentValue = getByPath<TValues, TName>(this.readFullSnapshot(), path)
 
-      if (existingSignal) {
-        if (!isEqual(existingSignal.value.peek(), currentValue)) {
-          existingSignal.setValue(currentValue)
-        }
+      const initialValue = this.fieldState.getInitialValue(path)
 
-        existingSignal.setInitialValue(initialValue)
-      } else if (currentValue !== undefined || initialValue !== undefined) {
-        this.fieldSignals.set(
-          path,
-          createFieldSignal<FieldValue<TValues, TName>>({
-            value: currentValue,
-            initialValue,
-          })
-        )
-      }
-
-      if (descendantPaths.length > 0 || existingSignal === undefined) {
-        this.markValueChanged(path)
-      }
+      this.registry.commitFieldRegistration(plan)
+      this.fieldState.adoptOwnerRoot(path, currentValue, initialValue)
+      this.markValueChanged(path)
     })
   }
 
   /**
-   * 批量注册 Schema 字段路径。
+   * 在同一批处理中注册多个字段 owner。
    *
-   * 每个路径仍通过 `registerFieldPath` 执行，以保持重复路径和重叠路径的校验语义一致。
-   *
-   * @param paths - 要注册的字段路径数组。
+   * @param paths 要注册的字段路径列表。
    */
   registerFieldPaths<TName extends NamePath<TValues>>(paths: TName[]): void {
     batchUpdates(() => {
@@ -249,174 +113,68 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 按已注册字段边界将一个嵌套值对象拆为写入条目。
-   */
-  private collectValueEntries(
-    values: Partial<TValues>
-  ): Array<[NamePath<TValues>, unknown]> {
-    const entries: Array<[NamePath<TValues>, unknown]> = []
-
-    const visit = (value: unknown, path: string): void => {
-      const name = path as NamePath<TValues>
-
-      if (this.registeredFieldPaths.has(createFieldKey(name))) {
-        entries.push([name, value])
-
-        return
-      }
-
-      if (Array.isArray(value)) {
-        value.forEach((item, index) => {
-          visit(item, `${path}[${index}]`)
-        })
-
-        return
-      }
-
-      if (value !== null && typeof value === "object") {
-        for (const [key, child] of Object.entries(value)) {
-          visit(child, path ? `${path}.${key}` : key)
-        }
-
-        return
-      }
-
-      entries.push([name, value])
-    }
-
-    for (const [key, value] of Object.entries(values)) {
-      visit(value, key)
-    }
-
-    return entries
-  }
-
-  /**
-   * 获取或惰性创建指定路径的字段 signal。
+   * 读取指定字段的当前值。
    *
-   * 若该路径尚未注册对应 signal，则根据 initialValues 中的值创建新的
-   * FieldSignal。此方法确保字段读写时 signal 始终可用，避免空值判断。
-   *
-   * @param path - 字段路径
-   * @returns 该路径对应的 FieldSignal 实例
-   */
-  private getOrCreateFieldSignal<TName extends NamePath<TValues>>(
-    path: TName
-  ): FieldSignal<FieldValue<TValues, TName>> {
-    const initialValue = getByPath<TValues, TName>(this.initialValues, path)
-
-    let signal = this.fieldSignals.peek(path) as
-      FieldSignal<FieldValue<TValues, TName>> | undefined
-
-    if (!signal) {
-      signal = createFieldSignal<FieldValue<TValues, TName>>({
-        value: initialValue,
-        initialValue: initialValue,
-      })
-      this.fieldSignals.set(path, signal)
-    }
-
-    return signal
-  }
-
-  /**
-   * 获取指定路径的字段值。
-   *
-   * 读取对应 reactive value，在 effect 中使用时自动收集依赖。
-   *
-   * @param path - 字段路径，支持嵌套路径如 'user.name'
-   * @returns 字段当前值
-   *
-   * @example
-   * ```typescript
-   * store.getFieldValue('name')         // => 'John'
-   * store.getFieldValue('user.address') // => { city: 'Beijing', zip: '100000' }
-   * ```
+   * @param path 要读取的字段路径。
+   * @returns 当前字段值或 `undefined`。
    */
   getFieldValue<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    const signal = this.fieldSignals.get(path) as
-      FieldSignal<FieldValue<TValues, TName>> | undefined
-
-    return signal?.value.value
+    return this.fieldState.getFieldValue(path)
   }
 
   /**
-   * 设置指定路径的字段值。
+   * 设置字段当前值，并在数组根路径上统一转发为 replace。
    *
-   * 直接写入对应 reactive value，自动触发依赖它的 effect。
-   *
-   * @param path - 字段路径
-   * @param value - 要设置的值
-   *
-   * @example
-   * ```typescript
-   * store.setFieldValue('name', 'Jane')
-   * store.setFieldValue('user.age', 30)
-   * ```
+   * @param path 要写入的字段路径。
+   * @param value 要写入的字段值。
    */
   setFieldValue<TName extends NamePath<TValues>>(
     path: TName,
     value: FieldValue<TValues, TName> | undefined
   ): void {
     batchUpdates(() => {
-      const existingSignal = this.fieldSignals.peek(path)
+      const resolved = this.registry.resolve(path)
 
-      const signal = this.getOrCreateFieldSignal(path)
+      if (resolved?.owner.kind === "fieldArray" && resolved.isRoot) {
+        this.fieldArray.replaceRoot(path, value, { mode: "set" })
 
-      if (!existingSignal || !isEqual(signal.value.peek(), value)) {
-        signal.setValue(value)
-        this.markValueChanged(path)
+        return
       }
+
+      this.fieldState.setFieldValue(path, value)
     })
   }
 
   /**
-   * 获取多个字段的值。
-   *
-   * 不传参返回全量值，传入路径数组返回指定字段的值。
-   * 读取 reactive value 时会收集依赖。
-   *
-   * @param paths - 可选，要获取的字段路径数组
-   * @returns 全量值或指定字段的值
-   *
-   * @example
-   * ```typescript
-   * store.getFieldsValue()                  // => { name: 'John', age: 25 }
-   * store.getFieldsValue(['name', 'age'])   // => { name: 'John', age: 25 }
-   * ```
+   * 返回所有字段的当前值。
    */
   getFieldsValue(): TValues
-  /** 按指定字段路径返回部分表单值。 */
+  /**
+   * 返回指定字段的当前值。
+   *
+   * @param paths 要读取的字段路径列表。
+   */
   getFieldsValue<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
-  /** 按可选路径构造当前表单值结果。 */
-  getFieldsValue<TName extends NamePath<TValues>>(paths?: TName[]): Partial<TValues> {
-    const result = {} as Partial<TValues>
-
-    const pathsArr = paths ?? this.fieldSignals.keys()
-
-    for (const path of pathsArr) {
-      setByPath(result, path, this.getFieldValue(path))
-    }
-
-    return result
+  /**
+   * 根据是否提供路径列表读取完整或局部当前值。
+   */
+  getFieldsValue<TName extends NamePath<TValues>>(
+    paths?: TName[]
+  ): TValues | Partial<TValues> {
+    return paths === undefined
+      ? this.fieldState.getFieldsValue()
+      : this.fieldState.getFieldsValue(paths)
   }
 
   /**
-   * 批量设置多个字段的值。
+   * 按 owner 边界批量设置字段当前值。
    *
-   * 批量设置多个字段；每个字段写入都会更新对应 FieldSignal。
-   *
-   * @param values - 要设置的字段值对象
-   *
-   * @example
-   * ```typescript
-   * store.setFieldsValue({ name: 'Bob', age: 30 })
-   * ```
+   * @param values 要写入的完整或部分字段值。
    */
   setFieldsValue(values: Partial<TValues>): void {
-    const entries = this.collectValueEntries(values)
+    const entries = this.fieldState.collectValueEntries(values)
 
     batchUpdates(() => {
       for (const [path, value] of entries) {
@@ -426,258 +184,150 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 获取单个字段值的快照。
+   * 读取指定字段的无依赖当前值。
    *
-   * 使用 signal.peek() 避免收集依赖；字段值本身不会被额外深拷贝。
-   *
-   * @param path - 字段路径
-   *
-   * @returns 该字段当前值
-   *
-   * @example
-   * ```typescript
-   * const name = store.getFieldSnapshot('name') // => 'John'
-   * ```
+   * @param path 要读取的字段路径。
+   * @returns 当前字段值或 `undefined`。
    */
   getFieldSnapshot<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    const signal = this.fieldSignals.peek(path) as
-      FieldSignal<FieldValue<TValues, TName>> | undefined
-
-    return signal?.value.peek()
+    return this.fieldState.getFieldSnapshot(path)
   }
 
   /**
-   * 获取当前表单值的快照。
-   *
-   * 使用 signal.peek() 避免收集依赖，返回新建的顶层值对象；字段值本身不会被额外深拷贝。
-   * 传入 paths 时只返回指定字段的快照。
-   *
-   * @param paths - 可选的字段路径数组，不传则返回全部字段
-   *
-   * @returns 当前表单值组成的新对象
-   *
-   * @example
-   * ```typescript
-   * const snapshot = store.getFieldsSnapshot()
-   * const partial = store.getFieldsSnapshot(['name', 'age'])
-   * ```
+   * 返回所有字段的无依赖当前值快照。
    */
   getFieldsSnapshot(): TValues
-  /** 按指定字段路径返回部分表单快照。 */
+  /**
+   * 返回指定字段的无依赖当前值快照。
+   *
+   * @param paths 要读取的字段路径列表。
+   */
   getFieldsSnapshot<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
-  /** 按可选路径构造当前表单快照。 */
+  /**
+   * 根据是否提供路径列表读取完整或局部快照。
+   */
   getFieldsSnapshot<TName extends NamePath<TValues>>(
     paths?: TName[]
   ): TValues | Partial<TValues> {
-    if (paths === undefined) {
-      return this.getFullSnapshot()
-    }
-
-    const result = {} as Partial<TValues>
-
-    for (const path of paths) {
-      setByPath(result, path, this.getFieldSnapshot(path))
-    }
-
-    return result
+    return paths === undefined
+      ? this.readFullSnapshot()
+      : this.fieldState.getFieldsSnapshot(paths)
   }
 
   /**
-   * 获取指定字段的初始值。
+   * 读取指定字段的 reset baseline。
    *
-   * @param path - 字段路径
-   * @returns 字段初始值，不存在时返回 undefined
-   *
-   * @example
-   * ```typescript
-   * store.getInitialValue('name') // => 'John'
-   * ```
+   * @param path 要读取的字段路径。
+   * @returns 字段初始值或 `undefined`。
    */
   getInitialValue<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    const signal = this.fieldSignals.peek(path) as
-      FieldSignal<FieldValue<TValues, TName>> | undefined
-
-    if (signal) {
-      return signal.initialValue.peek()
-    }
-
-    return getByPath<TValues, TName>(this.initialValues, path)
+    return this.fieldState.getInitialValue(path)
   }
 
   /**
-   * 获取表单初始值。
-   *
-   * 不传参返回全量初始值的深拷贝，传入路径数组返回指定字段的初始值。
-   *
-   * @param paths - 可选，字段路径数组
-   * @returns 全量初始值或指定字段的初始值
-   *
-   * @example
-   * ```typescript
-   * store.getInitialValues()         // => { name: 'John', age: 25 }
-   * store.getInitialValues(['name']) // => { name: 'John' }
-   * ```
+   * 返回完整 reset baseline。
    */
   getInitialValues(): Partial<TValues>
-  /** 按指定字段路径返回部分初始值。 */
+  /**
+   * 返回指定字段的 reset baseline 子集。
+   *
+   * @param paths 要读取的字段路径列表。
+   */
   getInitialValues<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
-  /** 按可选路径返回初始值快照。 */
+  /**
+   * 根据是否提供路径列表读取完整或局部初始值。
+   */
   getInitialValues<TName extends NamePath<TValues>>(paths?: TName[]): Partial<TValues> {
-    if (paths === undefined) {
-      return cloneDeep(this.initialValues)
-    }
-
-    const result = {} as Partial<TValues>
-
-    for (const path of paths) {
-      setByPath(result, path, getByPath<TValues, TName>(this.initialValues, path))
-    }
-
-    return result
+    return paths === undefined
+      ? this.fieldState.getInitialValues()
+      : this.fieldState.getInitialValues(paths)
   }
 
   /**
-   * 设置指定字段的初始值。
+   * 设置单个字段的 reset baseline。
    *
-   * @param path - 字段路径
-   * @param value - 要设置的初始值
-   *
-   * @example
-   * ```typescript
-   * store.setInitialValue('name', 'Bob')
-   * ```
+   * @param path 要更新初始值的字段路径。
+   * @param value 新的字段初始值。
    */
   setInitialValue<TName extends NamePath<TValues>>(
     path: TName,
     value: FieldValue<TValues, TName>
   ): void {
-    setByPath(this.initialValues, path, value)
-    const signal = this.getOrCreateFieldSignal(path)
-
-    signal.setInitialValue(value)
+    this.fieldState.setInitialValue(path, value)
   }
 
   /**
-   * 批量设置多个字段的初始值。
+   * 批量设置字段的 reset baseline。
    *
-   * @param values - 要设置的字段值对象
-   *
-   * @example
-   * ```typescript
-   * store.setInitialValues({ name: 'Bob', age: 30 })
-   * ```
+   * @param values 要写入的完整或部分初始值。
    */
   setInitialValues(values: Partial<TValues>): void {
-    const entries = this.collectValueEntries(values)
+    const entries = this.fieldState.collectValueEntries(values)
 
-    if (!entries.length) return
+    if (entries.length === 0) return
 
     batchUpdates(() => {
       for (const [path, value] of entries) {
-        const next = value as FieldValue<TValues, typeof path>
-
-        setByPath(this.initialValues, path, next)
-
-        const signal = this.getOrCreateFieldSignal(path)
-
-        signal.setInitialValue(next)
+        this.setInitialValue(path, value as FieldValue<TValues, typeof path>)
       }
     })
   }
 
   /**
-   * 检查指定字段是否发生过显式交互。
+   * 读取单个字段 touched 状态。
    *
-   * @param path - 字段路径
-   * @returns 是否与初始值不同
-   *
-   * @example
-   * ```typescript
-   * store.setFieldTouched('name', true)
-   * store.isFieldTouched('name') // => true
-   * ```
+   * @param path 要读取状态的字段路径。
+   * @returns 字段是否已被触碰。
    */
   isFieldTouched<TName extends NamePath<TValues>>(path: TName): boolean {
-    return this.fieldSignals.get(path)?.touched.value ?? false
+    return this.fieldState.isFieldTouched(path)
   }
 
   /**
-   * 检查多个字段是否被修改。
-   *
-   * 传入路径数组时检查所有指定字段是否都被修改，不传则检查是否有任一字段被修改。
-   *
-   * @param paths - 可选，要检查的字段路径数组
-   * @returns 是否被修改
-   *
-   * @example
-   * ```typescript
-   * store.isFieldsTouched(['name', 'age']) // => true（全部被修改时）
-   * store.isFieldsTouched()               // => true（任一字段被修改时）
-   * ```
+   * 判断是否存在任一 touched 字段。
    */
   isFieldsTouched(): boolean
-  /** 检查指定字段是否全部被修改。 */
+  /**
+   * 判断指定字段是否全部 touched。
+   *
+   * @param paths 要检查的字段路径列表。
+   */
   isFieldsTouched<TName extends NamePath<TValues>>(paths: TName[]): boolean
-  /** 按是否传入路径选择任一或全部字段的 touched 判断。 */
+  /**
+   * 根据是否提供路径列表执行 touched 状态判断。
+   */
   isFieldsTouched<TName extends NamePath<TValues>>(paths?: TName[]): boolean {
-    const pathsArr = paths ?? [...this.fieldSignals.keys()]
-
     return paths === undefined
-      ? pathsArr.some((path) => this.isFieldTouched(path))
-      : pathsArr.every((path) => this.isFieldTouched(path))
+      ? this.fieldState.isFieldsTouched()
+      : this.fieldState.isFieldsTouched(paths)
   }
 
   /**
-   * 获取所有发生过显式交互的字段路径。
-   *
-   * @returns 被修改的字段路径数组
-   *
-   * @example
-   * ```typescript
-   * store.getTouchedFields() // => ['name', 'user.age']
-   * ```
+   * 返回当前 touched 字段路径。
    */
   getTouchedFields(): NamePath<TValues>[] {
-    const touchedFields: NamePath<TValues>[] = []
-
-    for (const [path, signal] of this.fieldSignals.entries()) {
-      if (signal.touched.value) {
-        touchedFields.push(path)
-      }
-    }
-
-    return touchedFields
+    return this.fieldState.getTouchedFields()
   }
 
   /**
-   * 设置字段的交互状态。
+   * 设置单个字段 touched 状态。
    *
-   * @param path - 字段路径
-   * @param touched - 是否被修改
-   *
-   * @example
-   * ```typescript
-   * store.setFieldTouched('name', true)
-   * ```
+   * @param path 要更新状态的字段路径。
+   * @param touched 是否标记为已触碰。
    */
   setFieldTouched<TName extends NamePath<TValues>>(path: TName, touched: boolean): void {
-    this.getOrCreateFieldSignal(path).setTouched(touched)
+    this.fieldState.setFieldTouched(path, touched)
   }
 
   /**
-   * 批量设置字段的修改状态。
+   * 批量设置字段 touched 状态。
    *
-   * @param paths - 要设置 touched 状态的字段路径数组
-   * @param touched - 目标 touched 状态，默认 true
-   *
-   * @example
-   * ```typescript
-   * store.setFieldsTouched(['name', 'age'], true)
-   * ```
+   * @param paths 要更新状态的字段路径列表。
+   * @param touched 要写入的 touched 值，默认是 `true`。
    */
   setFieldsTouched<TName extends NamePath<TValues>>(
     paths: TName[],
@@ -691,109 +341,62 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 检查单个字段是否处于操作中。
+   * 读取单个字段 pending 状态。
    *
-   * 读取对应 reactive value，在 effect 中使用时自动收集依赖。
-   *
-   * @param path - 字段路径
-   * @returns 是否处于操作中
-   *
-   * @example
-   * ```typescript
-   * store.isFieldPending('avatar') // => true
-   * ```
+   * @param path 要读取状态的字段路径。
+   * @returns 字段是否处于 pending 状态。
    */
   isFieldPending<TName extends NamePath<TValues>>(path: TName): boolean {
-    return this.fieldSignals.get(path)?.pending.value ?? false
+    return this.fieldState.isFieldPending(path)
   }
 
   /**
-   * 检查多个字段是否处于操作中。
-   *
-   * 传入路径数组时检查所有指定字段是否都处于操作中，不传则检查是否有任一字段处于操作中。
-   *
-   * @param paths - 可选，要检查的字段路径数组
-   * @returns 是否处于操作中
-   *
-   * @example
-   * ```typescript
-   * store.isFieldsPending(['name', 'age']) // => true（全部处于操作中时）
-   * store.isFieldsPending()               // => true（任一字段处于操作中时）
-   * ```
+   * 判断是否存在任一 pending 字段。
    */
   isFieldsPending(): boolean
-  /** 检查指定字段是否全部处于 pending 状态。 */
+  /**
+   * 判断指定字段是否全部 pending。
+   *
+   * @param paths 要检查的字段路径列表。
+   */
   isFieldsPending<TName extends NamePath<TValues>>(paths: TName[]): boolean
-  /** 按是否传入路径选择任一或全部字段的 pending 判断。 */
+  /**
+   * 根据是否提供路径列表执行 pending 状态判断。
+   */
   isFieldsPending<TName extends NamePath<TValues>>(paths?: TName[]): boolean {
-    if (paths) {
-      return paths.every((path) => this.isFieldPending(path))
-    }
-
-    return [...this.fieldSignals.keys()].some((path) => this.isFieldPending(path))
+    return paths === undefined
+      ? this.fieldState.isFieldsPending()
+      : this.fieldState.isFieldsPending(paths)
   }
 
   /**
-   * 获取所有处于操作中的字段路径。
-   *
-   * 遍历字段 signal，收集 pending 为 true 的字段路径。
-   * 无操作中字段时返回空数组。
-   *
-   * @returns 操作中的字段路径数组
-   *
-   * @example
-   * ```typescript
-   * store.getPendingFields() // => ['avatar', 'attachment']
-   * ```
+   * 返回当前 pending 字段及其消息。
    */
   getPendingFields(): StorePending<TValues, NamePath<TValues>>[] {
-    const fields: StorePending<TValues, NamePath<TValues>>[] = []
-
-    for (const [field, signal] of this.fieldSignals.entries()) {
-      if (signal.pending.value) {
-        fields.push({ field, message: signal.pendingMessage.value })
-      }
-    }
-
-    return fields
+    return this.fieldState.getPendingFields()
   }
 
   /**
-   * 设置字段的操作中状态。
+   * 设置单个字段 pending 状态及消息。
    *
-   * 标记字段正在进行异步操作（如文件上传），
-   * 校验和提交时会检查是否有字段处于操作中状态。
-   * 取消操作中状态时删除对应 key，保持 map 干净。
-   *
-   * @param path - 字段路径
-   * @param pending - 是否处于操作中
-   * @param message - 可选的操作中提示信息。
-   *
-   * @example
-   * ```typescript
-   * store.setFieldPending('avatar', true)   // 上传开始
-   * store.setFieldPending('avatar', false)  // 上传结束
-   * ```
+   * @param path 要更新状态的字段路径。
+   * @param pending 是否标记为 pending。
+   * @param message pending 时关联的消息或消息列表。
    */
   setFieldPending<TName extends NamePath<TValues>>(
     path: TName,
     pending: boolean,
     message?: string | string[]
   ): void {
-    this.getOrCreateFieldSignal(path).setPending(pending, message)
+    this.fieldState.setFieldPending(path, pending, message)
   }
 
   /**
-   * 批量设置字段的操作中状态。
+   * 批量设置字段 pending 状态及消息。
    *
-   * @param paths - 要设置 pending 状态的字段路径数组
-   * @param pending - 目标 pending 状态，默认 true
-   * @param message - 可选的操作中提示信息。
-   *
-   * @example
-   * ```typescript
-   * store.setFieldsPending(['name', 'age'], true)
-   * ```
+   * @param paths 要更新状态的字段路径列表。
+   * @param pending 要写入的 pending 值，默认是 `true`。
+   * @param message pending 时关联的消息或消息列表。
    */
   setFieldsPending<TName extends NamePath<TValues>>(
     paths: TName[],
@@ -808,147 +411,107 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 重置单个字段到初始值。
+   * 重置单个字段；数组根由 FieldArrayStore 统一处理。
    *
-   * @param path - 要重置的字段路径。
-   *
-   * @example
-   * ```typescript
-   * store.resetField('name')
-   * ```
+   * @param path 要重置的字段路径。
    */
   resetField<TName extends NamePath<TValues>>(path: TName): void {
     batchUpdates(() => {
-      const signal = this.getOrCreateFieldSignal(path)
+      const resolved = this.registry.resolve(path)
 
-      const initialValue = signal.initialValue.peek()
+      if (resolved?.owner.kind === "fieldArray" && resolved.isRoot) {
+        const initialValue = this.fieldState.getInitialValue(path)
 
-      if (!isEqual(signal.value.peek(), initialValue)) {
-        this.markValueChanged(path)
+        this.fieldArray.replaceRoot(path, initialValue, { mode: "reset" })
+
+        return
       }
 
-      signal.reset()
+      this.fieldState.resetField(path)
     })
   }
 
   /**
-   * 批量重置指定字段到初始值。
+   * 在同一批处理中重置多个字段。
    *
-   * @param paths - 要重置的字段路径数组。
-   *
-   * @example
-   * ```typescript
-   * store.resetFields(['name', 'age'])
-   * ```
+   * @param paths 要重置的字段路径列表。
    */
   resetFields<TName extends NamePath<TValues>>(paths: TName[]): void {
     batchUpdates(() => {
       for (const path of paths) {
-        const signal = this.getOrCreateFieldSignal(path)
-
-        const initialValue = signal.initialValue.peek()
-
-        if (!isEqual(signal.value.peek(), initialValue)) {
-          this.markValueChanged(path)
-        }
-
-        signal.reset()
+        this.resetField(path)
       }
     })
   }
 
   /**
-   * 重置表单到初始状态（diff 式更新）。
+   * 重置 Store；传入 values 时同时替换 reset baseline。
    *
-   * 不传参时恢复到构造时的初始值，传入 values 时同时更新初始值。
-   * 对比新旧路径集合：复用已有字段 signal、删除多余字段 signal、
-   * 创建新字段 signal。
-   *
-   * @param values - 可选的新初始值；传入后会同时更新 initialValues baseline。
-   *
-   * @example
-   * ```typescript
-   * store.reset()                              // 恢复到构造时的初始值
-   * store.reset({ name: 'New', age: 0 })       // 重置并更新初始值
-   * ```
+   * @param values 可选的新完整或部分初始值。
    */
   reset(values?: Partial<TValues>): void {
-    const resetValues = cloneDeep(values ?? this.initialValues)
+    const resetValues = cloneDeep(values ?? this.fieldState.getInitialValues())
 
     if (values !== undefined) {
-      this.initialValues = cloneDeep(resetValues)
+      this.fieldState.replaceInitialValues(resetValues)
     }
 
-    const nextEntries = this.collectValueEntries(resetValues)
+    const nextEntries = this.fieldState.collectValueEntries(resetValues)
 
-    const nextPaths = nextEntries.map(([path]) => path)
+    const nextPathSet = new Set(nextEntries.map(([path]) => createFieldKey(path)))
 
-    const nextPathSet = new Set(nextPaths)
+    const owners = this.registry.list()
 
     batchUpdates(() => {
-      for (const path of this.fieldSignals.keys()) {
-        if (!nextPathSet.has(path)) {
-          this.fieldSignals.delete(path)
-          this.markValueChanged(path)
+      for (const owner of owners) {
+        const nextValue = getByPath(resetValues, owner.path)
+
+        if (owner.kind === "fieldArray") {
+          this.fieldState.setOwnerInitialValue(owner.path, nextValue)
+          this.fieldArray.replaceRoot(owner.path, nextValue, { mode: "reset" })
+
+          continue
         }
+
+        this.fieldState.resetOwner(owner, nextValue, nextPathSet.has(owner.key))
       }
 
-      for (const [path, value] of nextEntries) {
-        const next = value as FieldValue<TValues, typeof path>
-
-        const signal = this.fieldSignals.peek(path)
-
-        if (signal) {
-          if (!isEqual(signal.value.peek(), next)) {
-            this.markValueChanged(path)
-          }
-
-          signal.setInitialValue(next)
-          signal.reset(next)
-        } else {
-          this.fieldSignals.set(
-            path,
-            createFieldSignal<typeof next>({
-              value: next,
-              initialValue: next,
-            })
-          )
-          this.markValueChanged(path)
-        }
-      }
+      this.fieldState.reconcileUnowned(nextEntries, nextPathSet)
     })
   }
 
   /**
-   * 销毁 Store 实例。
+   * 获取指定数组根的内部 Handle。
    *
-   * 清理所有字段 signal，释放资源。
-   *
-   * @example
-   * ```typescript
-   * store.destroy()
-   * ```
+   * @param path 动态数组字段路径。
+   * @returns 与数组根绑定的 FieldArray Handle。
+   */
+  getFieldArrayHandle<TPath extends FieldArrayPath<TValues>>(
+    path: TPath
+  ): FieldArrayHandle<FieldArrayItemValue<FieldValue<TValues, TPath>>> {
+    return this.fieldArray.getFieldArrayHandle(path)
+  }
+
+  /**
+   * 清理各子模块，释放 Store 持有的响应式资源。
    */
   destroy(): void {
-    this.fieldSignals.clear()
-    this.registeredFieldPaths.clear()
-    this.changedPaths.clear()
-    this.snapshotCache = undefined
-    this.disposeBatchListener()
+    this.snapshot.destroy()
+    this.fieldArray.destroy()
+    this.fieldState.destroy()
+    this.registry.clear()
   }
 }
 
 /**
  * 创建 Store 实例的工厂函数。
  *
- * @typeParam T - 表单值类型
- *
- * @param options - 配置选项
- * @returns Store 实例
- *
+ * @typeParam TValues 表单值对象类型。
+ * @param options Store 初始值配置。
+ * @returns 具备公开 Store 能力的实例。
  * @example
- * ```typescript
- * const store = createStore({ initialValues: { name: 'John' } })
+ * ```ts
+ * const store = createStore<FormValues>({ initialValues })
  * ```
  */
 export function createStore<TValues extends Values = Values>(

@@ -1,18 +1,18 @@
 /**
- * FormItem
+ * Field
  *
- * schemx 和 FormGroup 实际渲染字段的组件。
+ * schemx 实际渲染字段的组件。
  * 动态属性已由 core 解析到 ViewSchema 中；这里只负责消费
- * 已解析 schema、创建字段实例、组装渲染器属性与插槽。
+ * 已解析字段 schema、创建字段实例、组装渲染器属性与插槽。
  *
- * @module components/FormItem
+ * @module components/Field
  */
 
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, h, PropType } from "vue"
-import type { VNodeChild } from "vue"
+import { computed, defineComponent, PropType } from "vue"
+import type { ClassValue, StyleValue, VNodeChild } from "vue"
 
-import { isSchemxViewFieldSchema, isViewGroupSchema } from "@schemx/core"
+import { isSchemxViewFieldSchema } from "@schemx/core"
 import classnames from "classnames"
 
 import type { TriggerConfig } from "@/utils"
@@ -25,66 +25,52 @@ import {
   useStableRef,
 } from "../../hooks"
 import { useViewSchema } from "../../hooks/useViewSchemas"
-import { mergeTrigger, resolveSlot, shouldValidateOn } from "../../utils"
-import FormGroup from "../FormGroup"
+import {
+  mergeTrigger,
+  normalizeNameKey,
+  resolveSlot,
+  shouldValidateOn,
+} from "../../utils"
 
-import { createFormItemSlotRenderers, normalizeNameKey } from "./slot"
+import { createFieldSlotRenderers } from "./slot"
 
 import type {
   FieldValue,
   NamePath,
   SchemxComponentProps,
   SchemxViewFieldSchema,
-  SchemxViewSchema,
   Values,
 } from "@schemx/core"
 
 /**
- * FormItem 属性。
+ * Field 属性。
  *
- * 提供待渲染的原始 ViewSchema；具体字段或分组类型由组件内部运行时收窄。
+ * 提供待渲染的字段 ViewSchema。
  */
-export interface SchemxItemProps {
+export interface SchemxFieldProps {
   schema: unknown
+  class?: ClassValue
+  style?: StyleValue
 }
 
-const FormItem = defineComponent({
-  name: "SchemxItem",
-
-  props: {
-    schema: {
-      type: Object as PropType<unknown>,
-      required: true,
-    },
-  },
-
-  /**
-   * 根据 schema 类型分发字段组或字段项渲染。
-   *
-   * @param props - 当前组件的 schema 属性。
-   * @param slots - Vue setup 上下文提供的插槽集合。
-   */
-  setup(props, { slots }) {
-    return (): VNodeChild => {
-      const schema = props.schema as SchemxViewSchema<Values>
-
-      if (isViewGroupSchema(schema)) {
-        return h(FormGroup, { schema }, slots)
-      }
-
-      return h(FieldFormItem, { schema }, slots)
-    }
-  },
-})
-
-const FieldFormItem = defineComponent({
-  name: "SchemxFieldItem",
+const Field = defineComponent({
+  name: "SchemxField",
   inheritAttrs: false,
 
   props: {
     schema: {
       type: Object as PropType<unknown>,
       required: true,
+    },
+    class: {
+      type: [String, Object, Array, Boolean] as PropType<ClassValue>,
+      required: false,
+      default: undefined,
+    },
+    style: {
+      type: [String, Object, Array] as PropType<StyleValue>,
+      required: false,
+      default: undefined,
     },
   },
 
@@ -102,7 +88,7 @@ const FieldFormItem = defineComponent({
       () => props.schema as SchemxViewFieldSchema<Values>
     )
 
-    // 按 key 复用表单级 ViewSchema 订阅，避免每个 FormItem 建立独立 Core effect。
+    // 按 key 复用表单级 ViewSchema 订阅，避免每个 Field 建立独立 Core effect。
     const latestSchema = useViewSchema(form, () => inputSchema.value.key)
 
     // 优先使用桥接中的最新字段；首帧或字段暂不存在时回退到输入 schema。
@@ -133,7 +119,9 @@ const FieldFormItem = defineComponent({
      */
     const canVerified = computed(() => {
       const isOperate =
-        schemaRef.value.visible && !schemaRef.value.readonly && !schemaRef.value.disabled
+        schemaRef.value.visible !== false &&
+        !schemaRef.value.readonly &&
+        !schemaRef.value.disabled
 
       const rules = schemaRef.value.rules
 
@@ -200,7 +188,7 @@ const FieldFormItem = defineComponent({
       renderContent,
       renderError,
       renderLabel,
-    } = createFormItemSlotRenderers({
+    } = createFieldSlotRenderers({
       schemaRef,
       field,
       form,
@@ -210,51 +198,52 @@ const FieldFormItem = defineComponent({
     })
 
     return (): VNodeChild => {
-      if (!schemaRef.value.visible) {
+      if (schemaRef.value.visible === false) {
         return null
       }
 
-      // 整体插槽：完全接管渲染，不包裹任何默认结构
-      const itemSlot = resolveSlot(slots, normalizeNameKey(schemaRef.value.name))
-
-      if (itemSlot) {
-        return itemSlot(createSlotProps())
-      }
+      // 整体插槽替换默认内容，但保留稳定的 Field wrapper。
+      const fieldSlot = resolveSlot(slots, normalizeNameKey(schemaRef.value.name))
 
       const labelPosition =
         schemaRef.value.labelPosition || formContext.schemaConfig.labelPosition
 
+      const fieldContent = fieldSlot ? (
+        fieldSlot(createSlotProps())
+      ) : (
+        <div
+          class={classnames("schemx-field", `schemx-field--label-${labelPosition}`, {
+            "is-readonly": schemaRef.value.readonly,
+            "is-disabled": schemaRef.value.disabled,
+          })}
+        >
+          {renderLabel()}
+
+          <div class="schemx-field__content">
+            {renderBefore()}
+            {renderContent()}
+            {renderAfter()}
+            {renderError()}
+          </div>
+        </div>
+      )
+
       return (
         <div
           {...attrs}
-          class={classnames("schemx-item-wrapper", attrs.class)}
-          style={[attrs.style, schemaRef.value.style]}
+          class={classnames(
+            "schemx-field-wrapper",
+            props.class,
+            attrs.class,
+            schemaRef.value.class
+          )}
+          style={[attrs.style, props.style, schemaRef.value.style]}
         >
-          <div
-            class={classnames(
-              "schemx-item",
-              `schemx-item--label-${labelPosition}`,
-              schemaRef.value.class,
-              {
-                "is-readonly": schemaRef.value.readonly,
-                "is-disabled": schemaRef.value.disabled,
-              }
-            )}
-            style={{ ...((schemaRef.value.style ?? {}) as CSSStyleValue) }}
-          >
-            {renderLabel()}
-
-            <div class="schemx-item__content">
-              {renderBefore()}
-              {renderContent()}
-              {renderAfter()}
-              {renderError()}
-            </div>
-          </div>
+          {fieldContent}
         </div>
       )
     }
   },
 })
 
-export default FormItem
+export default Field

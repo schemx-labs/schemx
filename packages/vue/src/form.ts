@@ -1,7 +1,7 @@
 /**
  * schemx 组件导出
  *
- * 为 SchemxForm 组件挂载静态方法（install、FormItem、registerRequest 等），
+ * 为 SchemxForm 组件挂载静态方法（install、Field、registerRequest 等），
  * 并作为默认导出。
  *
  * @module formExport
@@ -9,7 +9,7 @@
 
 import type { App } from "vue"
 
-import FormItem from "./components/FormItem"
+import Field from "./components/Field"
 import { provideSchemxAppConfig } from "./config"
 import SchemxForm from "./formRuntime.js"
 
@@ -49,7 +49,7 @@ export function withInstall<
 
 export type SchemxFormPlugin = typeof SchemxForm & {
   install: (app: App, options?: SchemxInstallOptions) => void
-  FormItem: typeof FormItem
+  Field: typeof Field
 }
 
 const SchemxFormExport = withInstall(SchemxForm, {
@@ -58,8 +58,8 @@ const SchemxFormExport = withInstall(SchemxForm, {
     provideSchemxAppConfig(app, options)
     app.component("SchemxForm", SchemxForm)
   },
-  /** FormItem 子组件引用 */
-  FormItem,
+  /** Field 子组件引用 */
+  Field,
 }) as unknown as SchemxFormPlugin
 
 export default SchemxFormExport

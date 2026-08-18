@@ -55,14 +55,14 @@
   --schemx-schemas-padding-inline: 6px;
 
   /* 表单项 */
-  --schemx-item-gap: 16px;
-  --schemx-item-line-height: 1.6;
-  --schemx-item-error-line-height: 1.5714285714285714;
-  --schemx-item-label-color: #666666;
-  --schemx-item-label-top-gap: 4px;
-  --schemx-item-content-padding-inline: 6px;
-  --schemx-item-required-gap: 2px;
-  --schemx-item-error-gap: 6px;
+  --schemx-field-gap: 16px;
+  --schemx-field-line-height: 1.6;
+  --schemx-field-error-line-height: 1.5714285714285714;
+  --schemx-field-label-color: #666666;
+  --schemx-field-label-top-gap: 4px;
+  --schemx-field-content-padding-inline: 6px;
+  --schemx-field-required-gap: 2px;
+  --schemx-field-error-gap: 6px;
 
   --schemx-content-align: right;
   --schemx-error-align: right;

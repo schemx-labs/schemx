@@ -1,6 +1,11 @@
 import { createSignalMap } from "../reactivity"
 import { createFieldKey } from "../utils"
+import {
+  isFieldArrayDescendantAffected,
+  isFieldArrayDescendantOutOfRange,
+} from "../utils/path"
 
+import type { FieldArrayChange } from "../fieldArray"
 import type { NamePath, Values } from "../types"
 import type { ValidationRuleIssue } from "./types"
 
@@ -248,6 +253,31 @@ export class FieldErrorStore<TValues extends Values> {
    */
   public clear(): void {
     this.records.clear()
+  }
+
+  /** 按纯索引语义清理 FieldArray 结构变化后的过期错误。 */
+  public invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void {
+    for (const [, record] of this.records.entries()) {
+      if (isFieldArrayDescendantOutOfRange(record.name, path, change.nextLength)) {
+        this.records.delete(createFieldKey(record.name))
+
+        continue
+      }
+
+      if (!isFieldArrayDescendantAffected(record.name, path, change)) continue
+
+      const next: FieldErrorRecord<TValues> = {
+        ...record,
+        validation: [],
+        external: [],
+      }
+
+      if (next.configuration.length === 0) {
+        this.records.delete(createFieldKey(record.name))
+      } else {
+        this.records.set(createFieldKey(record.name), next)
+      }
+    }
   }
 
   /**

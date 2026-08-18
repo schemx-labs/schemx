@@ -18,29 +18,29 @@
       <!--
         ╔══════════════════════════════════════════════╗
         ║  1. 整体插槽 #{name}                         ║
-        ║  完全接管 FormItem 的渲染，参数为 formItemProps ║
+        ║  接管 Field wrapper 内的内容，参数为规范字段上下文 ║
         ╚══════════════════════════════════════════════╝
       -->
-      <template #username="{ name, label, required }">
+      <template #username="{ schema, value }">
         <div class="slot-demo slot-demo--item">
           <div class="slot-demo__header">
             <span class="slot-badge slot-badge--blue">整体插槽</span>
-            <code>#{{ name }}</code>
+            <code>#{{ schema.name }}</code>
           </div>
           <div class="slot-demo__body">
             <label class="slot-demo__label">
-              <span v-if="required" class="slot-demo__star">*</span>
-              {{ label }}:
+              <span v-if="schema.required" class="slot-demo__star">*</span>
+              {{ schema.label }}:
             </label>
             <input
-              :value="formData.username"
-              placeholder="由整体插槽完全接管渲染"
+              :value="value"
+              placeholder="由整体插槽接管内容"
               class="slot-demo__input"
               @input="handleUsernameInput"
             />
           </div>
           <p class="slot-demo__note">
-            整体插槽替换了整个 FormItem，label / error / content 均由插槽自行处理
+            整体插槽替换 Field wrapper 内的默认内容，label / error / content 均由插槽自行处理
           </p>
         </div>
       </template>
@@ -48,17 +48,23 @@
       <!--
         ╔══════════════════════════════════════════════╗
         ║  2. Label 插槽 #{name}Label                  ║
-        ║  仅替换标签区域，参数为 formItemProps          ║
+        ║  仅替换标签区域，参数为规范字段上下文           ║
         ╚══════════════════════════════════════════════╝
       -->
-      <template #emailLabel="{ label, required }">
+      <template #emailLabel="{ schema }">
         <div class="slot-demo slot-demo--label">
           <span class="slot-badge slot-badge--green">Label 插槽</span>
           <label class="slot-demo__custom-label">
-            <span v-if="required" class="slot-demo__star">*</span>
-            📧 {{ label }}
+            <span v-if="schema.required" class="slot-demo__star">*</span>
+            📧 {{ schema.label }}
           </label>
         </div>
+      </template>
+
+      <template #emailBefore="{ schema, value }">
+        <span class="slot-demo__inline slot-demo__inline--before">
+          {{ schema.label }}当前值：{{ value || "未填写" }}
+        </span>
       </template>
 
       <!--
@@ -99,6 +105,12 @@
         </div>
       </template>
 
+      <template #phoneAfter="{ componentProps }">
+        <span class="slot-demo__inline slot-demo__inline--after">
+          提示：{{ componentProps.placeholder }}
+        </span>
+      </template>
+
       <!--
         ╔══════════════════════════════════════════════╗
         ║  5. kebab-case 格式插槽                       ║
@@ -126,6 +138,25 @@
           </span>
         </div>
       </template>
+
+      <template #slot-groupHeader="{ schema, collapsed, toggle }">
+        <span class="slot-demo__group-header">
+          <strong>{{ schema.label }}</strong>
+          <button type="button" @click.stop="toggle">
+            {{ collapsed ? "展开" : "收起" }}
+          </button>
+        </span>
+      </template>
+
+      <template #slot-label-groupLabel="{ schema }">
+        <span class="slot-demo__group-label">🏷️ {{ schema.label }}（Label Slot）</span>
+      </template>
+
+      <template #slot-content-groupContent="{ schema }">
+        <div class="slot-demo slot-demo--content">
+          Group Content Slot 已接管 {{ schema.children.length }} 个子字段的 Body 布局
+        </div>
+      </template>
     </Schemx>
 
     <div class="form-actions">
@@ -146,32 +177,56 @@
         <div class="slot-reference__card slot-reference__card--blue">
           <div class="slot-reference__title">整体插槽</div>
           <code class="slot-reference__code">#{ name }</code>
-          <div class="slot-reference__desc">完全替换 FormItem</div>
-          <div class="slot-reference__params">参数: formItemProps</div>
+          <div class="slot-reference__desc">替换 Field 内部内容</div>
+          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
         </div>
         <div class="slot-reference__card slot-reference__card--green">
           <div class="slot-reference__title">Label 插槽</div>
           <code class="slot-reference__code">#{ name }Label</code>
           <div class="slot-reference__desc">替换标签区域</div>
-          <div class="slot-reference__params">参数: formItemProps</div>
+          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
         </div>
         <div class="slot-reference__card slot-reference__card--red">
           <div class="slot-reference__title">Error 插槽</div>
           <code class="slot-reference__code">#{ name }Error</code>
           <div class="slot-reference__desc">替换错误展示</div>
-          <div class="slot-reference__params">参数: formItemProps + errors</div>
+          <div class="slot-reference__params">参数: 公共字段上下文 + errors</div>
         </div>
         <div class="slot-reference__card slot-reference__card--orange">
           <div class="slot-reference__title">Content 插槽</div>
           <code class="slot-reference__code">#{ name }Content</code>
           <div class="slot-reference__desc">替换内容区域</div>
-          <div class="slot-reference__params">参数: formItemProps + columnElement</div>
+          <div class="slot-reference__params">参数: 公共字段上下文 + columnElement</div>
+        </div>
+        <div class="slot-reference__card slot-reference__card--green">
+          <div class="slot-reference__title">Before / After 插槽</div>
+          <code class="slot-reference__code">#{ name }Before / After</code>
+          <div class="slot-reference__desc">渲染器前后扩展内容</div>
+          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
+        </div>
+        <div class="slot-reference__card slot-reference__card--blue">
+          <div class="slot-reference__title">Group Header 插槽</div>
+          <code class="slot-reference__code">#{ groupKey }Header</code>
+          <div class="slot-reference__desc">替换分组 Header 内部内容</div>
+          <div class="slot-reference__params">参数: SchemxGroupSlotProps</div>
+        </div>
+        <div class="slot-reference__card slot-reference__card--purple">
+          <div class="slot-reference__title">Group Label 插槽</div>
+          <code class="slot-reference__code">#{ groupKey }Label</code>
+          <div class="slot-reference__desc">替换分组标题</div>
+          <div class="slot-reference__params">参数: SchemxGroupSlotProps</div>
+        </div>
+        <div class="slot-reference__card slot-reference__card--orange">
+          <div class="slot-reference__title">Group Content 插槽</div>
+          <code class="slot-reference__code">#{ groupKey }Content</code>
+          <div class="slot-reference__desc">接管分组 Body 布局</div>
+          <div class="slot-reference__params">参数: SchemxGroupSlotProps</div>
         </div>
         <div class="slot-reference__card slot-reference__card--purple">
           <div class="slot-reference__title">kebab-case 插槽</div>
           <code class="slot-reference__code">#user-levelLabel</code>
           <div class="slot-reference__desc">连字符字段名插槽</div>
-          <div class="slot-reference__params">参数: formItemProps</div>
+          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
         </div>
         <div class="slot-reference__card slot-reference__card--pink">
           <div class="slot-reference__title">子渲染器插槽</div>
@@ -214,8 +269,7 @@
   /**
    * 表单 Schema 配置
    *
-   * 包含 6 个字段，分别用于演示整体插槽、Label 插槽、Error 插槽、
-   * Content 插槽、kebab-case 插槽和子渲染器插槽。
+   * 包含字段区域、Renderer 子 Slot 和 Group 区域 Slot 的完整示例。
    */
   const schemas: SchemxField[] = [
     // 普通字段（无插槽，作为对比）
@@ -276,6 +330,40 @@
       componentProps: {
         placeholder: "请输入备注",
       },
+    },
+    {
+      key: "slot-group",
+      label: "Header 插槽分组",
+      collapsible: true,
+      children: [
+        {
+          name: "groupNote",
+          label: "分组说明",
+          componentType: "text",
+        },
+      ],
+    },
+    {
+      key: "slot-label-group",
+      label: "Label 插槽分组",
+      children: [
+        {
+          name: "labelGroupNote",
+          label: "Label 分组说明",
+          componentType: "text",
+        },
+      ],
+    },
+    {
+      key: "slot-content-group",
+      label: "Content 插槽分组",
+      children: [
+        {
+          name: "contentGroupNote",
+          label: "Content 分组说明",
+          componentType: "text",
+        },
+      ],
     },
   ]
 

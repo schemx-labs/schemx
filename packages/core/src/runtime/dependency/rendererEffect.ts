@@ -152,7 +152,24 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
       error.value = null
     },
     onSuccess: (childSchemas) => {
-      reconcileChildren(node, childSchemas)
+      const commitVersion = version.value
+
+      context.scheduler.schedule({
+        id: `dependency:${node.id}:renderer:commit`,
+        priority: "normal",
+        scope: resourceScope,
+        run: () => {
+          if (
+            resourceScope.disposed ||
+            node.disposed.value ||
+            version.value !== commitVersion
+          ) {
+            return
+          }
+
+          reconcileChildren(node, childSchemas)
+        },
+      })
     },
     onError: (runError) => {
       error.value = runError

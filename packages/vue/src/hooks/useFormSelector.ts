@@ -7,7 +7,7 @@
 import { onScopeDispose, readonly, shallowRef, watch } from "vue"
 import type { ShallowRef } from "vue"
 
-import { getCoreForm, getVueFormBridge, retainVueFormBridge } from "../bridge"
+import { acquireVueFormRuntime } from "../bridge"
 
 import type { SchemxInstance, Values } from "@schemx/core"
 
@@ -20,6 +20,11 @@ export interface UseFormSelectorOptions<TSelected> {
    * 默认使用 `Object.is`。
    */
   equals?: (previous: TSelected, next: TSelected) => boolean
+
+  /**
+   * Vue watcher 的刷新时机；默认 `sync` 以保持现有表单同步语义。
+   */
+  flush?: "sync" | "pre" | "post"
 }
 
 /**
@@ -45,29 +50,26 @@ export interface UseFormSelectorOptions<TSelected> {
  * })
  * ```
  */
-export function useFormSelector<
-  TValues extends Values = Values,
-  TSelected = unknown,
->(
+export function useFormSelector<TValues extends Values = Values, TSelected = unknown>(
   form: SchemxInstance<TValues>,
   selector: (values: Readonly<TValues>) => TSelected,
   options: UseFormSelectorOptions<TSelected> = {}
 ): Readonly<ShallowRef<TSelected>> {
-  const bridge = getVueFormBridge(getCoreForm(form))
+  const acquired = acquireVueFormRuntime(form)
 
-  const releaseBridge = retainVueFormBridge(bridge)
+  const values = acquired.runtime.getValuesRef()
 
-  const selected = shallowRef<TSelected>(selector(bridge.values.value))
+  const selected = shallowRef<TSelected>(selector(values.value))
 
   const equals = options.equals ?? Object.is
 
   /**
    * 根据完整快照重新计算 selector，并只在结果变化时更新 Ref。
    *
-   * @param values - Bridge 发布的最新完整表单快照。
+   * @param values - Runtime 发布的最新完整表单快照。
    */
   const stop = watch(
-    bridge.values,
+    values,
     (values) => {
       const next = selector(values)
 
@@ -75,12 +77,12 @@ export function useFormSelector<
         selected.value = next
       }
     },
-    { flush: "sync" }
+    { flush: options.flush ?? "sync" }
   )
 
   onScopeDispose(() => {
     stop()
-    releaseBridge()
+    acquired.release()
   })
 
   return readonly(selected) as Readonly<ShallowRef<TSelected>>

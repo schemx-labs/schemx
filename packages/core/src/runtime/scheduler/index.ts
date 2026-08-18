@@ -12,4 +12,13 @@ export {
   type AbortableTaskRunnerOptions,
 } from "./abortableTaskRunner"
 
-export { createScheduler, type Scheduler, type ScheduledTask } from "./scheduler"
+export {
+  createScheduler,
+  type Scheduler,
+  type SchedulerDiagnostics,
+  type SchedulerIdleOptions,
+  type SchedulerOptions,
+  type ScheduledTask,
+  type SchedulerTaskPriority,
+  type SchedulerTrackOptions,
+} from "./scheduler"

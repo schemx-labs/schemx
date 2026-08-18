@@ -23,8 +23,7 @@ import "./slots.css"
 /**
  * 表单 Schema 配置
  *
- * 包含 6 个字段，分别用于演示整体插槽、Label 插槽、Error 插槽、
- * Content 插槽、kebab-case 插槽和子渲染器插槽。
+ * 包含字段区域、Renderer 子 Slot 和 Group 区域 Slot 的完整示例。
  */
 const schemas: SchemxField[] = [
   // 普通字段（无插槽，作为对比）
@@ -75,6 +74,26 @@ const schemas: SchemxField[] = [
     componentType: "input",
     componentProps: { placeholder: "请输入备注" },
   },
+  {
+    key: "slot-group",
+    label: "Header 插槽分组",
+    collapsible: true,
+    children: [{ name: "groupNote", label: "分组说明", componentType: "text" }],
+  },
+  {
+    key: "slot-label-group",
+    label: "Label 插槽分组",
+    children: [
+      { name: "labelGroupNote", label: "Label 分组说明", componentType: "text" },
+    ],
+  },
+  {
+    key: "slot-content-group",
+    label: "Content 插槽分组",
+    children: [
+      { name: "contentGroupNote", label: "Content 分组说明", componentType: "text" },
+    ],
+  },
 ]
 
 export default defineComponent({
@@ -112,7 +131,7 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="example-container">
+      <div class="example-container slot-container">
         <h2>插槽系统示例（JSX 写法）</h2>
         <p class="description">
           演示在 TSX 中通过 v-slots 使用 Schemx 的完整插槽体系。 所有插槽名均支持
@@ -132,22 +151,22 @@ export default defineComponent({
           {{
             /**
              * 1. 整体插槽 #{name}
-             * 完全接管 FormItem 的渲染，参数为 formItemProps
+             * 接管 Field wrapper 内的内容，使用规范字段上下文
              */
-            username: ({ name, label, required }: any) => (
+            username: ({ schema, value }: any) => (
               <div class="slot-demo slot-demo--item">
                 <div class="slot-demo__header">
                   <span class="slot-badge slot-badge--blue">整体插槽（JSX）</span>
-                  <code>#{name}</code>
+                  <code>#{schema.name}</code>
                 </div>
                 <div class="slot-demo__body">
                   <label class="slot-demo__label">
-                    {required && <span class="slot-demo__star">*</span>}
-                    {label}:
+                    {schema.required && <span class="slot-demo__star">*</span>}
+                    {schema.label}:
                   </label>
                   <input
-                    value={formData.value.username ?? ""}
-                    placeholder="由整体插槽完全接管渲染"
+                    value={value ?? ""}
+                    placeholder="由整体插槽接管内容"
                     class="slot-demo__input"
                     onInput={(e: Event) =>
                       formRef.value?.setFieldValue(
@@ -165,16 +184,22 @@ export default defineComponent({
 
             /**
              * 2. Label 插槽 #{name}Label
-             * 仅替换标签区域，参数为 formItemProps
+             * 仅替换标签区域，使用规范字段上下文
              */
-            emailLabel: ({ label, required }: any) => (
+            emailLabel: ({ schema }: any) => (
               <div class="slot-demo slot-demo--label">
                 <span class="slot-badge slot-badge--green">Label 插槽（JSX）</span>
                 <label class="slot-demo__custom-label">
-                  {required && <span class="slot-demo__star">*</span>}
-                  📧 {label}
+                  {schema.required && <span class="slot-demo__star">*</span>}
+                  📧 {schema.label}
                 </label>
               </div>
+            ),
+
+            emailBefore: ({ schema, value }: any) => (
+              <span class="slot-demo__inline slot-demo__inline--before">
+                {schema.label}当前值：{value || "未填写"}
+              </span>
             ),
 
             /**
@@ -212,6 +237,12 @@ export default defineComponent({
               </div>
             ),
 
+            phoneAfter: ({ componentProps }: any) => (
+              <span class="slot-demo__inline slot-demo__inline--after">
+                提示：{componentProps.placeholder}
+              </span>
+            ),
+
             /**
              * 5. kebab-case 格式的 Label 插槽
              * JSX 中 kebab-case 插槽名需用引号包裹作为对象 key
@@ -233,6 +264,31 @@ export default defineComponent({
                 <span>
                   remark:extra — 通过 children 对象的 "name:child" key 透传到渲染器内部
                 </span>
+              </div>
+            ),
+
+            "slot-groupHeader": ({ schema, collapsed, toggle }: any) => (
+              <span class="slot-demo__group-header">
+                <strong>{schema.label}</strong>
+                <button
+                  type="button"
+                  onClick={(event: MouseEvent) => {
+                    event.stopPropagation()
+                    toggle()
+                  }}
+                >
+                  {collapsed ? "展开" : "收起"}
+                </button>
+              </span>
+            ),
+
+            "slot-label-groupLabel": ({ schema }: any) => (
+              <span class="slot-demo__group-label">🏷️ {schema.label}（Label Slot）</span>
+            ),
+
+            "slot-content-groupContent": ({ schema }: any) => (
+              <div class="slot-demo slot-demo--content">
+                Group Content Slot 已接管 {schema.children.length} 个子字段的 Body 布局
               </div>
             ),
           }}

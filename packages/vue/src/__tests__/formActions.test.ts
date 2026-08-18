@@ -45,12 +45,12 @@ async function waitForSubmitStart(): Promise<void> {
 }
 
 describe("SchemxForm actions", () => {
-  it("默认不渲染操作区，显式配置后使用默认或自定义文本", () => {
-    const hiddenWrapper = mount(SchemxForm)
+  it("默认渲染操作区，并支持显式配置文本", () => {
+    const defaultWrapper = mount(SchemxForm)
 
-    expect(hiddenWrapper.find(".schemx-actions").exists()).toBe(false)
+    expect(defaultWrapper.find(".schemx-actions").exists()).toBe(true)
 
-    hiddenWrapper.unmount()
+    defaultWrapper.unmount()
 
     const visibleWrapper = mount(SchemxForm, {
       props: {

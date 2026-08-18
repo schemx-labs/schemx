@@ -92,6 +92,39 @@ const captureSignalRule = (
 })
 
 describe("Validator", () => {
+  it("整表校验应遵守字段并发上限", async () => {
+    type ManyFields = Record<string, number>
+
+    const validator = createValidator<ManyFields>({ validationConcurrency: 2 })
+
+    const values: ManyFields = {}
+
+    let active = 0
+
+    let maxActive = 0
+
+    for (let index = 0; index < 6; index++) {
+      const name = `field-${index}`
+
+      values[name] = index
+      validator.setFieldRules(name, [
+        {
+          validate: async () => {
+            active += 1
+            maxActive = Math.max(maxActive, active)
+            await Promise.resolve()
+            active -= 1
+
+            return { valid: true }
+          },
+        },
+      ])
+    }
+
+    await expect(validator.validate(values)).resolves.toMatchObject({ valid: true })
+    expect(maxActive).toBeLessThanOrEqual(2)
+  })
+
   it("setFieldRules 使用替换语义", async () => {
     const validator = createValidator<TestForm>()
 

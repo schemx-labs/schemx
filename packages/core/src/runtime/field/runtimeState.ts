@@ -124,7 +124,7 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
   validationTrigger: SchemxResolvedBaseField<TValues>["validationTrigger"]
 }
 
-/** Renderer 与 FormItem 共同消费的最终展示属性。 */
+/** Renderer 与 Field 共同消费的最终展示属性。 */
 type RendererEffectiveProps = Pick<
   FieldEffectiveSchema,
   "disabled" | "readonly" | "placeholder" | "readonlyPlaceholder"
@@ -388,10 +388,10 @@ function areFieldRulesEqual<TValues extends Values>(
 }
 
 /**
- * 合并最终 Renderer Props，并同步 FormItem 展示属性。
+ * 合并最终 Renderer Props，并同步 Field 展示属性。
  *
  * 静态状态未变化且没有 dependencies Props 覆盖时，保留编译阶段对象的
- * 引用与原型；否则以字段有效状态覆盖 Renderer 和 FormItem 中的展示属性。
+ * 引用与原型；否则以字段有效状态覆盖 Renderer 和 Field 中的展示属性。
  */
 function resolveComponentProps<TValues extends Values>(
   options: ResolveComponentPropsOptions<TValues>

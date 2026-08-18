@@ -1,48 +1,34 @@
 /**
  * 将 Core 字段快照投影为可共享的 Vue Ref。
  *
+ * 字段投影只负责创建状态；来源订阅由所属 FormStateAdapter 统一回收。
+ *
  * @module vue/bridge/fieldBridge
  */
 
 import { areStringListsEqual, createVueShallowRef } from "./helpers"
 
-import type { ManagedVueFieldBridge, VueFieldBridge, VueFormBridge } from "./types"
+import type { VueFieldState, VueFormResources } from "./types"
 import type { FieldValue, NamePath, Values } from "@schemx/core"
 
 /**
- * 获取一个字段的共享 Vue Ref 投影。
+ * 获取一个字段的共享 Vue 状态投影。
  *
- * 字段 Bridge 以 Core `FieldSnapshotSource` 的对象身份缓存，因此同一 Form
- * 中对同一规范化字段路径的多次读取会复用同一组 Ref。
- *
- * @typeParam TValues - Form 的值类型。
- * @typeParam TName - 字段路径类型。
- * @param bridge - 所属 Form Bridge。
- * @param name - 字段路径。
- * @returns 对应字段的共享 Vue Bridge。
- *
- * @example
- * ```ts
- * const bridge = getVueFormBridge(form)
- * const field = getVueFieldBridge(bridge, "email")
- * watchEffect(() => console.log(field.value.value))
- * ```
+ * FormStateAdapter 按规范化路径缓存 Source；Source 身份作为当前资源中的
+ * 稳定 key，确保同一字段不会重复创建订阅。
  */
-export function getVueFieldBridge<
+export function getVueFieldState<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
->(bridge: VueFormBridge<TValues>, name: TName): VueFieldBridge<TValues, TName> {
-  // FormStateAdapter 按规范化路径缓存 Source；Source 身份可作为稳定的 Bridge key。
-  const source = bridge.stateAdapter.field(name)
+>(resources: VueFormResources<TValues>, name: TName): VueFieldState<TValues, TName> {
+  const source = resources.stateAdapter.field(name)
 
-  // 同一 Source 复用同一组 Ref，避免多个消费者产生重复订阅。
-  const cachedBridge = bridge.fieldBridges.get(source as object)
+  const cachedState = resources.fieldStates.get(source as object)
 
-  if (cachedBridge) {
-    return cachedBridge as VueFieldBridge<TValues, TName>
+  if (cachedState) {
+    return cachedState as VueFieldState<TValues, TName>
   }
 
-  // 首次读取快照用于初始化所有字段 Ref。
   const snapshot = source.getSnapshot()
 
   const value = createVueShallowRef<FieldValue<TValues, TName> | undefined>(
@@ -55,8 +41,7 @@ export function getVueFieldBridge<
 
   const pending = createVueShallowRef<boolean>(snapshot.pending)
 
-  // 逐项比较后再写入，避免无关字段状态变化触发 Vue 更新。
-  const updateFieldRefs = (): void => {
+  const updateFieldState = (): void => {
     const nextSnapshot = source.getSnapshot()
 
     if (!Object.is(value.value, nextSnapshot.value)) {
@@ -76,26 +61,16 @@ export function getVueFieldBridge<
     }
   }
 
-  const unsubscribe = source.subscribe(updateFieldRefs)
+  source.subscribe(updateFieldState)
 
-  /**
-   * 停止字段快照到 Vue Ref 的同步订阅。
-   */
-  const dispose = (): void => {
-    unsubscribe()
-  }
-
-  // 缓存完整的可管理对象，但对外只暴露字段 Ref 投影。
-  const fieldBridge: ManagedVueFieldBridge<TValues> = {
-    source,
+  const fieldState: VueFieldState<TValues, TName> = {
     value,
     errors,
     touched,
     pending,
-    dispose,
   }
 
-  bridge.fieldBridges.set(source as object, fieldBridge)
+  resources.fieldStates.set(source as object, fieldState as VueFieldState<TValues>)
 
-  return fieldBridge as VueFieldBridge<TValues, TName>
+  return fieldState
 }

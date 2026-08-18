@@ -71,7 +71,11 @@ export interface SchemxDictionary<
    * }
    * ```
    */
-  api: (values: TValues, form: SchemxInstance<TValues>) => TResponse | Promise<TResponse>
+  api: (
+    values: TValues,
+    form: SchemxInstance<TValues>,
+    signal?: AbortSignal
+  ) => TResponse | Promise<TResponse>
 
   /**
    * 响应数据格式化函数

@@ -1,16 +1,12 @@
-import { getCoreForm, type VueSchemxInstance } from "../../index"
-
+import type { VueSchemxInstance } from "../../index"
 import type { SchemxInstance } from "@schemx/core"
 
 interface FormValues {
   name: string
 }
 
-declare const facade: VueSchemxInstance<FormValues>
+declare const instance: VueSchemxInstance<FormValues>
 
-const coreCompatibleForm: SchemxInstance<FormValues> = facade
-
-const coreForm = getCoreForm(facade)
+const coreCompatibleForm: SchemxInstance<FormValues> = instance
 
 void coreCompatibleForm
-void coreForm

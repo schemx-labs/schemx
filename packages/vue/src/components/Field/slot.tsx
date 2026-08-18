@@ -1,16 +1,16 @@
 /**
- * FormItem 插槽渲染器。
+ * Field 插槽渲染器。
  *
- * 集中处理字段各区域的插槽解析，保持 FormItem 仅负责字段状态和布局。
+ * 集中处理字段各区域的插槽解析，保持 Field 仅负责字段状态和布局。
  *
- * @module components/FormItem/slot
+ * @module components/Field/slot
  */
 
 import { h } from "vue"
 import type { ShallowRef, Slots, VNodeChild } from "vue"
 
 import { FormContextProps } from "../../hooks/provideFormConfigContext"
-import { extractChildSlots, resolveSlot } from "../../utils"
+import { extractChildSlots, normalizeNameKey, resolveSlot } from "../../utils"
 
 import type { FieldInstance } from "../../types/field"
 import type {
@@ -20,8 +20,8 @@ import type {
   Values,
 } from "@schemx/core"
 
-/** FormItem 插槽渲染所需的状态与依赖。 */
-interface FormItemSlotRendererOptions<TValues extends Values = Values> {
+/** Field 插槽渲染所需的状态与依赖。 */
+interface FieldSlotRendererOptions<TValues extends Values = Values> {
   /** 当前字段 ViewSchema。 */
   schemaRef: Readonly<ShallowRef<SchemxViewFieldSchema<TValues>>>
   /** 当前字段的响应式控制器。 */
@@ -37,12 +37,12 @@ interface FormItemSlotRendererOptions<TValues extends Values = Values> {
 }
 
 /**
- * 创建 FormItem 各区域的插槽渲染函数。
+ * 创建 Field 各区域的插槽渲染函数。
  *
  * `Before`、`Content`、`After` 依次包裹 Renderer；`Error` 位于控件之后。
  */
-export function createFormItemSlotRenderers<TValues extends Values = Values>(
-  options: FormItemSlotRendererOptions<TValues>
+export function createFieldSlotRenderers<TValues extends Values = Values>(
+  options: FieldSlotRendererOptions<TValues>
 ) {
   const { schemaRef, field, form, formContext, componentProps, slots } = options
 
@@ -62,31 +62,34 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
       return null
     }
 
-    return <span class="schemx-item__required">*</span>
+    return <span class="schemx-field__required">*</span>
   }
 
-  /** 构造各字段插槽共用的上下文参数。 */
+  /** 构造各字段插槽共用的规范上下文参数。 */
   const createSlotProps = (additionalProps: Record<string, unknown> = {}) => {
     return {
-      ...componentProps.value,
+      schema: schemaRef.value,
+      componentProps: componentProps.value,
       value: field.value.value,
+      field,
+      form,
       ...additionalProps,
     }
   }
 
   /** 渲染指定后缀的字段区域插槽。 */
   const renderFieldSlot = (suffix: string): VNodeChild => {
-    const slot = resolveSlot(slots, `${schemaRef.value.name}${suffix}`)
+    const slot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}${suffix}`)
 
     return slot?.(createSlotProps()) ?? null
   }
 
   /** 渲染标签区域，优先使用 `{name}Label` 插槽。 */
   const renderLabel = (): VNodeChild => {
-    const labelSlot = resolveSlot(slots, `${schemaRef.value.name}Label`)
+    const labelSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Label`)
 
     if (labelSlot) {
-      return labelSlot(schemaRef.value)
+      return labelSlot(createSlotProps())
     }
 
     const labelAlign = schemaRef.value.labelAlign || formContext.schemaConfig.labelAlign
@@ -97,11 +100,11 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
 
     return (
       <label
-        class="schemx-item__label"
+        class="schemx-field__label"
         style={{ width: labelWidth, textAlign: labelAlign }}
       >
         {renderRequired()}
-        <span class="schemx-item__label-text">
+        <span class="schemx-field__label-text">
           {schemaRef.value.label}
           {colon ? ":" : ""}
         </span>
@@ -126,7 +129,10 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
 
     const columnElement = h(component, componentProps.value, childSlots)
 
-    const contentSlot = resolveSlot(slots, `${schemaRef.value.name}Content`)
+    const contentSlot = resolveSlot(
+      slots,
+      `${normalizeNameKey(schemaRef.value.name)}Content`
+    )
 
     if (contentSlot) {
       return contentSlot(
@@ -136,7 +142,7 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
       )
     }
 
-    return <div class="schemx-item__control">{columnElement}</div>
+    return <div class="schemx-field__control">{columnElement}</div>
   }
 
   /** 渲染 Renderer 后的 `{name}After` 插槽。 */
@@ -144,7 +150,7 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
 
   /** 渲染错误区域，优先使用 `{name}Error` 插槽。 */
   const renderError = (): VNodeChild => {
-    const errorSlot = resolveSlot(slots, `${schemaRef.value.name}Error`)
+    const errorSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Error`)
 
     if (errorSlot) {
       return errorSlot(
@@ -158,7 +164,7 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
       return null
     }
 
-    return <div class="schemx-item__error">{field.errors.value[0]}</div>
+    return <div class="schemx-field__error">{field.errors.value[0]}</div>
   }
 
   return {
@@ -169,13 +175,4 @@ export function createFormItemSlotRenderers<TValues extends Values = Values>(
     renderError,
     renderLabel,
   }
-}
-
-/** 将 NamePath 转换为整体字段与 Renderer 子插槽使用的键。 */
-export function normalizeNameKey(name: unknown): string {
-  if (Array.isArray(name)) {
-    return name.map((part) => String(part)).join(".")
-  }
-
-  return String(name)
 }

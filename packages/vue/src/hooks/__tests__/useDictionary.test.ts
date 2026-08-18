@@ -57,14 +57,22 @@ const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0
 /**
  * 挂载包装组件，提供 inject 上下文，在 setup 中调用 useDictionary。
  */
-function mountUseDictionary(options: SchemxDictionary<{ country?: string }>) {
+interface DictionaryValues {
+  country?: string
+  city?: string
+}
+
+function mountUseDictionary(
+  options: SchemxDictionary<DictionaryValues>,
+  fieldName?: keyof DictionaryValues
+) {
   let hookReturn: UseDictionaryReturn
 
-  const form = createForm<{ country?: string }>({ initialValues: {} })
+  const form = createForm<DictionaryValues>({ initialValues: {} })
 
   const Comp = defineComponent({
     setup() {
-      hookReturn = useDictionary(options)
+      hookReturn = useDictionary(options, fieldName)
 
       return () => h("div")
     },
@@ -102,6 +110,32 @@ describe("useDictionary 集成测试", () => {
     await nextTick()
 
     expect(onDepsChange).toHaveBeenCalledWith({ country: "CN" }, expect.anything())
+
+    wrapper.unmount()
+  })
+
+  it("非依赖字段变化不会重新加载或重置当前字段", async () => {
+    const api = vi.fn().mockResolvedValue([])
+
+    const { wrapper, form } = mountUseDictionary(
+      {
+        api,
+        dependsOn: ["country"],
+        immediate: false,
+        resetOnDepsChange: true,
+      },
+      "city"
+    )
+
+    form.setFieldValue("country", "CN")
+    await flushPromises()
+    api.mockClear()
+
+    form.setFieldValue("city", "Shenzhen")
+    await flushPromises()
+
+    expect(api).not.toHaveBeenCalled()
+    expect(form.getFieldValue("city")).toBe("Shenzhen")
 
     wrapper.unmount()
   })

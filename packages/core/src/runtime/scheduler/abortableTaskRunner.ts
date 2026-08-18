@@ -9,7 +9,11 @@
  */
 
 import type { Scope } from "../node"
-import type { CancellableTask, Scheduler } from "./scheduler"
+import type {
+  CancellableTask,
+  Scheduler,
+  SchedulerTaskPriority,
+} from "./scheduler"
 
 /**
  * 可中止异步任务运行器的接口。
@@ -48,6 +52,13 @@ export interface AbortableTaskRunnerOptions<TValue = void> {
    * 异步任务调度器，用于跟踪任务执行。
    */
   scheduler: Scheduler
+
+  /**
+   * 任务所属优先级，用于决定是否阻塞关键空闲判断。
+   *
+   * @defaultValue "normal"
+   */
+  priority?: SchedulerTaskPriority
 
   /**
    * 实际要执行的异步任务。
@@ -228,7 +239,8 @@ export function createAbortableTaskRunner<TValue = void>(
     options.onStart?.(controller)
 
     const task = options.scheduler.trackCancellable(
-      runCurrentTask(currentVersion, controller)
+      runCurrentTask(currentVersion, controller),
+      { priority: options.priority }
     )
 
     activeTask = task

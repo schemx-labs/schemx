@@ -33,10 +33,19 @@ export {
   type CreateFormOptions,
   type FormCallbackOptions,
   type FormLifecycleOptions,
+  type FormPerformanceOptions,
   type FormRegistryOptions,
   type FormSchemaOptions,
   type ResolvedCreateFormOptions,
 } from "./createForm"
+
+export type {
+  SchedulerDiagnostics,
+  SchedulerIdleOptions,
+  SchedulerOptions,
+  SchedulerTaskPriority,
+  SchedulerTrackOptions,
+} from "./runtime/scheduler"
 
 export {
   configureSchemx,
@@ -73,6 +82,13 @@ export type {
 export { isSchemxViewFieldSchema, isViewGroupSchema } from "./runtime/view"
 
 export { createField, type SchemxFieldInstance } from "./createField"
+
+export {
+  type FieldArrayField,
+  type FieldArrayInstance,
+  type FieldArrayItemValue,
+  type FieldArrayPath,
+} from "./fieldArray"
 
 export {
   createWatch,

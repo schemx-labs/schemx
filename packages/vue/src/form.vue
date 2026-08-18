@@ -9,11 +9,16 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { computed, reactive, useSlots, watch } from "vue"
 
-  import { defaultSchemxConfigKeys, isSchemxSchemas } from "@schemx/core"
+  import {
+    defaultSchemxConfigKeys,
+    isSchemxSchemas,
+    isViewGroupSchema,
+  } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import Button from "./components/Button"
-  import FormItem from "./components/FormItem"
+  import Field from "./components/Field"
+  import Group from "./components/Group"
   import {
     createFormConfigContext,
     createFormContext,
@@ -27,6 +32,7 @@
   import type {
     SchemxInstance,
     SchemxSchemaConfig,
+    SchemxViewGroupSchema,
     SchemxViewSchema,
     Values,
   } from "@schemx/core"
@@ -55,12 +61,15 @@
     onValuesChange: undefined,
     onFieldsChange: undefined,
     loading: undefined,
-    submitter: undefined,
-    resetter: undefined,
+    submitter: true,
+    resetter: true,
     rendererProps: undefined,
     rendererRegistry: undefined,
     validationRuleRegistry: undefined,
+    schedulerOptions: undefined,
+    validationConcurrency: undefined,
     visible: true,
+    validationTrigger: () => ["blur", "change"],
   })
 
   /**
@@ -120,6 +129,8 @@
         defaultRendererType: props.defaultRendererType,
         validationRuleRegistry: props.validationRuleRegistry,
         validatorAdapters: props.validatorAdapters,
+        schedulerOptions: props.schedulerOptions,
+        validationConcurrency: props.validationConcurrency,
 
         /**
          * 转发提交成功回调。
@@ -175,7 +186,7 @@
    * 注册表单上下文。
    *
    * 无论实例来自 props.form 还是 useForm，都必须同步注册，
-   * 从而保证 FormItem、useField 等后代逻辑能够获取同一个实例。
+   * 从而保证 Field、useField 等后代逻辑能够获取同一个实例。
    */
   const formInstance = createFormContext(providedForm)
 
@@ -183,6 +194,12 @@
    * 组件未受控时直接跟随 Core 提交状态；受控值仅覆盖操作区展示。
    */
   const effectiveLoading = computed(() => props.loading ?? formInstance.isLoading())
+
+  /** Form 根节点的 class 来源：组件内部标识与调用方自定义 class。 */
+  const formRootClass = computed(() => ["schemx", props.class])
+
+  /** Form 根节点的 style 来源；保留 Vue StyleValue 的对象/数组合并能力。 */
+  const formRootStyle = computed(() => props.style)
 
   /**
    * 归一化启用状态下的操作配置。
@@ -344,15 +361,15 @@
    * @param schema - 当前需要计算样式的 ViewSchema。
    * @returns 用于包裹元素的首尾位置 class 映射。
    */
-  const getFormItemClass = (schema: SchemxViewSchema<TValues>) => {
+  const getFieldClass = (schema: SchemxViewSchema<TValues>) => {
     const { isFirst, isLast } = getSectionPosition(
       viewSchemas.value as SchemxViewSchema[],
       schema.key
     )
 
     return {
-      "schemx-item-wrapper--first": isFirst,
-      "schemx-item-wrapper--last": isLast,
+      "schemx-field-wrapper--first": isFirst,
+      "schemx-field-wrapper--last": isLast,
     }
   }
 
@@ -371,7 +388,7 @@
   )
 
   /**
-   * 暴露当前表单 Facade 的完整控制 API，供模板 ref 调用。
+   * 暴露当前表单 Instance 的完整控制 API，供模板 ref 调用。
    */
   const exposed: SchemxInstance<TValues> = {
     ...formInstance,
@@ -383,17 +400,25 @@
 </script>
 
 <template>
-  <div :class="['schemx', props.class]" :style="props.style">
-    <FormItem
-      v-for="schema in viewSchemas"
-      :key="schema.key"
-      :schema="schema as SchemxViewSchema"
-      :class="getFormItemClass(schema as SchemxViewSchema<TValues>)"
-    >
-      <template v-for="(_, slotName) in fieldSlots" #[slotName]="slotProps">
-        <slot :name="slotName" v-bind="slotProps ?? {}" />
-      </template>
-    </FormItem>
+  <div :class="formRootClass" :style="formRootStyle">
+    <template v-for="schema in viewSchemas" :key="schema.key">
+      <Group v-if="isViewGroupSchema(schema)" :schema="schema as SchemxViewGroupSchema">
+        <template v-for="(_, slotName) in fieldSlots" #[slotName]="slotProps">
+          <slot :name="slotName" v-bind="slotProps ?? {}" />
+        </template>
+      </Group>
+
+      <Field
+        v-else
+        :schema="schema as SchemxViewSchema"
+        :class="getFieldClass(schema as SchemxViewSchema<TValues>)"
+      >
+        <template v-for="(_, slotName) in fieldSlots" #[slotName]="slotProps">
+          <slot :name="slotName" v-bind="slotProps ?? {}" />
+        </template>
+      </Field>
+    </template>
+
     <div v-if="isActionsVisible" class="schemx-actions">
       <slot
         v-if="isResetterVisible && slots.resetter"

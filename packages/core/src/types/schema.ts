@@ -72,7 +72,7 @@ export interface SchemxBaseComponentProps<
    */
   align?: "left" | "center" | "right"
   /**
-   * FormItem 组件 Props
+   * Field 组件的展示 Props；schema 属性名保留 `formItemProps`。
    */
   formItemProps?: SchemxFormItemProps<TValues>
   /**
@@ -350,7 +350,7 @@ export interface SchemxBase<
 }
 
 /**
- * FormItem 组件 Props
+ * Field 组件的展示 Props。
  */
 export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
   SchemxBase<TValues>,

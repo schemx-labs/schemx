@@ -3,7 +3,7 @@ import type { SchemaRuntime } from "../runtime/createSchemaRuntime"
 import type { Values } from "../types"
 
 /**
- * 管理 FormFacade 与 SchemaRuntime/FormController 之间的一次性连接。
+ * 管理 FormInstance 与 SchemaRuntime/FormController 之间的一次性连接。
  *
  * @typeParam TValues - 表单值对象类型。
  */

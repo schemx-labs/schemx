@@ -4,6 +4,7 @@
  * @module core/store/types
  */
 
+import type { FieldArrayHandle, FieldArrayItemValue, FieldArrayPath } from "../fieldArray"
 import type { FieldValue, NamePath, Values } from "../types"
 
 /**
@@ -59,6 +60,15 @@ export interface StorePending<
  * @typeParam TValues - 表单值类型。
  */
 export interface Store<TValues extends Values = Values> {
+  /**
+   * 创建指定数组路径的 Handle。
+   *
+   * @param path - 动态数组字段路径。
+   * @typeParam TPath - 动态数组字段路径类型。
+   */
+  getFieldArrayHandle<TPath extends FieldArrayPath<TValues>>(
+    path: TPath
+  ): FieldArrayHandle<FieldArrayItemValue<FieldValue<TValues, TPath>>>
   /**
    * 注册 Schema 字段路径，将其作为批量写入的原子值边界。
    *

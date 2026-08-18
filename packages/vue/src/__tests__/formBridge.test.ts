@@ -1,5 +1,5 @@
 /**
- * Vue Form Bridge 与 Facade 测试。
+ * Vue Form Runtime 与 Instance 测试。
  *
  * @module vue/__tests__/formBridge
  */
@@ -9,42 +9,73 @@ import { effectScope, nextTick, watchEffect } from "vue"
 import { createForm } from "@schemx/core"
 import { describe, expect, it, vi } from "vitest"
 
-import {
-  getCoreForm,
-  getVueFormBridge,
-  getVueFormFacade,
-  retainVueFormBridge,
-} from "../bridge"
+import { acquireVueFormRuntime } from "../bridge"
 import { useForm } from "../hooks/useForm"
 
-describe("Vue Form Facade", () => {
-  it("useForm 返回唯一 Facade，并保留原始 Core Form 访问出口", () => {
+describe("Vue Form Instance", () => {
+  it("useForm 返回 Vue Instance，并保持 Core API 结构兼容", () => {
     const scope = effectScope()
 
     const form = scope.run(() => useForm({ initialValues: { name: "Ada" } }))
 
     expect(form).toBeDefined()
-    expect(getCoreForm(form!)).not.toBe(form)
-    expect(getCoreForm(form!)).toBe(getCoreForm(form!))
 
     scope.stop()
   })
 
-  it("Bridge 重建后仍复用同一个 Facade", () => {
+  it("Runtime 资源重建后仍复用同一个 Instance", () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
-    const firstFacade = getVueFormFacade(coreForm)
+    const firstAcquired = acquireVueFormRuntime(coreForm)
 
-    const releaseBridge = retainVueFormBridge(getVueFormBridge(coreForm))
+    const firstInstance = firstAcquired.runtime.instance
 
-    releaseBridge()
+    firstAcquired.release()
 
-    expect(getVueFormFacade(coreForm)).toBe(firstFacade)
+    const secondAcquired = acquireVueFormRuntime(coreForm)
 
+    expect(secondAcquired.runtime.instance).toBe(firstInstance)
+
+    secondAcquired.release()
     coreForm.destroy()
   })
 
-  it("Facade 字段和聚合读取可被 Vue effect 追踪", async () => {
+  it("最后一个 owner 释放后可重建响应式资源", async () => {
+    const coreForm = createForm({ initialValues: { name: "Ada" } })
+
+    const firstAcquired = acquireVueFormRuntime(coreForm)
+
+    const firstState = firstAcquired.runtime.getFieldState("name")
+
+    firstAcquired.release()
+
+    const secondAcquired = acquireVueFormRuntime(coreForm)
+
+    const secondState = secondAcquired.runtime.getFieldState("name")
+
+    const values: Array<string | undefined> = []
+
+    const scope = effectScope()
+
+    scope.run(() => {
+      watchEffect(() => {
+        values.push(secondAcquired.runtime.instance.getFieldValue("name"))
+      })
+    })
+
+    coreForm.setFieldValue("name", "Grace")
+    await nextTick()
+
+    expect(secondAcquired.runtime.instance).toBe(firstAcquired.runtime.instance)
+    expect(secondState).not.toBe(firstState)
+    expect(values).toEqual(["Ada", "Grace"])
+
+    scope.stop()
+    secondAcquired.release()
+    coreForm.destroy()
+  })
+
+  it("Instance 字段和聚合读取可被 Vue effect 追踪", async () => {
     const scope = effectScope()
 
     const values: Array<string | undefined> = []
@@ -74,7 +105,15 @@ describe("Vue Form Facade", () => {
       return instance
     })
 
-    const coreForm = getCoreForm(form!)
+    if (!form) {
+      throw new Error("Failed to create Form in Vue effect scope.")
+    }
+
+    const acquired = acquireVueFormRuntime(form)
+
+    const coreForm = acquired.runtime.core
+
+    acquired.release()
 
     coreForm.setFieldValue("name", "Grace")
     coreForm.setFieldErrors("name", ["无效名称"])
@@ -90,7 +129,7 @@ describe("Vue Form Facade", () => {
     scope.stop()
   })
 
-  it("Facade 的全表、touched 与 pending 单字段读取可被 Vue effect 追踪", async () => {
+  it("Instance 的全表、touched 与 pending 单字段读取可被 Vue effect 追踪", async () => {
     const scope = effectScope()
 
     let allValuesReads = 0
@@ -116,7 +155,15 @@ describe("Vue Form Facade", () => {
       return instance
     })
 
-    const coreForm = getCoreForm(form!)
+    if (!form) {
+      throw new Error("Failed to create Form in Vue effect scope.")
+    }
+
+    const acquired = acquireVueFormRuntime(form)
+
+    const coreForm = acquired.runtime.core
+
+    acquired.release()
 
     coreForm.setFieldValue("age", 21)
     await nextTick()
@@ -155,7 +202,15 @@ describe("Vue Form Facade", () => {
       return instance
     })
 
-    const coreForm = getCoreForm(form!)
+    if (!form) {
+      throw new Error("Failed to create Form in Vue effect scope.")
+    }
+
+    const acquired = acquireVueFormRuntime(form)
+
+    const coreForm = acquired.runtime.core
+
+    acquired.release()
 
     coreForm.setFieldValue("age", 21)
     await nextTick()
@@ -172,12 +227,14 @@ describe("Vue Form Facade", () => {
     scope.stop()
   })
 
-  it("Facade 手动 destroy 后停止同步 Vue Bridge", async () => {
+  it("Instance 手动 destroy 后停止同步 Vue Runtime", async () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
     const effect = vi.spyOn(coreForm, "effect")
 
-    const form = getVueFormFacade(coreForm)
+    const acquired = acquireVueFormRuntime(coreForm)
+
+    const form = acquired.runtime.instance
 
     const scope = effectScope()
 
@@ -201,6 +258,7 @@ describe("Vue Form Facade", () => {
     expect(values).toEqual(["Ada", "Grace"])
     expect(effect).toHaveBeenCalledTimes(effectCallsAfterDestroy)
 
+    acquired.release()
     scope.stop()
   })
 })

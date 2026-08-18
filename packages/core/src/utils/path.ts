@@ -23,6 +23,7 @@
 
 import { get, set, toPath } from "es-toolkit/compat"
 
+import type { FieldArrayChange } from "../fieldArray"
 import type { FieldValue, NamePath, Values } from "../types"
 
 /** es-toolkit 路径函数接受的运行时路径形态。 */
@@ -241,6 +242,42 @@ export function isDescendantFieldPath<TValues extends Values>(
     candidateSegments.length > ancestorSegments.length &&
     ancestorSegments.every((segment, index) => segment === candidateSegments[index])
   )
+}
+
+/** 判断数组项后代路径是否落在结构变更影响的索引范围内。 */
+export function isFieldArrayDescendantAffected<TValues extends Values>(
+  fieldPath: NamePath<TValues>,
+  arrayPath: NamePath<TValues>,
+  change: FieldArrayChange
+): boolean {
+  if (!isDescendantFieldPath(fieldPath, arrayPath)) return false
+
+  const fieldSegments = toNamePathSegments(fieldPath)
+
+  const arrayLength = toNamePathSegments(arrayPath).length
+
+  const index = Number(fieldSegments[arrayLength])
+
+  if (!Number.isInteger(index)) return false
+
+  return change.ranges.some((range) => index >= range.start && index <= range.end)
+}
+
+/** 判断数组项后代路径是否已经超出新的数组长度。 */
+export function isFieldArrayDescendantOutOfRange<TValues extends Values>(
+  fieldPath: NamePath<TValues>,
+  arrayPath: NamePath<TValues>,
+  nextLength: number
+): boolean {
+  if (!isDescendantFieldPath(fieldPath, arrayPath)) return false
+
+  const fieldSegments = toNamePathSegments(fieldPath)
+
+  const arrayLength = toNamePathSegments(arrayPath).length
+
+  const index = Number(fieldSegments[arrayLength])
+
+  return Number.isInteger(index) && index >= nextLength
 }
 
 /**

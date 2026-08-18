@@ -1,3 +1,4 @@
+import type { FieldArrayChange } from "../fieldArray"
 import type { NamePath, Values } from "../types/form"
 import type { DefinedFieldValue } from "../types/rule"
 import type {
@@ -240,6 +241,13 @@ export interface CreateValidatorOptions<TValues extends Values> {
     error: unknown,
     context: ValidationRuleContext<TValues, NamePath<TValues>>
   ) => string
+
+  /**
+   * 整表校验时同时运行的字段数；小于 1 的值会归一为 1。
+   *
+   * @defaultValue 8
+   */
+  validationConcurrency?: number
 }
 
 /**
@@ -289,6 +297,8 @@ export interface Validator<TValues extends Values> {
    * @param names - 要移除规则的字段路径数组。
    */
   removeFieldsRules(names: readonly NamePath<TValues>[]): void
+  /** 清理 FieldArray 结构变化后的过期规则运行结果。 */
+  invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void
   /**
    * 获取字段当前错误消息的不可变快照。
    *

@@ -10,6 +10,7 @@ import { createAbortableTaskRunner } from "../scheduler/abortableTaskRunner"
 import type { NamePath, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type { Scope } from "../node"
+import type { SchedulerTaskPriority } from "../scheduler"
 
 /**
  * 依赖任务调度 effect 的控制句柄。
@@ -55,6 +56,13 @@ export interface CreateDepSchedulerEffectOptions<TValues extends Values, TResult
    * 同一轮调度中使用相同标识的任务只保留最后一次。
    */
   readonly taskId: string
+
+  /**
+   * 后续字段变化触发任务使用的 Scheduler 优先级。
+   *
+   * @defaultValue "normal"
+   */
+  readonly priority?: SchedulerTaskPriority
 
   /**
    * effect 所属的父生命周期作用域。
@@ -138,6 +146,7 @@ export function createDepSchedulerEffect<TValues extends Values, TResult>(
   const taskRunner = createAbortableTaskRunner<TResult>({
     scope: effectScope,
     scheduler,
+    priority: options.priority,
     run: options.run,
     onStart: options.onStart,
     onSuccess: options.onSuccess,
@@ -154,17 +163,28 @@ export function createDepSchedulerEffect<TValues extends Values, TResult>(
     return await taskRunner.run()
   }
 
-  // 将后续字段变化合并到 Scheduler 的 normal 队列。
+  // 将后续字段变化合并到 Scheduler 队列，并保留同一轮的 keyed 去重。
   const schedule = (): void => {
     scheduler.schedule({
       id: options.taskId,
-      priority: "normal",
+      priority: options.priority ?? "normal",
       scope: effectScope,
       run: () => {
         // taskRunner 已自行注册异步任务，队列任务无需重复返回同一 Promise。
         void run()
       },
     })
+  }
+
+  // idle effect 的首次执行也应等待浏览器空闲；其他优先级保留原有立即执行时机。
+  const runInitial = (): void => {
+    if (options.priority === "idle") {
+      schedule()
+
+      return
+    }
+
+    void run()
   }
 
   if (options.triggerFields.length > 0) {
@@ -179,9 +199,9 @@ export function createDepSchedulerEffect<TValues extends Values, TResult>(
         initialized = true
 
         if (options.immediate !== false) {
-          // 首次任务直接执行，以保持依赖资源挂载后的初始化时机。
+          // 普通任务首次直接执行；idle 任务通过同一 Scheduler 等待空闲时机。
           runSignalUntracked(() => {
-            void run()
+            runInitial()
           })
         }
 

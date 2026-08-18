@@ -147,7 +147,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 | `dependsOn`         | `NamePath[]`                             | —        | 依赖字段变化后重新加载。                                                                                |
 | `shouldFetch`       | `(values) => boolean`                    | 始终执行 | 返回 `false` 时跳过请求并清空选项。                                                                     |
 | `immediate`         | `boolean`                                | `true`   | 是否在挂载后立即加载。                                                                                  |
-| `resetOnDepsChange` | `boolean`                                | `false`  | 依赖变化时清空当前字段；Vant 内建 Dictionary Renderer 会自动从 `FormItem` 的字段 Context 取得目标路径。 |
+| `resetOnDepsChange` | `boolean`                                | `false`  | 依赖变化时清空当前字段；Vant 内建 Dictionary Renderer 会自动从 `Field` 的字段 Context 取得目标路径。 |
 | `retryCount`        | `number`                                 | `0`      | 失败重试次数。                                                                                          |
 | `retryInterval`     | `number`                                 | `1000`   | 重试间隔，单位为毫秒。                                                                                  |
 | `onSuccess`         | `(data, form) => void`                   | —        | 格式化并写入选项后触发。                                                                                |
@@ -156,7 +156,7 @@ Dependency 使用 `to` 生成或更新动态子树，使用 `dependencies` 改�
 
 请求计数只在通过 `shouldFetch` 检查、真正开始请求时递增，并且只在 API 成功返回与异步 `formatter` 完成后检查是否过期。因此，它能阻止旧的成功响应或旧的 formatter 结果覆盖更新请求，但不是完整的竞态隔离：`shouldFetch` 返回 `false` 时不会递增计数，先前在途的成功结果仍可能随后写回；错误分支也不检查请求计数，旧请求的错误仍可能覆盖较新的状态、清空选项并触发 `onError`。错误本身会被规范化为 `Error`。
 
-`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。支持 Dictionary 的 Vant Renderer 经 `WithRemoteOptions` 包装后，会在 `FormItem` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `FormItem` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
+`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。支持 Dictionary 的 Vant Renderer 经 `WithRemoteOptions` 包装后，会在 `Field` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `Field` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
 
 ### 可复制的依赖联动示例
 
@@ -1040,8 +1040,8 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 分类       | 导出                      | 用途                                                    |
 | ---------- | ------------------------- | ------------------------------------------------------- |
 | 表单组件   | `schemxForm`              | Vue 可安装表单组件，与 Vant 的 `default` 指向同一对象。 |
-| 组件       | `FormItem`                | 渲染字段或分组 ViewSchema。                             |
-| 组件       | `FormGroup`               | 渲染分组 ViewSchema。                                   |
+| 组件       | `Field`                   | 渲染字段 ViewSchema。                                  |
+| 组件       | `Group`                   | 渲染分组 ViewSchema。                                   |
 | HOC        | `WithRemoteOptions`       | 为 Renderer 接入 Dictionary。                           |
 | Registry   | `rendererRegistry`        | Vue 全局 Renderer Registry；Vant 默认注册写入此实例。   |
 | Registry   | `validationRuleRegistry`  | Vue 全局 ValidationRuleRegistry。                       |
@@ -1155,7 +1155,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema             | `SchemxResolvedField`            | 解析后字段 / Group 联合。                 |
 | Schema             | `SchemxBaseComponentProps`       | Renderer 公共 Props。                     |
 | Schema             | `SchemxComponentProps`           | Renderer 专属与公共 Props。               |
-| Schema             | `SchemxFormItemProps`            | 表单项字段配置。                          |
+| Schema             | `SchemxFormItemProps`            | Core 保留的字段展示 Props 类型（schema 属性名仍为 `formItemProps`）。 |
 | 扩展               | `SchemxFieldDefinition`          | 普通字段声明合并接口。                    |
 | 扩展               | `SchemxGroupFieldDefinition`     | Group 声明合并接口。                      |
 | 依赖               | `SchemxDependencies`             | 字段动态依赖配置。                        |

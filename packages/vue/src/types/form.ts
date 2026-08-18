@@ -1,10 +1,11 @@
-import type { StyleValue } from "vue"
+import type { ClassValue, StyleValue } from "vue"
 
 import type { SchemxButtonProps } from "../components/Button"
 import type {
   DefinedFieldValue,
   FormCallbackOptions,
   FormLifecycleOptions,
+  FormPerformanceOptions,
   NamePath,
   RequiredRule,
   SchemxConfig,
@@ -67,6 +68,7 @@ export interface SchemxFormProps<TValues extends Values = Values>
     Omit<SchemxConfig<TValues>, "schemaConfig">,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
+    FormPerformanceOptions,
     SchemxFormSchemaConfigProps<TValues> {
   /**
    * 初始 Schema 列表。
@@ -106,7 +108,7 @@ export interface SchemxFormProps<TValues extends Values = Values>
   /**
    * 自定义 CSS 类名
    */
-  class?: string
+  class?: ClassValue
 
   /**
    * 自定义内联样式

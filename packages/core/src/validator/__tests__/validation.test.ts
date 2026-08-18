@@ -13,6 +13,8 @@ describe("createValidation", () => {
   it("聚合字段同步、规则注册与校验执行", async () => {
     const validation = createValidation<FormValues>()
 
+    expect("invalidateFieldArray" in validation).toBe(false)
+
     validation.registerRule("email", {
       validate: (value) =>
         value?.includes("@")
@@ -26,7 +28,9 @@ describe("createValidation", () => {
       rules: "email",
     })
 
-    await expect(validation.validateField("email", { email: "invalid" })).resolves.toMatchObject({
+    await expect(
+      validation.validateField("email", { email: "invalid" })
+    ).resolves.toMatchObject({
       valid: false,
       errors: [{ issues: [{ code: "email" }] }],
     })
@@ -53,15 +57,19 @@ describe("createValidation", () => {
     })
     validation.removeSchemaField("email")
 
-    await expect(validation.validateField("email", { email: "" })).resolves.toMatchObject({
-      valid: false,
-      errors: [{ issues: [{ message: "覆盖规则" }] }],
-    })
+    await expect(validation.validateField("email", { email: "" })).resolves.toMatchObject(
+      {
+        valid: false,
+        errors: [{ issues: [{ message: "覆盖规则" }] }],
+      }
+    )
 
     validation.removeFieldRules("email")
-    await expect(validation.validateField("email", { email: "" })).resolves.toMatchObject({
-      valid: true,
-    })
+    await expect(validation.validateField("email", { email: "" })).resolves.toMatchObject(
+      {
+        valid: true,
+      }
+    )
 
     validation.destroy()
   })

@@ -2,14 +2,14 @@
  * 表单实例工厂 - 框架无关的核心装配入口。
  *
  * `createForm` 负责解析配置并装配 FormModel、SchemaRuntime、FormController
- * 与稳定的 SchemxInstance Facade。
+ * 与稳定的 SchemxInstance。
  *
  * @module core/createForm
  */
 
 import { createFormBindings } from "./form/bindings"
 import { createFormController } from "./form/controller"
-import { createFormApi, createFormFacade } from "./form/facade"
+import { createFormApi, createFormInstance } from "./form/instance"
 import { createFormModel, createRuntimeFormModelPort } from "./form/model"
 import { createFormObserver } from "./form/observer"
 import { type CreateFormOptions, mergeCreateFormOptions } from "./form/options"
@@ -23,6 +23,7 @@ export type {
   ResolvedCreateFormOptions,
   FormCallbackOptions,
   FormLifecycleOptions,
+  FormPerformanceOptions,
   FormRegistryOptions,
   FormSchemaOptions,
 } from "./form/options"
@@ -35,7 +36,7 @@ export type {
  * @returns 可用于读取、更新、校验和销毁表单的稳定实例。
  *
  * @remarks
- * 创建过程会装配 Model、Runtime、Controller 和 Facade；初始化失败时会释放已创建资源并重新抛出原始错误。
+ * 创建过程会装配 Model、Runtime、Controller 和 Instance；初始化失败时会释放已创建资源并重新抛出原始错误。
  *
  */
 export function createForm<TValues extends Values>(
@@ -56,16 +57,17 @@ export function createForm<TValues extends Values>(
     validationRuleRegistry,
     validatorAdapters: [...(merged.validatorAdapters ?? [])],
     onRuleError: merged.onRuleError,
+    validationConcurrency: merged.validationConcurrency,
   })
 
-  // 由公开门面与服务共享、只连接一次的绑定容器。
+  // 由公开实例与服务共享、只连接一次的绑定容器。
   const bindings = createFormBindings<TValues>()
 
   // 传递给动态渲染器实现的轻量 API。
   const formApi = createFormApi(model, bindings)
 
-  // 返回给调用方的稳定公开门面。
-  const instance = createFormFacade({
+  // 返回给调用方的稳定公开实例。
+  const instance = createFormInstance({
     model,
     bindings,
     rendererRegistry,
@@ -82,6 +84,7 @@ export function createForm<TValues extends Values>(
     defaultRendererType: merged.defaultRendererType,
     lifecycleHooks: merged.lifecycleHooks,
     debug: merged.debug,
+    schedulerOptions: merged.schedulerOptions,
   })
 
   // 负责依赖感知校验与提交的 Controller。

@@ -3,6 +3,7 @@ import { createValidationRuleRegistry } from "../registry"
 import { createValidationController } from "./validationController"
 import { createValidator } from "./validator"
 
+import type { FieldArrayChange } from "../fieldArray"
 import type { ValidationRuleRegistry } from "../registry"
 import type { NamePath, Values } from "../types"
 import type {
@@ -36,6 +37,8 @@ export interface CreateValidationOptions<TValues extends Values> {
    * 将规则异常转换为用户可见消息的处理器。
    */
   readonly onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
+  /** 整表校验的字段并发数，默认 `8`。 */
+  readonly validationConcurrency?: number
 }
 
 /**
@@ -178,6 +181,26 @@ export interface Validation<TValues extends Values> {
   destroy(): void
 }
 
+type ValidationFieldArrayInvalidator<TValues extends Values> = (
+  path: NamePath<TValues>,
+  change: FieldArrayChange
+) => void
+
+const validationFieldArrayInvalidators = new WeakMap<object, unknown>()
+
+/** 获取 FormModel 使用的 FieldArray 校验失效端口；不进入公开 Validation 契约。 */
+export function getValidationFieldArrayInvalidator<TValues extends Values>(
+  validation: Validation<TValues>
+): ValidationFieldArrayInvalidator<TValues> {
+  const invalidator = validationFieldArrayInvalidators.get(validation as object)
+
+  if (!invalidator) {
+    throw new Error("[schemx] Validation FieldArray port is not available.")
+  }
+
+  return invalidator as ValidationFieldArrayInvalidator<TValues>
+}
+
 /**
  * 创建并统一管理表单的规则编译、执行、错误状态和 Registry 订阅。
  *
@@ -202,7 +225,10 @@ export function createValidation<TValues extends Values = Values>(
   /*
    * Validator 负责执行规则和维护错误来源，Controller 负责编译字段配置。
    */
-  const validator = createValidator<TValues>({ onRuleError: options.onRuleError })
+  const validator = createValidator<TValues>({
+    onRuleError: options.onRuleError,
+    validationConcurrency: options.validationConcurrency,
+  })
 
   const controller = createValidationController({
     validator,
@@ -238,6 +264,8 @@ export function createValidation<TValues extends Values = Values>(
 
   const removeField = controller.removeField.bind(controller)
 
+  const invalidateFieldArray = controller.invalidateFieldArray.bind(controller)
+
   const getRule = registry.get.bind(registry)
 
   const registerRule = registry.register.bind(registry)
@@ -249,7 +277,7 @@ export function createValidation<TValues extends Values = Values>(
     validator.destroy()
   }
 
-  return {
+  const validation = {
     registry,
     validateField,
     validate,
@@ -270,4 +298,8 @@ export function createValidation<TValues extends Values = Values>(
     hasRule,
     destroy,
   }
+
+  validationFieldArrayInvalidators.set(validation, invalidateFieldArray)
+
+  return validation
 }

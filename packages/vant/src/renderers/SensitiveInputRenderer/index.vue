@@ -107,7 +107,6 @@
 
   const isEmpty = computed(() => isEmptyDisplayValue(rawValue.value))
 
-  console.log(" > ~ props:", props)
   const canReveal = computed(() => {
     if (isEmpty.value || !props.revealable || props.disabled) return false
     if (props.readonly && !props.revealWhenReadonly) return false

@@ -11,12 +11,7 @@ import { onScopeDispose } from "vue"
 
 import { createForm, mergeSchemxConfig, type SchemxConfig } from "@schemx/core"
 
-import {
-  getVueFormBridge,
-  getVueFormFacade,
-  retainVueFormBridge,
-  type VueSchemxInstance,
-} from "../bridge"
+import { acquireVueFormRuntime, type VueSchemxInstance } from "../bridge"
 import { getSchemxAppConfig } from "../config"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
 import { validationRuleRegistry as globalValidationRuleRegistry } from "../utils/rulesProvider"
@@ -102,13 +97,13 @@ export function useForm<TValues extends Values = Values>(
   // 表单实例是当前 scope 内的一次性资源，不需要使用 computed 包装。
   const instance = createForm<TValues>(mergedOptions)
 
-  const form = getVueFormFacade(instance)
+  const acquired = acquireVueFormRuntime(instance)
 
-  const releaseBridge = retainVueFormBridge(getVueFormBridge(instance))
+  const form = acquired.runtime.instance
 
   // useForm 创建的实例归当前 effect scope 所有，因此由当前 scope 负责销毁。
   onScopeDispose(() => {
-    releaseBridge()
+    acquired.release()
     form.destroy()
   })
 

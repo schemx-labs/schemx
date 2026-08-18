@@ -49,6 +49,20 @@ export function getSectionPosition<TItem extends SchemxViewSchema>(
   }
 }
 
+/** 将 NamePath 转换为整体字段与 Renderer 子插槽使用的键。 */
+export function normalizeNameKey(name: unknown): string {
+  if (Array.isArray(name)) {
+    return name.map((part) => String(part)).join(".")
+  }
+
+  return String(name)
+}
+
+/** 将分组 key 转换为可用于 DOM ID 的安全字符串。 */
+export function normalizeId(key: string): string {
+  return String(key).replace(/[^a-zA-Z0-9_-]/g, "-")
+}
+
 function isPositionItem<TItem extends SchemxViewSchema>(item?: TItem) {
   return !!item && !isViewGroupSchema(item) && item.visible !== false
 }

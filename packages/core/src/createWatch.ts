@@ -54,6 +54,7 @@
 
 import { isEqual } from "es-toolkit/compat"
 
+import { runSignalUntracked } from "./reactivity"
 import { collectObjectPathsByLeaf, diff } from "./utils"
 
 import type { FieldValue, NamePath, SchemxInstance, Values } from "./types"
@@ -237,7 +238,9 @@ export const createWatchField = <
       if (options.immediate) {
         const latestSnapshot = form.getFieldsSnapshot()
 
-        callback(latestSnapshot, { value: current, prevValue: undefined })
+        runSignalUntracked(() => {
+          callback(latestSnapshot, { value: current, prevValue: undefined })
+        })
       }
 
       prev = current
@@ -249,7 +252,9 @@ export const createWatchField = <
 
     const latestSnapshot = form.getFieldsSnapshot()
 
-    callback(latestSnapshot, { value: current, prevValue: prev })
+    runSignalUntracked(() => {
+      callback(latestSnapshot, { value: current, prevValue: prev })
+    })
 
     prev = current
   })
@@ -306,10 +311,12 @@ export const createWatchFields = <
       if (options.immediate) {
         const latestSnapshot = form.getFieldsSnapshot()
 
-        callback(latestSnapshot, {
-          changedPaths: names,
-          changedValues: currentValues,
-          prevValues: {},
+        runSignalUntracked(() => {
+          callback(latestSnapshot, {
+            changedPaths: names,
+            changedValues: currentValues,
+            prevValues: {},
+          })
         })
       }
 
@@ -328,7 +335,9 @@ export const createWatchFields = <
 
     const latestSnapshot = form.getFieldsSnapshot()
 
-    callback(latestSnapshot, { changedPaths, changedValues, prevValues })
+    runSignalUntracked(() => {
+      callback(latestSnapshot, { changedPaths, changedValues, prevValues })
+    })
 
     prevValues = { ...currentValues }
   })
@@ -382,10 +391,12 @@ export const createWatchAll = <
     if (isFirst) {
       isFirst = false
       if (options.immediate) {
-        callback(latestSnapshot, {
-          changedPaths: [],
-          changedValues: latestSnapshot,
-          prevValues: {} as Partial<TValues>,
+        runSignalUntracked(() => {
+          callback(latestSnapshot, {
+            changedPaths: [],
+            changedValues: latestSnapshot,
+            prevValues: {} as Partial<TValues>,
+          })
         })
       }
 
@@ -402,7 +413,9 @@ export const createWatchAll = <
     // 部分变更快照中包含的叶子路径。
     const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
 
-    callback(latestSnapshot, { changedPaths, changedValues, prevValues })
+    runSignalUntracked(() => {
+      callback(latestSnapshot, { changedPaths, changedValues, prevValues })
+    })
 
     prevValues = { ...latestSnapshot }
   })

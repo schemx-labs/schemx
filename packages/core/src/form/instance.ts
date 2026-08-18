@@ -15,6 +15,9 @@ export function createFormApi<TValues extends Values>(
   model: FormModel<TValues>,
   bindings: FormBindings<TValues>
 ): SchemxFormApi<TValues> {
+  // 每次调用时读取当前 Controller，保留连接前与销毁后的安全语义。
+  const getConnectedController = () => bindings.getConnectedController()
+
   // 把公开的 errors 字段转换为内部 messages 字段。
   const setFieldsErrors: SchemxFormApi<TValues>["setFieldsErrors"] = (fields) => {
     model.validation.setFieldsErrors(
@@ -24,36 +27,36 @@ export function createFormApi<TValues extends Values>(
 
   // 绑定 Controller 的规则操作；未连接 Runtime 时保持 no-op 语义。
   const setFieldRules: SchemxFormApi<TValues>["setFieldRules"] = (name, rules) =>
-    bindings.getConnectedController()?.setFieldRules(name, rules)
+    getConnectedController()?.setFieldRules(name, rules)
 
   const setFieldsRules: SchemxFormApi<TValues>["setFieldsRules"] = (fields) =>
-    bindings.getConnectedController()?.setFieldsRules(fields)
+    getConnectedController()?.setFieldsRules(fields)
 
   const removeFieldRules: SchemxFormApi<TValues>["removeFieldRules"] = (name) =>
-    bindings.getConnectedController()?.removeFieldRules(name)
+    getConnectedController()?.removeFieldRules(name)
 
   const removeFieldsRules: SchemxFormApi<TValues>["removeFieldsRules"] = (names) =>
-    bindings.getConnectedController()?.removeFieldsRules(names)
+    getConnectedController()?.removeFieldsRules(names)
 
   /**
    * 通过已连接的 Controller 校验字段；未连接时回退到本地 Validator。
    */
   const validateField: SchemxFormApi<TValues>["validateField"] = (name) =>
-    bindings.getConnectedController()?.validateField(name) ??
+    getConnectedController()?.validateField(name) ??
     model.validation.validateField(name, model.store.getFieldsValue())
 
   /**
    * 通过已连接的 Controller 校验整个表单；未连接时回退到本地 Validator。
    */
   const validate: SchemxFormApi<TValues>["validate"] = () =>
-    bindings.getConnectedController()?.validate() ??
+    getConnectedController()?.validate() ??
     model.validation.validate(model.store.getFieldsValue())
 
   /**
    * 通过已连接的 Controller 重置整表，确保生命周期回调一致。
    */
   const reset: SchemxFormApi<TValues>["reset"] = () =>
-    bindings.getConnectedController()?.reset() ?? model.reset()
+    getConnectedController()?.reset() ?? model.reset()
 
   function clearErrors(): void
   function clearErrors<TName extends NamePath<TValues>>(name: TName): void
@@ -70,6 +73,7 @@ export function createFormApi<TValues extends Values>(
   return {
     setFieldValue: model.store.setFieldValue.bind(model.store),
     setFieldsValue: model.store.setFieldsValue.bind(model.store),
+    getOrCreateFieldArray: model.getOrCreateFieldArray,
     getFieldValue: model.store.getFieldValue.bind(model.store),
     getFieldsValue: model.store.getFieldsValue.bind(model.store),
     getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
@@ -120,7 +124,7 @@ export function createFormApi<TValues extends Values>(
 }
 
 /**
- * 创建 Form 对外暴露的完整实例门面。
+ * 创建 Form 对外暴露的完整实例。
  *
  * @typeParam TValues - 表单值对象类型。
  * @param options - Model、服务 binding 和两个 Registry 实例。
@@ -129,20 +133,23 @@ export function createFormApi<TValues extends Values>(
  * @remarks
  * Runtime 断开后，读操作返回安全的空值，写操作不再触发已销毁的 Runtime。
  */
-export function createFormFacade<TValues extends Values>(options: {
+export function createFormInstance<TValues extends Values>(options: {
   model: FormModel<TValues>
   bindings: FormBindings<TValues>
   rendererRegistry: RendererRegistry
   validationRuleRegistry: ValidationRuleRegistry
 }): SchemxInstance<TValues> {
-  // FormFacade 只组装公开方法，不持有 Runtime 的内部实现细节。
+  // FormInstance 只组装公开方法，不持有 Runtime 的内部实现细节。
   const { model, bindings, rendererRegistry, validationRuleRegistry } = options
+
+  // 每次调用时读取当前 Controller，保留连接前与销毁后的安全语义。
+  const getConnectedController = () => bindings.getConnectedController()
 
   /**
    * 读取 Controller 的提交状态；断开后表单不再处于提交中。
    */
   const isLoading: SchemxInstance<TValues>["isLoading"] = () =>
-    bindings.getConnectedController()?.isLoading() ?? false
+    getConnectedController()?.isLoading() ?? false
 
   /**
    * 将字段校验委托给已连接的 Controller。
@@ -167,32 +174,32 @@ export function createFormFacade<TValues extends Values>(options: {
    * 通过已连接的 Controller 重置整表；断开后仅恢复本地状态。
    */
   const reset: SchemxInstance<TValues>["reset"] = () =>
-    bindings.getConnectedController()?.reset() ?? model.reset()
+    getConnectedController()?.reset() ?? model.reset()
 
   /**
    * 通过已连接的 Controller 提交；断开后回退为本地校验。
    */
   const submit: SchemxInstance<TValues>["submit"] = () =>
-    bindings.getConnectedController()?.submit() ??
+    getConnectedController()?.submit() ??
     model.validation.validate(model.store.getFieldsValue())
 
   /**
    * Controller 连接期间，将字段规则同步委托给 Controller。
    */
   const setFieldRules: SchemxInstance<TValues>["setFieldRules"] = (path, rules) =>
-    bindings.getConnectedController()?.setFieldRules(path, rules)
+    getConnectedController()?.setFieldRules(path, rules)
 
   // 委托批量设置字段规则；Controller 断开后操作失效。
   const setFieldsRules: SchemxInstance<TValues>["setFieldsRules"] = (fields) =>
-    bindings.getConnectedController()?.setFieldsRules(fields)
+    getConnectedController()?.setFieldsRules(fields)
 
   // 委托移除字段规则；Controller 断开后操作失效。
   const removeFieldRules: SchemxInstance<TValues>["removeFieldRules"] = (path) =>
-    bindings.getConnectedController()?.removeFieldRules(path)
+    getConnectedController()?.removeFieldRules(path)
 
   // 委托批量移除字段规则；Controller 断开后操作失效。
   const removeFieldsRules: SchemxInstance<TValues>["removeFieldsRules"] = (names) =>
-    bindings.getConnectedController()?.removeFieldsRules(names)
+    getConnectedController()?.removeFieldsRules(names)
 
   // 委托替换根 Schema；Runtime 断开后操作失效。
   const setSchemas: SchemxInstance<TValues>["setSchemas"] = (schemas) =>
@@ -226,6 +233,7 @@ export function createFormFacade<TValues extends Values>(options: {
   return {
     setFieldValue: model.store.setFieldValue.bind(model.store),
     setFieldsValue: model.store.setFieldsValue.bind(model.store),
+    getOrCreateFieldArray: model.getOrCreateFieldArray,
     getFieldValue: model.store.getFieldValue.bind(model.store),
     getFieldsValue: model.store.getFieldsValue.bind(model.store),
     getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),

@@ -4,7 +4,7 @@
  * @module core/adapter/formStateAdapter/types
  */
 
-import type { StorePending } from "../../store/store"
+import type { StorePending } from "../../store"
 import type { FieldValue, NamePath, SchemxInstance, Values } from "../../types"
 
 /**

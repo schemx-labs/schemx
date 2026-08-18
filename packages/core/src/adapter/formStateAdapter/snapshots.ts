@@ -7,7 +7,7 @@
 import { createFieldKey } from "../../utils"
 
 import type { FieldStateSnapshot } from "./types"
-import type { StorePending } from "../../store/store"
+import type { StorePending } from "../../store"
 import type { NamePath, SchemxInstance, Values } from "../../types"
 
 /**

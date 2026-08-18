@@ -1,8 +1,14 @@
+import { yieldToHost } from "../runtime/scheduler/scheduler"
 import { getByPath } from "../utils"
-import { createFieldKey } from "../utils/path"
+import {
+  createFieldKey,
+  isFieldArrayDescendantAffected,
+  isFieldArrayDescendantOutOfRange,
+} from "../utils/path"
 
 import { FieldErrorStore } from "./errorStore"
 
+import type { FieldArrayChange } from "../fieldArray"
 import type {
   CreateValidatorOptions,
   FieldValidationError,
@@ -40,6 +46,10 @@ interface FieldRuleRecord<TValues extends Values> {
  * 无错误时复用的冻结消息快照。
  */
 const EMPTY_MESSAGES: readonly string[] = Object.freeze([])
+
+const DEFAULT_VALIDATION_CONCURRENCY = 8
+
+const DEFAULT_RULES_PER_TIME_SLICE = 16
 
 /**
  * 执行原生规则、协调字段取消并维护错误来源的 Validator 实现。
@@ -138,6 +148,28 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     for (const name of names) {
       this.removeFieldRules(name)
     }
+  }
+
+  /** 清理 FieldArray 结构变化后的过期规则运行结果。 */
+  public invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void {
+    if (this.destroyed) return
+
+    for (const record of this.rules.values()) {
+      if (isFieldArrayDescendantOutOfRange(record.name, path, change.nextLength)) {
+        const key = createFieldKey(record.name)
+
+        this.rules.delete(key)
+        this.abortRun(key)
+
+        continue
+      }
+
+      if (!isFieldArrayDescendantAffected(record.name, path, change)) continue
+
+      this.abortRun(createFieldKey(record.name))
+    }
+
+    this.errors.invalidateFieldArray(path, change)
   }
 
   /**
@@ -344,10 +376,8 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 复制规则记录，避免校验期间注册表变化影响本轮范围。
     const records = [...this.rules.values()]
 
-    // 各字段独立运行，以避免慢规则阻塞无关字段。
-    const results = await Promise.all(
-      records.map((record) => this.validateField(record.name, values))
-    )
+    // 各字段独立运行，但限制并发数并在批次间让出主线程。
+    const results = await this.validateFieldsInBatches(records, values)
 
     if (results.some((result) => !result.valid && result.cancelled)) {
       return this.cancelled(values)
@@ -425,6 +455,8 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 按规则声明顺序累积的完整问题。
     const issues: ValidationRuleIssue[] = []
 
+    let rulesSinceYield = 0
+
     for (const rule of rules) {
       if (context.signal.aborted) return undefined
 
@@ -442,6 +474,13 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
           issues.push(...result.issues)
           if (result.bail) break
         }
+
+        rulesSinceYield += 1
+
+        if (rulesSinceYield >= DEFAULT_RULES_PER_TIME_SLICE) {
+          rulesSinceYield = 0
+          await yieldToHost()
+        }
       } catch (error) {
         if (context.signal.aborted) return undefined
         console.error(`[schemx] 字段 "${String(context.name)}" 校验规则执行错误`, error)
@@ -450,6 +489,48 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     }
 
     return issues
+  }
+
+  /**
+   * 以固定并发数执行整表字段校验，避免一次性启动大量规则运行。
+   */
+  private async validateFieldsInBatches(
+    records: readonly FieldRuleRecord<TValues>[],
+    values: TValues
+  ): Promise<ValidationResult<TValues>[]> {
+    if (records.length === 0) {
+      return []
+    }
+
+    const concurrency = normalizeValidationConcurrency(this.options.validationConcurrency)
+
+    const results: ValidationResult<TValues>[] = new Array(records.length)
+
+    let nextIndex = 0
+
+    let fieldsSinceYield = 0
+
+    const runWorker = async (): Promise<void> => {
+      while (nextIndex < records.length) {
+        const index = nextIndex++
+
+        const record = records[index]
+
+        results[index] = await this.validateField(record.name, values)
+        fieldsSinceYield += 1
+
+        if (fieldsSinceYield >= concurrency) {
+          fieldsSinceYield = 0
+          await yieldToHost()
+        }
+      }
+    }
+
+    const workerCount = Math.min(concurrency, records.length)
+
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
+
+    return results
   }
 
   /**
@@ -568,6 +649,17 @@ export function createValidator<TValues extends Values = Values>(
   options?: CreateValidatorOptions<TValues>
 ): Validator<TValues> {
   return new ValidatorImpl(options)
+}
+
+/**
+ * 将校验并发数归一为正整数。
+ */
+function normalizeValidationConcurrency(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) {
+    return DEFAULT_VALIDATION_CONCURRENCY
+  }
+
+  return Math.max(1, Math.floor(value))
 }
 
 export type {

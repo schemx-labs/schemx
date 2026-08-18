@@ -13,6 +13,7 @@ import {
 
 import type { LifecycleListener } from "../runtime/lifecycle"
 import type { RuntimeNode } from "../runtime/node"
+import type { SchedulerOptions } from "../runtime/scheduler"
 import type {
   NamePath,
   ResolvedSchemxSchemaConfig,
@@ -130,6 +131,16 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
 }
 
 /**
+ * `createForm` 的性能调度配置。
+ */
+export interface FormPerformanceOptions {
+  /** Scheduler 时间片与 idle 队列配置。 */
+  schedulerOptions?: SchedulerOptions
+  /** 整表校验时同时运行的字段数，默认 `8`。 */
+  validationConcurrency?: number
+}
+
+/**
  * `createForm` 的公开配置。
  *
  * 这是 Core 层的聚合入口；具体能力按数据、配置、回调和生命周期拆分，
@@ -146,7 +157,8 @@ export interface CreateFormOptions<
     FormSchemaOptions<TValues>,
     FormRegistryOptions<TValues>,
     FormCallbackOptions<TValues, TName>,
-    FormLifecycleOptions<TValues> {}
+    FormLifecycleOptions<TValues>,
+    FormPerformanceOptions {}
 
 /**
  * `createForm` 的已归一化配置。
@@ -214,6 +226,8 @@ export function mergeCreateFormOptions<TValues extends Values>(
     onFieldsChange: options.onFieldsChange,
     lifecycleHooks: options.lifecycleHooks,
     debug: options.debug ?? false,
+    schedulerOptions: options.schedulerOptions,
+    validationConcurrency: options.validationConcurrency,
   }
 }
 

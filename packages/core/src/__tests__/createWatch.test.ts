@@ -47,6 +47,31 @@ describe("createWatch 属性测试", () => {
     form.destroy()
   })
 
+  it("watch 回调读取全表值不会扩大字段监听范围", () => {
+    const form = createForm<{ province?: string; city?: string }>({
+      initialValues: { province: undefined, city: undefined },
+    })
+
+    let callCount = 0
+
+    const dispose = createWatchFields(
+      form,
+      ["province"],
+      () => {
+        callCount++
+        form.getFieldsValue()
+      },
+      {}
+    )
+
+    form.setFieldValue("province", "guangdong")
+    form.setFieldValue("city", "shenzhen")
+
+    expect(callCount).toBe(1)
+    dispose()
+    form.destroy()
+  })
+
   it("Property 11: createWatchField 回调接收 { value, prevValue } 载荷", () => {
     fc.assert(
       fc.property(

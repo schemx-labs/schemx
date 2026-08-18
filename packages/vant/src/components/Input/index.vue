@@ -359,6 +359,10 @@
 
     .van-field {
       padding: 0px;
+
+      .van-field__right-icon {
+        padding: 0;
+      }
     }
   }
 </style>

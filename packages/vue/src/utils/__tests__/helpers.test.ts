@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { getSectionPosition } from "../helpers"
+import { getSectionPosition, normalizeId, normalizeNameKey } from "../helpers"
 
 import type { SchemxViewSchema } from "@schemx/core"
 
@@ -38,6 +38,18 @@ describe("getSectionPosition", () => {
       isFirst: false,
       isLast: false,
     })
+  })
+})
+
+describe("normalize helpers", () => {
+  it("应将 NamePath 转换为稳定的插槽键", () => {
+    expect(normalizeNameKey(["user", 0, "name"])).toBe("user.0.name")
+    expect(normalizeNameKey("user.name")).toBe("user.name")
+  })
+
+  it("应将分组 key 转换为安全的 DOM ID 片段", () => {
+    expect(normalizeId("profile/basic")).toBe("profile-basic")
+    expect(normalizeId("profile.basic")).toBe("profile-basic")
   })
 })
 

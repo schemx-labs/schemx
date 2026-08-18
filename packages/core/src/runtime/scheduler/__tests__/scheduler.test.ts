@@ -57,6 +57,66 @@ describe("schedule", () => {
     expect(order).toEqual(["normal", "post"])
   })
 
+  it("应该在 normal/post 完成后执行 idle 任务", async () => {
+    const scheduler = createScheduler()
+
+    const order: string[] = []
+
+    scheduler.schedule({
+      id: "idle-1",
+      priority: "idle",
+      run: () => {
+        order.push("idle")
+      },
+    })
+
+    scheduler.schedule({
+      id: "normal-1",
+      priority: "normal",
+      run: () => {
+        order.push("normal")
+      },
+    })
+
+    await scheduler.flush()
+
+    expect(order).toEqual(["normal", "idle"])
+  })
+
+  it("应该在浏览器空闲回调中自动执行 idle 任务", async () => {
+    const requestIdleCallback = vi.fn()
+
+    vi.stubGlobal("requestIdleCallback", requestIdleCallback)
+
+    const scheduler = createScheduler()
+
+    const task = vi.fn()
+
+    scheduler.schedule({
+      id: "idle-1",
+      priority: "idle",
+      run: task,
+    })
+
+    expect(requestIdleCallback).toHaveBeenCalledTimes(1)
+    expect(task).not.toHaveBeenCalled()
+
+    const callback = requestIdleCallback.mock.calls[0]?.[0] as
+      | ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void)
+      | undefined
+
+    callback?.({
+      didTimeout: false,
+      timeRemaining: () => 5,
+    })
+
+    await scheduler.whenIdle()
+
+    expect(task).toHaveBeenCalledTimes(1)
+
+    vi.unstubAllGlobals()
+  })
+
   it("相同队列与任务 ID 只执行最后一次任务", async () => {
     const scheduler = createScheduler()
 
@@ -152,6 +212,60 @@ describe("flush", () => {
     expect(result).toBe(true)
     expect(order).toEqual(["task-1", "task-2"])
   })
+
+  it("达到时间片预算后应该让出当前 microtask", async () => {
+    const scheduler = createScheduler({ timeSliceMs: 0 })
+
+    const order: string[] = []
+
+    scheduler.schedule({
+      id: "task-1",
+      priority: "normal",
+      run: () => {
+        order.push("task-1")
+      },
+    })
+
+    scheduler.schedule({
+      id: "task-2",
+      priority: "normal",
+      run: () => {
+        order.push("task-2")
+      },
+    })
+
+    queueMicrotask(() => {
+      order.push("microtask")
+    })
+
+    await scheduler.flush()
+
+    expect(order).toEqual(["task-1", "microtask", "task-2"])
+  })
+
+  it("debug Scheduler 应记录让出次数与任务耗时", async () => {
+    const scheduler = createScheduler({ timeSliceMs: 0, collectDiagnostics: true })
+
+    scheduler.schedule({
+      id: "task-1",
+      priority: "normal",
+      run: () => {},
+    })
+
+    scheduler.schedule({
+      id: "task-2",
+      priority: "normal",
+      run: () => {},
+    })
+
+    await scheduler.flush()
+
+    const diagnostics = scheduler.getDiagnostics()
+
+    expect(diagnostics.yieldedCount).toBe(1)
+    expect(diagnostics.maxTaskDurationMs).toBeGreaterThanOrEqual(0)
+    expect(diagnostics.queued).toEqual({ normal: 0, post: 0, idle: 0 })
+  })
 })
 
 // 验证 whenIdle 在空闲时立即返回 true、有任务时等待完成、超时返回 false
@@ -199,6 +313,47 @@ describe("whenIdle", () => {
     const result = await scheduler.whenIdle(50)
 
     expect(result).toBe(false)
+  })
+
+  it("关键空闲判断不应等待 idle 队列", async () => {
+    const scheduler = createScheduler()
+
+    const task = vi.fn()
+
+    scheduler.schedule({
+      id: "idle-1",
+      priority: "idle",
+      run: task,
+    })
+
+    await expect(scheduler.whenIdle({ includeIdle: false })).resolves.toBe(true)
+    expect(task).not.toHaveBeenCalled()
+
+    scheduler.dispose()
+  })
+
+  it("关键空闲判断应等待 normal 任务及其异步工作", async () => {
+    const scheduler = createScheduler()
+
+    let resolveTask: (() => void) | undefined
+
+    scheduler.schedule({
+      id: "normal-1",
+      priority: "normal",
+      run: () =>
+        new Promise<void>((resolve) => {
+          resolveTask = resolve
+        }),
+    })
+
+    const idlePromise = scheduler.whenIdle({ includeIdle: false, timeout: 1000 })
+
+    await Promise.resolve()
+    expect(resolveTask).toBeDefined()
+
+    resolveTask?.()
+
+    await expect(idlePromise).resolves.toBe(true)
   })
 
   it("dispose 会结束等待中的 idle waiter", async () => {

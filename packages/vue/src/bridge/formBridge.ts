@@ -1,295 +1,291 @@
 /**
- * Core Form 到 Vue 响应式状态的共享桥接。
+ * Core Form 到 Vue 响应式状态的共享 Runtime。
+ *
+ * 每个 Core Form 只有一个稳定 Runtime 和一个 Vue Instance；响应式资源按
+ * Vue owner 激活和释放，避免调用方同时管理 Runtime、Adapter 和订阅。
  *
  * @module vue/bridge/formBridge
  */
 
 import { createFormStateAdapter } from "@schemx/core/adapter"
 
-import { getVueFieldBridge } from "./fieldBridge"
-import { createVueFormFacade } from "./formFacade"
-import { createVueShallowRef } from "./helpers"
+import { getVueFieldArrayState } from "./fieldArrayBridge"
+import { getVueFieldState } from "./fieldBridge"
+import { createVueFormInstance } from "./formInstance"
+import { bindSnapshotSource } from "./helpers"
+import { createVueViewSchemaState } from "./viewSchemaBridge"
 
 import type {
-  ManagedVueFieldBridge,
-  PendingFieldsSnapshot,
-  VueFormBridge,
+  ManagedVueFieldArrayState,
+  VueFieldDependency,
+  VueFieldState,
+  VueFormDependency,
+  VueFormResources,
+  VueFormRuntime,
   VueSchemxInstance,
 } from "./types"
-import type { NamePath, SchemxInstance, Values } from "@schemx/core"
+import type { FieldArrayPath, NamePath, SchemxInstance, Values } from "@schemx/core"
+
+/** 同一 Core Form 只创建一个稳定 Runtime。 */
+const runtimeCache = new WeakMap<object, VueFormRuntime<Values>>()
+
+/** 用于从 Vue Instance 找回所属 Runtime。 */
+const instanceRuntimeCache = new WeakMap<object, VueFormRuntime<Values>>()
 
 /**
- * 同一 Core Form 只创建一个共享 Vue Bridge。
- */
-const formBridgeCache = new WeakMap<object, VueFormBridge<Values>>()
-
-/**
- * 同一 Core Form 始终复用同一个 Vue Facade。
- */
-const formFacadeCache = new WeakMap<object, VueSchemxInstance<Values>>()
-
-/**
- * 用于从公开 Facade 回到原始 Core Form。
- */
-const facadeCoreFormCache = new WeakMap<object, SchemxInstance<Values>>()
-
-/**
- * 返回原始 Core Form；普通 Core Form 输入时保持引用不变。
+ * 获取并保留指定 Form 的共享 Runtime。
  *
- * @param form - Core Form 或 Vue Facade。
- * @returns 原始 Core Form。
- *
- * @example
- * ```ts
- * const coreForm = getCoreForm(form)
- * const snapshot = coreForm.getFieldsSnapshot()
- * ```
+ * 返回的 release 函数必须绑定到当前 owner 的 Vue scope；最后一个 owner
+ * 释放后只销毁响应式资源，Runtime 和 Instance 身份保持稳定。
  */
-export function getCoreForm<TValues extends Values = Values>(
+export function acquireVueFormRuntime<TValues extends Values = Values>(
   form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
-): SchemxInstance<TValues> {
-  const coreForm = facadeCoreFormCache.get(form as object)
+): {
+  runtime: VueFormRuntime<TValues>
+  release: () => void
+} {
+  const runtime = getOrCreateVueFormRuntime(form)
 
-  return (coreForm ?? form) as SchemxInstance<TValues>
+  const release = runtime.retain()
+
+  return {
+    runtime,
+    release,
+  }
 }
 
-/**
- * 获取指定 Form 的共享 Vue Bridge。
- *
- * @param form - Core Form 或 Vue Facade。
- * @returns 对应的共享 Bridge。
- *
- * @remarks
- * 首次调用会创建 SnapshotSource 订阅；调用方应使用
- * `retainVueFormBridge()` 持有 Bridge，并在 owner 销毁时释放。
- *
- * @example
- * ```ts
- * const bridge = getVueFormBridge(form)
- * const release = retainVueFormBridge(bridge)
- * onScopeDispose(release)
- * ```
- */
-export function getVueFormBridge<TValues extends Values = Values>(
+/** 获取已有 Runtime，或为输入的 Core Form 创建 Runtime。 */
+function getOrCreateVueFormRuntime<TValues extends Values>(
   form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
-): VueFormBridge<TValues> {
-  const coreForm = getCoreForm(form)
+): VueFormRuntime<TValues> {
+  const cachedByInstance = instanceRuntimeCache.get(form as object)
 
-  const cachedBridge = formBridgeCache.get(coreForm)
-
-  if (cachedBridge) {
-    return cachedBridge as VueFormBridge<TValues>
+  if (cachedByInstance) {
+    return cachedByInstance as VueFormRuntime<TValues>
   }
 
-  const bridge = createVueFormBridge(coreForm)
+  const cachedByCore = runtimeCache.get(form as object)
 
-  formBridgeCache.set(coreForm, bridge as VueFormBridge<Values>)
+  if (cachedByCore) {
+    return cachedByCore as VueFormRuntime<TValues>
+  }
 
-  return bridge
+  const runtime = createVueFormRuntime(form as SchemxInstance<TValues>)
+
+  runtimeCache.set(form as object, runtime as VueFormRuntime<Values>)
+  instanceRuntimeCache.set(runtime.instance as object, runtime as VueFormRuntime<Values>)
+
+  return runtime
 }
 
-/**
- * 获取指定 Form 的唯一 Vue Facade。
- *
- * @param form - Core Form 或已有 Vue Facade。
- * @returns 可被 Vue effect 追踪的 Facade。
- *
- * @example
- * ```ts
- * const reactiveForm = getVueFormFacade(form)
- * watchEffect(() => {
- *   console.log(reactiveForm.getFieldsValue())
- * })
- * ```
- */
-export function getVueFormFacade<TValues extends Values = Values>(
-  form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
-): VueSchemxInstance<TValues> {
-  const coreForm = getCoreForm(form)
+/** 创建单个 Core Form 的稳定 Runtime。 */
+function createVueFormRuntime<TValues extends Values>(
+  core: SchemxInstance<TValues>
+): VueFormRuntime<TValues> {
+  let resources: VueFormResources<TValues> | undefined
 
-  const cachedFacade = formFacadeCache.get(coreForm)
+  let ownerCount = 0
 
-  if (cachedFacade) {
-    return cachedFacade as VueSchemxInstance<TValues>
+  let destroyed = false
+
+  const createResources = (): VueFormResources<TValues> => {
+    const stateAdapter = createFormStateAdapter(core)
+
+    const values = bindSnapshotSource(stateAdapter.values)
+
+    const touchedFields = bindSnapshotSource(stateAdapter.touchedFields)
+
+    const pendingFields = bindSnapshotSource(stateAdapter.pendingFields)
+
+    const loading = bindSnapshotSource(stateAdapter.loading)
+
+    const fieldStates = new Map<object, VueFieldState<TValues>>()
+
+    const fieldArrayStates = new Map<
+      object,
+      ManagedVueFieldArrayState<TValues, FieldArrayPath<TValues>>
+    >()
+
+    let viewSchemaState: VueFormResources<TValues>["viewSchemaState"]
+
+    let disposed = false
+
+    const dispose = (): void => {
+      if (disposed) {
+        return
+      }
+
+      disposed = true
+
+      for (const fieldArrayState of fieldArrayStates.values()) {
+        fieldArrayState.dispose()
+      }
+
+      viewSchemaState?.dispose()
+      fieldArrayStates.clear()
+      fieldStates.clear()
+      stateAdapter.dispose()
+    }
+
+    return {
+      stateAdapter,
+      values,
+      touchedFields,
+      pendingFields,
+      loading,
+      fieldStates,
+      fieldArrayStates,
+      viewSchemaState,
+      dispose,
+    }
   }
 
-  const facade = createVueFormFacade(coreForm, {
-    getFormBridge: (bridgeForm) => getVueFormBridge(bridgeForm),
-    getFieldBridge: (bridge, name) => getVueFieldBridge(bridge, name),
-    getCachedFormBridge: (bridgeForm) => {
-      const bridge = formBridgeCache.get(bridgeForm)
+  const ensureResources = (): VueFormResources<TValues> => {
+    if (destroyed) {
+      throw new Error("[schemx] Vue Form Runtime has been destroyed.")
+    }
 
-      return bridge as VueFormBridge<TValues> | undefined
-    },
-    disposeFormBridge: (bridge) => disposeVueFormBridge(bridge),
-  })
+    resources ??= createResources()
 
-  formFacadeCache.set(coreForm, facade as VueSchemxInstance<Values>)
-  facadeCoreFormCache.set(facade as object, coreForm as SchemxInstance<Values>)
-
-  return facade
-}
-
-/**
- * 为一个 Vue owner 保留 Bridge，并返回对应的幂等释放函数。
- *
- * @param bridge - 要保留的共享 Bridge。
- * @returns 释放当前 owner 的函数。
- *
- * @remarks
- * 返回的释放函数可安全重复调用；最后一个 owner 释放后，Bridge 会自动销毁。
- *
- * @example
- * ```ts
- * const bridge = getVueFormBridge(form)
- * const release = retainVueFormBridge(bridge)
- * onScopeDispose(release)
- * ```
- */
-export function retainVueFormBridge<TValues extends Values>(
-  bridge: VueFormBridge<TValues>
-): () => void {
-  if (bridge.destroyed) {
-    return () => {}
+    return resources
   }
 
-  bridge.refCount++
-  // 每个 owner 只允许减少一次引用计数。
-  let released = false
+  const disposeResources = (): void => {
+    const currentResources = resources
 
-  return () => {
-    if (released || bridge.destroyed) {
+    if (!currentResources) {
       return
     }
 
-    released = true
-    bridge.refCount--
+    resources = undefined
+    currentResources.dispose()
+  }
 
-    if (bridge.refCount === 0) {
-      disposeVueFormBridge(bridge)
+  const retain = (): (() => void) => {
+    if (destroyed) {
+      return () => {}
+    }
+
+    ensureResources()
+    ownerCount++
+
+    let released = false
+
+    return () => {
+      if (released || destroyed) {
+        return
+      }
+
+      released = true
+      ownerCount--
+
+      if (ownerCount === 0) {
+        disposeResources()
+      }
     }
   }
-}
 
-/**
- * 销毁共享 Bridge、全部字段订阅与 Core 状态适配器。
- *
- * @param bridge - 要销毁的共享 Form Bridge。
- *
- * @remarks
- * 销毁后 Bridge、字段 Ref 投影和状态适配器均不可继续使用；通常由
- * `retainVueFormBridge()` 返回的最后一个释放函数自动触发。
- *
- * @example
- * ```ts
- * disposeVueFormBridge(bridge)
- * ```
- */
-export function disposeVueFormBridge<TValues extends Values>(
-  bridge: VueFormBridge<TValues>
-): void {
-  if (bridge.destroyed) {
-    return
+  const trackField = <TName extends NamePath<TValues>>(
+    name: TName,
+    dependency: VueFieldDependency
+  ): void => {
+    if (!resources) {
+      return
+    }
+
+    const fieldState = getVueFieldState(resources, name)
+
+    void fieldState[dependency].value
   }
 
-  bridge.destroyed = true
-  bridge.refCount = 0
-  bridge.unsubscribe()
+  const trackFieldsValue = (names?: NamePath<TValues>[]): void => {
+    if (!resources) {
+      return
+    }
 
-  for (const fieldBridge of bridge.fieldBridges.values()) {
-    fieldBridge.dispose()
+    if (names === undefined) {
+      void resources.values.value
+
+      return
+    }
+
+    for (const name of names) {
+      void getVueFieldState(resources, name).value.value
+    }
   }
 
-  bridge.fieldBridges.clear()
-  bridge.stateAdapter.dispose()
-  formBridgeCache.delete(bridge.form)
-}
+  const trackForm = (dependency: VueFormDependency): void => {
+    if (!resources) {
+      return
+    }
 
-/**
- * 创建单个 Core Form 的 Vue Bridge 和唯一 Facade。
- *
- * @param form - 要桥接的原始 Core Form。
- * @returns 新建的共享 Vue Form Bridge。
- */
-function createVueFormBridge<TValues extends Values>(
-  form: SchemxInstance<TValues>
-): VueFormBridge<TValues> {
-  // Form Bridge 持有一个 Core 状态适配器，并负责将其快照同步到 Vue Ref。
-  const stateAdapter = createFormStateAdapter(form)
-
-  // 初始化时读取快照，后续只在 SnapshotSource 通知变化时写入 Ref。
-  const values = createVueShallowRef<TValues>(stateAdapter.values.getSnapshot())
-
-  const touchedFields = createVueShallowRef<readonly NamePath<TValues>[]>(
-    stateAdapter.touchedFields.getSnapshot()
-  )
-
-  const pendingFields = createVueShallowRef<PendingFieldsSnapshot<TValues>>(
-    stateAdapter.pendingFields.getSnapshot()
-  )
-
-  const loading = createVueShallowRef<boolean>(stateAdapter.loading.getSnapshot())
-
-  // 字段 Bridge 与 Form Bridge 同生命周期，由 disposeVueFormBridge 统一释放。
-  const fieldBridges = new Map<object, ManagedVueFieldBridge<TValues>>()
-
-  // Form 级来源各自同步到对应的 Vue Ref。
-  // 同步全表值快照。
-  const syncValues = (): void => {
-    values.value = stateAdapter.values.getSnapshot()
+    switch (dependency) {
+      case "values":
+        void resources.values.value
+        break
+      case "touchedFields":
+        void resources.touchedFields.value
+        break
+      case "pendingFields":
+        void resources.pendingFields.value
+        break
+      case "loading":
+        void resources.loading.value
+        break
+    }
   }
 
-  // 同步 touched 字段聚合快照。
-  const syncTouchedFields = (): void => {
-    touchedFields.value = stateAdapter.touchedFields.getSnapshot()
+  const getValuesRef = (): VueFormResources<TValues>["values"] => {
+    return ensureResources().values
   }
 
-  // 同步 pending 字段聚合快照。
-  const syncPendingFields = (): void => {
-    pendingFields.value = stateAdapter.pendingFields.getSnapshot()
+  const getFieldState = <TName extends NamePath<TValues>>(name: TName) => {
+    return getVueFieldState(ensureResources(), name)
   }
 
-  /**
-   * 将 Core 提交流程状态同步到 Vue Ref。
-   */
-  const syncLoading = (): void => {
-    loading.value = stateAdapter.loading.getSnapshot()
+  const getFieldArrayState = <TPath extends FieldArrayPath<TValues>>(name: TPath) => {
+    return getVueFieldArrayState(ensureResources(), name)
   }
 
-  // 分别保留四个来源的取消订阅函数，避免聚合来源之间相互影响。
-  const unsubscribeValues = stateAdapter.values.subscribe(syncValues)
+  const getViewSchemaState = () => {
+    const currentResources = ensureResources()
 
-  const unsubscribeTouchedFields = stateAdapter.touchedFields.subscribe(syncTouchedFields)
+    const viewSchemaState = (currentResources.viewSchemaState ??=
+      createVueViewSchemaState(core))
 
-  const unsubscribePendingFields = stateAdapter.pendingFields.subscribe(syncPendingFields)
-
-  const unsubscribeLoading = stateAdapter.loading.subscribe(syncLoading)
-
-  // 集中保存 Form 级来源的取消订阅函数，便于 Bridge 销毁时一次释放。
-  const unsubscribe = (): void => {
-    unsubscribeValues()
-    unsubscribeTouchedFields()
-    unsubscribePendingFields()
-    unsubscribeLoading()
+    return viewSchemaState
   }
 
-  // Facade 与 Bridge 共享同一个 Core Form，但通过缓存保证唯一实例。
-  const facade = getVueFormFacade(form)
+  const destroy = (): void => {
+    if (destroyed) {
+      return
+    }
 
-  // Bridge 的 Ref、订阅和引用计数由当前 Form 统一持有。
-  const bridge: VueFormBridge<TValues> = {
-    form,
-    stateAdapter,
-    values,
-    touchedFields,
-    pendingFields,
-    loading,
-    fieldBridges,
-    refCount: 0,
-    destroyed: false,
-    unsubscribe,
-    facade,
+    destroyed = true
+    ownerCount = 0
+    disposeResources()
   }
 
-  return bridge
+  const instance = createVueFormInstance(core, {
+    trackField,
+    trackFieldsValue,
+    trackForm,
+    destroy,
+  })
+
+  const runtime: VueFormRuntime<TValues> = {
+    core,
+    instance,
+    retain,
+    trackField,
+    trackFieldsValue,
+    trackForm,
+    getValuesRef,
+    getFieldState,
+    getFieldArrayState,
+    getViewSchemaState,
+    destroy,
+  }
+
+  return runtime
 }

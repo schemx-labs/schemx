@@ -7,14 +7,17 @@
 /** useForm - 表单状态管理 */
 export { useForm } from "./useForm"
 
-/** Vue Form Facade - 在 Vue effect 中可追踪的 Form 实例。 */
-export { getCoreForm, type VueSchemxInstance } from "../bridge"
+/** Vue Form Instance - 在 Vue effect 中可追踪的 Form 实例。 */
+export type { VueSchemxInstance } from "../bridge"
 
 /** createFormContext - 表单上下文注入与消费 */
 export { createFormContext, useFormContext } from "./provideFormContext"
 
 /** useField - 单字段控制 */
 export { useField } from "./useField"
+
+/** useFieldArray - 动态数组字段 Hook。 */
+export { createFieldArrayHook, useFieldArray } from "./useFieldArray"
 
 /** createFieldContext - 表单上下文注入与消费 */
 export { createFieldContext, useFieldContext } from "./provideFieldContext"
@@ -39,7 +42,4 @@ export { useStableRef } from "./useStableRef"
 export { useViewSchemas } from "./useViewSchemas"
 
 /** useFormSelector - 表单值 Selector Vue 桥接 */
-export {
-  useFormSelector,
-  type UseFormSelectorOptions,
-} from "./useFormSelector"
+export { useFormSelector, type UseFormSelectorOptions } from "./useFormSelector"

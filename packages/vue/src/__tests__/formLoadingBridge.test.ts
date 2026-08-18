@@ -1,5 +1,5 @@
 /**
- * Vue Form Bridge 提交 loading 投影测试。
+ * Vue Form Runtime 提交 loading 投影测试。
  *
  * @module vue/__tests__/formLoadingBridge
  */
@@ -33,7 +33,7 @@ function createDeferred(): {
   }
 }
 
-describe("Vue Form Bridge loading", () => {
+describe("Vue Form Runtime loading", () => {
   it("programmatic submit 的 loading 可被 Vue effect 追踪", async () => {
     const deferred = createDeferred()
 

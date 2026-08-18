@@ -91,6 +91,25 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
 }
 
 describe("SchemxForm 动态 schemas", () => {
+  it("应合并 Form 根节点的内部 class 与外部 class/style", () => {
+    const wrapper = mount(SchemxForm, {
+      props: {
+        class: { "form-custom": true },
+        style: [{ color: "red" }, { marginTop: "4px" }],
+        schemas: [],
+      },
+    })
+
+    const root = wrapper.get(".schemx")
+
+    expect(root.classes()).toContain("schemx")
+    expect(root.classes()).toContain("form-custom")
+    expect(root.attributes("style")).toContain("color: red")
+    expect(root.attributes("style")).toContain("margin-top: 4px")
+
+    wrapper.unmount()
+  })
+
   it("受控 modelValue 原地更新字段后应同步到字段整体插槽", async () => {
     const rendererRegistry = createRendererRegistry()
 
@@ -486,7 +505,7 @@ describe("SchemxForm 动态 schemas", () => {
     wrapper.unmount()
   })
 
-  it("外部 Core Form 会归一化为 Facade，并保持 v-model 同步", async () => {
+  it("外部 Core Form 会归一化为 Instance，并保持 v-model 同步", async () => {
     const form = createForm<Values>({ initialValues: { name: "Alice" } })
 
     const wrapper = mount(SchemxForm, {
@@ -731,29 +750,29 @@ describe("SchemxForm 动态 schemas", () => {
     const root = wrapper.get(".schemx").element
 
     const directItemWrappers = Array.from(root.children).filter((element) =>
-      element.classList.contains("schemx-item-wrapper")
+      element.classList.contains("schemx-field-wrapper")
     )
 
     expect(directItemWrappers).toHaveLength(2)
-    expect(directItemWrappers[0].classList.contains("schemx-item-wrapper--first")).toBe(
+    expect(directItemWrappers[0].classList.contains("schemx-field-wrapper--first")).toBe(
       true
     )
-    expect(directItemWrappers[0].classList.contains("schemx-item-wrapper--last")).toBe(
+    expect(directItemWrappers[0].classList.contains("schemx-field-wrapper--last")).toBe(
       true
     )
-    expect(directItemWrappers[1].classList.contains("schemx-item-wrapper--first")).toBe(
+    expect(directItemWrappers[1].classList.contains("schemx-field-wrapper--first")).toBe(
       true
     )
-    expect(directItemWrappers[1].classList.contains("schemx-item-wrapper--last")).toBe(
+    expect(directItemWrappers[1].classList.contains("schemx-field-wrapper--last")).toBe(
       true
     )
 
-    const groupItemWrappers = wrapper.findAll(".schemx-group__body .schemx-item-wrapper")
+    const groupItemWrappers = wrapper.findAll(".schemx-group__body .schemx-field-wrapper")
 
     expect(groupItemWrappers).toHaveLength(2)
     for (const itemWrapper of groupItemWrappers) {
-      expect(itemWrapper.classes()).not.toContain("schemx-item-wrapper--first")
-      expect(itemWrapper.classes()).not.toContain("schemx-item-wrapper--last")
+      expect(itemWrapper.classes()).not.toContain("schemx-field-wrapper--first")
+      expect(itemWrapper.classes()).not.toContain("schemx-field-wrapper--last")
     }
 
     wrapper.unmount()
@@ -803,20 +822,20 @@ describe("SchemxForm 动态 schemas", () => {
     const root = wrapper.get(".schemx").element
 
     const directItemWrappers = Array.from(root.children).filter((element) =>
-      element.classList.contains("schemx-item-wrapper")
+      element.classList.contains("schemx-field-wrapper")
     )
 
     expect(directItemWrappers).toHaveLength(2)
-    expect(directItemWrappers[0].classList.contains("schemx-item-wrapper--first")).toBe(
+    expect(directItemWrappers[0].classList.contains("schemx-field-wrapper--first")).toBe(
       true
     )
-    expect(directItemWrappers[0].classList.contains("schemx-item-wrapper--last")).toBe(
+    expect(directItemWrappers[0].classList.contains("schemx-field-wrapper--last")).toBe(
       true
     )
-    expect(directItemWrappers[1].classList.contains("schemx-item-wrapper--first")).toBe(
+    expect(directItemWrappers[1].classList.contains("schemx-field-wrapper--first")).toBe(
       true
     )
-    expect(directItemWrappers[1].classList.contains("schemx-item-wrapper--last")).toBe(
+    expect(directItemWrappers[1].classList.contains("schemx-field-wrapper--last")).toBe(
       true
     )
 
