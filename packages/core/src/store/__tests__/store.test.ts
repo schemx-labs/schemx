@@ -12,15 +12,19 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
-import { createSignalEffect } from "../../reactivity"
+import { batchUpdates, createSignalEffect } from "../../reactivity"
 import { createStore } from "../store"
 
+import type { ValidationRuleIssue } from "../../validator/types"
+
+/** 覆盖基础标量字段读写的 Store 测试值类型。 */
 interface TestForm {
   name: string
   age: number
   email: string
 }
 
+/** 包含嵌套对象和数组的 Store 测试值类型。 */
 interface NestedForm {
   user: {
     name: string
@@ -32,9 +36,9 @@ interface NestedForm {
   tags: string[]
 }
 
-// 单元测试：验证 Store 的构造、字段读写、嵌套字段、快照、touched/pending 状态、reset/destroy 等完整 API
+// 单元测试：覆盖 Store 构造、字段读写、快照、交互状态、重置和销毁等公开 API。
 describe("Store", () => {
-  it("新组合根保留普通字段、owner 和数组根行为", () => {
+  it("Store 保留普通字段和数组根行为", () => {
     const store = createStore<{
       name: string
       profile: { city?: string }
@@ -70,6 +74,93 @@ describe("Store", () => {
     store.destroy()
   })
 
+  it("FieldArray 订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
+    const store = createStore<{ users: Array<{ name: string }> }>({
+      initialValues: { users: [] },
+    })
+
+    const handle = store.getFieldArrayHandle("users")
+
+    handle.register()
+
+    const firstKeys = handle.createKeys(1)
+
+    handle.commit([{ name: "Alice" }], firstKeys, {
+      previousLength: 0,
+      nextLength: 1,
+      ranges: [{ start: 0, end: 0 }],
+    })
+
+    const changes: unknown[] = []
+
+    const unsubscribe = handle.subscribe((change) => {
+      changes.push(change)
+    })
+
+    expect(changes).toEqual([])
+
+    const secondKeys = [...firstKeys, ...handle.createKeys(1)]
+
+    const secondChange = {
+      previousLength: 1,
+      nextLength: 2,
+      ranges: [{ start: 1, end: 1 }],
+    }
+
+    const thirdKeys = [...secondKeys, ...handle.createKeys(1)]
+
+    const thirdChange = {
+      previousLength: 2,
+      nextLength: 3,
+      ranges: [{ start: 2, end: 2 }],
+    }
+
+    batchUpdates(() => {
+      handle.commit([{ name: "Alice" }, { name: "Bob" }], secondKeys, secondChange)
+      handle.commit(
+        [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }],
+        thirdKeys,
+        thirdChange
+      )
+    })
+
+    expect(changes).toEqual([thirdChange])
+
+    handle.commit(
+      [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }, { name: "Dora" }],
+      [...thirdKeys, ...handle.createKeys(1)],
+      {
+        previousLength: 3,
+        nextLength: 4,
+        ranges: [{ start: 3, end: 3 }],
+      }
+    )
+
+    expect(changes).toHaveLength(2)
+
+    unsubscribe()
+
+    handle.commit(
+      [
+        { name: "Alice" },
+        { name: "Bob" },
+        { name: "Carol" },
+        { name: "Dora" },
+        { name: "Eve" },
+      ],
+      [...handle.getStructure(), ...handle.createKeys(1)],
+      {
+        previousLength: 4,
+        nextLength: 5,
+        ranges: [{ start: 4, end: 4 }],
+      }
+    )
+
+    expect(changes).toHaveLength(2)
+
+    store.destroy()
+  })
+
   describe("字段注册", () => {
     it("支持单个和批量注册字段路径", () => {
       const store = createStore<{
@@ -87,7 +178,7 @@ describe("Store", () => {
       expect(store.getFieldValue("profile.email")).toBe("jane@example.com")
     })
 
-    it("普通复合 owner 的子路径使用细粒度响应式", () => {
+    it("普通复合字段的子路径使用细粒度响应式", () => {
       const store = createStore<{
         profile: { name: string; email: string }
       }>({
@@ -128,7 +219,7 @@ describe("Store", () => {
       store.destroy()
     })
 
-    it("普通复合 owner 的初始值、reset 和交互状态保持一致", () => {
+    it("普通复合字段的初始值、reset 和交互状态保持一致", () => {
       const store = createStore<{
         profile: { name: string; email: string }
       }>({
@@ -186,7 +277,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 Store 无参/有参构造、initialValues 深拷贝
+  // 验证 Store 无参/有参构造以及 initialValues 深拷贝。
   describe("构造", () => {
     it("无参构造创建空 store", () => {
       const store = createStore()
@@ -238,7 +329,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 getFieldValue/setFieldValue 对基本字段和嵌套字段的读写、不存在的字段返回 undefined
+  // 验证基本字段、嵌套字段的读写，以及不存在路径返回 undefined。
   describe("getFieldValue / setFieldValue", () => {
     it("获取和设置基本字段", () => {
       const store = createStore<TestForm>({
@@ -270,7 +361,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 getFieldsValue 无参/路径数组、setFieldsValue 批量设置
+  // 验证全量/局部读取和 setFieldsValue 批量写入。
   describe("getFieldsValue / setFieldsValue", () => {
     it("无参返回全量值", () => {
       const store = createStore<TestForm>({
@@ -304,7 +395,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 getFieldsSnapshot 返回深拷贝快照、不受后续修改影响、非 reactive 对象
+  // 验证全量快照的深拷贝、版本缓存和无响应式依赖特性。
   describe("getFieldsSnapshot", () => {
     it("同一 revision 复用完整快照，值变更后创建新快照", () => {
       const store = createStore<TestForm>({
@@ -356,7 +447,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 getInitialValue/getInitialValues/setInitialValue/setInitialValues 的读写行为
+  // 验证初始值读取、单个写入和批量写入行为。
   describe("getInitialValue / getInitialValues / setInitialValue / setInitialValues", () => {
     it("获取指定字段初始值", () => {
       const store = createStore<TestForm>({
@@ -429,7 +520,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 isFieldTouched/isFieldsTouched/getTouchedFields/setFieldTouched/setFieldsTouched 的 touched 状态管理
+  // 验证 touched 状态的读取、聚合和批量更新。
   describe("isFieldTouched / isFieldsTouched / getTouchedFields", () => {
     it("未修改字段返回 false", () => {
       const store = createStore<TestForm>({
@@ -459,7 +550,7 @@ describe("Store", () => {
       expect(store.isFieldTouched("name")).toBe(true)
     })
 
-    it("isFieldsTouched 无参检查任一字段", () => {
+    it("isFieldsTouched 无参检查是否存在未 touched 字段", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
@@ -468,6 +559,9 @@ describe("Store", () => {
       store.setFieldValue("age", 30)
       expect(store.isFieldsTouched()).toBe(false)
       store.setFieldTouched("age", true)
+      expect(store.isFieldsTouched()).toBe(false)
+
+      store.isFieldTouched("name")
       expect(store.isFieldsTouched()).toBe(true)
     })
 
@@ -514,7 +608,7 @@ describe("Store", () => {
     })
   })
 
-  // 验证 setFieldPending/setFieldsPending/isFieldPending/isFieldsPending/getPendingFields 的 pending 状态管理
+  // 验证 pending 状态、提示消息和批量更新。
   describe("pending 状态", () => {
     it("支持设置和获取单字段 pending 状态", () => {
       const store = createStore<TestForm>({
@@ -530,14 +624,14 @@ describe("Store", () => {
       expect(store.getPendingFields()).toEqual([])
     })
 
-    it("isFieldsPending 对传入路径使用 all 语义，对全量字段使用 any 语义", () => {
+    it("isFieldsPending 对传入路径使用 all 语义，无参检查是否存在非 pending 字段", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
 
       store.setFieldsPending(["name", "age"], true)
       expect(store.isFieldsPending(["name", "age"])).toBe(true)
-      expect(store.isFieldsPending()).toBe(true)
+      expect(store.isFieldsPending()).toBe(false)
 
       store.setFieldPending("age", false)
       expect(store.isFieldsPending(["name", "age"])).toBe(false)
@@ -547,7 +641,7 @@ describe("Store", () => {
       expect(store.isFieldsPending()).toBe(true)
 
       store.setFieldsPending(["name", "email"], false)
-      expect(store.isFieldsPending()).toBe(false)
+      expect(store.isFieldsPending()).toBe(true)
     })
 
     it("空 store 没有 pending 字段", () => {
@@ -555,7 +649,97 @@ describe("Store", () => {
     })
   })
 
-  // 验证 reset/resetField/resetFields/destroy 的恢复初始值、清理 touched/pending、清空字段 signal 等行为
+  describe("errors 状态", () => {
+    it("支持单字段和批量错误的读写与清除", () => {
+      const store = createStore<TestForm>()
+
+      const nameErrors: ValidationRuleIssue[] = [
+        { type: "validation", message: "姓名错误" },
+      ]
+
+      store.setFieldsErrors([
+        { field: "name", errors: nameErrors },
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+
+      nameErrors.push({ type: "external", message: "不应写入" })
+
+      expect(store.getFieldsErrors()).toEqual([
+        {
+          field: "name",
+          errors: [{ type: "validation", message: "姓名错误" }],
+        },
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+      expect(store.getFieldsErrors(["email", "age"])).toEqual([
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+        { field: "age", errors: [] },
+      ])
+      expect(store.peekFieldsErrors(["name"])).toEqual([
+        {
+          field: "name",
+          errors: [{ type: "validation", message: "姓名错误" }],
+        },
+      ])
+
+      store.clearFieldsErrors(["name"])
+
+      expect(store.getFieldsErrors()).toEqual([
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+
+      store.clearFieldsErrors()
+
+      expect(store.peekFieldsErrors()).toEqual([])
+    })
+
+    it("getFieldsErrors 建立依赖，peekFieldsErrors 不建立依赖", () => {
+      const store = createStore<TestForm>()
+
+      store.registerFieldPath("name")
+
+      let trackedRuns = 0
+
+      let untrackedRuns = 0
+
+      const disposeTracked = createSignalEffect(() => {
+        trackedRuns += 1
+        store.getFieldsErrors()
+      })
+
+      const disposeUntracked = createSignalEffect(() => {
+        untrackedRuns += 1
+        store.peekFieldsErrors()
+      })
+
+      store.setFieldErrors("name", [{ type: "external", message: "服务端错误" }])
+
+      expect(trackedRuns).toBe(2)
+      expect(untrackedRuns).toBe(1)
+
+      store.clearFieldsErrors(["name"])
+
+      expect(trackedRuns).toBe(3)
+      expect(untrackedRuns).toBe(1)
+
+      disposeTracked()
+      disposeUntracked()
+    })
+  })
+
+  // 验证 reset/resetField/resetFields/destroy 的值恢复和状态清理行为。
   describe("reset / resetField / resetFields / destroy", () => {
     it("reset 恢复到初始值", () => {
       const store = createStore<TestForm>({
@@ -590,7 +774,7 @@ describe("Store", () => {
       })
     })
 
-    it("reset 传入新值时删除新值中不存在的字段 signal", () => {
+    it("reset 传入新值时删除新值中不存在的路径状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
@@ -636,7 +820,7 @@ describe("Store", () => {
       expect(store.isFieldPending("name")).toBe(false)
     })
 
-    it("destroy 清空所有字段 signal", () => {
+    it("destroy 清空所有路径状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })

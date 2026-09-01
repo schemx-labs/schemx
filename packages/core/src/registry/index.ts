@@ -16,12 +16,12 @@ export {
 } from "./rendererRegistry"
 
 export {
-  createValidationRuleRegistry,
-  ValidationRuleRegistry,
-  type ValidationRuleFactoryContext,
-  type ValidationRuleFactory,
-  type ValidationRuleEntry,
-  type ValidationRuleMap,
-  type ValidationRuleRegistryChange,
-  type ValidationRuleRegistryListener,
-} from "./validationRuleRegistry"
+  createPresetRuleRegistry,
+  PresetRuleRegistry,
+  type PresetRuleFactoryContext,
+  type PresetRuleFactory,
+  type PresetRuleEntry,
+  type PresetRuleMap,
+  type PresetRuleRegistryChange,
+  type PresetRuleRegistryListener,
+} from "./presetRuleRegistry"

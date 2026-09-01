@@ -295,7 +295,7 @@ describe("FieldArray", () => {
     store.destroy()
   })
 
-  it("FieldArray 与普通原子根发生父子重叠时拒绝注册", () => {
+  it("FieldArray 与普通字段根可以共存", () => {
     const store = createStore<NestedFieldArrayForm>({
       initialValues: {
         profile: { items: [{ name: "Alice", age: 18 }] },
@@ -304,9 +304,9 @@ describe("FieldArray", () => {
 
     store.registerFieldPath("profile" as any)
 
-    expect(() => store.getFieldArrayHandle("profile.items" as any).register()).toThrow(
-      /overlap/
-    )
+    expect(() =>
+      store.getFieldArrayHandle("profile.items" as any).register()
+    ).not.toThrow()
 
     store.destroy()
   })

@@ -8,7 +8,7 @@
  */
 
 import type { NamePath, Values } from "./form"
-import type { ValidationRule } from "./validation"
+import type { ValidationRule } from "../validator/types"
 
 // 将版本化 adapter 协议及其嵌套契约集中在同一命名空间中。
 // eslint-disable-next-line @typescript-eslint/no-namespace

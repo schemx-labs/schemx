@@ -7,7 +7,7 @@
  */
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../../node/scope"
+import { createRuntimeScope } from "../../node/runtimeScope"
 import { createAbortableTaskRunner } from "../abortableTaskRunner"
 import { createScheduler } from "../scheduler"
 

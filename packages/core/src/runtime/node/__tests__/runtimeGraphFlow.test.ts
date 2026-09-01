@@ -13,7 +13,7 @@ import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphT
 
 import type { RuntimeNode } from "../types"
 
-// 运行时节点流：key 复用、kind 替换、嵌套提交、cleanup 观察与 reconciler 入参隔离
+// 运行时节点流：key 复用、kind 替换、嵌套提交与 cleanup 观察时机。
 describe("runtime node flow", () => {
   it("root schema commit 复用同 key 节点并释放被移除节点", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
@@ -81,24 +81,24 @@ describe("runtime node flow", () => {
     // eslint-disable-next-line prefer-const
     let rootRef: Extract<RuntimeNode, { childNodes: unknown }> | undefined
 
-    const beforeUnmount = vi.fn(() => {
+    const unmounted = vi.fn(() => {
       expect(rootRef?.childNodes.value.map((child) => child.key)).toEqual(["next"])
     })
 
-    const { commitSchemas, root } = createRuntimeGraphHarness({ beforeUnmount })
+    const { commitSchemas, root } = createRuntimeGraphHarness({ unmounted })
 
     rootRef = root
 
     commitSchemas(root, [createRawFieldSchema("previous", "previous")])
     commitSchemas(root, [createRawFieldSchema("next", "next")])
 
-    expect(beforeUnmount).toHaveBeenCalledTimes(1)
+    expect(unmounted).toHaveBeenCalledTimes(1)
   })
 
-  it("reconciler 直接接收原始 schema，不接受外部 previous 结构", () => {
-    const { reconciler, root } = createRuntimeGraphHarness()
+  it("提交 Schema 后创建并协调 RuntimeNode", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
 
-    reconciler.reconcileChildren(root, [createRawFieldSchema("field", "field")])
+    commitSchemas(root, [createRawFieldSchema("field")])
 
     expect(root.childNodes.value[0]?.key).toBe("field")
   })

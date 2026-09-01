@@ -15,14 +15,6 @@ export {
   type SignalOptions,
 } from "./signal"
 
-export { createFieldSignal, type FieldSignal } from "./fieldSignal"
-
-export {
-  createFieldSignalMap,
-  type FieldSignalMap,
-  type FieldSignalMapOptions,
-} from "./fieldSignalMap"
-
 export {
   createSignalEffect,
   runSignalUntracked,
@@ -39,7 +31,5 @@ export {
 } from "./watch"
 
 export { batchUpdates, onBatchComplete } from "./batch"
-
-export { createSignalMap, type SignalMap } from "./signalMap"
 
 export { createComputed, type ComputedSignal } from "./computed"

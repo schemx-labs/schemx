@@ -5,8 +5,8 @@ import { createCompile } from "../index"
 
 import type { SchemxField, SchemxInstance } from "../../../types"
 
-/** 验证 compiler 只输出当前节点输入，并保留缓存语义。 */
-describe("createCompile().compileNode", () => {
+/** 验证 compiler 直接创建节点，并保留配置 token 缓存语义。 */
+describe("createCompile().createNode", () => {
   it("编译已在边界规范化的字段", () => {
     const compile = createCompile({ defaultRendererType: "input" })
 
@@ -14,13 +14,14 @@ describe("createCompile().compileNode", () => {
 
     const normalized = normalizeSchemas([schema], "input")
 
-    const input = compile.compileNode(normalized[0], "", 0)
+    const node = compile.createNode(normalized[0], "", 0)
 
-    expect(input).toMatchObject({
+    expect(node).toMatchObject({
       type: "field",
       key: "field:email",
-      componentType: "input",
     })
+
+    expect(node.type === "field" && node.staticSchema.value.componentType).toBe("input")
     expect(schema).not.toHaveProperty("componentType")
   })
 
@@ -43,7 +44,7 @@ describe("createCompile().compileNode", () => {
       },
     })
 
-    const input = compile.compileNode(
+    const node = compile.createNode(
       {
         name: "email",
         label: "邮箱",
@@ -60,11 +61,11 @@ describe("createCompile().compileNode", () => {
       0
     )
 
-    if (input.type !== "field") {
-      throw new Error("expected field node input")
+    if (node.type !== "field") {
+      throw new Error("expected field node")
     }
 
-    expect(input.staticSchema.componentProps).toMatchObject({
+    expect(node.staticSchema.value.componentProps).toMatchObject({
       align: "right",
       disabled: false,
       onChange: rendererOnChange,
@@ -80,7 +81,7 @@ describe("createCompile().compileNode", () => {
       },
     })
 
-    const topLevelInput = compile.compileNode(
+    const topLevelNode = compile.createNode(
       {
         name: "nickname",
         label: "昵称",
@@ -93,11 +94,11 @@ describe("createCompile().compileNode", () => {
       1
     )
 
-    if (topLevelInput.type !== "field") {
-      throw new Error("expected field node input")
+    if (topLevelNode.type !== "field") {
+      throw new Error("expected field node")
     }
 
-    expect(topLevelInput.staticSchema.componentProps).toMatchObject({
+    expect(topLevelNode.staticSchema.value.componentProps).toMatchObject({
       align: "center",
       placeholder: "顶层字段占位",
       readonlyPlaceholder: "顶层字段空值",
@@ -113,7 +114,7 @@ describe("createCompile().compileNode", () => {
       },
     })
 
-    const input = compile.compileNode(
+    const node = compile.createNode(
       {
         name: "custom",
         label: "自定义",
@@ -123,12 +124,12 @@ describe("createCompile().compileNode", () => {
       0
     )
 
-    if (input.type !== "field") {
-      throw new Error("expected field node input")
+    if (node.type !== "field") {
+      throw new Error("expected field node")
     }
 
-    expect(input.staticSchema.componentType).toBe("unknown")
-    expect(input.staticSchema.componentProps?.placeholder).toBe("精确占位")
+    expect(node.staticSchema.value.componentType).toBe("unknown")
+    expect(node.staticSchema.value.componentProps?.placeholder).toBe("精确占位")
   })
 
   it("编译 group 时不持有子树", () => {
@@ -139,33 +140,35 @@ describe("createCompile().compileNode", () => {
       children: [{ name: "name", label: "姓名", componentType: "input" }],
     } as SchemxField
 
-    const input = compile.compileNode(schema, "", 0)
+    const node = compile.createNode(schema, "", 0)
 
-    expect(input.type).toBe("group")
-    expect(input).not.toHaveProperty("children")
-    if (input.type !== "group") {
-      throw new Error("expected group node input")
+    expect(node.type).toBe("group")
+    expect(node).not.toHaveProperty("children")
+    if (node.type !== "group") {
+      throw new Error("expected group node")
     }
 
-    expect(input.staticSchema.children).toEqual([])
+    expect(node.staticSchema.value.children).toEqual([])
   })
 
   it("编译 dependency 时封装 renderer 与触发字段", () => {
     const compile = createCompile()
 
-    const input = compile.compileNode(
+    const node = compile.createNode(
       { to: ["mode"], renderer: () => [] } as SchemxField,
       "",
       0
     )
 
-    expect(input).toMatchObject({
-      type: "dependency",
-      triggerFields: ["mode"],
-    })
+    expect(node).toMatchObject({ type: "dependency" })
+    if (node.type !== "dependency") {
+      throw new Error("expected dependency node")
+    }
+
+    expect(node.staticSchema.value.to).toEqual(["mode"])
   })
 
-  it("相同 schema 与最终节点 key 复用节点输入", () => {
+  it("相同 schema 与最终节点 key 复用配置 token但创建新节点", () => {
     const compile = createCompile()
 
     const schema = {
@@ -174,11 +177,12 @@ describe("createCompile().compileNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.compileNode(schema, "", 0)
+    const first = compile.createNode(schema, "", 0)
 
-    const second = compile.compileNode(schema, "", 0)
+    const second = compile.createNode(schema, "", 0)
 
-    expect(second).toBe(first)
+    expect(second).not.toBe(first)
+    expect(second.configToken).toBe(first.configToken)
   })
 
   it("稳定 key 的字段重排后复用节点输入", () => {
@@ -191,14 +195,15 @@ describe("createCompile().compileNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.compileNode(schema, "", 0)
+    const first = compile.createNode(schema, "", 0)
 
-    const second = compile.compileNode(schema, "", 1)
+    const second = compile.createNode(schema, "", 1)
 
-    expect(second).toBe(first)
+    expect(second).not.toBe(first)
+    expect(second.configToken).toBe(first.configToken)
   })
 
-  it("失效缓存后生成新的节点输入", () => {
+  it("失效缓存后生成新的配置 token", () => {
     const compile = createCompile()
 
     const schema = {
@@ -207,10 +212,13 @@ describe("createCompile().compileNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.compileNode(schema, "", 0)
+    const first = compile.createNode(schema, "", 0)
 
     compile.invalidate()
 
-    expect(compile.compileNode(schema, "", 0)).not.toBe(first)
+    const second = compile.createNode(schema, "", 0)
+
+    expect(second).not.toBe(first)
+    expect(second.configToken).not.toBe(first.configToken)
   })
 })

@@ -1,36 +1,37 @@
 import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
-import {
-  createSchemas,
-  isSchemxSchemas,
-  type SchemxSchemas,
-  type SchemxSchemasInput,
-} from "../createSchemas"
+import { type SchemxSchemas } from "../createSchemas"
 import { normalizeSchemas } from "../utils"
 
 import { createCompile } from "./compiler"
-import { createLifecycleBus, type LifecycleListener } from "./lifecycle"
 import {
-  createRuntimeRegistry,
-  createScope,
-  type ParentRuntimeNode,
+  createRuntimeNodeLifecycleEmitter,
+  type RuntimeNodeLifecycleHooks,
+} from "./lifecycle"
+import {
+  createRuntimeNodeLifecycle,
+  createRuntimeScope,
   type RootRuntimeNode,
   type RuntimeNode,
 } from "./node"
+import { findFieldRuntimeNode } from "./node/helper"
+import { createNodeManager } from "./node/nodeManager"
 import { createReconciler } from "./reconciler"
 import { createScheduler } from "./scheduler"
 import { subscribeViewSchemas } from "./view"
-import { createRootRuntimeViewState } from "./view/createViewState"
+import { createRootRuntimeViewSchemas } from "./view/createViewSchemas"
 
-import type { SchemaRuntimeContext } from "./context"
+import type {
+  RuntimeStorePort,
+  RuntimeValidationPort,
+  SchemaRuntimeContext,
+} from "./context"
 import type { SchedulerDiagnostics, SchedulerOptions } from "./scheduler"
 import type { SchemxViewSchema } from "./view"
-import type { RuntimeFormModelPort } from "../form/model"
 import type {
   NamePath,
-  ResolvedSchemxSchemaConfig,
   SchemxBaseField,
   SchemxField,
-  SchemxFieldSchemaPatch,
+  SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
   SchemxRendererKey,
@@ -45,10 +46,16 @@ import type {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface CreateSchemaRuntimeOptions<TValues extends Values> {
+  /** Runtime 订阅并协调的根 Schema source。 */
+  schemas: SchemxSchemas<TValues>
   /**
-   * Runtime 访问字段状态与校验的最小 Model Port。
+   * Runtime 访问字段状态和初始值的最小 Store Port。
    */
-  model: RuntimeFormModelPort<TValues>
+  store: RuntimeStorePort<TValues>
+  /**
+   * Runtime 管理字段校验的最小 Validator Port。
+   */
+  validation: RuntimeValidationPort<TValues>
   /**
    * 对外暴露且在 descriptor/renderer 中共享的 Form 实例。
    */
@@ -60,7 +67,11 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   /**
    * 已合并的字段默认配置。
    */
-  schemaConfig: ResolvedSchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig
+  /**
+   * 按字段路径配置的表单级校验规则。
+   */
+  fieldRules?: SchemxFieldRulesMap<TValues>
   /** 按 Renderer 类型配置的静态默认 Props。 */
   rendererProps?: SchemxRendererPropsMap<TValues>
   /**
@@ -70,7 +81,7 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: LifecycleListener<RuntimeNode<TValues>>
+  lifecycleHooks?: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>>
   /** 是否启用 Runtime diagnostics。 */
   debug?: boolean
   /** Scheduler 时间片与 idle 任务配置。 */
@@ -88,33 +99,10 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   readonly root: RootRuntimeNode<TValues>
   /**
-   * 挂载初始 Schema 并订阅后续变更；同一 Runtime 只能挂载一次。
-   *
-   * @param schemas - 初始 Schema 源；省略时挂载空 Schema。
+   * 挂载 Schema source 并订阅后续变更；同一 Runtime 只能挂载一次。
    * @throws Runtime 已挂载时抛出错误。
    */
-  mount(schemas?: SchemxSchemasInput<TValues>): void
-  /**
-   * 替换当前根 Schema。
-   *
-   * @param schemas - 下一版根 Schema。
-   */
-  setSchemas(schemas: readonly SchemxField<TValues>[]): void
-  /**
-   * 根据上一轮 Schema 计算并应用下一轮 Schema。
-   *
-   * @param updater - 接收当前根 Schema 并返回下一版根 Schema 的更新函数。
-   */
-  updateSchemas(
-    updater: (schemas: readonly SchemxField<TValues>[]) => readonly SchemxField<TValues>[]
-  ): void
-  /**
-   * 更新指定字段的静态 Schema 属性。
-   *
-   * @param name - 待更新字段的路径。
-   * @param patch - 不改变字段结构和身份的静态属性补丁。
-   */
-  updateFieldSchema(name: NamePath<TValues>, patch: SchemxFieldSchemaPatch<TValues>): void
+  mount(): void
   /**
    * 更新字段默认属性并重新编译当前 Schema。
    *
@@ -156,7 +144,9 @@ export interface SchemaRuntime<TValues extends Values> {
    * 仅等待 normal/post 任务及其异步工作完成，不等待 idle 后台任务。
    */
   waitForCriticalIdle(timeout?: number): Promise<boolean>
-  /** 读取 Scheduler 调度诊断快照。 */
+  /**
+   * 读取 Scheduler 调度诊断快照。
+   */
   getSchedulerDiagnostics(): SchedulerDiagnostics
   /**
    * 安排一次 Runtime 空闲后的 post 任务。
@@ -175,17 +165,17 @@ export interface SchemaRuntime<TValues extends Values> {
  * 创建一个独立的 SchemaRuntime。
  *
  * @typeParam TValues - 表单值对象类型。
- * @param options - Runtime 所需的 Model、实例、API 和默认配置。
+ * @param options - Runtime 所需的 Store、Validator、实例、API 和默认配置。
  * @returns 可挂载和更新 Schema 的 Runtime。
  *
  * @remarks
- * Runtime 只依赖 `RuntimeFormModelPort`，不会直接访问完整 FormModel 的内部实现。
+ * Runtime 直接依赖 Store 与 Validator 的最小能力集合。
  */
 export function createSchemaRuntime<TValues extends Values>(
   options: CreateSchemaRuntimeOptions<TValues>
 ): SchemaRuntime<TValues> {
   // 管理 Runtime 内部订阅、调度任务和销毁顺序。
-  const scope = createScope()
+  const scope = createRuntimeScope()
 
   // 执行 dependency 与 post 阶段任务。
   const scheduler = createScheduler({
@@ -194,16 +184,15 @@ export function createSchemaRuntime<TValues extends Values>(
       options.schedulerOptions?.collectDiagnostics ?? options.debug === true,
   })
 
-  // 提供跨节点资源索引和字段查询能力。
-  const runtimeRegistry = createRuntimeRegistry<TValues>()
-
   // 广播 Runtime 生命周期事件。
-  const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(options.lifecycleHooks)
+  const lifecycle = createRuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>(
+    options.lifecycleHooks
+  )
 
   // Runtime 与 Compiler 共享同一份配置引用，动态更新后无需重新装配 Compiler。
-  const schemaConfig = mergeAndResolveSchemxConfig({
+  const { schemaConfig } = mergeAndResolveSchemxConfig({
     schemaConfig: options.schemaConfig,
-  }).schemaConfig
+  })
 
   // 编译 Schema 并保留当前 Form 实例引用。
   const compile = createCompile({
@@ -211,6 +200,7 @@ export function createSchemaRuntime<TValues extends Values>(
     rendererProps: options.rendererProps,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.instance,
+    debug: options.debug,
   })
 
   // 标记 Runtime 是否已经释放。
@@ -219,42 +209,39 @@ export function createSchemaRuntime<TValues extends Values>(
   // 标记初始 Schema 是否已经挂载。
   let mounted = false
 
-  // 当前 Runtime 持有的响应式 Schema 源。
-  let schemaSource: SchemxSchemas<TValues> | undefined
-
   // Runtime 内部共享的最小服务上下文。
   const context: SchemaRuntimeContext<TValues> = {
     debug: options.debug ?? false,
     schemaConfig,
     instance: options.instance,
-    model: options.model,
+    fieldRules: options.fieldRules ?? {},
+    store: options.store,
     formApi: options.formApi,
-    compile,
+    validation: options.validation,
     scheduler,
-    // 将字段校验同步和移除操作委托给外部 Model。
-    validation: {
-      syncField: options.model.syncValidationField,
-      removeField: options.model.removeValidationField,
-      removeSchemaField: options.model.removeSchemaValidationField,
-    },
-    lifecycleBus,
-    runtimeRegistry,
-    // 统一由 reconciler 提交子 schema，避免各调用方绕过节点协调流程。
-    reconcileChildren(parent, schemas) {
+    lifecycle,
+    // 统一由 Reconciler 提交子 Schema，避免各调用方绕过树提交流程。
+    reconcileChildren: (parentId, schemas) =>
       reconciler.reconcileChildren(
-        parent,
+        parentId,
         normalizeSchemas(schemas, options.defaultRendererType)
-      )
-    },
+      ),
   }
 
-  // 根据原始 schema 增量创建、更新和卸载 RuntimeNode。
-  const reconciler = createReconciler<TValues>(context)
+  const nodeManager = createNodeManager<TValues>()
 
   // Runtime 根节点及其视图状态。
-  const root = reconciler.createRoot()
+  const root = nodeManager.getRoot()
 
-  createRootRuntimeViewState(root)
+  const runtimeNodeLifecycle = createRuntimeNodeLifecycle(context)
+
+  const reconciler = createReconciler<TValues>({
+    compiler: compile,
+    nodeManager,
+    lifecycle: runtimeNodeLifecycle,
+  })
+
+  createRootRuntimeViewSchemas(root)
 
   /**
    * 将最新 Schema 提交给根节点协调。
@@ -264,24 +251,13 @@ export function createSchemaRuntime<TValues extends Values>(
       return
     }
 
-    context.reconcileChildren(root as ParentRuntimeNode<TValues>, nextSchemas)
+    reconciler.reconcile(normalizeSchemas(nextSchemas, options.defaultRendererType))
   }
 
   /**
-   * 获取已挂载的响应式 Schema 源，否则抛出生命周期错误。
+   * 挂载 Schema source 并注册其变更订阅。
    */
-  const assertMounted = (): SchemxSchemas<TValues> => {
-    if (!schemaSource || !mounted) {
-      throw new Error("[schemx] Schema runtime is not mounted.")
-    }
-
-    return schemaSource
-  }
-
-  /**
-   * 挂载 Schema 源并注册其变更订阅。
-   */
-  const mount = (schemasInput?: SchemxSchemasInput<TValues>): void => {
+  const mount = (): void => {
     if (mounted) {
       throw new Error("[schemx] Schema runtime is already mounted.")
     }
@@ -291,81 +267,9 @@ export function createSchemaRuntime<TValues extends Values>(
     }
 
     mounted = true
-    schemaSource = isSchemxSchemas(schemasInput)
-      ? schemasInput
-      : createSchemas<TValues>(schemasInput ?? [])
 
-    applySchemas(schemaSource.peek())
-    scope.add(schemaSource.subscribe(applySchemas))
-  }
-
-  /**
-   * 用完整根 Schema 替换已挂载的 Schema 源。
-   */
-  const setSchemas = (nextSchemas: readonly SchemxField<TValues>[]): void => {
-    if (disposed) {
-      return
-    }
-
-    assertMounted().set(nextSchemas)
-  }
-
-  /**
-   * 基于当前根 Schema 原子地计算下一版配置。
-   */
-  const updateSchemas = (
-    updater: (schemas: readonly SchemxField<TValues>[]) => readonly SchemxField<TValues>[]
-  ): void => {
-    if (disposed) {
-      return
-    }
-
-    assertMounted().update(updater)
-  }
-
-  /**
-   * 重新编译并协调单个字段的静态属性补丁。
-   */
-  const updateFieldSchema = (
-    name: NamePath<TValues>,
-    patch: SchemxFieldSchemaPatch<TValues>
-  ): void => {
-    if (disposed) {
-      return
-    }
-
-    // 根据字段名找到当前 RuntimeNode。
-    const node = runtimeRegistry.fieldIndex.get(name)
-
-    if (!node) {
-      return
-    }
-
-    const current = node
-
-    // 合并静态 componentProps，避免更新字段时丢失既有属性。
-    const componentProps = patch.componentProps
-      ? {
-          ...current.staticSchema.componentProps,
-          ...patch.componentProps,
-        }
-      : current.staticSchema.componentProps
-
-    // staticSchema 的 componentType 与 name 不变，因此该断言不会改变字段结构；
-    // 它只补回对象展开后 TypeScript 无法保留的 Renderer 判别关联。
-    const nextRawSchema = {
-      ...current.staticSchema,
-      ...patch,
-      componentProps,
-      key: current.key,
-      name: current.name,
-      componentType: current.staticSchema.componentType,
-      dependencies: current.dynamicProps?.dependencies,
-    } as SchemxField<TValues>
-
-    const index = node.parent?.childNodes.value.indexOf(node) ?? 0
-
-    reconciler.updateNode(node, nextRawSchema, index)
+    applySchemas(options.schemas.peek())
+    scope.add(options.schemas.subscribe(applySchemas))
   }
 
   /**
@@ -391,7 +295,7 @@ export function createSchemaRuntime<TValues extends Values>(
     )
 
     compile.invalidate()
-    applySchemas(assertMounted().peek())
+    applySchemas(options.schemas.peek())
   }
 
   /**
@@ -400,21 +304,14 @@ export function createSchemaRuntime<TValues extends Values>(
   const getEffectiveFieldSchema = (
     name: NamePath<TValues>
   ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined => {
-    return runtimeRegistry.fieldIndex.get(name)?.fieldState?.effectiveSchema.value
+    return findFieldRuntimeNode(root, name)?.effectiveSchema.value
   }
 
   /**
    * 读取根节点维护的视图 Schema 投影。
    */
   const getViewSchemas = (): readonly SchemxViewSchema<TValues>[] => {
-    // 根节点维护的视图投影状态。
-    const rootViewState = root.viewState
-
-    if (!rootViewState || !("viewSchemas" in rootViewState)) {
-      return []
-    }
-
-    return rootViewState.viewSchemas.value
+    return root.viewSchemas?.value ?? []
   }
 
   /**
@@ -466,17 +363,15 @@ export function createSchemaRuntime<TValues extends Values>(
 
     disposed = true
     scope.dispose()
-    reconciler.removeNode(root)
+    reconciler.clear()
+    nodeManager.dispose()
+    runtimeNodeLifecycle.dispose(root)
     scheduler.dispose()
-    schemaSource = undefined
   }
 
   return {
     root,
     mount,
-    setSchemas,
-    updateSchemas,
-    updateFieldSchema,
     updateSchemaConfig,
     getEffectiveFieldSchema,
     getViewSchemas,

@@ -1,35 +1,38 @@
 import { describe, expect, it } from "vitest"
 
 import { mergeAndResolveSchemxConfig } from "../../config"
+import { createSchemas } from "../../createSchemas"
 import { createSchemaRuntime } from "../createSchemaRuntime"
 
-import type { RuntimeFormModelPort } from "../../form/model"
 import type { SchemxFormApi, SchemxInstance, Values } from "../../types"
+import type { RuntimeStorePort, RuntimeValidationPort } from "../context"
 
 describe("SchemaRuntime", () => {
-  it("通过假的最小 Model Port 应用字段 initialValue", () => {
-    const model = createTestModelPort<{ name?: string }>()
+  it("通过假的最小 Store Port 应用字段 initialValue", () => {
+    const store = createTestStorePort<{ name?: string }>()
 
     const instance = {} as SchemxInstance
 
     const runtime = createSchemaRuntime({
-      model,
+      schemas: createSchemas([
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          initialValue: "Alice",
+        },
+      ]),
+      store,
+      validation: createTestValidationPort(),
       instance,
       formApi: {} as SchemxFormApi,
       schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     })
 
-    runtime.mount([
-      {
-        name: "name",
-        label: "姓名",
-        componentType: "input",
-        initialValue: "Alice",
-      },
-    ])
+    runtime.mount()
 
-    expect(model.getFieldValue("name")).toBe("Alice")
-    expect(model.getInitialValue("name")).toBe("Alice")
+    expect(store.getFieldValue("name")).toBe("Alice")
+    expect(store.getInitialValue("name")).toBe("Alice")
     expect(runtime.getViewSchemas()[0]).toMatchObject({
       componentProps: { formInstance: instance },
     })
@@ -38,16 +41,9 @@ describe("SchemaRuntime", () => {
   })
 
   it("独立管理 Schema source、ViewSchema 和 mount 生命周期", () => {
-    const model = createTestModelPort<{ name?: string; email?: string }>()
+    const store = createTestStorePort<{ name?: string; email?: string }>()
 
-    const runtime = createSchemaRuntime({
-      model,
-      instance: {} as SchemxInstance,
-      formApi: {} as SchemxFormApi,
-      schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
-    })
-
-    runtime.mount([
+    const schemas = createSchemas<{ name?: string; email?: string }>([
       {
         name: "name",
         label: "姓名",
@@ -55,7 +51,18 @@ describe("SchemaRuntime", () => {
       },
     ])
 
-    runtime.updateSchemas(() => [
+    const runtime = createSchemaRuntime({
+      schemas,
+      store,
+      validation: createTestValidationPort(),
+      instance: {} as SchemxInstance,
+      formApi: {} as SchemxFormApi,
+      schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
+    })
+
+    runtime.mount()
+
+    schemas.update(() => [
       {
         name: "email",
         label: "邮箱",
@@ -74,7 +81,7 @@ describe("SchemaRuntime", () => {
   })
 })
 
-function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TValues> & {
+function createTestStorePort<TValues extends Values>(): RuntimeStorePort<TValues> & {
   getInitialValue(name: string): unknown
 } {
   const values = new Map<string, unknown>()
@@ -83,6 +90,7 @@ function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TVa
 
   return {
     registerFieldPath() {},
+    unregisterFieldPath() {},
     getFieldValue(name) {
       return values.get(String(name)) as never
     },
@@ -94,13 +102,18 @@ function createTestModelPort<TValues extends Values>(): RuntimeFormModelPort<TVa
         initialValues.set(name, value)
       }
     },
-    syncValidationField() {
-      return true
-    },
-    removeValidationField() {},
-    removeSchemaValidationField() {},
     getInitialValue(name) {
       return initialValues.get(name)
     },
+  }
+}
+
+function createTestValidationPort<
+  TValues extends Values,
+>(): RuntimeValidationPort<TValues> {
+  return {
+    setFieldConfig() {},
+    setFieldRules() {},
+    removeField() {},
   }
 }

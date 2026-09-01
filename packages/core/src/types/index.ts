@@ -10,20 +10,19 @@ export type {
   Dynamic,
   NamePath,
   ValidationTrigger,
-  SchemxFieldSchemaPatch,
-  SchemxInstance,
-  SchemxFormApi,
+  SchemxFieldRulesMap,
   SchemxSchemaConfig,
-  ResolvedSchemxSchemaConfig,
   SchemxGlobalContext,
 } from "./form"
 
+export type { SchemxInstance, SchemxFormApi } from "./instance"
+
 export type {
   RequiredOptions,
-  RequiredRule,
+  RequiredConfig,
   DefinedFieldValue,
-  ValidationRuleDefinition,
-  ValidationRuleName,
+  PresetRuleDefinition,
+  PresetRuleName,
   FieldRule,
   FieldRules,
 } from "./rule"
@@ -36,19 +35,22 @@ export type {
   SchemxRuntimeInjectedProp,
   SchemxRendererPropsMap,
   SchemxFieldDefinition,
-  SchemxGroupFieldDefinition,
   SchemxBase,
   SchemxResolvedBaseField,
-  SchemxResolvedField,
-  SchemxResolvedGroupField,
-  SchemxGroupField,
-  SchemxDependencyField,
   SchemxBaseField,
   SchemxExactBaseField,
-  SchemxField,
   SchemxFormItemProps,
-  SchemxDependencyRendererContext,
-} from "./schema"
+} from "./field"
+
+export type { SchemxField, SchemxResolvedField } from "./schema"
+
+export type {
+  SchemxGroupFieldDefinition,
+  SchemxResolvedGroupField,
+  SchemxGroupField,
+} from "./group"
+
+export type { SchemxDependencyRendererContext, SchemxDependencyField } from "./dependency"
 
 export type {
   DisposeBag,

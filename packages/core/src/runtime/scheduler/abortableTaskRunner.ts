@@ -8,12 +8,8 @@
  * @module core/runtime/scheduler/abortableTaskRunner
  */
 
-import type { Scope } from "../node"
-import type {
-  CancellableTask,
-  Scheduler,
-  SchedulerTaskPriority,
-} from "./scheduler"
+import type { RuntimeScope } from "../node"
+import type { CancellableTask, Scheduler, SchedulerTaskPriority } from "./scheduler"
 
 /**
  * 可中止异步任务运行器的接口。
@@ -46,7 +42,7 @@ export interface AbortableTaskRunnerOptions<TValue = void> {
   /**
    * 生命周期 scope，用于在 scope 销毁时自动中止任务。
    */
-  scope: Scope
+  scope: RuntimeScope
 
   /**
    * 异步任务调度器，用于跟踪任务执行。

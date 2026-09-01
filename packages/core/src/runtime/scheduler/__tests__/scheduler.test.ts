@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../../node/scope"
+import { createRuntimeScope } from "../../node/runtimeScope"
 import { createScheduler } from "../scheduler"
 
 // 验证 schedule 按 normal/post 队列顺序执行任务

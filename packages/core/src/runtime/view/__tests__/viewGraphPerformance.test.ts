@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  createFieldRuntimeState,
+  createFieldRuntimeSignals,
   setFieldDynamicOverrides,
-} from "../../field/runtimeState"
+} from "../../node/__tests__/runtimeSignalsTestUtils"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 
@@ -34,20 +34,20 @@ function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
 }
 
 // 验证字段有效状态性能边界：单字段变化不触发其他字段 computed 重建、多次覆盖不泄漏、版本号递增。
-describe("computed viewState 性能边界 (US3)", () => {
+describe("computed viewSchemas 性能边界 (US3)", () => {
   it("单字段动态属性变化不应触发其他字段有效状态重建", () => {
     const schema1 = createTestSchema({ label: "字段A", visible: true })
 
     const schema2 = createTestSchema({ label: "字段B", visible: true })
 
-    const state1 = createFieldRuntimeState({
+    const state1 = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-a",
       name: "fieldA" as any,
       staticSchema: schema1,
     })
 
-    const state2 = createFieldRuntimeState({
+    const state2 = createFieldRuntimeSignals({
       nodeId: 2,
       key: "field-b",
       name: "fieldB" as any,
@@ -82,11 +82,12 @@ describe("computed viewState 性能边界 (US3)", () => {
   it("多次动态覆盖写入不应导致有效状态泄漏", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "field" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     // 多次写入
@@ -109,11 +110,12 @@ describe("computed viewState 性能边界 (US3)", () => {
   it("diagnostics 版本号应正确递增", () => {
     const schema = createTestSchema()
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "field" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     const versions: number[] = []

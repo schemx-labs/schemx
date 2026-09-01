@@ -1,190 +1,108 @@
 /**
- * Lifecycle - RuntimeNode 生命周期 hooks dispatcher。
+ * RuntimeNode 生命周期事件。
  *
- * Reconciler 负责决定 RuntimeNode 的创建、复用和销毁，RuntimeNodeManager 负责执行单个
- * RuntimeNode 的生命周期动作。LifecycleBus 只分发创建 Runtime 时固定的 hooks，不参与内部资源挂载。
+ * 该模块只转发已完成的运行时状态变更，不执行节点资源的挂载、更新或卸载。
  *
  * @module core/runtime/lifecycle
- *
- * @example
- * ```ts
- * import { createLifecycleBus } from '@schemx/core'
- *
- * const bus = createLifecycleBus({
- *   mounted: (node) => console.log('已挂载:', node),
- * })
- *
- * // 分发生命周期事件（仅 Runtime 内部调用）
- * bus.emitMount(someNode)
- * bus.emitBeforeMount(someNode)
- * bus.emitBeforeUpdate(someNode, prevNode)
- * bus.emitUpdated(someNode, prevNode)
- * bus.emitBeforeUnmount(someNode)
- * bus.emitUnmount(someNode)
- *
- * ```
- *
- * @example
- * ```ts
- * // 在 createForm 中使用
- * const form = createForm({
- *   schemas: [...],
- *   lifecycleHooks: {
- *     mounted: (node) => {
- *       console.log('节点已挂载:', node.key)
- *     },
- *     unmounted: (node) => {
- *       console.log('节点已卸载:', node.key)
- *     }
- *   }
- * })
- * ```
  */
 
 /**
- * RuntimeNode 生命周期 hooks。
+ * RuntimeNode 生命周期 Hook。
+ *
+ * @typeParam TNode - 运行时节点类型。
  */
-export interface LifecycleHooks<TNode> {
+export interface RuntimeNodeLifecycleHooks<TNode> {
   /**
-   * RuntimeNode 挂载前。
+   * 节点创建后、资源挂载前触发。
    *
-   * @param node - 即将挂载的 RuntimeNode 节点。
+   * 此时节点仍未挂入 NodeManager，适合记录创建阶段信息。
+   *
+   * @param node - 新创建的运行时节点。
    */
-  beforeMount(node: TNode): void
-
+  readonly created?: (node: TNode) => void
   /**
-   * RuntimeNode 挂载后。
+   * 节点完成资源挂载后触发。
    *
-   * @param node - 已挂载的 RuntimeNode 节点。
+   * @param node - 已完成资源挂载的运行时节点。
    */
-  mounted(node: TNode): void
-
+  readonly mounted?: (node: TNode) => void
   /**
-   * RuntimeNode 更新前。
+   * 节点完成配置和资源更新后触发。
    *
-   * @param node - 即将更新的 RuntimeNode 节点。
-   * @param previousNode - 更新前的 RuntimeNode 快照。
+   * @param node - 更新后的运行时节点。
+   * @param previousNode - 更新前的节点配置快照。
    */
-  beforeUpdate(node: TNode, previousNode: TNode): void
-
+  readonly updated?: (node: TNode, previousNode: TNode) => void
   /**
-   * RuntimeNode 更新后。
+   * 节点完成资源卸载后触发。
    *
-   * @param node - 已更新的 RuntimeNode 节点。
-   * @param previousNode - 更新前的 RuntimeNode 快照。
+   * @param node - 已完成资源卸载的运行时节点。
    */
-  updated(node: TNode, previousNode: TNode): void
-
-  /**
-   * RuntimeNode 卸载前。
-   *
-   * @param node - 即将卸载的 RuntimeNode 节点。
-   */
-  beforeUnmount(node: TNode): void
-
-  /**
-   * RuntimeNode 卸载后。
-   *
-   * @param node - 已卸载的 RuntimeNode 节点。
-   */
-  unmounted(node: TNode): void
+  readonly unmounted?: (node: TNode) => void
 }
 
 /**
- * Runtime 创建时提供的生命周期 hooks。
+ * RuntimeNode 生命周期事件的内部发布器。
  *
- * 监听器允许只实现关心的事件。
+ * @typeParam TNode - 运行时节点类型。
  */
-export type LifecycleListener<TNode> = Partial<LifecycleHooks<TNode>>
-
-/**
- * 生命周期 hooks dispatcher。
- *
- * @example
- * ```ts
- * const bus: LifecycleBus<MyNode> = createLifecycleBus({
- *   mounted: (node) => console.log('Mounted:', node),
- * })
- *
- * // 仅 Runtime 内部发布
- * bus.emitMount(node)
- * bus.emitBeforeMount(node)
- * bus.emitBeforeUpdate(node, prev)
- * bus.emitUpdated(node, prev)
- * bus.emitBeforeUnmount(node)
- * bus.emitUnmount(node)
- *
- * ```
- */
-export interface LifecycleBus<TNode> {
+export interface RuntimeNodeLifecycleEmitter<TNode> {
   /**
-   * 发布 mount 事件。
+   * 发布节点创建事件。
    *
-   * @param node - 被挂载的节点。
+   * @param node - 新创建的运行时节点。
    */
-  emitMount(node: TNode): void
-
+  emitCreated(node: TNode): void
   /**
-   * 发布 beforeMount 事件。
+   * 发布节点挂载完成事件。
    *
-   * @param node - 即将挂载的节点。
+   * @param node - 已完成资源挂载的运行时节点。
    */
-  emitBeforeMount(node: TNode): void
-
+  emitMounted(node: TNode): void
   /**
-   * 发布 beforeUpdate 事件。
+   * 发布节点更新完成事件。
    *
-   * @param node - 即将更新的节点。
-   * @param previousNode - 更新前的节点快照。
-   */
-  emitBeforeUpdate(node: TNode, previousNode: TNode): void
-
-  /**
-   * 发布 updated 事件。
-   *
-   * @param node - 已更新的节点。
-   * @param previousNode - 更新前的节点快照。
+   * @param node - 更新后的运行时节点。
+   * @param previousNode - 更新前的节点配置快照。
    */
   emitUpdated(node: TNode, previousNode: TNode): void
-
   /**
-   * 发布 beforeUnmount 事件。
+   * 发布节点卸载完成事件。
    *
-   * @param node - 即将卸载的节点。
+   * @param node - 已完成资源卸载的运行时节点。
    */
-  emitBeforeUnmount(node: TNode): void
-
-  /**
-   * 发布 unmount 事件。
-   *
-   * @param node - 被卸载的节点。
-   */
-  emitUnmount(node: TNode): void
-
+  emitUnmounted(node: TNode): void
 }
 
 /**
- * 创建生命周期事件总线。
+ * 创建 RuntimeNode 生命周期事件发布器。
  *
- * hooks 在 Runtime 创建时固定。单个 hook 的异常会被隔离，不能中断节点事务或资源释放。
+ * Hook 的异常会被隔离，不能中断 Runtime 资源操作。
  *
- * @param initialListener - 可选的初始监听器。
- * @returns 新的生命周期事件总线。
+ * @typeParam TNode - 运行时节点类型。
+ * @param hooks - Runtime 创建时固定的生命周期 Hook。
+ * @returns 供 Runtime 内部发布事件的 emitter。
  *
  * @example
  * ```ts
- * const bus = createLifecycleBus({
- *   mounted: (node) => console.log('Node mounted:', node)
+ * const lifecycle = createRuntimeNodeLifecycleEmitter({
+ *   mounted: (node) => console.log(node),
  * })
+ *
+ * lifecycle.emitMounted(node)
  * ```
  */
-export function createLifecycleBus<TNode>(
-  initialListener?: LifecycleListener<TNode>
-): LifecycleBus<TNode> {
+export function createRuntimeNodeLifecycleEmitter<TNode>(
+  hooks: RuntimeNodeLifecycleHooks<TNode> = {}
+): RuntimeNodeLifecycleEmitter<TNode> {
   /**
-   * 隔离 hook 异常，避免观察性代码中断 Runtime 事务。
+   * 调用生命周期 Hook，并隔离 Hook 抛出的异常。
+   *
+   * @typeParam TArgs - Hook 接收的参数列表类型。
+   * @param hook - 待调用的 Hook；未提供时跳过。
+   * @param args - 传给 Hook 的参数。
    */
-  const dispatch = <TArgs extends unknown[]>(
+  const notify = <TArgs extends unknown[]>(
     hook: ((...args: TArgs) => void) | undefined,
     ...args: TArgs
   ): void => {
@@ -199,54 +117,30 @@ export function createLifecycleBus<TNode>(
     }
   }
 
-  /**
-   * 发布 mount 事件。
-   */
-  const emitMount = (node: TNode) => {
-    dispatch(initialListener?.mounted, node)
+  // 转发节点创建事件；当前 Runtime 通常不会主动调用此事件。
+  const emitCreated = (node: TNode): void => {
+    notify(hooks.created, node)
   }
 
-  /**
-   * 发布 beforeMount 事件。
-   */
-  const emitBeforeMount = (node: TNode) => {
-    dispatch(initialListener?.beforeMount, node)
+  // 在资源挂载完成后转发事件。
+  const emitMounted = (node: TNode): void => {
+    notify(hooks.mounted, node)
   }
 
-  /**
-   * 发布 beforeUpdate 事件。
-   */
-  const emitBeforeUpdate = (node: TNode, previousNode: TNode) => {
-    dispatch(initialListener?.beforeUpdate, node, previousNode)
+  // 在配置与资源更新完成后转发新旧节点。
+  const emitUpdated = (node: TNode, previousNode: TNode): void => {
+    notify(hooks.updated, node, previousNode)
   }
 
-  /**
-   * 发布 updated 事件。
-   */
-  const emitUpdated = (node: TNode, previousNode: TNode) => {
-    dispatch(initialListener?.updated, node, previousNode)
-  }
-
-  /**
-   * 发布 beforeUnmount 事件。
-   */
-  const emitBeforeUnmount = (node: TNode) => {
-    dispatch(initialListener?.beforeUnmount, node)
-  }
-
-  /**
-   * 发布 unmount 事件。
-   */
-  const emitUnmount = (node: TNode) => {
-    dispatch(initialListener?.unmounted, node)
+  // 在资源卸载完成后转发事件。
+  const emitUnmounted = (node: TNode): void => {
+    notify(hooks.unmounted, node)
   }
 
   return {
-    emitMount,
-    emitBeforeMount,
-    emitBeforeUpdate,
+    emitCreated,
+    emitMounted,
     emitUpdated,
-    emitBeforeUnmount,
-    emitUnmount,
+    emitUnmounted,
   }
 }

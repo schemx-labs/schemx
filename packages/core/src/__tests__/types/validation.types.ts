@@ -1,11 +1,13 @@
-import { createForm, createValidationRuleRegistry } from "../../index"
+import { createForm, createPresetRuleRegistry } from "../../index"
 
 import type {
   AdapterRule,
   FieldRules,
   FormSchemaOptions,
+  PresetRuleEntry,
+  PresetRuleFactory,
+  RequiredConfig,
   RequiredOptions,
-  RequiredRule,
   SchemxDependencies,
   SchemxDependencyDependencies,
   SchemxExactBaseField,
@@ -19,19 +21,17 @@ import type {
   ValidationAdapterV1,
   ValidationError,
   ValidationResult,
-  ValidationRuleEntry,
-  ValidationRuleFactory,
 } from "../../index"
 
 type CoreExports = typeof import("../../index")
 
 // @ts-expect-error 旧必填工厂已从 Core 公共入口删除。
-type _RemovedCreateRequiredRule = CoreExports["createRequiredRule"]
+type _RemovedCreateRequiredConfig = CoreExports["createRequiredConfig"]
 // @ts-expect-error 旧 Registry 工厂已从 Core 公共入口删除。
 type _RemovedCreateValidatorsRegistry = CoreExports["createValidatorsRegistry"]
 // @ts-expect-error 品牌规则工厂不得从 Core 公共入口导出。
 type _RemovedCreateAdapterRule = CoreExports["createAdapterRule"]
-// @ts-expect-error 底层 Validator 工厂不再作为 Core 公共入口。
+// @ts-expect-error Validator 工厂仅供 Core 内部使用，不从公共入口导出。
 type _RemovedCreateValidator = CoreExports["createValidator"]
 // @ts-expect-error 中间层 Controller 工厂不再作为 Core 公共入口。
 type _RemovedCreateValidationController = CoreExports["createValidationController"]
@@ -187,7 +187,7 @@ const schemas: SchemxField<FormValues>[] = [
 ]
 
 declare module "../../types/rule" {
-  interface ValidationRuleDefinition {
+  interface PresetRuleDefinition {
     email: string
     emailRule: string
     positive: number
@@ -195,7 +195,7 @@ declare module "../../types/rule" {
 }
 
 declare module "../../types/rule" {
-  interface ValidationRuleDefinition {
+  interface PresetRuleDefinition {
     registryEmail: string
     registryPositive: number
   }
@@ -208,11 +208,11 @@ const invalidEmailRules: FieldRules<FormValues, "email"> = ["positive"]
 
 const adapterObjectRules: FieldRules<FormValues, "email"> = [{ required: true }]
 
-const registry = createValidationRuleRegistry()
+const registry = createPresetRuleRegistry()
 
-const registryEmailEntry: ValidationRuleEntry<string> = stringSchema
+const registryEmailEntry: PresetRuleEntry<string> = stringSchema
 
-const registryPositiveEntry: ValidationRuleEntry<number> = numberSchema
+const registryPositiveEntry: PresetRuleEntry<number> = numberSchema
 
 registry.register("registryEmail", registryEmailEntry)
 registry.register("registryPositive", registryPositiveEntry)
@@ -233,7 +233,7 @@ registry.registerAll({
   registryPositive: registryPositiveEntry,
 })
 
-const stableContextFactory: ValidationRuleFactory<string> = (context) => {
+const stableContextFactory: PresetRuleFactory<string> = (context) => {
   const label: string = context.label
 
   const required: boolean = context.required
@@ -244,7 +244,7 @@ const stableContextFactory: ValidationRuleFactory<string> = (context) => {
   return stringSchema
 }
 
-const required: RequiredRule<File[]> = {
+const required: RequiredConfig<File[]> = {
   isEmpty: (files) => !files?.length,
 }
 
@@ -313,9 +313,7 @@ const typedForm = createForm<FormValues>()
 const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
   typedForm.validateField("email")
 
-declare const fieldErrors: ReturnType<
-  import("../../index").Validation<FormValues>["getFieldErrors"]
->
+declare const fieldErrors: ReturnType<typeof typedForm.getFieldErrors>
 // @ts-expect-error 字段错误快照是只读数组。
 fieldErrors.push("外部修改")
 if (!result.valid) {

@@ -42,7 +42,7 @@ export interface TreeTraverseOptions<TNode> {
    * })
    * ```
    */
-  getChildren?: (node: TNode) => TNode[] | undefined | null
+  getChildren?: (node: TNode) => readonly TNode[] | undefined | null
 }
 
 /**

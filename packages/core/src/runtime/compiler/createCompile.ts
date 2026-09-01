@@ -1,107 +1,381 @@
 /**
  * Schema compiler 实现。
  *
- * 将用户传入的 SchemxField schema 编译为 RuntimeNodeInput。
- * 通过 WeakMap 以 schema 对象引用为键，并按父级与索引位置缓存输入。
- * version 机制在编译选项变化时失效缓存，使位置未变的 schema 复用输入。
+ * 将用户传入的 SchemxField schema 编译为 SchemaRuntimeNode。
+ * 通过 WeakMap 以 schema 对象引用为键，并按父级与索引位置缓存配置 token。
+ * version 机制在编译选项变化时失效 token，使位置未变的 schema 重新创建节点。
  *
  * @module core/runtime/compiler/createCompile
  */
 
 import { mergeAndResolveSchemxConfig } from "../../config"
-import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../utils"
+import { createComputed, createSignal } from "../../reactivity"
+import { isDependencySchema, isGroupSchema } from "../../utils"
+import { createRuntimeScope } from "../node/runtimeScope"
 
-import { type Compile, type CompileOptions } from "./types"
+import {
+  buildFieldStaticSchema,
+  createInitialDiagnostics,
+  createRuntimeNodeKey,
+  DEFAULT_PRESENTATION_STATE,
+  isValidationSchemaEqual,
+  resolveComponentProps,
+  resolvePresentationState,
+} from "./helper"
 
-import type {
-  NamePath,
-  ResolvedSchemxSchemaConfig,
-  SchemxComponentProps,
-  SchemxContainerDependencies,
-  SchemxFieldDependencies,
-  SchemxInstance,
-  SchemxResolvedBaseField,
-  ValidationTrigger,
-  Values,
-} from "../../types"
-import type { FieldRules } from "../../types/rule"
+import type { Compile, CompileOptions } from "./types"
+import type { SchemxInstance, SchemxSchemaConfig, Values } from "../../types"
 import type {
   SchemxBaseField,
   SchemxDependencyField,
-  SchemxField,
   SchemxGroupField,
-} from "../../types/schema"
+} from "../../types"
+import type { SchemxField } from "../../types/schema"
+import type { FieldDynamicOverrides, PresentationDynamicOverrides } from "../node"
 import type {
-  DependencyRenderer,
-  FieldDynamicProps,
-  FieldValidation,
-  PresentationDynamicProps,
-  PresentationStaticState,
-  RuntimeNodeInput,
+  DependencyRuntimeNode,
+  FieldRuntimeNode,
+  FieldValidationSchema,
+  GroupRuntimeNode,
+  RuntimeScope,
+  SchemaRuntimeNode,
 } from "../node"
 
 /**
- * 创建 compiler 的私有输入缓存。
+ * 创建 compiler 的私有配置 token 缓存。
+ *
+ * 每个 compiler 实例独立持有缓存，避免不同表单实例之间复用配置身份。
  */
-function createCompileCache<TValues extends Values = Values>(): WeakMap<
+type CompileCache<TValues extends Values = Values> = WeakMap<
   SchemxField<TValues>,
-  Map<string, RuntimeNodeInput<TValues>>
-> {
+  Map<string, symbol>
+>
+
+/**
+ * 创建空的 compiler 配置 token 缓存。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @returns 新的 compiler 缓存。
+ */
+function createCompileCache<TValues extends Values = Values>(): CompileCache<TValues> {
   return new WeakMap()
 }
 
 /**
  * 创建 schema compiler。
  *
- * 每个 compiler 实例维护自己的节点输入缓存。调用方通过 `invalidate()`
+ * 每个 compiler 实例维护自己的配置 token 缓存。调用方通过 `invalidate()`
  * 失效缓存，而不是直接操作缓存版本。
  *
- * @param options - 编译选项，包含默认属性和表单实例。
- * @returns schema compiler 门面，提供 compileNode、invalidate 等方法。
+ * @typeParam TValues - 表单值类型。
+ * @param options - 可选编译选项，包含默认属性和表单实例。
+ * @returns Schema compiler 门面，提供 `createNode()` 和 `invalidate()`。
+ *
+ * @example
+ * ```ts
+ * const compile = createCompile({ defaultRendererType: "input" })
+ * const node = compile.createNode(schema, "schemx:root", 0)
+ * ```
  */
 export function createCompile<TValues extends Values = Values>(
   options: Partial<Omit<CompileOptions<TValues>, "schemaConfig">> & {
-    schemaConfig?: ResolvedSchemxSchemaConfig
+    schemaConfig?: SchemxSchemaConfig
   } = {}
 ): Compile<TValues> {
+  // 将可选配置归一为节点编译所需的完整选项。
   const compileOptions: CompileOptions<TValues> = {
-    // createForm 传入的是与 context 共享的已合并对象，必须保留其引用。
     schemaConfig: options.schemaConfig ?? mergeAndResolveSchemxConfig().schemaConfig,
     rendererProps: options.rendererProps,
     defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
+    debug: options.debug,
   }
 
+  // 节点 id 仅在当前 compiler 实例内递增。
+  let nextId = 1
+
+  // schema 引用与运行时 key 共同决定配置 token 的复用边界。
   let compileCache = createCompileCache<TValues>()
 
   /**
-   * 编译单个 schema 为 RuntimeNode 输入。
+   * 编译单个 Schema 并创建一个尚未挂载的 SchemaRuntimeNode。
    *
-   * 该输入不含 group 子节点，子树遍历由 reconciler 负责。
+   * @param schema - 要编译的字段、分组或 dependency Schema。
+   * @param parentKey - 父节点的稳定 key。
+   * @param index - Schema 在父节点 children 中的位置。
+   * @param scope - 可选的节点资源作用域。
+   * @returns 尚未挂入 NodeManager 的运行时节点。
    */
-  function compileNode(
+  function createNode(
     schema: SchemxField<TValues>,
     parentKey: string,
-    index: number
-  ): RuntimeNodeInput<TValues> {
+    index: number,
+    scope?: RuntimeScope
+  ): SchemaRuntimeNode<TValues> {
     const key = createRuntimeNodeKey(schema, index, parentKey)
 
-    const schemaEntries = compileCache.get(schema)
+    const configToken = getConfigToken(schema, key, compileCache)
 
-    const cached = schemaEntries?.get(key)
+    const id = nextId++
 
-    if (cached) {
-      return cached
+    // Group 节点只保存静态配置和呈现状态，children 由 reconciler 继续编译。
+    if (isGroupSchema(schema)) {
+      const runtimeStaticSchema: SchemxGroupField<TValues> = {
+        ...schema,
+        key,
+        children: [],
+        visible: schema.visible ?? compileOptions.schemaConfig.visible,
+        readonly: schema.readonly ?? compileOptions.schemaConfig.readonly,
+        disabled: schema.disabled ?? compileOptions.schemaConfig.disabled,
+      }
+
+      const staticSchemaSignal = createSignal(runtimeStaticSchema, {
+        name: `group:${id}:staticSchema`,
+      })
+
+      const dynamicOverrides = createSignal<PresentationDynamicOverrides>(
+        {},
+        {
+          name: `presentation:${id}:dynamicOverrides`,
+        }
+      )
+
+      const inheritedState = createComputed(() => {
+        const parent = node.parent
+
+        return parent && parent.type !== "root"
+          ? parent.effectiveState.value
+          : DEFAULT_PRESENTATION_STATE
+      })
+
+      const effectiveState = createComputed(() => {
+        return resolvePresentationState(
+          staticSchemaSignal.value,
+          dynamicOverrides.value,
+          inheritedState.value
+        )
+      })
+
+      const node: GroupRuntimeNode<TValues> = {
+        id,
+        key,
+        type: "group",
+        parent: null,
+        scope: scope ?? createRuntimeScope(),
+        disposed: createSignal(false),
+        configToken,
+        staticSchema: staticSchemaSignal,
+        dynamicOverrides,
+        effectiveState,
+        viewSchemas: null,
+        presentationEffectScope: null,
+        childNodes: createSignal([]),
+      }
+
+      return node
     }
 
-    const input = createRuntimeNodeInput(schema, index, parentKey, compileOptions)
+    // Dependency 节点的 children 由动态 renderer 产生，静态节点只保存触发配置。
+    if (isDependencySchema(schema)) {
+      const runtimeStaticSchema: SchemxDependencyField<TValues> = {
+        ...schema,
+        key,
+        visible: schema.visible ?? compileOptions.schemaConfig.visible,
+        readonly: schema.readonly ?? compileOptions.schemaConfig.readonly,
+        disabled: schema.disabled ?? compileOptions.schemaConfig.disabled,
+      }
 
-    const nextSchemaEntries = schemaEntries ?? new Map()
+      const staticSchema = createSignal(runtimeStaticSchema, {
+        name: `dependency:${id}:staticSchema`,
+      })
 
-    nextSchemaEntries.set(key, input)
-    compileCache.set(schema, nextSchemaEntries)
+      const dynamicOverrides = createSignal<PresentationDynamicOverrides>(
+        {},
+        {
+          name: `presentation:${id}:dynamicOverrides`,
+        }
+      )
 
-    return input
+      const inheritedState = createComputed(() => {
+        const parent = node.parent
+
+        return parent && parent.type !== "root"
+          ? parent.effectiveState.value
+          : DEFAULT_PRESENTATION_STATE
+      })
+
+      const effectiveState = createComputed(() => {
+        return resolvePresentationState(
+          staticSchema.value,
+          dynamicOverrides.value,
+          inheritedState.value
+        )
+      })
+
+      const node: DependencyRuntimeNode<TValues> = {
+        id,
+        key,
+        type: "dependency",
+        parent: null,
+        scope: scope ?? createRuntimeScope(),
+        disposed: createSignal(false),
+        configToken,
+        staticSchema,
+        dynamicOverrides,
+        effectiveState,
+        viewSchemas: null,
+        rendererEffect: null,
+        presentationEffectScope: null,
+        childNodes: createSignal([]),
+      }
+
+      return node
+    }
+
+    // Field 节点将字段默认值与 Schema 合并为静态配置，动态覆盖另行保存。
+    const staticSchema = buildFieldStaticSchema(schema, key, compileOptions)
+
+    const runtimeStaticSchema: SchemxBaseField<TValues> = {
+      ...staticSchema,
+      dependencies: schema.dependencies,
+    }
+
+    const staticSchemaSignal = createSignal(runtimeStaticSchema, {
+      name: `field:${id}:staticSchema`,
+    })
+
+    const dynamicOverrides = createSignal<FieldDynamicOverrides<TValues>>(
+      {},
+      {
+        name: `field:${id}:dynamicOverrides`,
+      }
+    )
+
+    const diagnostics =
+      compileOptions.debug === true
+        ? createSignal(createInitialDiagnostics<TValues>(), {
+            name: `field:${id}:diagnostics`,
+          })
+        : undefined
+
+    const nameSignal = createSignal(schema.name, {
+      name: `field:${id}:name`,
+    })
+
+    const inheritedState = createComputed(() => {
+      const parent = node.parent
+
+      return parent && parent.type !== "root"
+        ? parent.effectiveState.value
+        : DEFAULT_PRESENTATION_STATE
+    })
+
+    let previousValidationSchema: FieldValidationSchema<TValues> | undefined
+
+    // Validator 只依赖校验相关切片；无关展示更新复用上一次对象引用。
+    const validationSchema = createComputed(() => {
+      const base = staticSchemaSignal.value
+
+      const overrides = dynamicOverrides.value
+
+      const presentationState = resolvePresentationState(
+        base,
+        overrides,
+        inheritedState.value
+      )
+
+      const nextValidationSchema: FieldValidationSchema<TValues> = {
+        visible: presentationState.visible,
+        disabled: presentationState.disabled,
+        readonly: presentationState.readonly,
+        label: base.label || "",
+        required: overrides.required ?? base.required ?? false,
+        rules: overrides.rules ?? base.rules ?? [],
+      }
+
+      if (
+        previousValidationSchema &&
+        isValidationSchemaEqual(previousValidationSchema, nextValidationSchema)
+      ) {
+        return previousValidationSchema
+      }
+
+      previousValidationSchema = nextValidationSchema
+
+      return nextValidationSchema
+    })
+
+    // Renderer 使用完整有效配置，包含继承后的展示状态和动态 Props。
+    const effectiveSchema = createComputed(() => {
+      const base = staticSchemaSignal.value
+
+      const overrides = dynamicOverrides.value
+
+      const validation = validationSchema.value
+
+      const readonlyPlaceholder =
+        overrides.readonlyPlaceholder ?? base.readonlyPlaceholder
+
+      const placeholder = overrides.placeholder ?? base.placeholder ?? ""
+
+      const showRequiredMark =
+        overrides.showRequiredMark ??
+        base.showRequiredMark ??
+        Boolean(validation.required)
+
+      return {
+        key,
+        name: nameSignal.value,
+        componentType: base.componentType,
+        label: validation.label,
+        visible: validation.visible,
+        disabled: validation.disabled,
+        readonly: validation.readonly,
+        required: validation.required,
+        showRequiredMark,
+        placeholder,
+        readonlyPlaceholder,
+        componentProps: resolveComponentProps({
+          staticProps: base.componentProps,
+          dynamicComponentProps: overrides.componentProps,
+          effectiveProps: {
+            disabled: validation.disabled,
+            readonly: validation.readonly,
+            placeholder,
+            readonlyPlaceholder,
+          },
+          staticEffectiveProps: {
+            disabled: base.disabled ?? false,
+            readonly: base.readonly ?? false,
+            placeholder: base.placeholder ?? "",
+            readonlyPlaceholder: base.readonlyPlaceholder,
+          },
+        }),
+        rules: validation.rules,
+        validationTrigger: base.validationTrigger,
+      }
+    })
+
+    const node: FieldRuntimeNode<TValues> = {
+      id,
+      key,
+      type: "field",
+      parent: null,
+      scope: scope ?? createRuntimeScope(),
+      disposed: createSignal(false),
+      configToken,
+      name: nameSignal,
+      staticSchema: staticSchemaSignal,
+      dynamicOverrides,
+      effectiveSchema,
+      validationSchema,
+      diagnostics,
+      viewSchemas: null,
+      validationEffectScope: null,
+      dependenciesEffectScope: null,
+    }
+
+    return node
   }
 
   /**
@@ -112,341 +386,39 @@ export function createCompile<TValues extends Values = Values>(
   }
 
   return {
-    compileNode,
+    createNode,
     invalidate,
   }
 }
 
 /**
- * 将单个 schema 编译为不含子树的 RuntimeNode 输入。
+ * 获取当前 schema/key 对应的稳定配置 token。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param schema - 配置 token 所属的 Schema 引用。
+ * @param key - 运行时节点的稳定 key。
+ * @param compileCache - 当前 compiler 使用的 token 缓存。
+ * @returns 当前 schema/key 对应的配置 token。
  */
-function createRuntimeNodeInput<TValues extends Values>(
+function getConfigToken<TValues extends Values>(
   schema: SchemxField<TValues>,
-  index: number,
-  parentKey: string,
-  options: CompileOptions<TValues>
-): RuntimeNodeInput<TValues> {
-  const key = createRuntimeNodeKey(schema, index, parentKey)
+  key: string,
+  compileCache: CompileCache<TValues>
+): symbol {
+  const schemaEntries = compileCache.get(schema)
+
+  const cached = schemaEntries?.get(key)
+
+  if (cached) {
+    return cached
+  }
 
   const configToken = Symbol(key)
 
-  if (isGroupSchema(schema)) {
-    const staticState = buildPresentationStaticState(schema, options)
+  const nextSchemaEntries = schemaEntries ?? new Map<string, symbol>()
 
-    const {
-      children: _children,
-      dependencies,
-      visible: _visible,
-      readonly: _readonly,
-      disabled: _disabled,
-      ...staticSchema
-    } = schema
+  nextSchemaEntries.set(key, configToken)
+  compileCache.set(schema, nextSchemaEntries)
 
-    return {
-      type: "group",
-      key,
-      configToken,
-      staticSchema: {
-        ...staticSchema,
-        key,
-        ...staticState,
-        children: [],
-      },
-      staticState,
-      dynamicProps: createPresentationDynamicProps(dependencies),
-    }
-  }
-
-  if (isDependencySchema(schema)) {
-    return createDependencyInput(schema, key, configToken, options)
-  }
-
-  return createFieldInput(schema, key, configToken, options)
-}
-
-/** 创建字段节点的运行时输入，包含静态配置、动态依赖和校验配置。 */
-function createFieldInput<TValues extends Values>(
-  schema: SchemxBaseField<TValues>,
-  key: string,
-  configToken: symbol,
-  options: CompileOptions<TValues>
-): RuntimeNodeInput<TValues> {
-  const staticSchema = buildFieldStaticSchema(schema, key, options)
-
-  return {
-    type: "field",
-    key,
-    configToken,
-    name: schema.name,
-    componentType: schema.componentType,
-    staticSchema,
-    dynamicProps: createFieldDynamicProps(schema.dependencies),
-    validation: createFieldValidation(staticSchema),
-  }
-}
-
-/** 创建依赖节点的运行时输入，并包装其 renderer 的中止信号。 */
-function createDependencyInput<TValues extends Values>(
-  schema: SchemxDependencyField<TValues>,
-  key: string,
-  configToken: symbol,
-  options: CompileOptions<TValues>
-): RuntimeNodeInput<TValues> {
-  const renderer: DependencyRenderer<TValues> = (formApi, abortSignal) => {
-    return schema.renderer(formApi.getValues(), formApi, { abortSignal })
-  }
-
-  return {
-    type: "dependency",
-    key,
-    configToken,
-    triggerFields: [...schema.to],
-    renderer,
-    rendererIdentity: schema.renderer,
-    staticState: buildPresentationStaticState(schema, options),
-    dynamicProps: createPresentationDynamicProps(schema.dependencies),
-  }
-}
-
-/** 合并容器节点的可见性、只读和禁用静态状态。 */
-function buildPresentationStaticState<TValues extends Values>(
-  schema: Pick<
-    SchemxGroupField<TValues> | SchemxDependencyField<TValues>,
-    "visible" | "readonly" | "disabled"
-  >,
-  options: CompileOptions<TValues>
-): PresentationStaticState {
-  return {
-    visible: schema.visible ?? options.schemaConfig.visible,
-    readonly: schema.readonly ?? options.schemaConfig.readonly,
-    disabled: schema.disabled ?? options.schemaConfig.disabled,
-  }
-}
-
-/** 将容器依赖配置转换为运行时动态属性描述。 */
-function createPresentationDynamicProps<TValues extends Values>(
-  dependencies: SchemxContainerDependencies<TValues> | undefined
-): PresentationDynamicProps<TValues> | null {
-  if (!dependencies) {
-    return null
-  }
-
-  return {
-    triggerFields: [...dependencies.triggerFields],
-    dependencies,
-  }
-}
-
-/** 合并字段 Schema 与全局默认值，生成编译后的静态字段配置。 */
-function buildFieldStaticSchema<TValues extends Values>(
-  schema: SchemxBaseField<TValues>,
-  key: string,
-  options: CompileOptions<TValues>
-): SchemxResolvedBaseField<TValues> {
-  const { schemaConfig, formInstance } = options
-
-  const {
-    contentAlign,
-    labelIcon,
-    labelAlign,
-    labelPosition,
-    labelWidth,
-    colon,
-    componentProps,
-    visible,
-    readonly,
-    readonlyPlaceholder,
-    disabled,
-    required,
-    rules,
-    showRequiredMark,
-    validationTrigger,
-    dependencies: _dependencies,
-    ...rest
-  } = schema
-
-  // 按当前 Schema 的精确类型读取默认值，不切换到 Registry fallback key。
-  const rendererComponentProps = options.rendererProps?.[schema.componentType]
-
-  // Renderer 默认值先于字段 Props 展开，保留字段级覆盖语义。
-  const mergedComponentProps = {
-    ...rendererComponentProps,
-    ...componentProps,
-  } as SchemxComponentProps<TValues>
-
-  const mergedReadonly = readonly ?? schemaConfig.readonly
-
-  const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
-
-  const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
-
-  // 字段显式配置优先于 Renderer 默认值，并沿用 Component Props 高于顶层字段的语义。
-  const mergedReadonlyPlaceholder =
-    componentProps?.readonlyPlaceholder ??
-    readonlyPlaceholder ??
-    rendererComponentProps?.readonlyPlaceholder
-
-  const mergedAlign =
-    componentProps?.align ??
-    contentAlign ??
-    rendererComponentProps?.align ??
-    schemaConfig.contentAlign
-
-  const normalizedSchema = {
-    ...rest,
-    key,
-    visible: visible ?? schemaConfig.visible,
-    readonly: mergedReadonly,
-    readonlyPlaceholder: mergedReadonlyPlaceholder,
-    disabled: disabled ?? schemaConfig.disabled,
-    required: required ?? schemaConfig.required,
-    placeholder: mergedPlaceholder,
-    showRequiredMark: showRequiredMark ?? schemaConfig.showRequiredMark,
-    labelIcon: labelIcon ?? schemaConfig.labelIcon,
-    labelAlign: labelAlign ?? schemaConfig.labelAlign,
-    labelPosition: labelPosition ?? schemaConfig.labelPosition,
-    labelWidth: labelWidth ?? schemaConfig.labelWidth,
-    contentAlign: mergedContentAlign,
-    colon: colon ?? schemaConfig.colon,
-    rules,
-    validationTrigger: normalizeTrigger(
-      validationTrigger ?? schemaConfig.validationTrigger
-    ),
-  } as SchemxResolvedBaseField<TValues>
-
-  if (mergedReadonly) {
-    normalizedSchema.contentAlign = "right"
-    normalizedSchema.labelPosition = "left"
-  }
-
-  normalizedSchema.componentProps = {
-    ...mergedComponentProps,
-    align: mergedReadonly ? "right" : mergedAlign,
-    readonly: mergedReadonly,
-    readonlyPlaceholder: mergedReadonlyPlaceholder,
-    disabled: disabled ?? schemaConfig.disabled,
-    placeholder: mergedPlaceholder,
-    formItemProps: { ...normalizedSchema },
-    formInstance,
-  }
-
-  return normalizedSchema
-}
-
-/**
- * 按字段配置和组件类型计算最终占位文案。
- *
- * @param schema - 当前已规范化的字段 Schema。
- * @param rendererComponentProps - 当前 Renderer 的静态默认 Props。
- * @returns 字段最终传给 Renderer 的占位文案。
- */
-function getPlaceholder<TValues extends Values>(
-  schema: SchemxBaseField<TValues>,
-  rendererComponentProps: Partial<SchemxComponentProps<TValues>> | undefined
-): string {
-  const placeholder =
-    schema.componentProps?.placeholder ??
-    schema.placeholder ??
-    rendererComponentProps?.placeholder
-
-  if (placeholder != null) {
-    return placeholder
-  }
-
-  return ["input", "text", "textarea"].includes(schema.componentType)
-    ? `请输入${schema.label || schema.name}`
-    : `请选择${schema.label || schema.name}`
-}
-
-/** 将字段依赖配置转换为运行时动态属性描述。 */
-function createFieldDynamicProps<TValues extends Values>(
-  dependencies: SchemxFieldDependencies<TValues> | undefined
-): FieldDynamicProps<TValues> | null {
-  if (!dependencies) {
-    return null
-  }
-
-  return {
-    source: "dependencies",
-    triggerFields: dependencies.triggerFields,
-    dependencies,
-  }
-}
-
-/** 根据字段的 required 与 rules 配置生成校验描述。 */
-function createFieldValidation<TValues extends Values>(
-  schema: SchemxResolvedBaseField<TValues>
-): FieldValidation<TValues> | null {
-  const rules = normalizeValidationRules(schema.rules)
-
-  if (!schema.required && !rules) {
-    return null
-  }
-
-  return {
-    trigger: schema.validationTrigger,
-    required: schema.required,
-    rules,
-  }
-}
-
-/** 将空规则数组归一化为未配置，避免注册无效校验任务。 */
-function normalizeValidationRules<TValues extends Values>(
-  rules: FieldRules<TValues, NamePath<TValues>> | undefined
-): FieldRules<TValues, NamePath<TValues>> | undefined {
-  if (rules == null) {
-    return undefined
-  }
-
-  return Array.isArray(rules) && rules.length === 0 ? undefined : rules
-}
-
-/** 根据显式 key 或节点路径生成稳定的运行时节点 key。 */
-function createRuntimeNodeKey<TValues extends Values>(
-  schema: SchemxField<TValues>,
-  index: number,
-  parentKey: string
-): string {
-  if (schema.key) {
-    return schema.key
-  }
-
-  if (isDependencySchema(schema)) {
-    const triggerKey = schema.to.map(serializeNamePath).join(",")
-
-    return parentKey
-      ? `dependency:${parentKey}/${index}/${triggerKey}`
-      : `dependency:${index}/${triggerKey}`
-  }
-
-  if (isGroupSchema(schema)) {
-    return parentKey ? `group:${parentKey}/${index}` : `group:${index}`
-  }
-
-  const nameKey = serializeNamePath(schema.name)
-
-  return parentKey ? `field:${parentKey}/${nameKey}` : `field:${nameKey}`
-}
-
-/** 将字符串或数组形式的字段路径序列化为稳定字符串。 */
-function serializeNamePath(name: NamePath): string {
-  return Array.isArray(name) ? name.join(".") : String(name)
-}
-
-/** 将旧版 onXxx 校验触发器归一化为运行时触发器名称。 */
-function normalizeTrigger(
-  trigger: ValidationTrigger | ValidationTrigger[]
-): NormalizedTrigger | NormalizedTrigger[] {
-  const normalized: Record<ValidationTrigger, NormalizedTrigger> = {
-    onBlur: "blur",
-    onChange: "change",
-    onSubmit: "submit",
-    blur: "blur",
-    change: "change",
-    submit: "submit",
-  }
-
-  const triggers = Array.isArray(trigger) ? trigger : [trigger]
-
-  return triggers.map((item) => normalized[item] ?? "submit")
+  return configToken
 }

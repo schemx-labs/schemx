@@ -1,5 +1,5 @@
 /**
- * Reconciler 与 RuntimeNodeManager 集成测试。
+ * Reconciler 与 NodeManager 集成测试。
  *
  * 覆盖 schema 提交后的节点创建、复用、替换、索引与资源清理。
  *
@@ -12,12 +12,12 @@ import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphT
 
 import type { FieldRuntimeNode } from "../types"
 
-// 验证 reconciler 通过 RuntimeNodeManager 维护运行时树。
-describe("RuntimeReconciler + RuntimeNodeManager", () => {
-  it("创建 root 时可使用共享字段索引", () => {
-    const { context } = createRuntimeGraphHarness()
+// 验证 reconciler 通过 NodeManager 维护运行时树。
+describe("RuntimeReconciler + NodeManager", () => {
+  it("创建 root 时不持有额外字段索引", () => {
+    const { root } = createRuntimeGraphHarness()
 
-    expect(context.runtimeRegistry.fieldIndex.get("name" as never)).toBeUndefined()
+    expect(root.childNodes.value).toEqual([])
   })
 
   it("递归提交嵌套 group 子树", () => {
@@ -46,6 +46,7 @@ describe("RuntimeReconciler + RuntimeNodeManager", () => {
 
   it("生命周期事件在创建、更新和移除时各触发一次", () => {
     const hooks = {
+      created: vi.fn(),
       mounted: vi.fn(),
       updated: vi.fn(),
       unmounted: vi.fn(),
@@ -62,6 +63,26 @@ describe("RuntimeReconciler + RuntimeNodeManager", () => {
     expect(hooks.mounted).toHaveBeenCalledTimes(1)
     expect(hooks.updated).toHaveBeenCalledTimes(1)
     expect(hooks.unmounted).toHaveBeenCalledTimes(1)
+    expect(hooks.created).toHaveBeenCalledTimes(2)
+  })
+
+  it("reconcileChildren 拒绝不存在或非容器 parent", () => {
+    const { commitSchemas, context, root } = createRuntimeGraphHarness()
+
+    expect(() => context.reconcileChildren(999, [])).toThrow(
+      'RuntimeNode "999" does not exist'
+    )
+
+    commitSchemas(root, [createRawFieldSchema("name", "name")])
+    const field = root.childNodes.value[0]
+
+    if (!field) {
+      throw new Error("expected field")
+    }
+
+    expect(() => context.reconcileChildren(field.id, [])).toThrow(
+      `RuntimeNode "${field.id}" cannot contain children`
+    )
   })
 
   it("同名字段改 key 时移除旧节点并建立新节点", () => {
@@ -75,19 +96,19 @@ describe("RuntimeReconciler + RuntimeNodeManager", () => {
 
     expect(oldNode?.disposed.value).toBe(true)
     expect(newNode?.key).toBe("new")
-    expect(newNode?.type === "field" && newNode.name).toBe("user.name")
+    expect(newNode?.type === "field" && newNode.name.value).toBe("user.name")
   })
 
-  it("removeNode 清理资源并断开父子关系", () => {
-    const { reconciler, commitSchemas, root } = createRuntimeGraphHarness()
+  it("提交空 Schema 时清理资源并断开父子关系", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
 
-    reconciler.removeNode(field)
+    commitSchemas(root, [])
 
     expect(field.disposed.value).toBe(true)
-    expect(field.staticSchema.name).toBe("name")
+    expect(field.staticSchema.value.name).toBe("name")
     expect(field.parent).toBeNull()
   })
 
@@ -100,9 +121,9 @@ describe("RuntimeReconciler + RuntimeNodeManager", () => {
     commitSchemas(root, [createDependencySchema(["mode"])])
 
     expect(root.childNodes.value[0]).toBe(dependency)
-    expect(dependency?.type === "dependency" && dependency.triggerFields).toEqual([
-      "mode",
-    ])
+    expect(
+      dependency?.type === "dependency" && dependency.staticSchema.value.to
+    ).toEqual(["mode"])
   })
 })
 

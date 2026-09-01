@@ -5,24 +5,13 @@
  */
 
 export {
-  PRESENTATION_DEPENDENCIES_PROP_KEYS,
+  PRESENTATION_DYNAMIC_OVERRIDE_KEYS,
   createPresentationDependenciesEffect,
   type CreatePresentationDependenciesEffectOptions,
 } from "./dependenciesEffect"
 
 export {
-  mountPresentationRuntime,
-  unmountPresentationRuntime,
-  updatePresentationRuntime,
-} from "./lifecycle"
-
-export {
-  createInheritedPresentationState,
-  createPresentationRuntimeState,
-  resolvePresentationState,
-  DEFAULT_PRESENTATION_STATE,
-  type CreatePresentationRuntimeStateOptions,
-  type PresentationDynamicOverrides,
-  type PresentationRuntimeState,
-  type PresentationState,
-} from "./state"
+  mountPresentationResources,
+  unmountPresentationResources,
+  updatePresentationResources,
+} from "./resources"

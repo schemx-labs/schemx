@@ -1,43 +1,45 @@
 import { describe, expect, it } from "vitest"
 
+import { createNodeManager } from "../nodeManager"
+
 import {
   createTestDependencyRuntimeNode,
   createTestFieldRuntimeNode,
   createTestRootRuntimeNode,
 } from "./runtimeNodeTestUtils"
 
-const createFieldInput = (key: string) => ({
-  type: "field" as const,
+const createFieldNodeOptions = (key: string) => ({
   key,
   configToken: Symbol(key),
   name: key,
-  componentType: "input",
-  staticSchema: { name: key, label: key, componentType: "input" },
-  dynamicProps: null,
-  validation: null,
+  staticSchema: {
+    name: key,
+    label: key,
+    componentType: "input",
+  },
 })
 
-const createDependencyInput = (key: string) => ({
-  type: "dependency" as const,
+const createDependencyNodeOptions = (key: string) => ({
   key,
   configToken: Symbol(key),
-  triggerFields: [key],
-  renderer: () => [],
-  rendererIdentity: () => [],
-  staticState: { visible: true, readonly: false, disabled: false },
-  dynamicProps: null,
+  staticSchema: {
+    to: [key],
+    renderer: () => [],
+  },
 })
 
 describe("node child helpers", () => {
   it("应该读写 root.childNodes", () => {
-    const root = createTestRootRuntimeNode()
+    const manager = createNodeManager()
+
+    const root = manager.getRoot()
 
     const field = createTestFieldRuntimeNode({
-      input: createFieldInput("name"),
+      node: createFieldNodeOptions("name"),
       parent: root,
     })
 
-    root.childNodes.value = [field]
+    manager.insert(field, root.id)
 
     expect(root.childNodes.value).toEqual([field])
   })
@@ -46,26 +48,25 @@ describe("node child helpers", () => {
     const root = createTestRootRuntimeNode()
 
     const field = createTestFieldRuntimeNode({
-      input: createFieldInput("name"),
+      node: createFieldNodeOptions("name"),
       parent: root,
     })
 
-    expect(field.name).toBe("name")
-    expect(field.staticSchema.componentType).toBe("input")
-    expect(field.fieldState).toBeNull()
-    expect(field.viewState).toBeNull()
-    expect(field.effectDispose).toBeNull()
+    expect(field.name.value).toBe("name")
+    expect(field.staticSchema.value.componentType).toBe("input")
+    expect(field.viewSchemas).toBeNull()
+    expect(field.validationEffectScope).toBeNull()
   })
 
   it("DependencyRuntimeNode 创建时 dependency effect 为空", () => {
     const root = createTestRootRuntimeNode()
 
     const dependency = createTestDependencyRuntimeNode({
-      input: createDependencyInput("mode"),
+      node: createDependencyNodeOptions("mode"),
       parent: root,
     })
 
-    expect(dependency.triggerFields).toEqual(["mode"])
+    expect(dependency.staticSchema.value.to).toEqual(["mode"])
     expect(dependency.rendererEffect).toBeNull()
   })
 })

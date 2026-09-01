@@ -7,7 +7,7 @@
  * @module core/runtime/scheduler/scheduler
  */
 
-import type { Scope } from "../node"
+import type { RuntimeScope } from "../node"
 
 /**
  * 任务优先级。
@@ -89,9 +89,9 @@ export interface ScheduledTask {
   priority: SchedulerTaskPriority
 
   /**
-   * 关联的 Scope，scope dispose 时任务被取消。
+   * 关联的 RuntimeScope，scope dispose 时任务被取消。
    */
-  scope?: Scope
+  scope?: RuntimeScope
 
   /**
    * 执行任务。
@@ -397,10 +397,7 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
         }
       }
 
-      if (
-        !shouldYield(sliceStartedAt, idleDeadline) ||
-        !hasTasksForCurrentFlush()
-      ) {
+      if (!shouldYield(sliceStartedAt, idleDeadline) || !hasTasksForCurrentFlush()) {
         continue
       }
 
@@ -544,9 +541,9 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
   ): boolean => {
     return Boolean(
       idleDeadline &&
-        !idleDeadline.didTimeout &&
-        idleDeadline.timeRemaining() <= 0 &&
-        !hasQueuedNonIdleTasks()
+      !idleDeadline.didTimeout &&
+      idleDeadline.timeRemaining() <= 0 &&
+      !hasQueuedNonIdleTasks()
     )
   }
 
@@ -634,17 +631,13 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
    * 空闲条件：无正在执行的 flush、无飞行中异步任务、队列为空。
    */
   const isIdle = (includeIdle = true): boolean => {
-    const hasActiveTasks = includeIdle
-      ? currentFlush !== null
-      : activeCriticalTasks > 0
+    const hasActiveTasks = includeIdle ? currentFlush !== null : activeCriticalTasks > 0
 
     const hasPendingTasks = includeIdle
       ? pendingTasks.size > 0
       : hasCriticalPendingTasks()
 
-    const hasQueuedWork = includeIdle
-      ? hasQueuedTasks()
-      : hasQueuedNonIdleTasks()
+    const hasQueuedWork = includeIdle ? hasQueuedTasks() : hasQueuedNonIdleTasks()
 
     return !hasActiveTasks && !hasPendingTasks && !hasQueuedWork
   }

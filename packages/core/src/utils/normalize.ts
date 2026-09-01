@@ -9,6 +9,7 @@
 
 import { CompileError } from "../runtime/compiler/types"
 
+import { createFieldKey } from "./path"
 import { getSchemaKind } from "./schema"
 
 import type { SchemxField, SchemxRendererKey, Values } from "../types"
@@ -34,6 +35,8 @@ export function normalizeSchemas<TValues extends Values = Values>(
   schemas: unknown,
   defaultRendererType?: SchemxRendererKey
 ): SchemxField<TValues>[] {
+  const fieldLocations = new Map<string, string>()
+
   const normalize = (items: unknown, path: string): SchemxField<TValues>[] => {
     if (!Array.isArray(items)) {
       throw new CompileError(`[schemx] ${path} 必须是数组`)
@@ -101,6 +104,19 @@ export function normalizeSchemas<TValues extends Values = Values>(
         ) {
           throw new CompileError(`[schemx] ${itemPath}.componentType 必须是非空字符串`)
         }
+
+        const fieldKey = createFieldKey(schema.name)
+
+        const previousLocation = fieldLocations.get(fieldKey)
+
+        if (previousLocation) {
+          throw new CompileError(
+            `[schemx] Duplicate field name "${schema.name}" at ${previousLocation} and ${itemPath}.`,
+            schema
+          )
+        }
+
+        fieldLocations.set(fieldKey, itemPath)
       } else if (kind === "group") {
         if (typeof schema.label !== "string") {
           throw new CompileError(`[schemx] ${itemPath}.label 必须是字符串`)

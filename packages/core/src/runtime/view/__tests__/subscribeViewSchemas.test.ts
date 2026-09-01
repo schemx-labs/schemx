@@ -9,26 +9,29 @@
 import { describe, expect, it, vi } from "vitest"
 
 import createForm from "../../../createForm"
-import { createRootRuntimeNode } from "../../node/runtimeNode"
-import { createScope } from "../../node/scope"
-import { createRootRuntimeViewState } from "../createViewState"
+import { createFieldRuntimeNode } from "../../node/__tests__/runtimeNodeTestUtils"
+import { createNodeManager } from "../../node/nodeManager"
+import { createRootRuntimeViewSchemas } from "../createViewSchemas"
 import { subscribeViewSchemas } from "../subscribeViewSchemas"
 
 import type { RootRuntimeNode } from "../../node"
 
-function createRootWithViewState(): {
+function createRootWithViewSchemas(): {
   root: RootRuntimeNode
+  manager: ReturnType<typeof createNodeManager>
 } {
-  const root = createRootRuntimeNode({ dispose: createScope() })
+  const manager = createNodeManager()
 
-  createRootRuntimeViewState(root)
+  const root = manager.getRoot()
 
-  return { root }
+  createRootRuntimeViewSchemas(root)
+
+  return { root, manager }
 }
 
 // 验证 subscribeViewSchemas 的订阅回调、取消订阅、dependencies 更新 ViewSchema、root dispose 等行为
 describe("subscribeViewSchemas", () => {
-  it("root viewState 应输出真实 ViewSchemas", async () => {
+  it("root viewSchemas 应输出真实 ViewSchemas", async () => {
     const form = createForm({
       schemas: [
         {
@@ -97,7 +100,7 @@ describe("subscribeViewSchemas", () => {
   })
 
   it("应该返回取消订阅函数并立即回调", async () => {
-    const { root } = createRootWithViewState()
+    const { root } = createRootWithViewSchemas()
 
     const onChange = vi.fn()
 
@@ -111,7 +114,7 @@ describe("subscribeViewSchemas", () => {
 
   it("取消订阅后不再回调", async () => {
     vi.useFakeTimers()
-    const { root } = createRootWithViewState()
+    const { root, manager } = createRootWithViewSchemas()
 
     const onChange = vi.fn()
 
@@ -120,7 +123,19 @@ describe("subscribeViewSchemas", () => {
     const callCountAfterFirst = onChange.mock.calls.length
 
     unsubscribe()
-    root.childNodes.value = [...root.childNodes.value]
+    manager.insert(
+      createFieldRuntimeNode({
+        id: 1,
+        key: "field:name",
+        configToken: Symbol("field:name"),
+        name: "name",
+        staticSchema: {
+          name: "name",
+          componentType: "input",
+        } as never,
+      }),
+      root.id
+    )
     vi.advanceTimersByTime(20)
 
     expect(onChange).toHaveBeenCalledTimes(callCountAfterFirst)
@@ -128,7 +143,7 @@ describe("subscribeViewSchemas", () => {
   })
 
   it("onChange 回调抛出错误不应中断订阅", async () => {
-    const { root } = createRootWithViewState()
+    const { root } = createRootWithViewSchemas()
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 

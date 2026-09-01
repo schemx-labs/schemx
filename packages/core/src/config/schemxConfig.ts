@@ -1,4 +1,4 @@
-import type { RendererRegistry, ValidationRuleRegistry } from "../registry"
+import type { PresetRuleRegistry, RendererRegistry } from "../registry"
 import type {
   SchemxRendererKey,
   SchemxRendererPropsMap,
@@ -51,11 +51,11 @@ export interface SchemxConfig<TValues extends Values = Values> {
    */
   readonly rendererRegistry?: RendererRegistry
   /**
-   * 后续 Form 默认共享的校验规则注册表。
+   * 后续 Form 默认共享的预设规则注册表。
    *
    * 同 {@link rendererRegistry}，设置后跨实例共享。
    */
-  readonly validationRuleRegistry?: ValidationRuleRegistry
+  readonly presetRuleRegistry?: PresetRuleRegistry
 }
 
 // 未配置全局默认值时使用的标准化配置基线。
@@ -108,7 +108,7 @@ function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
     defaultRendererType: source.defaultRendererType,
     // Registry 是跨 Form 共享的可变服务实例，不对其内部状态深冻。
     rendererRegistry: source.rendererRegistry,
-    validationRuleRegistry: source.validationRuleRegistry,
+    presetRuleRegistry: source.presetRuleRegistry,
   })
 }
 

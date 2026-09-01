@@ -168,7 +168,6 @@ describe("Form reset callbacks", () => {
       { name: "name", errors: ["接口错误"] },
     ])
     api.clearFieldsErrors(["name"])
-    api.clearErrors()
 
     api.setFieldsRules([
       {

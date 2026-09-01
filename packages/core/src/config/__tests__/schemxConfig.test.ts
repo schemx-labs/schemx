@@ -48,11 +48,21 @@ function findField<TValues extends Values>(
 describe("configureSchemx", () => {
   it("仅影响之后创建的 Form，并由 Form adapter 覆盖同 id 全局 adapter", async () => {
     const globalAdapter = createTestAdapter("test", () => [
-      { validate: () => ({ valid: false as const, issues: [{ message: "全局" }] }) },
+      {
+        validate: () => ({
+          valid: false as const,
+          issues: [{ type: "validation", message: "全局" }],
+        }),
+      },
     ])
 
     const formAdapter = createTestAdapter("test", () => [
-      { validate: () => ({ valid: false as const, issues: [{ message: "表单" }] }) },
+      {
+        validate: () => ({
+          valid: false as const,
+          issues: [{ type: "validation", message: "表单" }],
+        }),
+      },
     ])
 
     configureSchemx({ validatorAdapters: [globalAdapter] })

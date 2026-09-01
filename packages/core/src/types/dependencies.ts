@@ -7,10 +7,11 @@
  * @module types/dependencies
  */
 
-import type { NamePath, SchemxFormApi, Values } from "./form"
+import type { SchemxBase } from "./field"
+import type { NamePath, Values } from "./form"
+import type { SchemxFormApi } from "./instance"
 import type { SchemxRendererKey } from "./renderer"
-import type { DefinedFieldValue, FieldRules, RequiredRule } from "./rule"
-import type { SchemxBase } from "./schema"
+import type { DefinedFieldValue, FieldRules, RequiredConfig } from "./rule"
 
 /**
  * 条件函数类型
@@ -49,14 +50,14 @@ export interface SchemxContainerDependencies<TValues extends Values = Values> {
    * 是否只读
    *
    * 条件函数返回 `boolean` 类型，只读状态下字段可见但不可编辑。
-   * 未配置时使用宿主 Schema 的静态默认值。
+   * 未配置时使用所在 {@link SchemxField.readonly} 的静态默认值。
    */
   readonly?: SchemxConditionFn<TValues, boolean>
   /**
    * 是否禁用
    *
    * 条件函数返回 `boolean` 类型，禁用状态下字段不可交互。
-   * 未配置时使用宿主 Schema 的静态默认值。
+   * 未配置时使用所在 {@link SchemxField.disabled} 的静态默认值。
    */
   disabled?: SchemxConditionFn<TValues, boolean>
 
@@ -65,13 +66,14 @@ export interface SchemxContainerDependencies<TValues extends Values = Values> {
    *
    * 条件函数返回 `boolean` 类型，不可见时字段不渲染，
    * 同时会清除校验规则和错误信息。
-   * 未配置时使用宿主 Schema 的静态默认值。
+   * 未配置时使用所在 {@link SchemxField.visible} 的静态默认值。
    */
   visible?: SchemxConditionFn<TValues, boolean>
 
   /**
    * 副作用触发器
    *
+   * 当任一 {@link triggerFields} 的值变化时执行。
    * 条件函数返回 `void` 类型，仅用于执行副作用逻辑（如联动清空、远程请求）。
    * 与其他条件函数并行执行，异常独立捕获不影响属性解析。
    */
@@ -111,38 +113,6 @@ export interface SchemxFieldDependencies<
   TKey extends string = SchemxRendererKey<TValues>,
 > extends SchemxContainerDependencies<TValues> {
   /**
-   * 副作用触发器。
-   *
-   * 当任一 {@link SchemxFieldDependencies.triggerFields | triggerFields} 的值变化时执行。
-   * 仅用于联动清空、远程请求等副作用，不会覆盖字段的静态属性。
-   */
-  trigger?: SchemxConditionFn<TValues, void>
-
-  /**
-   * 是否只读
-   *
-   * 条件函数返回 `boolean` 类型，只读状态下字段可见但不可编辑。
-   * 未配置时使用 {@link SchemxBase.readonly} 的静态默认值。
-   */
-  readonly?: SchemxConditionFn<TValues, boolean>
-  /**
-   * 是否禁用
-   *
-   * 条件函数返回 `boolean` 类型，禁用状态下字段不可交互。
-   * 未配置时使用 {@link SchemxBase.disabled} 的静态默认值。
-   */
-  disabled?: SchemxConditionFn<TValues, boolean>
-
-  /**
-   * 是否可见
-   *
-   * 条件函数返回 `boolean` 类型，不可见时字段不渲染，
-   * 同时会清除校验规则和错误信息。
-   * 未配置时使用 {@link SchemxBase.visible} 的静态默认值。
-   */
-  visible?: SchemxConditionFn<TValues, boolean>
-
-  /**
    * 传递给渲染组件的属性
    *
    * 条件函数返回 {@link SchemxComponentProps} 类型，
@@ -168,11 +138,11 @@ export interface SchemxFieldDependencies<
   /**
    * 是否必填
    *
-   * 条件函数返回字段对应的 {@link RequiredRule}，控制必填校验；必填视觉标记由
+   * 条件函数返回字段对应的 {@link RequiredConfig}，控制必填校验；必填视觉标记由
    * `showRequiredMark` 独立控制。对象形式的 `isEmpty` 参数按当前字段路径推导。
    * 未配置时使用 {@link SchemxBase.required} 的静态默认值。
    */
-  required?: SchemxConditionFn<TValues, RequiredRule<DefinedFieldValue<TValues, TName>>>
+  required?: SchemxConditionFn<TValues, RequiredConfig<DefinedFieldValue<TValues, TName>>>
 
   /**
    * 是否显示必填视觉标记。
@@ -211,39 +181,7 @@ export interface SchemxFieldDependencies<
  */
 export interface SchemxGroupDependencies<
   TValues extends Values = Values,
-> extends SchemxContainerDependencies<TValues> {
-  /**
-   * 副作用触发器。
-   *
-   * 当任一 {@link SchemxGroupDependencies.triggerFields | triggerFields} 的值变化时执行。
-   * 仅用于协调 Group 子树相关的副作用，不会覆盖容器的静态属性。
-   */
-  trigger?: SchemxConditionFn<TValues, void>
-
-  /**
-   * 是否只读。
-   *
-   * 条件函数返回 `boolean` 类型，只读状态下 Group 的后代字段不可编辑。
-   * 未配置时使用 {@link SchemxGroupField.readonly} 的静态默认值。
-   */
-  readonly?: SchemxConditionFn<TValues, boolean>
-
-  /**
-   * 是否禁用。
-   *
-   * 条件函数返回 `boolean` 类型，禁用状态下 Group 的后代字段不可交互。
-   * 未配置时使用 {@link SchemxGroupField.disabled} 的静态默认值。
-   */
-  disabled?: SchemxConditionFn<TValues, boolean>
-
-  /**
-   * 是否可见。
-   *
-   * 条件函数返回 `boolean` 类型；不可见时整棵 Group 子树不渲染。
-   * 未配置时使用 {@link SchemxGroupField.visible} 的静态默认值。
-   */
-  visible?: SchemxConditionFn<TValues, boolean>
-}
+> extends SchemxContainerDependencies<TValues> {}
 
 /**
  * Dependency 容器的结构化依赖配置。
@@ -255,39 +193,19 @@ export interface SchemxGroupDependencies<
  */
 export interface SchemxDependencyDependencies<
   TValues extends Values = Values,
-> extends SchemxContainerDependencies<TValues> {
-  /**
-   * 副作用触发器。
-   *
-   * 当任一 {@link SchemxDependencyDependencies.triggerFields | triggerFields} 的值变化时执行。
-   * 仅用于协调动态子树相关的副作用，不会覆盖容器的静态属性。
-   */
-  trigger?: SchemxConditionFn<TValues, void>
+> extends SchemxContainerDependencies<TValues> {}
 
-  /**
-   * 是否只读。
-   *
-   * 条件函数返回 `boolean` 类型，只读状态下动态子树的字段不可编辑。
-   * 未配置时使用 {@link SchemxDependencyField.readonly} 的静态默认值。
-   */
-  readonly?: SchemxConditionFn<TValues, boolean>
-
-  /**
-   * 是否禁用。
-   *
-   * 条件函数返回 `boolean` 类型，禁用状态下动态子树的字段不可交互。
-   * 未配置时使用 {@link SchemxDependencyField.disabled} 的静态默认值。
-   */
-  disabled?: SchemxConditionFn<TValues, boolean>
-
-  /**
-   * 是否可见。
-   *
-   * 条件函数返回 `boolean` 类型；不可见时动态子树不渲染。
-   * 未配置时使用 {@link SchemxDependencyField.visible} 的静态默认值。
-   */
-  visible?: SchemxConditionFn<TValues, boolean>
-}
+/**
+ * DynamicArray 容器的结构化依赖配置。
+ *
+ * 用于动态控制由 renderer 生成的子树呈现状态；后续 dynamicArray 专属动态属性
+ * 应在此扩展。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface SchemxDynamicDependencies<
+  TValues extends Values = Values,
+> extends SchemxContainerDependencies<TValues> {}
 
 /**
  * 字段依赖配置的旧名称。
@@ -333,7 +251,7 @@ export type SchemxDependenciesConditionKey = SchemxFieldDependenciesConditionKey
  * // {
  * //   componentProps: SchemxComponentProps<TValues, TKey>
  * //   placeholder: string
- * //   required: RequiredRule<string>
+ * //   required: RequiredConfig<string>
  * //   readonly: boolean
  * //   disabled: boolean
  * //   visible: boolean

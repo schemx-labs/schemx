@@ -1,29 +1,23 @@
 /**
  * core 模块统一导出
  *
- * 聚合 Validator、ValidationRuleRegistry、RendererRegistry 等核心公开 API。
+ * 聚合表单运行时、Registry 和校验相关的核心公开 API。
+ * Validator 实现仅供 Core 内部 FormModel 使用，不从根入口导出。
  *
  * @module core
  */
 
 export {
-  createValidation,
-  type CreateValidationOptions,
-  type Validation,
-  type ValidationFieldConfig,
-} from "./validator"
-
-export {
-  createValidationRuleRegistry,
+  createPresetRuleRegistry,
   createRendererRegistry,
-  ValidationRuleRegistry,
+  PresetRuleRegistry,
   RendererRegistry,
-  type ValidationRuleFactoryContext,
-  type ValidationRuleFactory,
-  type ValidationRuleEntry,
-  type ValidationRuleMap,
-  type ValidationRuleRegistryChange,
-  type ValidationRuleRegistryListener,
+  type PresetRuleFactoryContext,
+  type PresetRuleFactory,
+  type PresetRuleEntry,
+  type PresetRuleMap,
+  type PresetRuleRegistryChange,
+  type PresetRuleRegistryListener,
   type RegistryOptions,
   type RendererMap,
 } from "./registry"
@@ -127,10 +121,10 @@ export {
 
 export type {
   RequiredOptions,
-  RequiredRule,
+  RequiredConfig,
   DefinedFieldValue,
-  ValidationRuleDefinition,
-  ValidationRuleName,
+  PresetRuleDefinition,
+  PresetRuleName,
   FieldRule,
   FieldRules,
   Values,
@@ -143,6 +137,7 @@ export type {
   StandardSchemaV1,
   SchemxInstance,
   SchemxFormApi,
+  SchemxFieldRulesMap,
   SchemxSchemaConfig,
   SchemxGlobalContext,
   SchemxRendererKey,

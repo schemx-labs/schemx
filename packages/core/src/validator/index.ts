@@ -1,17 +1,15 @@
 /**
- * 校验器模块
+ * Core 内部校验模块。
+ *
+ * `createValidator` 仅供 `FormModel` 装配校验域，不属于 `@schemx/core` 根入口的公开 API。
  *
  * @module core/validator
  */
 
-export {
-  createValidation,
-  type CreateValidationOptions,
-  type Validation,
-  type ValidationFieldConfig,
-} from "./validation"
+// Core 内部创建 Validator 的装配入口。
+export { createValidator, type CreateValidatorOptions } from "./validator"
 
-export { createRequiredValidationRule } from "./rules"
+export { createRequiredValidationRule } from "./built-in.rules"
 
 export type {
   ValidationRuleContext,
@@ -25,6 +23,7 @@ export type {
   ValidationAdapter,
   ValidationAdapterRegistration,
   ValidationAdapterOption,
+  FieldValidationConfig,
   FieldValidationError,
   FormValidationError,
   ValidationError,
@@ -32,4 +31,5 @@ export type {
   ValidationFailure,
   ValidationCancelled,
   ValidationResult,
+  Validator,
 } from "./types"

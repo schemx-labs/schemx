@@ -5,21 +5,28 @@
  */
 
 import {
-  createDepSchedulerEffect,
+  createDependencySchedulerEffect,
   resolveDependencyProps,
-} from "../dependencySchedulerEffect"
+} from "../dependencyScheduler"
 
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { PresentationDynamicProps, Scope } from "../node"
-import type { PresentationDynamicOverrides, PresentationRuntimeState } from "./state"
+import type {
+  DependencyRuntimeNode,
+  GroupRuntimeNode,
+  PresentationDynamicOverrides,
+  RuntimeScope,
+} from "../node"
+
+type StatefulPresentationNode<TValues extends Values> =
+  GroupRuntimeNode<TValues> | DependencyRuntimeNode<TValues>
 
 /**
  * 容器依赖配置支持的动态属性键。
  *
  * 容器只覆盖呈现状态，不解析字段专属的 `componentProps`、`rules` 等属性。
  */
-export const PRESENTATION_DEPENDENCIES_PROP_KEYS = [
+export const PRESENTATION_DYNAMIC_OVERRIDE_KEYS = [
   "visible",
   "readonly",
   "disabled",
@@ -46,30 +53,23 @@ export interface CreatePresentationDependenciesEffectOptions<
    */
   readonly schemaLabel: string
 
-  /**
-   * 容器依赖描述，包含触发字段与动态条件函数。
-   */
-  readonly dynamicProps: PresentationDynamicProps<TValues>
-
-  /**
-   * 接收动态容器状态覆盖的运行时状态。
-   */
-  readonly runtimeState: PresentationRuntimeState
+  /** 接收动态覆盖的 Group 或 Dependency 节点。 */
+  readonly node: StatefulPresentationNode<TValues>
 
   /**
    * 控制 effect 与异步任务生命周期的作用域。
    */
-  readonly scope: Scope
+  readonly scope: RuntimeScope
 }
 
 /**
  * 创建容器级 dependencies effect。
  *
  * 该 effect 统一处理 Group 和 Dependency 的 `visible`、`readonly`、`disabled`
- * 动态覆盖，并将解析结果写入容器运行时状态。
+ * 动态覆盖，并将解析结果写入容器 RuntimeNode 的 Signal。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param options - 动态属性描述、运行时状态和资源作用域。
+ * @param options - 容器 RuntimeNode 和资源作用域。
  *
  * @remarks
  * 具体的字段订阅、异步竞态和 `trigger` 执行由通用依赖 effect 负责。
@@ -77,24 +77,29 @@ export interface CreatePresentationDependenciesEffectOptions<
 export function createPresentationDependenciesEffect<TValues extends Values>(
   options: CreatePresentationDependenciesEffectOptions<TValues>
 ): void {
-  // 解构容器依赖 effect 所需的运行时资源。
-  const { context, taskId, dynamicProps, runtimeState, schemaLabel, scope } = options
+  const { context, taskId, node, schemaLabel, scope } = options
 
-  createDepSchedulerEffect<TValues, PresentationDynamicOverrides>({
+  const dependencies = node.staticSchema.value.dependencies
+
+  if (!dependencies) {
+    return
+  }
+
+  createDependencySchedulerEffect<TValues, PresentationDynamicOverrides>({
     context,
-    triggerFields: dynamicProps.triggerFields,
+    triggerFields: dependencies.triggerFields,
     taskId,
     scope,
     run: () =>
       resolveDependencyProps<TValues, PresentationDynamicOverrides>(
-        dynamicProps.dependencies,
-        PRESENTATION_DEPENDENCIES_PROP_KEYS,
+        dependencies,
+        PRESENTATION_DYNAMIC_OVERRIDE_KEYS,
         context.formApi,
         schemaLabel
       ),
     onSuccess: (overrides) => {
       // 使用最新 dependencies 解析结果替换容器动态覆盖。
-      runtimeState.dynamicOverrides.value = overrides
+      node.dynamicOverrides.value = overrides
     },
     onError: (error) => {
       console.error(`[schemx] ${schemaLabel} dependencies 执行错误`, error)

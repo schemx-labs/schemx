@@ -83,7 +83,7 @@ describe("dependency renderer effect", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    formApi.setValue("orderType" as any, "express")
+    formApi.setFieldValue("orderType" as any, "express")
     await flushRuntimeGraph(scheduler)
 
     const dependency = root.childNodes.value[0]
@@ -102,7 +102,7 @@ describe("dependency renderer effect", () => {
     }
 
     expect(group.childNodes.value.map((child) => child.key)).toEqual([
-      "field:group:0/expressLevel",
+      "field:group:dep/0/expressLevel",
     ])
   })
 
@@ -135,7 +135,7 @@ describe("dependency renderer effect", () => {
 
     const firstConfigToken = firstChild?.configToken
 
-    formApi.setValue("mode" as any, "b")
+    formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)
 
     expect(dependency.childNodes.value[0]).toBe(firstChild)
@@ -147,7 +147,7 @@ describe("dependency renderer effect", () => {
 
     const renderer = vi.fn(() => [childSchema])
 
-    const { commitSchemas, context, formApi, root, scheduler } =
+    const { commitSchemas, compiler, formApi, root, scheduler } =
       createRuntimeGraphHarness({}, { mode: "a" })
 
     commitSchemas(root, [
@@ -169,11 +169,11 @@ describe("dependency renderer effect", () => {
 
     const firstConfigToken = firstChild?.configToken
 
-    context.compile.invalidate()
+    compiler.invalidate()
 
-    formApi.setValue("mode" as any, "b")
+    formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)
-    formApi.setValue("mode" as any, "c")
+    formApi.setFieldValue("mode" as any, "c")
     await flushRuntimeGraph(scheduler)
 
     expect(dependency.childNodes.value[0]).toBe(firstChild)
@@ -207,7 +207,7 @@ describe("dependency renderer effect", () => {
 
     expect(root.childNodes.value[0].childNodes.value).toHaveLength(1)
 
-    formApi.setValue("mode" as any, "b")
+    formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)
 
     expect(root.childNodes.value[0].childNodes.value).toHaveLength(0)
@@ -238,7 +238,7 @@ describe("dependency renderer effect", () => {
       ])
       await flushRuntimeGraph(scheduler)
 
-      formApi.setValue("mode" as any, "b")
+      formApi.setFieldValue("mode" as any, "b")
       await flushRuntimeGraph(scheduler)
 
       expect(root.childNodes.value[0]?.type).toBe("dependency")
@@ -246,9 +246,9 @@ describe("dependency renderer effect", () => {
         throw new Error("expected dependency node")
       }
 
-      expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual([
-        "stable",
-      ])
+      expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual(
+        ["stable"]
+      )
       expect(consoleError).toHaveBeenCalledWith(
         '[schemx] Dependency Schema "dep" renderer 执行错误',
         error
@@ -285,10 +285,10 @@ describe("dependency renderer effect", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    formApi.setValue("mode" as any, "slow")
+    formApi.setFieldValue("mode" as any, "slow")
     await Promise.resolve()
 
-    formApi.setValue("mode" as any, "latest")
+    formApi.setFieldValue("mode" as any, "latest")
     await Promise.resolve()
 
     resolveSlowRenderer([createRawFieldSchema("stale", "stale")])

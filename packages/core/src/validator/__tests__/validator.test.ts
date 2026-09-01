@@ -1,9 +1,22 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
+import { createPresetRuleRegistry } from "../../registry"
+import { createStore } from "../../store"
 import { createValidator } from "../validator"
 
-import type { ValidationRule, ValidationRuleResult } from "../types"
+import type { PresetRuleFactoryContext, PresetRuleRegistry } from "../../registry"
+import type { Store } from "../../store"
+import type { FieldRules, NamePath, Values } from "../../types"
+import type {
+  ValidationAdapter,
+  ValidationAdapterOption,
+  ValidationRule,
+  ValidationRuleIssue,
+  ValidationRuleResult,
+  Validator,
+} from "../types"
+import type { CreateValidatorOptions } from "../validator"
 
 /**
  * 覆盖字段路径、错误聚合和取消行为的测试表单。
@@ -14,10 +27,57 @@ interface TestForm {
   email: string
 }
 
+/** 覆盖 FieldArray 配置失效的测试表单。 */
+interface ArrayForm {
+  users: Array<{
+    name: string
+  }>
+}
+
 /**
  * 各校验器测试默认使用的表单快照。
  */
 const baseValues: TestForm = { name: "John", age: 25, email: "j@t.com" }
+
+/** Validator 测试工厂的可选覆盖配置。 */
+interface TestValidatorOptions<TValues extends Values> extends Pick<
+  CreateValidatorOptions<TValues>,
+  "onRuleError" | "validationConcurrency"
+> {
+  /** 测试用的字段状态 Store。 */
+  readonly fieldStore?: Store<TValues>
+  /** 测试用的命名规则 Registry。 */
+  readonly presetRuleRegistry?: PresetRuleRegistry
+  /** 测试用的 adapter 列表。 */
+  readonly validatorAdapters?: readonly ValidationAdapterOption[]
+}
+
+/** 创建带有必传 Registry 和 Store 的 Validator。 */
+function createTestValidator<TValues extends Values>(
+  options: TestValidatorOptions<TValues> = {}
+): Validator<TValues> {
+  return createValidator({
+    presetRuleRegistry: options.presetRuleRegistry ?? createPresetRuleRegistry(),
+    fieldStore: options.fieldStore ?? createStore<TValues>(),
+    validatorAdapters: options.validatorAdapters,
+    onRuleError: options.onRuleError,
+    validationConcurrency: options.validationConcurrency,
+  })
+}
+
+/** 为测试字段写入统一的原始规则配置。 */
+function setTestRules<TValues extends Values, TName extends NamePath<TValues>>(
+  validator: Validator<TValues>,
+  name: TName,
+  rules: FieldRules<TValues, TName>
+): void {
+  validator.setFieldConfig({
+    name,
+    label: String(name),
+    required: undefined,
+  })
+  validator.setFieldRules(name, rules)
+}
 
 /**
  * 创建通过校验的测试规则。
@@ -32,7 +92,7 @@ const passingRule = (): ValidationRule<string, TestForm, "name"> => ({
  * @param message - 规则返回的错误消息。
  */
 const failingRule = (message: string): ValidationRule<string, TestForm, "name"> => ({
-  validate: () => ({ valid: false, issues: [{ message }] }),
+  validate: () => ({ valid: false, issues: [{ type: "validation", message }] }),
 })
 
 /**
@@ -92,10 +152,247 @@ const captureSignalRule = (
 })
 
 describe("Validator", () => {
+  it("应读取注入 Store 中的错误", async () => {
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    fieldStore.setFieldErrors("email", [
+      { type: "external", message: "服务端已占用", code: "external" },
+    ])
+
+    expect(fieldStore.getFieldErrors("email")).toEqual([
+      { type: "external", message: "服务端已占用", code: "external" },
+    ])
+
+    await expect(
+      validator.validate({ name: "John", age: 25, email: "" })
+    ).resolves.toMatchObject({
+      valid: false,
+      errors: [{ name: "email" }],
+    })
+  })
+
+  it("Registry 命中时优先解析并传递字段配置", async () => {
+    const presetRuleRegistry = createPresetRuleRegistry()
+
+    const resolvePreset = vi.fn((context: PresetRuleFactoryContext) => ({
+      validate: () => ({
+        valid: false as const,
+        issues: [
+          {
+            type: "validation" as const,
+            message: `${context.label}:${String(context.required)}`,
+          },
+        ],
+      }),
+    }))
+
+    presetRuleRegistry.register("preset" as never, resolvePreset as never)
+
+    const adapterResolve = vi.fn()
+
+    const adapter: ValidationAdapter = {
+      id: "adapter",
+      isRule: (rule) => rule === "preset",
+      resolve: (rule) => {
+        adapterResolve(rule)
+
+        return [{ validate: () => ({ valid: true as const }) }]
+      },
+    }
+
+    const validator = createTestValidator<TestForm>({
+      presetRuleRegistry,
+      validatorAdapters: [adapter],
+    })
+
+    validator.setFieldConfig({
+      name: "name",
+      label: "姓名",
+      required: true,
+    })
+    validator.setFieldRules("name", "preset" as never)
+
+    expect(resolvePreset).not.toHaveBeenCalled()
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ message: "姓名:true" }] }],
+    })
+    expect(resolvePreset).toHaveBeenCalledWith({
+      name: "name",
+      label: "姓名",
+      required: true,
+    })
+    expect(adapterResolve).not.toHaveBeenCalled()
+  })
+
+  it("Registry 未命中时按 adapter 注册顺序使用首个匹配项", async () => {
+    const firstIsRule = vi.fn((rule: unknown) => rule === "adapter-rule")
+
+    const secondIsRule = vi.fn((rule: unknown) => rule === "adapter-rule")
+
+    const firstResolve = vi.fn()
+
+    const secondResolve = vi.fn()
+
+    const firstAdapter: ValidationAdapter = {
+      id: "first",
+      isRule: firstIsRule,
+      resolve: (rule) => {
+        firstResolve(rule)
+
+        return [
+          {
+            validate: () => ({
+              valid: false as const,
+              issues: [{ type: "validation" as const, message: "首个 adapter 错误" }],
+            }),
+          },
+        ]
+      },
+    }
+
+    const secondAdapter: ValidationAdapter = {
+      id: "second",
+      isRule: secondIsRule,
+      resolve: (rule) => {
+        secondResolve(rule)
+
+        return [
+          {
+            validate: () => ({
+              valid: false as const,
+              issues: [{ type: "validation" as const, message: "第二个 adapter 错误" }],
+            }),
+          },
+        ]
+      },
+    }
+
+    const validator = createTestValidator<TestForm>({
+      validatorAdapters: [firstAdapter, secondAdapter],
+    })
+
+    setTestRules(validator, "name", "adapter-rule" as never)
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ message: "首个 adapter 错误" }] }],
+    })
+    expect(firstIsRule).toHaveBeenCalledWith("adapter-rule")
+    expect(firstResolve).toHaveBeenCalledWith("adapter-rule")
+    expect(secondIsRule).not.toHaveBeenCalled()
+    expect(secondResolve).not.toHaveBeenCalled()
+  })
+
+  it("配置保存后才解析 Registry，并使用注册表的最新规则", async () => {
+    const presetRuleRegistry = createPresetRuleRegistry()
+
+    const validator = createTestValidator<TestForm>({ presetRuleRegistry })
+
+    validator.setFieldConfig({
+      name: "name",
+      label: "姓名",
+      required: false,
+    })
+    validator.setFieldRules("name", "preset" as never)
+
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ code: "validation_config" }] }],
+    })
+
+    presetRuleRegistry.register("preset" as never, {
+      validate: () => ({
+        valid: false,
+        issues: [{ type: "validation", message: "最新规则" }],
+      }),
+    })
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ message: "最新规则" }] }],
+    })
+
+    expect(consoleWarn).toHaveBeenCalledTimes(1)
+    consoleWarn.mockRestore()
+    consoleError.mockRestore()
+  })
+
+  it("required 规则先于字段附加规则执行", async () => {
+    const extraRule = vi.fn(() => ({
+      valid: false as const,
+      issues: [{ type: "validation" as const, message: "附加规则错误" }],
+    }))
+
+    const validator = createTestValidator<TestForm>()
+
+    validator.setFieldConfig({
+      name: "name",
+      label: "姓名",
+      required: true,
+    })
+    validator.setFieldRules("name", [{ validate: extraRule }])
+
+    await expect(
+      validator.validateField("name", { ...baseValues, name: "" })
+    ).resolves.toMatchObject({
+      errors: [{ issues: [{ code: "required" }] }],
+    })
+    expect(extraRule).not.toHaveBeenCalled()
+  })
+
+  it("adapter 解析失败时写入 configuration 错误且不执行部分规则", async () => {
+    const badAdapter: ValidationAdapter = {
+      id: "bad",
+      isRule: (rule) => rule === "bad-rule",
+      resolve: () => [],
+    }
+
+    const validator = createTestValidator<TestForm>({ validatorAdapters: [badAdapter] })
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    setTestRules(validator, "name", [
+      failingRule("不应执行"),
+      "bad-rule" as never,
+    ] as never)
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ type: "configuration", code: "validation_config" }] }],
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      '[schemx] 字段 "name" 校验配置错误',
+      expect.any(Error)
+    )
+
+    consoleError.mockRestore()
+  })
+
+  it("未提供自定义 adapter 时使用内置 Standard Schema adapter", async () => {
+    const validator = createTestValidator<TestForm>()
+
+    const schema = {
+      "~standard": {
+        version: 1 as const,
+        vendor: "test",
+        validate: () => ({ issues: [{ message: "Standard Schema 错误" }] }),
+      },
+    }
+
+    setTestRules(validator, "name", schema as never)
+
+    await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+      errors: [{ issues: [{ type: "validation", message: "Standard Schema 错误" }] }],
+    })
+  })
+
   it("整表校验应遵守字段并发上限", async () => {
     type ManyFields = Record<string, number>
 
-    const validator = createValidator<ManyFields>({ validationConcurrency: 2 })
+    const validator = createTestValidator<ManyFields>({ validationConcurrency: 2 })
 
     const values: ManyFields = {}
 
@@ -107,7 +404,7 @@ describe("Validator", () => {
       const name = `field-${index}`
 
       values[name] = index
-      validator.setFieldRules(name, [
+      setTestRules(validator, name, [
         {
           validate: async () => {
             active += 1
@@ -126,10 +423,10 @@ describe("Validator", () => {
   })
 
   it("setFieldRules 使用替换语义", async () => {
-    const validator = createValidator<TestForm>()
+    const validator = createTestValidator<TestForm>()
 
-    validator.setFieldRules("name", [failingRule("旧错误")])
-    validator.setFieldRules("name", [passingRule()])
+    setTestRules(validator, "name", [failingRule("旧错误")])
+    setTestRules(validator, "name", [passingRule()])
 
     await expect(validator.validateField("name", baseValues)).resolves.toEqual({
       valid: true,
@@ -139,51 +436,89 @@ describe("Validator", () => {
   })
 
   it("支持规则和错误的单字段与多字段操作", async () => {
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldsRules([
-      { name: "name", rules: [failingRule("姓名错误")] },
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    setTestRules(validator, "name", [failingRule("姓名错误")])
+    setTestRules(validator, "email", [
       {
-        name: "email",
-        rules: [
-          { validate: () => ({ valid: false, issues: [{ message: "邮箱错误" }] }) },
-        ],
+        validate: () => ({
+          valid: false,
+          issues: [{ type: "validation", message: "邮箱错误" }],
+        }),
       },
     ])
-    validator.setFieldsErrors([
-      { name: "name", messages: ["姓名已存在"] },
-      { name: "age", messages: ["年龄无效"] },
+    fieldStore.setFieldsErrors([
+      {
+        field: "name",
+        errors: [{ type: "external", message: "姓名已存在", code: "external" }],
+      },
+      {
+        field: "age",
+        errors: [{ type: "external", message: "年龄无效", code: "external" }],
+      },
     ])
 
     await validator.validate(baseValues)
 
-    expect(validator.getFieldsErrors(["age", "name"])).toEqual([
-      { name: "age", errors: ["年龄无效"] },
-      { name: "name", errors: ["姓名错误", "姓名已存在"] },
+    expect(fieldStore.getFieldsErrors(["age", "name"])).toEqual([
+      {
+        field: "age",
+        errors: [{ type: "external", message: "年龄无效", code: "external" }],
+      },
+      {
+        field: "name",
+        errors: [
+          { type: "validation", message: "姓名错误" },
+          { type: "external", message: "姓名已存在", code: "external" },
+        ],
+      },
     ])
 
-    validator.clearFieldsErrors(["name"])
-    expect(validator.getFieldErrors("name")).toEqual([])
-    validator.clearFieldsErrors(["age"])
+    fieldStore.clearFieldsErrors(["name"])
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
+    fieldStore.clearFieldsErrors(["age"])
 
-    validator.setFieldsConfigurationIssues([
-      { name: "age", issues: [{ message: "年龄规则配置错误" }] },
+    setTestRules(validator, "age", { invalid: true } as never)
+    await validator.validate(baseValues)
+    expect(fieldStore.getFieldErrors("age")).toEqual([
+      {
+        type: "configuration",
+        message: "字段校验配置错误",
+        code: "validation_config",
+        cause: expect.any(Error),
+      },
     ])
-    expect(validator.getFieldErrors("age")).toEqual(["年龄规则配置错误"])
-    validator.clearFieldsConfigurationIssues(["age"])
+    validator.removeFieldRules("age")
 
-    validator.removeFieldsRules(["name", "email"])
+    validator.removeField("name")
+    validator.removeField("email")
     await expect(validator.validate(baseValues)).resolves.toMatchObject({
       valid: true,
       errors: [],
     })
+
+    consoleWarn.mockRestore()
+    consoleError.mockRestore()
   })
 
   it("等价字符串与数组路径共享同一字段身份", async () => {
-    const validator = createValidator<{ profile: { email: string } }>()
+    const fieldStore = createStore<{ profile: { email: string } }>()
 
-    validator.setFieldRules("profile.email", [
-      { validate: () => ({ valid: false, issues: [{ message: "邮箱错误" }] }) },
+    const validator = createTestValidator({ fieldStore })
+
+    setTestRules(validator, "profile.email", [
+      {
+        validate: () => ({
+          valid: false,
+          issues: [{ type: "validation", message: "邮箱错误" }],
+        }),
+      },
     ])
 
     await expect(
@@ -194,32 +529,34 @@ describe("Validator", () => {
       valid: false,
       errors: [{ name: ["profile", "email"], issues: [{ message: "邮箱错误" }] }],
     })
-    expect(validator.getFieldErrors("profile.email")).toEqual(["邮箱错误"])
-  })
-
-  it("getFieldErrors 无错误时稳定返回只读空数组", () => {
-    const validator = createValidator<TestForm>()
-
-    expect(validator.getFieldErrors("name")).toEqual([])
-    expect(validator.getFieldErrors("name")).toBe(validator.getFieldErrors("name"))
-    expect(Object.isFrozen(validator.getFieldErrors("name"))).toBe(true)
+    expect(fieldStore.getFieldErrors("profile.email")).toEqual([
+      { type: "validation", message: "邮箱错误" },
+    ])
   })
 
   it("规则与 external 错误均复制调用方输入，并隔离返回消息", async () => {
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({ fieldStore })
 
     const rules: ValidationRule<string, TestForm, "name">[] = [failingRule("原始规则")]
 
     const messages = ["原始消息"]
 
-    validator.setFieldRules("name", rules)
-    validator.setFieldErrors("name", messages)
+    setTestRules(validator, "name", rules)
+    fieldStore.setFieldErrors("name", [
+      { type: "external", message: messages[0], code: "external" },
+    ])
 
     rules.splice(0, 1, passingRule())
     messages[0] = "被调用方改写"
-    const returnedMessages = validator.getFieldErrors("name") as string[]
+    const returnedErrors = fieldStore.getFieldErrors("name") as ValidationRuleIssue[]
 
-    returnedMessages[0] = "被消费者改写"
+    returnedErrors[0] = {
+      type: "external",
+      message: "被消费者改写",
+      code: "external",
+    }
 
     await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
       valid: false,
@@ -229,7 +566,10 @@ describe("Validator", () => {
         },
       ],
     })
-    expect(validator.getFieldErrors("name")).toEqual(["原始规则", "原始消息"])
+    expect(fieldStore.getFieldErrors("name")).toEqual([
+      { type: "validation", message: "原始规则" },
+      { type: "external", message: "原始消息", code: "external" },
+    ])
   })
 
   it("规则异常通过 onRuleError 转换", async () => {
@@ -237,11 +577,11 @@ describe("Validator", () => {
 
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const validator = createValidator<TestForm>({
+    const validator = createTestValidator<TestForm>({
       onRuleError: (error) => `执行异常: ${(error as Error).message}`,
     })
 
-    validator.setFieldRules("name", [throwingRule(error)])
+    setTestRules(validator, "name", [throwingRule(error)])
 
     try {
       const result = await validator.validateField("name", baseValues)
@@ -270,9 +610,9 @@ describe("Validator", () => {
 
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const validator = createValidator<TestForm>()
+    const validator = createTestValidator<TestForm>()
 
-    validator.setFieldRules("name", [throwingRule(error)])
+    setTestRules(validator, "name", [throwingRule(error)])
 
     try {
       await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
@@ -294,14 +634,56 @@ describe("Validator", () => {
     }
   })
 
+  it("onRuleError 抛错时使用稳定默认提示", async () => {
+    const ruleError = new Error("规则错误")
+
+    const handlerError = new Error("处理器错误")
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    const validator = createTestValidator<TestForm>({
+      onRuleError: () => {
+        throw handlerError
+      },
+    })
+
+    setTestRules(validator, "name", [throwingRule(ruleError)])
+
+    try {
+      await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
+        valid: false,
+        errors: [
+          {
+            issues: [
+              {
+                type: "validation",
+                message: "校验执行失败",
+                code: "rule_execution",
+                cause: handlerError,
+              },
+            ],
+          },
+        ],
+      })
+      expect(consoleError).toHaveBeenCalledWith(
+        '[schemx] 字段 "name" 校验规则错误处理器执行错误',
+        handlerError
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it("旧异步结果不能覆盖新状态", async () => {
     const first = deferred<ValidationRuleResult>()
 
     const second = deferred<ValidationRuleResult>()
 
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldRules("name", [sequencedRule(first.promise, second.promise)])
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    setTestRules(validator, "name", [sequencedRule(first.promise, second.promise)])
 
     const oldRun = validator.validateField("name", { ...baseValues, name: "old" })
 
@@ -309,36 +691,161 @@ describe("Validator", () => {
 
     second.resolve({ valid: true })
     await newRun
-    first.resolve({ valid: false, issues: [{ message: "旧错误" }] })
+    first.resolve({ valid: false, issues: [{ type: "validation", message: "旧错误" }] })
     await oldRun
 
-    expect(validator.getFieldErrors("name")).toEqual([])
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
   })
 
   it("替换规则会取消旧运行，并拒绝旧规则回写", async () => {
     const pending = deferred<ValidationRuleResult>()
 
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldRules("name", [{ validate: () => pending.promise }])
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    setTestRules(validator, "name", [{ validate: () => pending.promise }])
 
     const oldRun = validator.validateField("name", baseValues)
 
     await Promise.resolve()
-    validator.setFieldRules("name", [failingRule("新规则错误")])
-    pending.resolve({ valid: false, issues: [{ message: "旧规则错误" }] })
+    setTestRules(validator, "name", [failingRule("新规则错误")])
+    pending.resolve({
+      valid: false,
+      issues: [{ type: "validation", message: "旧规则错误" }],
+    })
 
     await expect(oldRun).resolves.toMatchObject({ cancelled: true, errors: [] })
     await expect(validator.validateField("name", baseValues)).resolves.toMatchObject({
       errors: [{ issues: [{ message: "新规则错误" }] }],
     })
-    expect(validator.getFieldErrors("name")).toEqual(["新规则错误"])
+    expect(fieldStore.getFieldErrors("name")).toEqual([
+      { type: "validation", message: "新规则错误" },
+    ])
+  })
+
+  it("移除字段配置会中止运行并清除该字段全部错误", async () => {
+    const pending = deferred<ValidationRuleResult>()
+
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    setTestRules(validator, "name", [{ validate: () => pending.promise }])
+    fieldStore.setFieldErrors("name", [
+      { type: "external", message: "服务端错误", code: "external" },
+    ])
+
+    const validation = validator.validateField("name", baseValues)
+
+    await Promise.resolve()
+    validator.removeField("name")
+    pending.resolve({
+      valid: false,
+      issues: [{ type: "validation", message: "过期错误" }],
+    })
+
+    await expect(validation).resolves.toEqual({
+      valid: false,
+      cancelled: true,
+      values: baseValues,
+      errors: [],
+    })
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
+    await expect(validator.validate(baseValues)).resolves.toEqual({
+      valid: true,
+      values: baseValues,
+      errors: [],
+    })
+  })
+
+  it("FieldArray 截断会移除越界字段配置和错误", async () => {
+    const values: ArrayForm = {
+      users: [{ name: "Ada" }],
+    }
+
+    const fieldStore = createStore<ArrayForm>()
+
+    const validator = createTestValidator<ArrayForm>({ fieldStore })
+
+    const validate = vi.fn(() => ({
+      valid: false as const,
+      issues: [{ type: "validation" as const, message: "过期错误" }],
+    }))
+
+    setTestRules(validator, "users.1.name", [{ validate }])
+    fieldStore.setFieldErrors("users.1.name", [
+      { type: "external", message: "服务端错误", code: "external" },
+    ])
+
+    validator.invalidateFieldArray("users", {
+      previousLength: 2,
+      nextLength: 1,
+      ranges: [{ start: 1, end: 1 }],
+    })
+
+    await expect(validator.validate(values)).resolves.toEqual({
+      valid: true,
+      values,
+      errors: [],
+    })
+    expect(validate).not.toHaveBeenCalled()
+    expect(fieldStore.getFieldErrors("users.1.name")).toEqual([])
+  })
+
+  it("FieldArray 受影响的在范围字段会中止运行但保留配置", async () => {
+    const values: ArrayForm = {
+      users: [{ name: "Ada" }],
+    }
+
+    const pending = deferred<ValidationRuleResult>()
+
+    const validator = createTestValidator<ArrayForm>()
+
+    let runs = 0
+
+    setTestRules(validator, "users.0.name", [
+      {
+        validate: () => {
+          runs += 1
+
+          return runs === 1 ? pending.promise : { valid: true }
+        },
+      },
+    ])
+
+    const validation = validator.validateField("users.0.name", values)
+
+    await Promise.resolve()
+    validator.invalidateFieldArray("users", {
+      previousLength: 1,
+      nextLength: 1,
+      ranges: [{ start: 0, end: 0 }],
+    })
+    pending.resolve({ valid: true })
+
+    await expect(validation).resolves.toEqual({
+      valid: false,
+      cancelled: true,
+      values,
+      errors: [],
+    })
+    await expect(validator.validateField("users.0.name", values)).resolves.toEqual({
+      valid: true,
+      values,
+      errors: [],
+    })
+    expect(runs).toBe(2)
   })
 
   it("external 错误会阻止全表校验通过，即使字段没有规则", async () => {
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldErrors("email", ["服务端已占用"])
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    fieldStore.setFieldErrors("email", [
+      { type: "external", message: "服务端已占用", code: "external" },
+    ])
 
     await expect(validator.validate(baseValues)).resolves.toEqual({
       valid: false,
@@ -347,7 +854,7 @@ describe("Validator", () => {
         {
           scope: "field",
           name: "email",
-          issues: [{ message: "服务端已占用", code: "external" }],
+          issues: [{ type: "external", message: "服务端已占用", code: "external" }],
         },
       ],
     })
@@ -356,9 +863,9 @@ describe("Validator", () => {
   it("非法空 issue 失败结果转换为规则执行错误", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
 
-    const validator = createValidator<TestForm>()
+    const validator = createTestValidator<TestForm>()
 
-    validator.setFieldRules("name", [
+    setTestRules(validator, "name", [
       { validate: () => ({ valid: false, issues: [] }) as never },
     ])
 
@@ -376,11 +883,13 @@ describe("Validator", () => {
   })
 
   it("destroy 中止运行并清空全部状态", async () => {
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({ fieldStore })
 
     const signals: AbortSignal[] = []
 
-    validator.setFieldRules("name", [captureSignalRule(signals)])
+    setTestRules(validator, "name", [captureSignalRule(signals)])
     void validator.validateField("name", baseValues)
 
     await Promise.resolve()
@@ -388,22 +897,24 @@ describe("Validator", () => {
     validator.destroy()
 
     expect(signals[0].aborted).toBe(true)
-    expect(validator.getFieldErrors("name")).toEqual([])
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
   })
 
   it("规则因 abort 拒绝时不产生可见错误", async () => {
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldRules("name", [
-      {
-        validate: (_value, context) =>
-          new Promise<ValidationRuleResult>((_resolve, reject) => {
-            context.signal.addEventListener("abort", () => reject(new Error("aborted")), {
-              once: true,
-            })
-          }),
-      },
-    ])
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    const abortRule: ValidationRule<string, TestForm, "name"> = {
+      validate: (_value, context) =>
+        new Promise<ValidationRuleResult>((_resolve, reject) => {
+          context.signal.addEventListener("abort", () => reject(new Error("aborted")), {
+            once: true,
+          })
+        }),
+    }
+
+    setTestRules(validator, "name", [abortRule])
 
     const validation = validator.validateField("name", baseValues)
 
@@ -416,21 +927,26 @@ describe("Validator", () => {
       values: baseValues,
       errors: [],
     })
-    expect(validator.getFieldErrors("name")).toEqual([])
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
   })
 
   it("destroy 后旧运行完成也不会回写错误", async () => {
     const result = deferred<ValidationRuleResult>()
 
-    const validator = createValidator<TestForm>()
+    const fieldStore = createStore<TestForm>()
 
-    validator.setFieldRules("name", [{ validate: () => result.promise }])
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    setTestRules(validator, "name", [{ validate: () => result.promise }])
 
     const validation = validator.validateField("name", baseValues)
 
     await Promise.resolve()
     validator.destroy()
-    result.resolve({ valid: false, issues: [{ message: "过期错误" }] })
+    result.resolve({
+      valid: false,
+      issues: [{ type: "validation", message: "过期错误" }],
+    })
 
     await expect(validation).resolves.toEqual({
       valid: false,
@@ -438,18 +954,18 @@ describe("Validator", () => {
       values: baseValues,
       errors: [],
     })
-    expect(validator.getFieldErrors("name")).toEqual([])
+    expect(fieldStore.getFieldErrors("name")).toEqual([])
   })
 
   it("失败规则聚合信息，bail 停止后续规则", async () => {
-    const validator = createValidator<TestForm>()
+    const validator = createTestValidator<TestForm>()
 
-    validator.setFieldRules("name", [
+    setTestRules(validator, "name", [
       failingRule("第一个错误"),
       {
         validate: () => ({
           valid: false,
-          issues: [{ message: "必填错误" }],
+          issues: [{ type: "validation", message: "必填错误" }],
           bail: true,
         }),
       },
@@ -463,45 +979,66 @@ describe("Validator", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "第一个错误" }, { message: "必填错误" }],
+          issues: [
+            { type: "validation", message: "第一个错误" },
+            { type: "validation", message: "必填错误" },
+          ],
         },
       ],
     })
   })
 
   it("validate 顺序校验全部已配置字段", async () => {
-    const validator = createValidator<TestForm>()
+    const validator = createTestValidator<TestForm>()
 
-    validator.setFieldRules("name", [failingRule("姓名错误")])
-    validator.setFieldRules("email", [
-      { validate: () => ({ valid: false, issues: [{ message: "邮箱错误" }] }) },
+    setTestRules(validator, "name", [failingRule("姓名错误")])
+    setTestRules(validator, "email", [
+      {
+        validate: () => ({
+          valid: false,
+          issues: [{ type: "validation", message: "邮箱错误" }],
+        }),
+      },
     ])
 
     await expect(validator.validate(baseValues)).resolves.toEqual({
       valid: false,
       values: baseValues,
       errors: [
-        { scope: "field", name: "name", issues: [{ message: "姓名错误" }] },
-        { scope: "field", name: "email", issues: [{ message: "邮箱错误" }] },
+        {
+          scope: "field",
+          name: "name",
+          issues: [{ type: "validation", message: "姓名错误" }],
+        },
+        {
+          scope: "field",
+          name: "email",
+          issues: [{ type: "validation", message: "邮箱错误" }],
+        },
       ],
     })
   })
 })
 
 describe("Validator 错误 signal 属性测试", () => {
-  it("Property 11: setFieldErrors 后 getFieldErrors 返回相等值，clearErrors 后返回空数组", () => {
+  it("Property 11: Store 设置字段错误后可读取，清空后返回空数组", () => {
     fc.assert(
       fc.property(
         fc.string({ minLength: 1 }),
         fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 5 }),
         (path, errors) => {
-          const validator = createValidator<Record<string, unknown>>()
+          const fieldStore = createStore<Record<string, unknown>>()
 
-          validator.setFieldErrors(path, errors)
-          expect(validator.getFieldErrors(path)).toEqual(errors)
+          const issues = errors.map((message) => ({
+            type: "external" as const,
+            message,
+          }))
 
-          validator.clearErrors()
-          expect(validator.getFieldErrors(path)).toEqual([])
+          fieldStore.setFieldErrors(path, issues)
+          expect(fieldStore.getFieldErrors(path)).toEqual(issues)
+
+          fieldStore.clearAllErrors()
+          expect(fieldStore.getFieldErrors(path)).toEqual([])
         }
       ),
       { numRuns: 100 }

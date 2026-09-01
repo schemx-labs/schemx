@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createRequiredValidationRule,
   createStandardSchemaValidationRule,
-} from "../rules"
+} from "../built-in.rules"
 
 import type { StandardSchemaV1 } from "../../types/standardSchema"
 import type { ValidationRuleContext } from "../types"
@@ -40,7 +40,7 @@ describe("规则归一化", () => {
 
     expect(result).toEqual({
       valid: false,
-      issues: [{ message: "用户名为必填项", code: "required" }],
+      issues: [{ type: "validation", message: "用户名为必填项", code: "required" }],
       bail: true,
     })
   })
@@ -80,7 +80,7 @@ describe("规则归一化", () => {
 
     await expect(rule.validate("invalid", createContext())).resolves.toEqual({
       valid: false,
-      issues: [{ message: "格式错误" }],
+      issues: [{ type: "validation", message: "格式错误" }],
     })
   })
 })

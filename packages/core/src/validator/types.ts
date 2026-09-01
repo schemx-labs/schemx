@@ -1,19 +1,16 @@
+/**
+ * Validator 的规则、adapter、错误和结果类型。
+ *
+ * 根入口只选择性导出公共类型；`Validator` 接口仅供 Core 内部 FormModel 使用。
+ *
+ * @module core/validator/types
+ */
+
 import type { FieldArrayChange } from "../fieldArray"
 import type { NamePath, Values } from "../types/form"
-import type { DefinedFieldValue } from "../types/rule"
-import type {
-  ValidationRule,
-  ValidationRuleContext,
-  ValidationRuleIssue,
-} from "../types/validation"
+import type { DefinedFieldValue, FieldRules, RequiredConfig } from "../types/rule"
 import type { ValidationAdapterV1 } from "../types/validationAdapter"
 
-export type {
-  ValidationRule,
-  ValidationRuleContext,
-  ValidationRuleIssue,
-  ValidationRuleResult,
-} from "../types/validation"
 export type { ValidationAdapterV1 } from "../types/validationAdapter"
 
 /**
@@ -50,7 +47,9 @@ export type ValidationAdapter<TInput = unknown> = ValidationAdapterV1<TInput>
  * 注册校验 adapter 时的可选行为。
  */
 export interface ValidationAdapterRegistration {
-  /** 要注册的 adapter 实例。 */
+  /**
+   * 要注册的 adapter 实例。
+   */
   readonly adapter: ValidationAdapter
   /**
    * 是否覆盖此前注册的同 ID adapter。
@@ -66,6 +65,135 @@ export interface ValidationAdapterRegistration {
 export type ValidationAdapterOption = ValidationAdapter | ValidationAdapterRegistration
 
 /**
+ * Validator 保存的字段校验元数据。
+ *
+ * 该配置不保存解析后的原生规则；Validator 会在执行校验前根据当前 Registry
+ * 和 adapter 路由动态解析。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ * @typeParam TName - 字段路径类型。
+ */
+export interface FieldValidationConfig<
+  TValues extends Values,
+  TName extends NamePath<TValues>,
+> {
+  /**
+   * 要配置的字段路径。
+   */
+  readonly name: TName
+  /**
+   * 用于规则工厂和错误消息的字段标签。
+   */
+  readonly label: string
+  /**
+   * 字段的必填声明。
+   */
+  readonly required: RequiredConfig<DefinedFieldValue<TValues, TName>> | undefined
+}
+
+/**
+ * 可被 Validator 执行的原生校验规则。
+ *
+ * @typeParam TValue - 规则接收的字段值类型。
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 当前字段路径类型。
+ *
+ * @example
+ * ```ts
+ * const rule: ValidationRule<string> = {
+ *   validate: (value) =>
+ *     value ? { valid: true } : {
+ *       valid: false,
+ *       issues: [{ type: "validation", message: "值不能为空" }],
+ *     },
+ * }
+ * ```
+ */
+export interface ValidationRule<
+  TValue = unknown,
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+> {
+  /**
+   * 执行单条规则并返回同步或异步校验结果。
+   *
+   * @param value - 当前字段值；字段不存在时为 `undefined`。
+   * @param context - 提供字段路径、表单快照和取消信号的只读上下文。
+   * @returns 同步或异步的规则执行结果。
+   */
+  validate(
+    value: TValue | undefined,
+    context: ValidationRuleContext<TValues, TName>
+  ): ValidationRuleResult | Promise<ValidationRuleResult>
+}
+
+/**
+ * 运行校验规则时提供的只读上下文。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 当前字段路径类型。
+ */
+export interface ValidationRuleContext<
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+> {
+  /**
+   * 当前正在校验的字段路径。
+   */
+  readonly name: TName
+  /**
+   * 当前表单值的只读快照。
+   */
+  readonly values: Readonly<TValues>
+  /**
+   * 用于中止异步规则执行的信号。
+   */
+  readonly signal: AbortSignal
+}
+
+/**
+ * 单条校验失败信息。
+ */
+export interface ValidationRuleIssue {
+  /**
+   * 标识错误来自规则校验、规则配置或外部调用方。
+   */
+  readonly type?: "validation" | "configuration" | "external"
+  /**
+   * 面向用户的错误提示。
+   */
+  readonly message: string
+  /**
+   * 可选的稳定错误编码。
+   */
+  readonly code?: string
+  /**
+   * 导致该问题的原始异常或上下文。
+   */
+  readonly cause?: unknown
+}
+
+/**
+ * 校验规则的执行结果。
+ */
+export type ValidationRuleResult =
+  | { readonly valid: true }
+  | {
+      /**
+       * 失败结果标记。
+       */
+      readonly valid: false
+      /**
+       * 至少包含一个问题的错误列表。
+       */
+      readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
+      /**
+       * 是否阻止后续规则继续执行。
+       */
+      readonly bail?: boolean
+    }
+
+/**
  * 字段级校验错误。
  *
  * `scope` 用于与表单级错误区分。
@@ -77,7 +205,7 @@ export type ValidationAdapterOption = ValidationAdapter | ValidationAdapterRegis
  * const error: FieldValidationError<"email"> = {
  *   scope: "field",
  *   name: "email",
- *   issues: [{ message: "邮箱格式不正确", code: "email" }],
+ *   issues: [{ type: "validation", message: "邮箱格式不正确", code: "email" }],
  * }
  * ```
  */
@@ -90,7 +218,9 @@ export interface FieldValidationError<TName extends PropertyKey = string> {
    * 产生错误的字段路径。
    */
   readonly name: TName
-  /** 完整的字段校验问题，保留稳定 code 与原始 cause。 */
+  /**
+   * 完整的字段校验问题，保留稳定 `code` 与原始 `cause`。
+   */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
@@ -103,7 +233,7 @@ export interface FieldValidationError<TName extends PropertyKey = string> {
  * ```ts
  * const error: FormValidationError = {
  *   scope: "form",
- *   issues: [{ message: "无法提交当前表单", code: "submit" }],
+ *   issues: [{ type: "validation", message: "无法提交当前表单", code: "submit" }],
  * }
  * ```
  */
@@ -112,7 +242,9 @@ export interface FormValidationError {
    * 标识此错误不归属于特定字段。
    */
   readonly scope: "form"
-  /** 完整的表单级校验问题，保留稳定 code 与原始 cause。 */
+  /**
+   * 完整的表单级校验问题，保留稳定 `code` 与原始 `cause`。
+   */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
@@ -134,7 +266,9 @@ export type ValidationError<TName extends PropertyKey = string> =
  * @typeParam TValues - 本次校验使用的表单值类型。
  */
 export interface ValidationSuccess<TValues extends Values> {
-  /** 表示本次校验已完成且没有问题。 */
+  /**
+   * 表示本次校验已完成且没有问题。
+   */
   readonly valid: true
   /**
    * 用于本次校验的表单值。
@@ -157,7 +291,11 @@ export interface ValidationSuccess<TValues extends Values> {
  * const result: ValidationFailure<LoginForm> = {
  *   valid: false,
  *   values: { email: "invalid" },
- *   errors: [{ scope: "field", name: "email", issues: [{ message: "邮箱格式不正确" }] }],
+ *   errors: [{
+ *     scope: "field",
+ *     name: "email",
+ *     issues: [{ type: "validation", message: "邮箱格式不正确" }],
+ *   }],
  * }
  * ```
  */
@@ -165,9 +303,13 @@ export interface ValidationFailure<
   TValues extends Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > {
-  /** 表示本次校验完成但存在问题。 */
+  /**
+   * 表示本次校验完成但存在问题。
+   */
   readonly valid: false
-  /** 非取消失败固定为 false 或不存在。 */
+  /**
+   * 非取消失败固定为 `false` 或不存在。
+   */
   readonly cancelled?: false
   /**
    * 用于本次校验的表单值。
@@ -187,13 +329,21 @@ export interface ValidationFailure<
  * @typeParam TValues - 本次校验使用的表单值类型。
  */
 export interface ValidationCancelled<TValues extends Values> {
-  // 取消不是成功结果。
+  /**
+   * 取消不是成功结果。
+   */
   readonly valid: false
-  // 用于区分普通失败与过期运行的显式标记。
+  /**
+   * 用于区分普通失败与过期运行的显式标记。
+   */
   readonly cancelled: true
-  // 本次运行开始时使用的表单值。
+  /**
+   * 本次运行开始时使用的表单值。
+   */
   readonly values: TValues
-  // 取消不会携带不完整或陈旧的错误。
+  /**
+   * 取消不会携带不完整或陈旧的错误。
+   */
   readonly errors: readonly []
 }
 
@@ -220,175 +370,58 @@ export type ValidationResult<
   | ValidationCancelled<TValues>
 
 /**
- * 创建 Validator 的配置。
+ * 管理字段规则、错误状态和异步校验生命周期的 Core 内部校验器。
+ *
+ * `Validator` 不从 `@schemx/core` 根入口导出。
  *
  * @typeParam TValues - 表单值类型。
  *
- * @example
- * ```ts
- * createValidator({ onRuleError: () => "校验执行失败" })
- * ```
- */
-export interface CreateValidatorOptions<TValues extends Values> {
-  /**
-   * 将规则抛出的异常转换为展示给用户的错误消息。
-   *
-   * @param error - 规则执行时抛出的原始异常。
-   * @param context - 发生异常的字段校验上下文。
-   * @returns 用于字段错误状态的消息。
-   */
-  onRuleError?: (
-    error: unknown,
-    context: ValidationRuleContext<TValues, NamePath<TValues>>
-  ) => string
-
-  /**
-   * 整表校验时同时运行的字段数；小于 1 的值会归一为 1。
-   *
-   * @defaultValue 8
-   */
-  validationConcurrency?: number
-}
-
-/**
- * 管理字段规则、错误状态和异步校验生命周期的校验器。
- *
- * @typeParam TValues - 表单值类型。
- *
- * @example
- * ```ts
- * const validator = createValidator<LoginForm>()
- * validator.setFieldRules("email", [emailRule])
- * const result = await validator.validate({ email: "a@example.com" })
- * ```
+ * @internal
  */
 export interface Validator<TValues extends Values> {
   /**
-   * 用新的规则数组替换指定字段的全部规则。
+   * 保存字段校验元数据；规则会在字段校验前动态解析。
    *
    * @typeParam TName - 字段路径。
-   * @param name - 要配置的字段路径。
-   * @param rules - 规则数组；校验器会复制该数组，后续外部修改不会生效。
+   * @param config - 字段路径、标签和必填状态。
+   */
+  setFieldConfig<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): void
+
+  /**
+   * 保存字段的原始规则声明；规则会在字段校验前动态解析。
+   *
+   * @typeParam TName - 字段路径。
+   * @param name - 字段路径。
+   * @param rules - 原始规则声明；传 `undefined` 表示移除规则。
    */
   setFieldRules<TName extends NamePath<TValues>>(
     name: TName,
-    rules: readonly ValidationRule<DefinedFieldValue<TValues, TName>, TValues, TName>[]
+    rules: FieldRules<TValues, TName> | undefined
   ): void
+
   /**
-   * 替换多个字段的全部规则。
+   * 只移除字段原始规则；字段元数据和必填校验保持不变。
    *
-   * @param fields - 字段路径及其对应的原生规则数组。
-   */
-  setFieldsRules(
-    fields: readonly {
-      readonly name: NamePath<TValues>
-      readonly rules: readonly ValidationRule[]
-    }[]
-  ): void
-  /**
-   * 移除字段规则，并中止该字段仍在进行的校验。
-   *
-   * @param name - 要移除的字段路径。
+   * @param name - 字段路径。
    */
   removeFieldRules(name: NamePath<TValues>): void
   /**
-   * 移除多个字段的规则，并中止这些字段仍在进行的校验。
+   * 移除字段规则配置，并中止该字段仍在进行的校验。
    *
-   * @param names - 要移除规则的字段路径数组。
+   * @param name - 要移除的字段路径。
    */
-  removeFieldsRules(names: readonly NamePath<TValues>[]): void
-  /** 清理 FieldArray 结构变化后的过期规则运行结果。 */
+  removeField(name: NamePath<TValues>): void
+  /**
+   * 清理 FieldArray 结构变化后的过期规则运行结果。
+   *
+   * 越界字段的规则配置会被移除；仍在有效范围内且受本次变更影响的字段只会中止当前运行。
+   *
+   * @param path - 发生结构变更的数组字段路径。
+   * @param change - 本次数组结构变化描述。
+   */
   invalidateFieldArray(path: NamePath<TValues>, change: FieldArrayChange): void
-  /**
-   * 获取字段当前错误消息的不可变快照。
-   *
-   * @param name - 要读取的字段路径。
-   * @returns 错误消息数组；没有错误时返回稳定的空数组。
-   */
-  getFieldErrors(name: NamePath<TValues>): readonly string[]
-  /**
-   * 获取多个字段当前错误消息的不可变快照。
-   *
-   * 未传入路径时返回当前存在错误的字段；传入路径时按传入顺序返回结果，
-   * 即使某个字段没有错误也会包含空数组。
-   *
-   * @param names - 可选的字段路径数组。
-   * @returns 带字段路径和错误消息的只读条目数组。
-   */
-  getFieldsErrors(names?: readonly NamePath<TValues>[]): readonly {
-    readonly name: NamePath<TValues>
-    readonly errors: readonly string[]
-  }[]
-  /**
-   * 直接设置字段错误消息。
-   *
-   * @param name - 要写入的字段路径。
-   * @param messages - 要展示的错误消息；校验器会复制该数组。
-   */
-  setFieldErrors(name: NamePath<TValues>, messages: readonly string[]): void
-  /**
-   * 替换多个字段的错误消息。
-   *
-   * @param fields - 字段路径及其对应的错误消息数组。
-   */
-  setFieldsErrors(
-    fields: readonly {
-      readonly name: NamePath<TValues>
-      readonly messages: readonly string[]
-    }[]
-  ): void
-  /**
-   * 覆盖字段规则配置解析产生的问题。
-   *
-   * 该方法主要供 ValidationController 写入无法解析的字段配置；external 错误请使用
-   * {@link Validator.setFieldErrors}。
-   *
-   * @param name - 要写入的字段路径。
-   * @param issues - 完整 validation 问题；空数组清除该来源。
-   */
-  setFieldConfigurationIssues(
-    name: NamePath<TValues>,
-    issues: readonly ValidationRuleIssue[]
-  ): void
-  /**
-   * 覆盖多个字段规则配置解析产生的问题。
-   *
-   * @param fields - 字段路径及其对应的配置问题数组。
-   */
-  setFieldsConfigurationIssues(
-    fields: readonly {
-      readonly name: NamePath<TValues>
-      readonly issues: readonly ValidationRuleIssue[]
-    }[]
-  ): void
-  /**
-   * 清除字段规则配置解析产生的问题。
-   *
-   * @param name - 要清除的字段路径。
-   */
-  clearFieldConfigurationIssues(name: NamePath<TValues>): void
-  /**
-   * 清除多个字段规则配置解析产生的问题。
-   *
-   * @param names - 要清除配置问题的字段路径数组。
-   */
-  clearFieldsConfigurationIssues(names: readonly NamePath<TValues>[]): void
-  /**
-   * 清除指定字段的错误消息。
-   *
-   * @param name - 要清除的字段路径。
-   */
-  clearFieldErrors(name: NamePath<TValues>): void
-  /**
-   * 清除多个字段的全部错误来源。
-   *
-   * @param names - 要清除错误的字段路径数组。
-   */
-  clearFieldsErrors(names: readonly NamePath<TValues>[]): void
-  /**
-   * 清除全部字段错误消息。
-   */
-  clearErrors(): void
   /**
    * 执行单个字段的规则，并更新该字段的错误状态。
    *
@@ -413,8 +446,8 @@ export interface Validator<TValues extends Values> {
   /**
    * 中止全部运行中的校验并释放校验器状态。
    *
-   * 该操作可重复调用。销毁后规则和错误均被清空，后续校验返回显式取消结果，
-   * 写入规则或错误状态的方法不再产生效果；已发起的校验不会再写入错误状态。
+   * 该操作可重复调用。销毁后规则和已保存的字段错误均被清空，后续校验返回显式取消结果；
+   * 已发起的校验不会再写入错误状态。
    */
   destroy(): void
 }

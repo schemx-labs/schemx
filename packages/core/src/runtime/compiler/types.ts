@@ -8,19 +8,21 @@
 
 import type {
   NamePath,
-  ResolvedSchemxSchemaConfig,
   SchemxField,
   SchemxInstance,
   SchemxRendererKey,
   SchemxRendererPropsMap,
+  SchemxSchemaConfig,
   Values,
 } from "../../types"
-import type { RuntimeNodeInput } from "../node/input"
+import type { RuntimeScope, SchemaRuntimeNode } from "../node"
 
 /**
  * 编译器选项。
  *
  * 编译 schema 时需要的表单级配置：默认属性和表单实例方法。
+ *
+ * @typeParam TValues - 表单值类型。
  */
 export interface CompileOptions<TValues extends Values> {
   /**
@@ -28,8 +30,10 @@ export interface CompileOptions<TValues extends Values> {
    *
    * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
    */
-  schemaConfig: ResolvedSchemxSchemaConfig
-  /** 按 Renderer 类型配置的静态默认 Props。 */
+  schemaConfig: SchemxSchemaConfig
+  /**
+   * 按 Renderer 类型配置的静态默认 Props。
+   */
   rendererProps?: SchemxRendererPropsMap<TValues>
   /**
    * 缺失 `componentType` 的 field 使用的显式默认渲染器类型。
@@ -46,26 +50,39 @@ export interface CompileOptions<TValues extends Values> {
    * 表单实例方法，用于在编译时提供表单操作能力。
    */
   formInstance: SchemxInstance<TValues>
+  /**
+   * 是否为 RuntimeNode 创建 diagnostics Signal。
+   */
+  debug?: boolean
 }
 
 /**
  * Schema compiler 门面。
  *
- * 封装节点输入缓存；缓存生命周期是 compiler 私有实现。
+ * 封装节点配置 token 缓存；缓存生命周期是 compiler 私有实现。
+ *
+ * @typeParam TValues - 表单值类型。
  */
 export interface Compile<TValues extends Values = Values> {
   /**
-   * 编译单个 schema 为创建或更新 RuntimeNode 所需的短生命周期输入。
+   * 编译单个 schema 并创建一个尚未挂载的 SchemaRuntimeNode。
    *
-   * 输入不持有子树，也不会挂载到 RuntimeNode；节点创建后只保留其直接配置字段。
+   * @param schema - 要编译的字段、分组或 dependency schema。
+   * @param parentKey - 父节点的稳定 key。
+   * @param index - schema 在父节点 children 中的位置。
+   * @param scope - 可选的节点资源作用域；省略时由 compiler 创建。
+   * @returns 尚未挂入 NodeManager 的运行时节点。
    */
-  compileNode(
+  createNode(
     schema: SchemxField<TValues>,
     parentKey: string,
-    index: number
-  ): RuntimeNodeInput<TValues>
+    index: number,
+    scope?: RuntimeScope
+  ): SchemaRuntimeNode<TValues>
   /**
    * 失效当前 compiler 实例的缓存。
+   *
+   * 下次编译同一 schema 时会重新生成配置 token。
    */
   invalidate(): void
 }
@@ -111,5 +128,10 @@ class CompileErrorImpl extends Error {
  * CompileError 运行时构造器。
  *
  * 将内部类暴露为可导出的构造器，外部可通过 `instanceof CompileError` 判断。
+ *
+ * @example
+ * ```ts
+ * throw new CompileError("无法编译 schema")
+ * ```
  */
 export const CompileError = CompileErrorImpl

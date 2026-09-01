@@ -5,25 +5,25 @@ import {
 } from "../config"
 import { type SchemxSchemasInput } from "../createSchemas"
 import {
+  createPresetRuleRegistry,
   createRendererRegistry,
-  createValidationRuleRegistry,
+  type PresetRuleRegistry,
   type RendererRegistry,
-  type ValidationRuleRegistry,
 } from "../registry"
 
-import type { LifecycleListener } from "../runtime/lifecycle"
+import type { RuntimeNodeLifecycleHooks } from "../runtime/lifecycle"
 import type { RuntimeNode } from "../runtime/node"
 import type { SchedulerOptions } from "../runtime/scheduler"
 import type {
   NamePath,
-  ResolvedSchemxSchemaConfig,
+  SchemxFieldRulesMap,
   SchemxRendererKey,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
 } from "../types"
 import type {
-  CreateValidationOptions,
+  CreateValidatorOptions,
   ValidationAdapterOption,
   ValidationFailure,
 } from "../validator"
@@ -47,7 +47,13 @@ export interface FormSchemaOptions<TValues extends Values = Values> {
    * 表单级 Schema 默认配置。
    */
   schemaConfig?: Partial<SchemxSchemaConfig>
-  /** 是否生成 Runtime diagnostics 与 View debug DTO，默认关闭。 */
+  /**
+   * 按字段路径配置的字段规则兜底。
+   */
+  fieldRules?: SchemxFieldRulesMap<TValues>
+  /**
+   * 是否生成 Runtime diagnostics 与 View debug DTO，默认关闭。
+   */
   debug?: boolean
 }
 
@@ -63,8 +69,8 @@ export interface FormRegistryOptions<TValues extends Values = Values> {
   rendererRegistry?: RendererRegistry
   /** 未显式指定 componentType 时使用的默认渲染器类型。 */
   defaultRendererType?: SchemxRendererKey<TValues>
-  /** 自定义校验规则注册表。 */
-  validationRuleRegistry?: ValidationRuleRegistry
+  /** 自定义预设校验规则注册表。 */
+  presetRuleRegistry?: PresetRuleRegistry
   /** 第三方校验器适配器列表。 */
   validatorAdapters?: readonly ValidationAdapterOption[]
 }
@@ -82,7 +88,7 @@ export interface FormCallbackOptions<
   /**
    * 无法解析校验规则时调用的回调。
    */
-  onRuleError?: CreateValidationOptions<TValues>["onRuleError"]
+  onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
   /**
    * 校验成功后的提交回调。
    */
@@ -127,7 +133,7 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: LifecycleListener<RuntimeNode<TValues>>
+  lifecycleHooks?: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>>
 }
 
 /**
@@ -173,16 +179,16 @@ export interface ResolvedCreateFormOptions<
   TName extends NamePath<TValues> = NamePath<TValues>,
 > extends Omit<
   CreateFormOptions<TValues, TName>,
-  "initialValues" | "schemaConfig" | "rendererRegistry" | "validationRuleRegistry"
+  "initialValues" | "schemaConfig" | "rendererRegistry" | "presetRuleRegistry"
 > {
   /** 已完成默认值合并的初始表单值。 */
   initialValues: TValues
   /** 已完成默认值合并的 Schema 配置。 */
-  schemaConfig: ResolvedSchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig
   /** 已解析的 Renderer Registry。 */
   rendererRegistry: RendererRegistry
-  /** 已解析的校验规则 Registry。 */
-  validationRuleRegistry: ValidationRuleRegistry
+  /** 已解析的预设规则 Registry。 */
+  presetRuleRegistry: PresetRuleRegistry
 }
 
 /**
@@ -211,9 +217,10 @@ export function mergeCreateFormOptions<TValues extends Values>(
     rendererRegistry:
       configuredOptions.rendererRegistry ??
       createRendererRegistry(configuredOptions.defaultRendererType),
-    validationRuleRegistry:
-      configuredOptions.validationRuleRegistry ?? createValidationRuleRegistry(),
+    presetRuleRegistry:
+      configuredOptions.presetRuleRegistry ?? createPresetRuleRegistry(),
     schemaConfig: configuredOptions.schemaConfig,
+    fieldRules: options.fieldRules,
     rendererProps: configuredOptions.rendererProps,
     defaultRendererType: configuredOptions.defaultRendererType,
     validatorAdapters: configuredOptions.validatorAdapters ?? [],
@@ -249,7 +256,7 @@ export function getFormSchemxConfig<TValues extends Values>(
     validatorAdapters = [],
     defaultRendererType = undefined,
     rendererRegistry = undefined,
-    validationRuleRegistry = undefined,
+    presetRuleRegistry = undefined,
   } = options
 
   return {
@@ -257,7 +264,7 @@ export function getFormSchemxConfig<TValues extends Values>(
     rendererProps,
     defaultRendererType,
     rendererRegistry,
-    validationRuleRegistry,
+    presetRuleRegistry,
     validatorAdapters,
   }
 }

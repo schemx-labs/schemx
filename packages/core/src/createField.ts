@@ -97,13 +97,6 @@ export interface SchemxFieldInstance<
   getSnapshots: () => TValues
 
   /**
-   * 校验当前字段。
-   *
-   * @returns 当前字段校验结果。
-   */
-  validate: () => Promise<ValidationResult<TValues, TName>>
-
-  /**
    * 获取当前字段错误信息。
    *
    * @returns 错误信息的只读快照；没有错误时返回空数组。
@@ -144,16 +137,18 @@ export interface SchemxFieldInstance<
   removeRules: () => void
 
   /**
+   * 设置字段交互状态。
+   *
+   * 传入路径设置字段修改状态。
+   */
+  setTouched(value: boolean): void
+
+  /**
    * 检查当前字段是否已被触摸。
    *
    * @returns 是否已被触摸。
    */
   isTouched: () => boolean
-
-  /**
-   * 重置当前字段到初始值。
-   */
-  reset: () => void
 
   /**
    * 设置当前字段操作中状态。
@@ -169,6 +164,18 @@ export interface SchemxFieldInstance<
    * @returns 是否处于操作中。
    */
   isPending: () => boolean
+
+  /**
+   * 重置当前字段到初始值。
+   */
+  reset: () => void
+
+  /**
+   * 校验当前字段。
+   *
+   * @returns 当前字段校验结果。
+   */
+  validate: () => Promise<ValidationResult<TValues, TName>>
 
   /**
    * 创建 reactive effect
@@ -310,6 +317,11 @@ export function createField<
   const isTouched = (): boolean => form.isFieldTouched(name) ?? false
 
   /**
+   * 设置字段交互状态。
+   */
+  const setTouched = (value: boolean): void => form.setFieldTouched(name, value)
+
+  /**
    * 将当前字段重置到初始值。
    */
   const reset = (): void => {
@@ -349,6 +361,7 @@ export function createField<
     clearErrors,
     setRules,
     removeRules,
+    setTouched,
     isTouched,
     reset,
     setPending,

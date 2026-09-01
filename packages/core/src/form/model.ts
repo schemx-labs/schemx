@@ -3,17 +3,15 @@ import { batchUpdates, createSignalEffect } from "../reactivity"
 import { createStore, type Store } from "../store"
 import { createFieldKey } from "../utils"
 import {
-  createValidation,
-  type CreateValidationOptions,
-  type Validation,
+  createValidator,
+  type CreateValidatorOptions,
   type ValidationAdapterOption,
-  type ValidationFieldConfig,
+  type Validator,
 } from "../validator"
-import { getValidationFieldArrayInvalidator } from "../validator/validation"
 
 import type { FieldArrayInstance, FieldArrayPath } from "../fieldArray"
-import type { ValidationRuleRegistry } from "../registry"
-import type { FieldValue, NamePath, Values } from "../types"
+import type { PresetRuleRegistry } from "../registry"
+import type { Values } from "../types"
 
 /**
  * 创建 FormModel 所需的状态、校验和错误处理配置。
@@ -28,7 +26,7 @@ export interface CreateFormModelOptions<TValues extends Values> {
   /**
    * 当前 Form 使用的命名规则 Registry。
    */
-  validationRuleRegistry: ValidationRuleRegistry
+  presetRuleRegistry: PresetRuleRegistry
   /**
    * 当前 Form 注册的 adapter 列表。
    */
@@ -36,7 +34,7 @@ export interface CreateFormModelOptions<TValues extends Values> {
   /**
    * 无法解析规则时调用的错误回调。
    */
-  onRuleError?: CreateValidationOptions<TValues>["onRuleError"]
+  onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
   /** 整表校验的字段并发数，默认 `8`。 */
   validationConcurrency?: number
 }
@@ -54,7 +52,7 @@ export interface FormModel<TValues extends Values> {
   /**
    * 管理字段规则编译、执行、错误状态和生命周期的校验域。
    */
-  readonly validation: Validation<TValues>
+  readonly validation: Validator<TValues>
   /**
    * 获取并缓存指定数组字段的结构控制器。
    */
@@ -80,91 +78,6 @@ export interface FormModel<TValues extends Values> {
 }
 
 /**
- * Schema Runtime 访问 FormModel 的最小能力集合。
- *
- * @typeParam TValues - 表单值对象类型。
- */
-export interface RuntimeFormModelPort<TValues extends Values> {
-  /** 注册 Schema 字段路径，建立批量值写入的原子边界。 */
-  registerFieldPath<TName extends NamePath<TValues>>(name: TName): void
-  /**
-   * 读取指定字段的当前值。
-   */
-  getFieldValue<TName extends NamePath<TValues>>(
-    name: TName
-  ): FieldValue<TValues, TName> | undefined
-  /**
-   * 更新指定字段的当前值。
-   */
-  setFieldValue<TName extends NamePath<TValues>>(
-    name: TName,
-    value: FieldValue<TValues, TName> | undefined
-  ): void
-  /**
-   * 合并更新字段初始值。
-   */
-  setInitialValues(values: Partial<TValues>): void
-  /**
-   * 同步字段校验配置并返回是否发生变化。
-   */
-  syncValidationField<TName extends NamePath<TValues>>(
-    config: ValidationFieldConfig<TValues, TName>
-  ): boolean
-  /**
-   * 移除指定字段的校验配置。
-   */
-  removeValidationField(name: NamePath<TValues>): void
-  /**
-   * 停止 Schema 规则注册，但保留运行时规则覆盖。
-   */
-  removeSchemaValidationField(name: NamePath<TValues>): void
-}
-
-/**
- * 从完整 FormModel 创建供 Runtime 使用的最小访问端口。
- *
- * @typeParam TValues - 表单值对象类型。
- * @param model - 要暴露能力的 FormModel。
- * @returns 只包含 Runtime 所需操作的端口。
- */
-export function createRuntimeFormModelPort<TValues extends Values>(
-  model: FormModel<TValues>
-): RuntimeFormModelPort<TValues> {
-  // 绑定方法以隔离 Runtime 与 Store/ValidationController 的具体实现。
-  const registerFieldPath = model.store.registerFieldPath.bind(model.store)
-
-  // 为 Runtime 安全绑定单字段值读取方法。
-  const getFieldValue = model.store.getFieldValue.bind(model.store)
-
-  // 为 Runtime 安全绑定单字段值更新方法。
-  const setFieldValue = model.store.setFieldValue.bind(model.store)
-
-  // 为 Runtime 安全绑定初始字段值更新方法。
-  const setInitialValues = model.store.setInitialValues.bind(model.store)
-
-  // 为 Runtime 安全绑定字段校验配置同步方法。
-  const syncValidationField = model.validation.syncSchemaField.bind(model.validation)
-
-  // 为 Runtime 安全绑定字段校验配置移除方法。
-  const removeValidationField = model.validation.removeSchemaField.bind(model.validation)
-
-  // 为 Runtime 安全绑定临时移除 Schema 规则的方法。
-  const removeSchemaValidationField = model.validation.removeSchemaField.bind(
-    model.validation
-  )
-
-  return {
-    registerFieldPath,
-    getFieldValue,
-    setFieldValue,
-    setInitialValues,
-    syncValidationField,
-    removeValidationField,
-    removeSchemaValidationField,
-  }
-}
-
-/**
  * 创建 Form 的状态与校验聚合模型。
  *
  * @typeParam TValues - 表单值对象类型。
@@ -177,14 +90,15 @@ export function createFormModel<TValues extends Values>(
   // Store 保存字段值与交互状态。
   const store = createStore<TValues>({ initialValues: options.initialValues })
 
-  const validation = createValidation<TValues>({
-    validationRuleRegistry: options.validationRuleRegistry,
+  const validation = createValidator<TValues>({
+    fieldStore: store,
+    presetRuleRegistry: options.presetRuleRegistry,
     validatorAdapters: options.validatorAdapters,
     onRuleError: options.onRuleError,
     validationConcurrency: options.validationConcurrency,
   })
 
-  const invalidateFieldArray = getValidationFieldArrayInvalidator(validation)
+  const invalidateFieldArray = validation.invalidateFieldArray.bind(validation)
 
   // 同一个 Form 中同一路径始终复用同一个 FieldArray，确保行 key 稳定。
   const fieldArrays = new Map<string, FieldArrayInstance<TValues, never>>()
@@ -202,7 +116,7 @@ export function createFormModel<TValues extends Values>(
    */
   const reset: FormModel<TValues>["reset"] = () => {
     store.reset()
-    validation.clearErrors()
+    store.clearAllErrors()
   }
 
   /**

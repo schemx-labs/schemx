@@ -10,11 +10,11 @@
 import { createSignalEffect } from "../../reactivity"
 import { createFieldKey } from "../../utils"
 
-import type { FieldValidationSchema } from "./runtimeState"
 import type { ComputedSignal } from "../../reactivity/computed"
+import type { PresetRuleFactoryContext } from "../../registry"
 import type { SchemxBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { Scope } from "../node"
+import type { FieldValidationSchema, RuntimeScope } from "../node"
 
 /**
  * 创建 ValidationEffect 的配置选项。
@@ -25,7 +25,7 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
   /**
    * 当前 form 实例运行时上下文。
    *
-   * 包含 ValidationController、调度器及字段生命周期所需的共享资源。
+   * 包含 Validator、调度器及字段生命周期所需的共享资源。
    */
   context: SchemaRuntimeContext<TValues>
 
@@ -46,10 +46,10 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
   /**
    * 关联的 scope。
    *
-   * ValidationEffect 会取得该 Scope 的销毁权：调用 `effect.dispose()` 会销毁传入的整个 Scope。
-   * 请传入仅由该 effect 所有的专用 Scope；Scope 销毁时会同步注销该字段的规则与错误。
+   * ValidationEffect 会取得该 RuntimeScope 的销毁权：调用 `effect.dispose()` 会销毁传入的整个 RuntimeScope。
+   * 请传入仅由该 effect 所有的专用 RuntimeScope；RuntimeScope 销毁时会同步注销该字段的规则与错误。
    */
-  scope: Scope
+  scope: RuntimeScope
 }
 
 /**
@@ -57,10 +57,10 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
  */
 export interface ValidationEffect {
   /**
-   * 销毁创建该 effect 时传入的整个 Scope，并注销字段校验规则。
+   * 销毁创建该 effect 时传入的整个 RuntimeScope，并注销字段校验规则。
    *
-   * 该方法不是只释放 effect 自身；不要将 `effect.dispose` 注册为同一 Scope 的清理回调，
-   * 也不要传入仍需要继续使用的表单或字段 Scope。
+   * 该方法不是只释放 effect 自身；不要将 `effect.dispose` 注册为同一 RuntimeScope 的清理回调，
+   * 也不要传入仍需要继续使用的表单或字段 RuntimeScope。
    */
   dispose(): void
 }
@@ -82,6 +82,18 @@ interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
 }
 
 /**
+ * 解析可包含延迟工厂的字段规则条目。
+ */
+function resolveFieldRules(
+  rules: unknown,
+  context: PresetRuleFactoryContext<PropertyKey>
+): unknown {
+  if (typeof rules === "function") return rules(context)
+
+  return rules
+}
+
+/**
  * 创建一个 ValidationEffect 实例。
  *
  * @typeParam TValues - 表单值类型
@@ -90,10 +102,10 @@ interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
  *
  * @example
  * ```ts
- * const effectScope = createScope()
+ * const effectScope = createRuntimeScope()
  * const effect = createValidationEffect({ context, name, validationSchema, scope: effectScope })
  *
- * // 由专用 Scope 的拥有者在字段卸载时调用。
+ * // 由专用 RuntimeScope 的拥有者在字段卸载时调用。
  * effect.dispose()
  * ```
  */
@@ -116,13 +128,24 @@ export function createValidationEffect<TValues extends Values = Values>(
   const readValidationProps = (): ValidationRegistrationSnapshot<TValues> => {
     const effective = validationSchema.value
 
+    const fieldRules =
+      Array.isArray(effective.rules) && effective.rules.length === 0
+        ? undefined
+        : effective.rules
+
+    const fallbackRules = resolveFieldRules(context.fieldRules[name], {
+      name,
+      label: effective.label,
+      required: Boolean(effective.required),
+    }) as SchemxBaseField<TValues>["rules"] | undefined
+
     return {
       visible: effective.visible,
       readonly: effective.readonly,
       disabled: effective.disabled,
       label: effective.label,
       required: effective.required,
-      rules: effective.rules,
+      rules: fieldRules ?? fallbackRules ?? [],
     }
   }
 
@@ -133,12 +156,13 @@ export function createValidationEffect<TValues extends Values = Values>(
     const { visible, readonly, disabled, label, required, rules } = snapshot
 
     if (!visible || readonly || disabled || (!required && !hasRules(rules))) {
-      context.validation.removeSchemaField(name)
+      context.validation.removeField(name)
 
       return
     }
 
-    context.validation.syncField({ name, label, required, rules })
+    context.validation.setFieldConfig({ name, label, required })
+    context.validation.setFieldRules(name, rules)
   }
 
   /**
@@ -173,7 +197,6 @@ export function createValidationEffect<TValues extends Values = Values>(
   scope.add(() => {
     registrationVersion += 1
     context.validation.removeField(name)
-
   })
 
   const disposeEffect = createSignalEffect(() => {

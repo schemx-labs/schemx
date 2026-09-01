@@ -1,5 +1,5 @@
 /**
- * createDependenciesEffect 与 runtimeState 集成的测试。
+ * createDependenciesEffect 与 runtimeSignals 集成的测试。
  *
  * 覆盖依赖响应的动态覆盖写入、effectiveSchema 合并、异步竞态处理以及
  * diagnostics 版本递增等行为。
@@ -10,12 +10,15 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { createSignal } from "../../../reactivity"
-import { resolveDependencyProps } from "../../dependencySchedulerEffect"
-import { createFieldRuntimeNode } from "../../node/runtimeNode"
-import { createRuntimeScope } from "../../node/scope"
+import { resolveDependencyProps } from "../../dependencyScheduler"
+import { createFieldRuntimeNode } from "../../node/__tests__/runtimeNodeTestUtils"
+import {
+  createFieldRuntimeSignals,
+  setFieldDynamicOverrides,
+} from "../../node/__tests__/runtimeSignalsTestUtils"
+import { createRuntimeScope } from "../../node/runtimeScope"
 import { createScheduler } from "../../scheduler"
-import { createDependenciesEffect } from "../dependenciesEffect"
-import { createFieldRuntimeState, setFieldDynamicOverrides } from "../runtimeState"
+import { createFieldDependenciesEffect } from "../dependenciesEffect"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 import type { SchemaRuntimeContext } from "../../context"
@@ -50,27 +53,23 @@ function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
 function createDependenciesNode(
   schema: SchemxResolvedBaseField
 ): FieldRuntimeNode<{ country?: string }> {
-  return createFieldRuntimeNode({
+  const dynamicConfig = {
+    triggerFields: ["country" as const],
+    visible: (values: { country?: string }) => values.country === "CN",
+    required: (values: { country?: string }) => values.country === "CN",
+    showRequiredMark: (values: { country?: string }) => values.country === "US",
+  }
+
+  return createFieldRuntimeNode<{ country?: string }>({
     id: 1,
-    input: {
-      type: "field",
-      key: "province",
-      configToken: Symbol("province"),
+    key: "province",
+    configToken: Symbol("province"),
+    name: "province" as never,
+    staticSchema: {
+      ...schema,
       name: "province",
-      componentType: schema.componentType,
-      staticSchema: schema,
-      dynamicProps: {
-        source: "dependencies",
-        triggerFields: ["country"],
-        dependencies: {
-          triggerFields: ["country"],
-          visible: (values) => values.country === "CN",
-          required: (values) => values.country === "CN",
-          showRequiredMark: (values) => values.country === "US",
-        },
-      },
-      validation: null,
-    },
+      dependencies: dynamicConfig,
+    } as never,
   })
 }
 
@@ -91,7 +90,7 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
             },
           } as never,
           ["visible"],
-          { getValues: () => ({}) } as any,
+          { getFieldsValue: () => ({}) } as any,
           '字段 "province"'
         )
       ).resolves.toEqual({})
@@ -104,14 +103,15 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
     }
   })
 
-  it("setFieldDynamicOverrides 应该写入动态覆盖到 runtimeState", () => {
+  it("setFieldDynamicOverrides 应该写入动态覆盖到 runtimeSignals", () => {
     const schema = createTestSchema({ visible: true, disabled: false })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     setFieldDynamicOverrides(
@@ -130,11 +130,12 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
   it("dynamicOverrides 写入后 effectiveSchema 应自动更新", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     setFieldDynamicOverrides(
@@ -152,11 +153,12 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
   it("动态 readonlyPlaceholder 应写入最终有效字段状态", () => {
     const schema = createTestSchema({ readonlyPlaceholder: "静态提示" })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     setFieldDynamicOverrides(
@@ -174,11 +176,12 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
   it("diagnostics 应记录 dependencies 来源", () => {
     const schema = createTestSchema()
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     setFieldDynamicOverrides(
@@ -201,7 +204,7 @@ describe("dependenciesEffect 写入 dynamicOverrides (US2)", () => {
   it("空动态覆盖不应影响 effectiveSchema", () => {
     const schema = createTestSchema({ visible: true, disabled: false })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "city" as any,
@@ -233,7 +236,7 @@ describe("异步 dependencies 竞态处理 (US3)", () => {
   it("最新结果应该获胜，旧结果不应覆盖", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
@@ -267,11 +270,12 @@ describe("异步 dependencies 竞态处理 (US3)", () => {
   it("错误回退时不应覆盖上一次成功的动态覆盖", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     // 先成功写入
@@ -304,11 +308,12 @@ describe("异步 dependencies 竞态处理 (US3)", () => {
   it("diagnostics 应记录版本递增", () => {
     const schema = createTestSchema()
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "province" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     const v1 = readDiagnostics(state).version
@@ -341,8 +346,8 @@ describe("异步 dependencies 竞态处理 (US3)", () => {
   })
 })
 
-// 用户场景 2：createDependenciesEffect 完整流程——从监听触发字段到写入 runtimeState
-describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
+// 用户场景 2：createDependenciesEffect 完整流程——从监听触发字段到写入 runtimeSignals
+describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
   it("只应写入 dynamicOverrides，并驱动 effectiveSchema", async () => {
     const scheduler = createScheduler()
 
@@ -354,15 +359,8 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
 
     const node = createDependenciesNode(schema)
 
-    const runtimeState = createFieldRuntimeState({
-      nodeId: 1,
-      key: "field-1",
-      name: "province" as any,
-      staticSchema: schema,
-    })
-
     const formApi = {
-      getValues: vi.fn((paths?: readonly unknown[]) => {
+      getFieldsValue: vi.fn((paths?: readonly unknown[]) => {
         const current = values.value
 
         if (!paths || paths.length === 0) {
@@ -382,39 +380,40 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
     }
 
     const context = {
-      formApi: formApi as unknown as SchemaRuntimeContext<{ country?: string }>["formApi"],
+      formApi: formApi as unknown as SchemaRuntimeContext<{
+        country?: string
+      }>["formApi"],
       scheduler,
     } as unknown as SchemaRuntimeContext<{ country?: string }>
 
-    createDependenciesEffect({
+    createFieldDependenciesEffect({
       context,
       taskId: "field:test:dependencies",
       node,
-      runtimeState,
       scope,
     })
 
     await scheduler.whenIdle()
 
-    expect(runtimeState.dynamicOverrides.value).toEqual({
+    expect(node.dynamicOverrides.value).toEqual({
       visible: false,
       required: false,
       showRequiredMark: true,
     })
-    expect(runtimeState.effectiveSchema.value.visible).toBe(false)
-    expect(runtimeState.effectiveSchema.value.required).toBe(false)
+    expect(node.effectiveSchema.value.visible).toBe(false)
+    expect(node.effectiveSchema.value.required).toBe(false)
 
     values.value = { country: "CN" }
     await scheduler.whenIdle()
 
-    expect(runtimeState.dynamicOverrides.value).toEqual({
+    expect(node.dynamicOverrides.value).toEqual({
       visible: true,
       required: true,
       showRequiredMark: false,
     })
-    expect(runtimeState.effectiveSchema.value.visible).toBe(true)
-    expect(runtimeState.effectiveSchema.value.required).toBe(true)
-    expect(runtimeState.effectiveSchema.value.showRequiredMark).toBe(false)
+    expect(node.effectiveSchema.value.visible).toBe(true)
+    expect(node.effectiveSchema.value.required).toBe(true)
+    expect(node.effectiveSchema.value.showRequiredMark).toBe(false)
   })
 
   it("旧 dependencies 异步结果晚于新结果完成时不应覆盖最新 dynamicOverrides", async () => {
@@ -430,25 +429,18 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
 
     const node = createDependenciesNode(schema)
 
-    const dynamicProps = node.dynamicProps
+    const dynamicConfig = node.staticSchema.value.dependencies
 
-    if (!dynamicProps) {
-      throw new Error("dependencies 节点缺少 dynamicProps")
+    if (!dynamicConfig) {
+      throw new Error("dependencies 节点缺少 dynamicConfig")
     }
 
-    dynamicProps.dependencies.visible = vi
+    dynamicConfig.visible = vi
       .fn()
       .mockReturnValueOnce(slowVisible.promise)
       .mockResolvedValueOnce(true) as any
-    const runtimeState = createFieldRuntimeState({
-      nodeId: 1,
-      key: "field-1",
-      name: "province" as any,
-      staticSchema: schema,
-    })
-
     const formApi = {
-      getValues: vi.fn((paths?: readonly unknown[]) => {
+      getFieldsValue: vi.fn((paths?: readonly unknown[]) => {
         const current = values.value
 
         if (!paths || paths.length === 0) {
@@ -468,15 +460,16 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
     }
 
     const context = {
-      formApi: formApi as unknown as SchemaRuntimeContext<{ country?: string }>["formApi"],
+      formApi: formApi as unknown as SchemaRuntimeContext<{
+        country?: string
+      }>["formApi"],
       scheduler,
     } as unknown as SchemaRuntimeContext<{ country?: string }>
 
-    createDependenciesEffect({
+    createFieldDependenciesEffect({
       context,
       taskId: "field:test:async-dependencies",
       node,
-      runtimeState,
       scope,
     })
 
@@ -486,13 +479,13 @@ describe("createDependenciesEffect 写入 runtimeState (US2)", () => {
     slowVisible.resolve(false)
     await scheduler.whenIdle()
 
-    expect(runtimeState.dynamicOverrides.value).toEqual({
+    expect(node.dynamicOverrides.value).toEqual({
       visible: true,
       required: true,
       showRequiredMark: false,
     })
-    expect(runtimeState.effectiveSchema.value.visible).toBe(true)
-    expect(runtimeState.effectiveSchema.value.required).toBe(true)
+    expect(node.effectiveSchema.value.visible).toBe(true)
+    expect(node.effectiveSchema.value.required).toBe(true)
   })
 })
 

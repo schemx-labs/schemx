@@ -154,7 +154,7 @@ describe("dependency flow", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    formApi.setValue("mode" as any, "b")
+    formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)
 
     expect(secondRenderer).toHaveBeenCalled()

@@ -3,12 +3,7 @@ import { merge } from "es-toolkit"
 import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./defaultSchemxConfig"
 
 import type { SchemxConfig } from "./schemxConfig"
-import type {
-  ResolvedSchemxSchemaConfig,
-  SchemxRendererPropsMap,
-  SchemxSchemaConfig,
-  Values,
-} from "../types"
+import type { SchemxRendererPropsMap, SchemxSchemaConfig, Values } from "../types"
 import type { ValidationAdapterOption } from "../validator/types"
 
 /**
@@ -30,7 +25,7 @@ export interface MergedSchemxConfig<TValues extends Values = Values> extends Omi
   /**
    * 已合并并补齐全部内置默认值的 Schema 配置。
    */
-  readonly schemaConfig: ResolvedSchemxSchemaConfig
+  readonly schemaConfig: SchemxSchemaConfig
 }
 
 /**
@@ -131,7 +126,7 @@ export function resolveSchemxConfig<TValues extends Values = Values>(
   const schemaConfig = config.schemaConfig
 
   // Runtime 消费的完整 Schema 配置。
-  const resolvedSchemaConfig: ResolvedSchemxSchemaConfig = { ...defaultSchemxConfig }
+  const resolvedSchemaConfig: SchemxSchemaConfig = { ...defaultSchemxConfig }
 
   // 将缺失或显式 undefined 的字段归一化为内置默认值。
   for (const key of defaultSchemxConfigKeys) {

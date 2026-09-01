@@ -10,22 +10,27 @@ import { vi } from "vitest"
 
 import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createSignal } from "../../../reactivity"
-import { createCompile } from "../../compiler"
+import { normalizeSchemas } from "../../../utils"
+import { type Compile, createCompile } from "../../compiler"
 import { type SchemaRuntimeContext } from "../../context"
-import { createLifecycleBus, type LifecycleListener } from "../../lifecycle"
-import { createReconciler, type Reconciler } from "../../reconciler"
+import {
+  createRuntimeNodeLifecycleEmitter,
+  type RuntimeNodeLifecycleHooks,
+} from "../../lifecycle"
+import { createReconciler } from "../../reconciler"
 import { createScheduler, type Scheduler } from "../../scheduler"
-import { createRuntimeRegistry } from "../runtimeRegistry"
+import { createNodeManager } from "../nodeManager"
+import { createRuntimeNodeLifecycle } from "../resources"
 
 import type { SchemxField, SchemxFormApi, Values } from "../../../types"
 import type { ParentRuntimeNode, RootRuntimeNode, RuntimeNode } from "../types"
 
 /**
- * 运行时图测试夹具的接口类型，包含 context、reconciler、root、scheduler 及 formApi。
+ * 运行时图测试夹具的接口类型，包含 context、root、scheduler 及 formApi。
  */
 export interface RuntimeGraphTestHarness<TValues extends Values = Values> {
   readonly context: SchemaRuntimeContext<TValues>
-  readonly reconciler: Reconciler<TValues>
+  readonly compiler: Compile<TValues>
   readonly root: RootRuntimeNode
   readonly scheduler: Scheduler
   readonly commitSchemas: (
@@ -72,7 +77,7 @@ export function createRawFieldSchema<TValues extends Values = Values>(
 }
 
 /**
- * 创建完整的运行时图测试夹具，包括 context、reconciler、root、scheduler 和 formApi。
+ * 创建完整的运行时图测试夹具，包括 context、Reconciler、root、scheduler 和 formApi。
  *
  * 内部使用内存中的 signal 模拟值读写，并提供 formApi 的 mock 实现。
  *
@@ -80,14 +85,15 @@ export function createRawFieldSchema<TValues extends Values = Values>(
  * @param initialValues - 初始字段值
  */
 export function createRuntimeGraphHarness<TValues extends Values = Values>(
-  listener: LifecycleListener<RuntimeNode<TValues>> = {},
+  lifecycleHooks: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>> = {},
   initialValues: Record<string, unknown> = {}
 ): RuntimeGraphTestHarness<TValues> {
   const signals = new Map<string, ReturnType<typeof createSignal<unknown>>>()
 
   const values = { ...initialValues }
 
-  const lifecycleBus = createLifecycleBus<RuntimeNode<TValues>>(listener)
+  const lifecycle =
+    createRuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>(lifecycleHooks)
 
   const scheduler = createScheduler()
 
@@ -120,10 +126,10 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   }
 
   const formApi = {
-    setValue: writeValue,
-    setValues: vi.fn(),
-    getValue: readValue,
-    getValues: (names?: unknown) => {
+    setFieldValue: writeValue,
+    setFieldsValue: vi.fn(),
+    getFieldValue: readValue,
+    getFieldsValue: (names?: unknown) => {
       if (Array.isArray(names)) {
         for (const name of names) {
           readValue(name)
@@ -132,13 +138,21 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
       return values as TValues
     },
-    getSnapshots: () => values as TValues,
-    setPending: vi.fn(),
-    isPending: vi.fn(() => false),
-    setTouched: vi.fn(),
-    isTouched: vi.fn(() => false),
-    getError: vi.fn(() => []),
-    setError: vi.fn(),
+    getFieldsSnapshot: () => values as TValues,
+    setFieldPending: vi.fn(),
+    setFieldsPending: vi.fn(),
+    isFieldPending: vi.fn(() => false),
+    isFieldsPending: vi.fn(() => false),
+    setFieldTouched: vi.fn(),
+    setFieldsTouched: vi.fn(),
+    isFieldTouched: vi.fn(() => false),
+    isFieldsTouched: vi.fn(() => false),
+    getFieldErrors: vi.fn(() => []),
+    getFieldsErrors: vi.fn(() => []),
+    setFieldErrors: vi.fn(),
+    setFieldsErrors: vi.fn(),
+    clearFieldErrors: vi.fn(),
+    clearFieldsErrors: vi.fn(),
     resetFields: vi.fn(),
     reset: vi.fn(),
     validateField: vi.fn().mockResolvedValue({ valid: true, values, errors: [] }),
@@ -156,19 +170,17 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   }
 
   const validation = {
-    syncField: vi.fn(),
+    setFieldConfig: vi.fn(),
+    setFieldRules: vi.fn(),
     removeField: vi.fn(),
-    removeSchemaField: vi.fn(),
   }
 
-  const model = {
+  const store = {
     registerFieldPath: vi.fn(),
+    unregisterFieldPath: vi.fn(),
     getFieldValue: readValue,
     setFieldValue: writeValue,
     setInitialValues: instance.setInitialValues,
-    syncValidationField: validation.syncField,
-    removeValidationField: validation.removeField,
-    removeSchemaValidationField: validation.removeSchemaField,
   }
 
   const compile = createCompile<TValues>({
@@ -178,32 +190,44 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
   const context = {
     schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
+    fieldRules: {},
     instance,
-    model,
+    store,
     formApi,
-    compile,
     scheduler,
     validation,
-    lifecycleBus,
-    runtimeRegistry: createRuntimeRegistry<TValues>(),
+    lifecycle,
   } as unknown as SchemaRuntimeContext<TValues>
 
-  const reconciler = createReconciler<TValues>(context)
+  const nodeManager = createNodeManager<TValues>()
 
-  const root = reconciler.createRoot()
+  const root = nodeManager.getRoot()
+
+  const runtimeNodeLifecycle = createRuntimeNodeLifecycle(context)
+
+  const reconciler = createReconciler({
+    compiler: compile,
+    nodeManager,
+    lifecycle: runtimeNodeLifecycle,
+  })
 
   const commitSchemas = (
     parent: ParentRuntimeNode<TValues>,
     schemas: SchemxField<TValues>[]
-  ): void => reconciler.reconcileChildren(parent, schemas)
+  ): void => {
+    const normalizedSchemas = normalizeSchemas<TValues>(schemas, "text")
+
+    reconciler.reconcileChildren(parent.id, normalizedSchemas)
+  }
 
   Object.assign(context, {
-    reconcileChildren: reconciler.reconcileChildren,
+    reconcileChildren: (parentId: number, schemas: SchemxField<TValues>[]) =>
+      reconciler.reconcileChildren(parentId, normalizeSchemas<TValues>(schemas, "text")),
   })
 
   return {
     context,
-    reconciler,
+    compiler: compile,
     root: root as unknown as RootRuntimeNode,
     scheduler,
     commitSchemas,

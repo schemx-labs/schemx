@@ -1,56 +1,66 @@
 /**
  * 运行时节点生命周期与字段资源释放的测试。
  *
- * 覆盖节点生命周期事件触发、节点配置同步、effectDispose 管理、fieldIndex
- * 维护以及字段删除后的 scope 释放（US3）等行为。
+ * 覆盖节点生命周期事件触发、节点配置同步、validationEffectScope 管理、
+ * Root 字段查询以及字段删除后的 scope 释放（US3）等行为。
  *
  * @module core/runtime/node/__tests__/runtimeNodeLifecycleFlow.test
  */
 
 import { describe, expect, it, vi } from "vitest"
 
-import {
-  createFieldRuntimeState,
-  resetFieldDynamicOverrides,
-  setFieldDynamicOverrides,
-} from "../../field/runtimeState"
-import { createRuntimeLifecycle } from "../runtimeLifecycle"
-import { createFieldRuntimeNode } from "../runtimeNode"
+import { findFieldRuntimeNode } from "../helper"
+import { createRuntimeNodeLifecycle, mountNodeResources } from "../resources"
 
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+import {
+  createFieldRuntimeSignals,
+  resetFieldDynamicOverrides,
+  setFieldDynamicOverrides,
+} from "./runtimeSignalsTestUtils"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 import type { FieldRuntimeNode } from "../types"
 
-// 节点生命周期：create/update/remove 事件触发时机、节点配置同步、effectDispose 与 fieldIndex 维护
+// 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护
 describe("node lifecycle flow", () => {
-  it("没有 parent 的描述节点不能进入 mount", () => {
-    const { context } = createRuntimeGraphHarness()
+  it("created 和 discard 分别处理事件与 detached scope", () => {
+    const hooks = {
+      created: vi.fn(),
+      unmounted: vi.fn(),
+    }
 
-    const lifecycle = createRuntimeLifecycle(context)
+    const { compiler, context } = createRuntimeGraphHarness(hooks)
+
+    const lifecycle = createRuntimeNodeLifecycle(context)
+
+    const node = compiler.createNode(createRawFieldSchema("detached"), "", 0)
+
+    lifecycle.created(node)
+    lifecycle.discard(node)
+
+    expect(hooks.created).toHaveBeenCalledWith(node)
+    expect(hooks.unmounted).not.toHaveBeenCalled()
+    expect(node.disposed.value).toBe(true)
+    expect(node.scope.disposed).toBe(true)
+  })
+
+  it("没有 parent 的描述节点不能进入 mount", () => {
+    const { compiler, context } = createRuntimeGraphHarness()
 
     const schema = createRawFieldSchema("detached", "detached")
 
-    const input = context.compile.compileNode(schema, "", 0)
+    const node = compiler.createNode(schema, "", 0)
 
-    if (input.type !== "field") {
-      throw new Error("expected field input")
-    }
-
-    const node = createFieldRuntimeNode({ id: 99, input })
-
-    expect(() => lifecycle.mount(node)).toThrow(
+    expect(() => mountNodeResources(node, context)).toThrow(
       '[schemx] Runtime node "detached" must have a parent before mount.'
     )
   })
 
-  it("create/update/remove transition 每类生命周期事件只触发一次", () => {
+  it("mount/update/unmount 事件各触发一次", () => {
     const hooks = {
-      beforeMount: vi.fn(),
       mounted: vi.fn(),
-      beforeUpdate: vi.fn(),
       updated: vi.fn(),
-      beforeUnmount: vi.fn(),
       unmounted: vi.fn(),
     }
 
@@ -60,11 +70,8 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     commitSchemas(root, [])
 
-    expect(hooks.beforeMount).toHaveBeenCalledTimes(1)
     expect(hooks.mounted).toHaveBeenCalledTimes(1)
-    expect(hooks.beforeUpdate).toHaveBeenCalledTimes(1)
     expect(hooks.updated).toHaveBeenCalledTimes(1)
-    expect(hooks.beforeUnmount).toHaveBeenCalledTimes(1)
     expect(hooks.unmounted).toHaveBeenCalledTimes(1)
   })
 
@@ -80,7 +87,7 @@ describe("node lifecycle flow", () => {
       }),
     }
 
-    const { commitSchemas, context, root } = createRuntimeGraphHarness(hooks)
+    const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const node = root.childNodes.value[0] as FieldRuntimeNode
@@ -88,7 +95,7 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [])
 
     expect(node.disposed.value).toBe(true)
-    expect(context.runtimeRegistry.fieldIndex.get("name" as never)).toBeUndefined()
+    expect(findFieldRuntimeNode(root, "name" as never)).toBeUndefined()
     expect(error).toHaveBeenCalledTimes(2)
 
     error.mockRestore()
@@ -96,39 +103,87 @@ describe("node lifecycle flow", () => {
 
   it("生命周期回调只接收 node，更新回调接收 previousNode", () => {
     const hooks = {
-      beforeMount: vi.fn(),
       mounted: vi.fn(),
-      beforeUpdate: vi.fn(),
       updated: vi.fn(),
     }
 
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
-    commitSchemas(root, [createRawFieldSchema("name", "name")])
+    commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "旧标签" }])
     const node = root.childNodes.value[0] as FieldRuntimeNode
+
+    setFieldDynamicOverrides(
+      node,
+      { visible: false },
+      {
+        source: "dependencies",
+        triggerFields: ["visible" as never],
+      }
+    )
 
     const previousConfigToken = node.configToken
 
-    commitSchemas(root, [createRawFieldSchema("name", "nickname")])
+    commitSchemas(root, [
+      { ...createRawFieldSchema("name", "nickname"), label: "新标签" },
+    ])
     const nextConfigToken = node.configToken
 
-    expect(hooks.beforeMount).toHaveBeenCalledWith(node)
     expect(hooks.mounted).toHaveBeenCalledWith(node)
-
-    const [beforeUpdateNode, beforeUpdatePreviousRuntimeNode] =
-      hooks.beforeUpdate.mock.calls[0] ?? []
 
     const [updatedNode, updatedPreviousRuntimeNode] = hooks.updated.mock.calls[0] ?? []
 
-    expect(beforeUpdateNode).toBe(node)
     expect(updatedNode).toBe(node)
-    expect(beforeUpdatePreviousRuntimeNode).toMatchObject({
+    expect(updatedPreviousRuntimeNode).toMatchObject({
       type: "field",
       key: "name",
     })
-    expect(beforeUpdatePreviousRuntimeNode).toHaveProperty("configToken")
-    expect(updatedPreviousRuntimeNode).toBe(beforeUpdatePreviousRuntimeNode)
-    expect(beforeUpdatePreviousRuntimeNode.configToken).toBe(previousConfigToken)
+    expect(updatedPreviousRuntimeNode).toHaveProperty("configToken")
+    expect(updatedPreviousRuntimeNode.configToken).toBe(previousConfigToken)
+    expect(
+      updatedPreviousRuntimeNode.type === "field" && updatedPreviousRuntimeNode.name.value
+    ).toBe("name")
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.staticSchema.value.name
+    ).toBe("name")
+    expect(updatedPreviousRuntimeNode).not.toBe(updatedNode)
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.staticSchema
+    ).not.toBe(updatedNode.staticSchema)
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.dynamicOverrides
+    ).not.toBe(updatedNode.dynamicOverrides)
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.effectiveSchema
+    ).not.toBe(updatedNode.effectiveSchema)
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.effectiveSchema.value
+    ).toMatchObject({ label: "旧标签", visible: false })
+    expect(updatedNode.type === "field" && updatedNode.name.value).toBe("nickname")
+    expect(
+      updatedNode.type === "field" && updatedNode.effectiveSchema.value
+    ).toMatchObject({
+      label: "新标签",
+      visible: false,
+    })
+
+    setFieldDynamicOverrides(
+      updatedNode,
+      { visible: true },
+      {
+        source: "dependencies",
+        triggerFields: ["visible" as never],
+      }
+    )
+
+    expect(
+      updatedPreviousRuntimeNode.type === "field" &&
+        updatedPreviousRuntimeNode.effectiveSchema.value.visible
+    ).toBe(false)
     expect(nextConfigToken).not.toBe(previousConfigToken)
   })
 
@@ -149,45 +204,43 @@ describe("node lifecycle flow", () => {
     expect(nextConfigToken).not.toBe(firstConfigToken)
   })
 
-  it("disposed field 会释放 node-local 字段资源并移除索引", () => {
-    const { commitSchemas, context, root } = createRuntimeGraphHarness()
-
-    commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
-
-    expect(field.staticSchema).toBeDefined()
-    expect(field.fieldState).not.toBeNull()
-    expect(field.viewState).not.toBeNull()
-    expect(field.effectDispose).toBeDefined()
-    expect(context.runtimeRegistry.fieldIndex.get("name" as any)).toBe(field)
-
-    commitSchemas(root, [])
-
-    expect(field.disposed.value).toBe(true)
-    expect(field.staticSchema).toBeDefined()
-    expect(field.fieldState).toBeNull()
-    expect(field.viewState).toBeNull()
-    expect(field.effectDispose).toBeNull()
-    expect(context.runtimeRegistry.fieldIndex.get("name" as any)).toBeUndefined()
-  })
-
-  it("field update 会释放旧 effectDispose 并挂载新的 effectDispose", () => {
+  it("disposed field 会释放 node-local 字段资源并从 Root 查询中消失", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
 
-    const previousEffectDispose = field.effectDispose
+    expect(field.staticSchema).toBeDefined()
+    expect(field.viewSchemas).not.toBeNull()
+    expect(field.validationEffectScope).toBeDefined()
+    expect(findFieldRuntimeNode(root, "name" as any)).toBe(field)
 
-    expect(previousEffectDispose).not.toBeNull()
-    expect(previousEffectDispose?.disposed).toBe(false)
+    commitSchemas(root, [])
+
+    expect(field.disposed.value).toBe(true)
+    expect(field.staticSchema).toBeDefined()
+    expect(field.viewSchemas).toBeNull()
+    expect(field.validationEffectScope).toBeNull()
+    expect(findFieldRuntimeNode(root, "name" as any)).toBeUndefined()
+  })
+
+  it("field update 会释放旧 validationEffectScope 并挂载新的 validationEffectScope", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
+
+    commitSchemas(root, [createRawFieldSchema("name", "name")])
+    const field = root.childNodes.value[0] as FieldRuntimeNode
+
+    const previousValidationEffectScope = field.validationEffectScope
+
+    expect(previousValidationEffectScope).not.toBeNull()
+    expect(previousValidationEffectScope?.disposed).toBe(false)
 
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
 
-    expect(previousEffectDispose?.disposed).toBe(true)
-    expect(field.effectDispose).not.toBeNull()
-    expect(field.effectDispose).not.toBe(previousEffectDispose)
-    expect(field.effectDispose?.disposed).toBe(false)
+    expect(previousValidationEffectScope?.disposed).toBe(true)
+    expect(field.validationEffectScope).not.toBeNull()
+    expect(field.validationEffectScope).not.toBe(previousValidationEffectScope)
+    expect(field.validationEffectScope?.disposed).toBe(false)
   })
 
   it("非 dependencies 的字段更新会保留已有 effect", () => {
@@ -196,34 +249,34 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
 
-    const validationScope = field.effectDispose
+    const validationScope = field.validationEffectScope
 
-    const dependenciesScope = field.dependenciesEffectDispose
+    const dependenciesScope = field.dependenciesEffectScope
 
     commitSchemas(root, [
       { ...createRawFieldSchema("name", "name"), placeholder: "请输入姓名" } as never,
     ])
 
-    expect(field.effectDispose).toBe(validationScope)
-    expect(field.dependenciesEffectDispose).toBe(dependenciesScope)
+    expect(field.validationEffectScope).toBe(validationScope)
+    expect(field.dependenciesEffectScope).toBe(dependenciesScope)
   })
 
-  it("fieldIndex 跟随 field mount/update/unmount 维护字段查询", () => {
-    const { commitSchemas, context, root } = createRuntimeGraphHarness()
+  it("Root 查询跟随 field mount/update/unmount 更新", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldRuntimeNode
 
-    expect(context.runtimeRegistry.fieldIndex.get("name" as any)).toBe(field)
+    expect(findFieldRuntimeNode(root, "name" as any)).toBe(field)
 
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
 
-    expect(context.runtimeRegistry.fieldIndex.get("name" as any)).toBeUndefined()
-    expect(context.runtimeRegistry.fieldIndex.get("nickname" as any)).toBe(field)
+    expect(findFieldRuntimeNode(root, "name" as any)).toBeUndefined()
+    expect(findFieldRuntimeNode(root, "nickname" as any)).toBe(field)
 
     commitSchemas(root, [])
 
-    expect(context.runtimeRegistry.fieldIndex.get("nickname" as any)).toBeUndefined()
+    expect(findFieldRuntimeNode(root, "nickname" as any)).toBeUndefined()
   })
 })
 
@@ -253,16 +306,17 @@ function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
   return state.diagnostics.value
 }
 
-// 用户场景 3：字段删除后的 runtimeState 标记与 scope 释放行为
+// 用户场景 3：字段删除后的 runtimeSignals 标记与 scope 释放行为
 describe("字段删除和 scope 释放 (US3)", () => {
-  it("dispose 后 runtimeState 应标记为 dispose", () => {
+  it("dispose 后 runtimeSignals 应标记为 dispose", () => {
     const schema = createTestSchema()
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     resetFieldDynamicOverrides(state, "dispose")
@@ -274,11 +328,12 @@ describe("字段删除和 scope 释放 (US3)", () => {
   it("dispose 后不应再接受动态覆盖写入（调用方负责检查 scope）", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
       staticSchema: schema,
+      debug: true,
     })
 
     resetFieldDynamicOverrides(state, "dispose")
@@ -293,14 +348,14 @@ describe("字段删除和 scope 释放 (US3)", () => {
       }
     )
 
-    // 写入仍然生效（runtimeState 不自行阻止），但 diagnostics 反映最新状态
+    // 写入仍然生效（runtimeSignals 不自行阻止），但 diagnostics 反映最新状态
     expect(readDiagnostics(state).lastUpdatedBy).toBe("dependencies")
   })
 
   it("reset 后 dynamicOverrides 应清空", () => {
     const schema = createTestSchema({ visible: true })
 
-    const state = createFieldRuntimeState({
+    const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,

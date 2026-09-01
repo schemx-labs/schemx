@@ -6,41 +6,61 @@
  * @typeParam TValues - 表单值对象类型。
  */
 
-import type { Compile } from "./compiler/types"
-import type { LifecycleBus } from "./lifecycle"
-import type { ParentRuntimeNode, RuntimeNode, RuntimeRegistry } from "./node"
+import type { RuntimeNodeLifecycleEmitter } from "./lifecycle"
+import type { RuntimeNode, RuntimeNodeId } from "./node"
 import type { Scheduler } from "./scheduler"
-import type { RuntimeFormModelPort } from "../form/model"
 import type {
+  FieldValue,
   NamePath,
-  ResolvedSchemxSchemaConfig,
   SchemxField,
+  SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
+  SchemxSchemaConfig,
   Values,
 } from "../types"
-import type { ValidationFieldConfig } from "../validator"
+import type { FieldRules } from "../types/rule"
+import type { FieldValidationConfig } from "../validator/types"
 
 /**
- * Runtime 同步字段校验所需的最小能力端口。
+ * Runtime 访问字段状态和初始值所需的最小 Store 能力。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ */
+export interface RuntimeStorePort<TValues extends Values = Values> {
+  registerFieldPath<TName extends NamePath<TValues>>(name: TName): void
+  unregisterFieldPath<TName extends NamePath<TValues>>(name: TName): void
+  getFieldValue<TName extends NamePath<TValues>>(
+    name: TName
+  ): FieldValue<TValues, TName> | undefined
+  setFieldValue<TName extends NamePath<TValues>>(
+    name: TName,
+    value: FieldValue<TValues, TName> | undefined
+  ): void
+  setInitialValues(values: Partial<TValues>): void
+}
+
+/**
+ * Runtime 管理字段校验所需的最小 Validator 能力。
  *
  * @typeParam TValues - 表单值对象类型。
  */
 export interface RuntimeValidationPort<TValues extends Values = Values> {
   /**
-   * 同步字段校验配置，并返回配置是否发生变化。
+   * 保存字段校验配置。
    */
-  syncField<TName extends NamePath<TValues>>(
-    config: ValidationFieldConfig<TValues, TName>
-  ): boolean
+  setFieldConfig<TName extends NamePath<TValues>>(
+    config: FieldValidationConfig<TValues, TName>
+  ): void
+
+  setFieldRules<TName extends NamePath<TValues>>(
+    name: TName,
+    rules: FieldRules<TValues, TName> | undefined
+  ): void
   /**
    * 移除字段校验配置。
    */
   removeField(name: NamePath<TValues>): void
-  /**
-   * 停止 Schema 规则注册，但保留运行时规则覆盖。
-   */
-  removeSchemaField(name: NamePath<TValues>): void
 }
 
 /**
@@ -56,23 +76,23 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
   /**
    * schema 编译默认选项，供 root 与 dependency 子树复用。
    */
-  schemaConfig: ResolvedSchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig
   /**
    * 表单实例公开 API。
    */
   readonly instance: SchemxInstance<TValues>
   /**
-   * Runtime 访问字段状态和初始值的最小 Model Port。
+   * Runtime 访问字段状态和初始值的最小 Store Port。
    */
-  readonly model: RuntimeFormModelPort<TValues>
+  readonly store: RuntimeStorePort<TValues>
   /**
    * 传递给动态 renderer 的表单 API 子集。
    */
   readonly formApi: SchemxFormApi<TValues>
   /**
-   * 当前表单实例的 schema 编译门面。
+   * 按字段路径配置的表单级校验规则。
    */
-  readonly compile: Compile<TValues>
+  readonly fieldRules: SchemxFieldRulesMap<TValues>
   /**
    * 运行时异步调度器。
    */
@@ -82,13 +102,9 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    */
   readonly validation: RuntimeValidationPort<TValues>
   /**
-   * runtime node 生命周期事件总线。
+   * RuntimeNode 生命周期事件发布器。
    */
-  readonly lifecycleBus: LifecycleBus<RuntimeNode<TValues>>
-  /**
-   * Runtime 跨节点查询注册表。
-   */
-  readonly runtimeRegistry: RuntimeRegistry<TValues>
+  readonly lifecycle: RuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>
   /**
    * 唯一子节点提交边界。
    *
@@ -96,7 +112,7 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    * @param schemas - 新一轮原始子 schema 列表。
    */
   reconcileChildren(
-    parent: ParentRuntimeNode<TValues>,
+    parentId: RuntimeNodeId,
     schemas: readonly SchemxField<TValues>[]
   ): void
 }

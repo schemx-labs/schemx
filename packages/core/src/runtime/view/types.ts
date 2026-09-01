@@ -13,7 +13,7 @@ import type {
   SchemxResolvedGroupField,
   Values,
 } from "../../types"
-import type { FieldDynamicOverrideKey } from "../field/runtimeState"
+import type { FieldDynamicOverrideKey } from "../node"
 
 /**
  * 对联合类型逐项执行 Omit。
@@ -27,13 +27,6 @@ import type { FieldDynamicOverrideKey } from "../field/runtimeState"
 type DistributiveOmit<TSource, TKey extends PropertyKey> = TSource extends unknown
   ? Omit<TSource, TKey>
   : never
-
-/**
- * 渲染器标识。
- *
- * 由 rendererRegistry 注册时使用的唯一 key，对应具体的 UI 组件实现。
- */
-export type SchemxRendererKey = string
 
 /**
  * ViewSchema 调试元数据。
@@ -76,11 +69,11 @@ export interface SchemxViewDebugMeta {
  * 字段 ViewSchema。
  *
  * 字段项保持 SchemxField 的扁平格式，动态依赖结果已经合并为静态值。
- * Omit 掉 "key" 后由运行时节点重新注入。
+ * Omit 掉 "key" 和 "dependencies" 后由运行时节点重新注入运行时字段。
  */
 export type SchemxViewFieldSchema<TValues extends Values = Values> = DistributiveOmit<
   SchemxResolvedBaseField<TValues>,
-  "key"
+  "key" | "dependencies"
 > & {
   /**
    * 运行时节点 key，形如 "field:name"
@@ -103,11 +96,11 @@ export type SchemxViewFieldSchema<TValues extends Values = Values> = Distributiv
  * 分组 ViewSchema。
  *
  * group 继续以 children 表达结构层级，children 中不会包含 dependency schema。
- * Omit 掉 "key" 和 "children" 后由运行时节点重新注入。
+ * Omit 掉 "key"、"children" 和 "dependencies" 后由运行时节点重新注入。
  */
 export type SchemxViewGroupSchema<TValues extends Values = Values> = DistributiveOmit<
   SchemxResolvedGroupField<TValues>,
-  "key" | "children"
+  "key" | "children" | "dependencies"
 > & {
   /**
    * 运行时节点 key，形如 "group:0"

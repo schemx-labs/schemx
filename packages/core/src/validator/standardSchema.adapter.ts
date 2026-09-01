@@ -1,3 +1,9 @@
+/**
+ * Standard Schema V1 与 Core 原生校验规则之间的适配器。
+ *
+ * @module core/validator/standardSchema.adapter
+ */
+
 import type { NamePath, StandardSchemaV1, Values } from "../types"
 import type {
   ValidationAdapter,
@@ -55,14 +61,22 @@ export interface StandardSchemaValidationAdapter extends ValidationAdapter<
  * ```
  */
 export function createStandardSchemaAdapter(): StandardSchemaValidationAdapter {
-  // 将 Standard Schema 规则输入解析为 Core 原生校验规则的适配函数。
+  /**
+   * 将已识别的 Standard Schema 规则解析为 Core 原生校验规则。
+   *
+   * @typeParam TValue - 当前字段值类型。
+   * @typeParam TValues - 表单值类型。
+   * @typeParam TName - 当前字段路径类型。
+   * @param input - 已通过 `isRule()` 识别的 Standard Schema 规则。
+   * @returns 由 Validator 执行的原生校验规则列表。
+   */
   const resolve: StandardSchemaValidationAdapter["resolve"] = <
     TValue,
     TValues extends Values,
     TName extends NamePath<TValues>,
-    >(
-      input: StandardSchemaV1<TValue, unknown>
-    ) => {
+  >(
+    input: StandardSchemaV1<TValue, unknown>
+  ) => {
     if (!isStandardSchema(input)) {
       throw new TypeError("Standard Schema 规则输入必须实现 Standard Schema V1 协议")
     }
@@ -100,7 +114,7 @@ export function createStandardSchemaValidationRule<
 >(schema: StandardSchemaV1<TValue, unknown>): ValidationRule<TValue, TValues, TName> {
   return {
     async validate(value, context) {
-      // Standard Schema 仅提供错误信息；其转换后的 value 不回写表单。
+      // Standard Schema 仅提供错误信息；转换后的 value 不回写表单。
       return validateStandardSchema(schema, value, context)
     },
   }
@@ -147,7 +161,10 @@ function toValidationResult(
   result: StandardSchemaV1.Result<unknown>
 ): ValidationRuleResult {
   const issues =
-    result.issues?.map<ValidationRuleIssue>((issue) => ({ message: issue.message })) ?? []
+    result.issues?.map<ValidationRuleIssue>((issue) => ({
+      type: "validation",
+      message: issue.message,
+    })) ?? []
 
   return issues.length > 0
     ? { valid: false, issues: [issues[0], ...issues.slice(1)] }
@@ -165,7 +182,7 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1<unknown, un
     return false
   }
 
-  // Standard Schema 的规范属性
+  // 先确认对象包含 Standard Schema 规定的协议属性。
   if (!Object.hasOwn(value, "~standard")) {
     return false
   }

@@ -1,3 +1,9 @@
+/**
+ * Validator adapter 的注册表构建和规则路由工具。
+ *
+ * @module core/validator/adapters
+ */
+
 import type {
   ValidationAdapter,
   ValidationAdapterID,
@@ -13,6 +19,11 @@ import type {
  * @param validatorAdapters - 要注册的 adapter 或带覆盖选项的注册项。
  * @returns 按 adapter ID 建立的只读路由表。
  * @throws 当 adapter ID 无效或重复注册且未显式允许覆盖时抛出错误。
+ *
+ * @example
+ * ```ts
+ * const adapters = createValidationAdapterMap([myAdapter])
+ * ```
  */
 export function createValidationAdapterMap(
   validatorAdapters: readonly ValidationAdapterOption[]
@@ -55,29 +66,27 @@ function normalizeValidationAdapterOption(option: ValidationAdapterOption): {
 }
 
 /**
- * 查找唯一能够处理规则的 adapter；多个 adapter 命中时拒绝歧义配置。
+ * 按注册顺序查找首个能够处理规则的 adapter。
  *
  * @param adapters - 当前 Form 的 adapter 路由表。
  * @param rule - 待识别的字段规则。
- * @returns 唯一命中的 adapter；没有命中时返回 `undefined`。
- * @throws 当多个 adapter 同时声明能够处理规则时抛出错误。
+ * @returns 按注册顺序找到的首个 adapter；没有命中时返回 `undefined`。
+ *
+ * @example
+ * ```ts
+ * const adapter = findValidationAdapter(adapters, rule)
+ * ```
  */
 export function findValidationAdapter(
   adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>,
   rule: unknown
 ): ValidationAdapter | undefined {
-  // 收集所有能够识别该规则的 adapter，以检测配置歧义。
-  const matched = [...adapters.values()].filter((adapter) => adapter.isRule(rule))
-
-  if (matched.length > 1) {
-    throw new Error(
-      `校验规则同时匹配多个 adapter: ${matched
-        .map((adapter) => formatValidationAdapterId(adapter.id))
-        .join(", ")}`
-    )
+  // Adapter 的注册顺序决定多个 adapter 同时命中时的解析优先级。
+  for (const adapter of adapters.values()) {
+    if (adapter.isRule(rule)) return adapter
   }
 
-  return matched[0]
+  return undefined
 }
 
 /**

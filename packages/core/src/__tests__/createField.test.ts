@@ -60,7 +60,7 @@ describe("createField", () => {
     void assertTypeOnly
   })
 
-  it("暴露复数错误和替换规则 API", async () => {
+  it("暴露字段错误 API", () => {
     const form = createForm<TypedForm>({
       initialValues: {
         name: "",
@@ -77,24 +77,6 @@ describe("createField", () => {
     field.clearErrors()
     expect(field.getErrors()).toEqual([])
 
-    field.setRules({
-      validate: () => ({
-        valid: false,
-        issues: [{ message: "规则错误" }],
-      }),
-    })
-    expect(await field.validate()).toEqual({
-      valid: false,
-      values: { name: "", age: 20, user: { city: "Beijing" } },
-      errors: [{ scope: "field", name: "name", issues: [{ message: "规则错误" }] }],
-    })
-
-    field.removeRules()
-    expect(await field.validate()).toEqual({
-      valid: true,
-      values: { name: "", age: 20, user: { city: "Beijing" } },
-      errors: [],
-    })
     form.destroy()
   })
 
@@ -126,7 +108,7 @@ describe("createField", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "姓名为必填项", code: "required" }],
+          issues: [{ type: "validation", message: "姓名为必填项", code: "required" }],
         },
       ],
     })

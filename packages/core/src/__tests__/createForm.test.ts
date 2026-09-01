@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest"
 import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
-import { createRendererRegistry, createValidationRuleRegistry } from "../registry"
+import { createPresetRuleRegistry, createRendererRegistry } from "../registry"
 import { CompileError } from "../runtime/compiler"
 
 interface StudentFormValues {
@@ -141,6 +141,143 @@ describe("字段值边界", () => {
 })
 
 describe("表单提交", () => {
+  it("字段未配置 rules 时应应用 fieldRules 兜底", async () => {
+    const form = createForm<{ email?: string }>({
+      initialValues: { email: "" },
+      schemas: [{ name: "email", label: "邮箱", componentType: "input" }],
+      fieldRules: {
+        email: ({ name, label, required }) => ({
+          validate: () => ({
+            valid: false,
+            issues: [
+              {
+                type: "validation",
+                message: `${String(name)}:${label}:${required}`,
+              },
+            ],
+          }),
+        }),
+      },
+    })
+
+    const result = await form.validate()
+
+    expect(result.valid).toBe(false)
+    if (!result.valid && !result.cancelled) {
+      expect(result.errors[0]?.issues[0]?.message).toBe("email:邮箱:false")
+    }
+
+    form.destroy()
+  })
+
+  it("字段自身 rules 应优先于 fieldRules", async () => {
+    const form = createForm<{ email?: string }>({
+      initialValues: { email: "" },
+      schemas: [
+        {
+          name: "email",
+          label: "邮箱",
+          componentType: "input",
+          rules: [
+            {
+              validate: () => ({ valid: true }),
+            },
+          ],
+        },
+      ],
+      fieldRules: {
+        email: {
+          validate: () => ({
+            valid: false,
+            issues: [{ type: "validation", message: "表单级规则" }],
+          }),
+        },
+      },
+    })
+
+    const result = await form.validate()
+
+    expect(result.valid).toBe(true)
+    if (result.valid) {
+      expect(result.values).toEqual({ email: "" })
+    }
+
+    form.destroy()
+  })
+
+  it("fieldRules 支持命名 preset 和规则数组", async () => {
+    const presetRuleRegistry = createPresetRuleRegistry()
+
+    presetRuleRegistry.register("nonEmpty" as never, {
+      validate: (value: unknown) =>
+        value
+          ? { valid: true }
+          : {
+              valid: false,
+              issues: [{ type: "validation", message: "名称为空" }],
+            },
+    })
+
+    const form = createForm<{ name?: string }>({
+      initialValues: { name: "" },
+      presetRuleRegistry,
+      fieldRules: {
+        name: [
+          "nonEmpty",
+          {
+            validate: () => ({ valid: true }),
+          },
+        ] as never,
+      },
+      schemas: [{ name: "name", label: "名称", componentType: "input" }],
+    })
+
+    const result = await form.validate()
+
+    expect(result.valid).toBe(false)
+    if (!result.valid && !result.cancelled) {
+      expect(result.errors[0]?.issues).toEqual([
+        { type: "validation", message: "名称为空" },
+      ])
+    }
+
+    form.destroy()
+  })
+
+  it("required 不依赖 fieldRules，并由内置规则单独执行", async () => {
+    const form = createForm<{ email?: string }>({
+      initialValues: { email: "" },
+      fieldRules: {
+        email: {
+          validate: () => ({ valid: true }),
+        },
+      },
+      schemas: [
+        {
+          name: "email",
+          label: "邮箱",
+          componentType: "input",
+          required: true,
+        },
+      ],
+    })
+
+    const result = await form.validate()
+
+    expect(result).toMatchObject({
+      valid: false,
+      errors: [
+        {
+          scope: "field",
+          name: "email",
+          issues: [{ type: "validation", message: "邮箱为必填项", code: "required" }],
+        },
+      ],
+    })
+
+    form.destroy()
+  })
+
   it("初始化后立即 validate 应等待 schema 规则注册", async () => {
     const form = createForm({
       initialValues: { name: "" },
@@ -163,7 +300,7 @@ describe("表单提交", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "姓名为必填项", code: "required" }],
+          issues: [{ type: "validation", message: "姓名为必填项", code: "required" }],
         },
       ],
     })
@@ -218,7 +355,7 @@ describe("表单提交", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "姓名为必填项", code: "required" }],
+          issues: [{ type: "validation", message: "姓名为必填项", code: "required" }],
         },
       ],
     })
@@ -251,7 +388,7 @@ describe("表单提交", () => {
         {
           scope: "field",
           name: "email",
-          issues: [{ message: "邮箱为必填项", code: "required" }],
+          issues: [{ type: "validation", message: "邮箱为必填项", code: "required" }],
         },
       ],
     })
@@ -275,7 +412,7 @@ describe("表单提交", () => {
           {
             scope: "field",
             name: "avatar",
-            issues: [{ message: "头像上传中", code: "pending" }],
+            issues: [{ type: "external", message: "头像上传中", code: "pending" }],
           },
         ],
       })
@@ -319,7 +456,11 @@ describe("表单提交", () => {
         {
           scope: "form",
           issues: [
-            { message: "表单依赖解析超时，请稍后重试", code: "dependency_timeout" },
+            {
+              type: "validation",
+              message: "表单依赖解析超时，请稍后重试",
+              code: "dependency_timeout",
+            },
           ],
         },
       ],
@@ -665,8 +806,8 @@ describe("字段规则注册上下文 单元测试", () => {
       key: "field:name",
     })
     expect(mounted.mock.calls[0][0]).toMatchObject({
-      name: "name",
-      staticSchema: { name: "name", componentType: "input" },
+      name: { value: "name" },
+      staticSchema: { value: { name: "name", componentType: "input" } },
     })
 
     form.destroy()
@@ -1044,9 +1185,9 @@ describe("字段规则注册上下文 单元测试", () => {
   })
 
   it("setFieldRules 使用运行时字段状态为字符串工厂规则补充上下文", async () => {
-    const validationRuleRegistry = createValidationRuleRegistry()
+    const presetRuleRegistry = createPresetRuleRegistry()
 
-    validationRuleRegistry.register("contextual" as never, (context) => ({
+    presetRuleRegistry.register("contextual" as never, (context) => ({
       "~standard": {
         version: 1,
         vendor: "test",
@@ -1057,7 +1198,7 @@ describe("字段规则注册上下文 单元测试", () => {
     }))
     const form = createForm<{ user: { name: string } }>({
       initialValues: { user: { name: "Alice" } },
-      validationRuleRegistry,
+      presetRuleRegistry,
       schemas: [
         {
           label: "User Group",
@@ -1106,7 +1247,7 @@ describe("字段规则注册上下文 单元测试", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "姓名为必填项", code: "required" }],
+          issues: [{ type: "validation", message: "姓名为必填项", code: "required" }],
         },
       ],
     })
@@ -1155,19 +1296,19 @@ function createMockStandardSchema(_id: string): StandardSchemaV1 {
 describe("RulesRegistry 快捷方法 属性测试", () => {
   // **功能：rules-registry-and-getinternals；属性 1：注册-查询往返**
   // **验证：需求 3.1、3.2、4.1**
-  it("Property 1: registerRule 后 hasRule 返回 true 且 getRule 返回该 rule", () => {
+  it("Property 1: registerPresetRule 后 hasPresetRule 返回 true 且 getPresetRule 返回该 rule", () => {
     fc.assert(
       fc.property(safeRuleName, fc.string({ minLength: 1 }), (name, schemaId) => {
         const form = createForm({
-          validationRuleRegistry: createValidationRuleRegistry(),
+          presetRuleRegistry: createPresetRuleRegistry(),
         })
 
         const rule = createMockStandardSchema(schemaId)
 
-        form.registerRule(name, rule)
+        form.registerPresetRule(name, rule)
 
-        expect(form.hasRule(name)).toBe(true)
-        expect(form.getRule(name)).toBe(rule)
+        expect(form.hasPresetRule(name)).toBe(true)
+        expect(form.getPresetRule(name)).toBe(rule)
 
         form.destroy()
       }),
@@ -1181,18 +1322,18 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
     fc.assert(
       fc.property(safeRuleName, (name) => {
         const form = createForm({
-          validationRuleRegistry: createValidationRuleRegistry(),
+          presetRuleRegistry: createPresetRuleRegistry(),
         })
 
         const ruleA = createMockStandardSchema("A")
 
         const ruleB = createMockStandardSchema("B")
 
-        form.registerRule(name, ruleA)
-        form.registerRule(name, ruleB)
+        form.registerPresetRule(name, ruleA)
+        form.registerPresetRule(name, ruleB)
 
-        expect(form.getRule(name)).toBe(ruleB)
-        expect(form.getRule(name)).not.toBe(ruleA)
+        expect(form.getPresetRule(name)).toBe(ruleB)
+        expect(form.getPresetRule(name)).not.toBe(ruleA)
 
         form.destroy()
       }),
@@ -1211,7 +1352,7 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
         (ruleName, rendererType, schemaId) => {
           const form = createForm({
             rendererRegistry: createRendererRegistry(),
-            validationRuleRegistry: createValidationRuleRegistry(),
+            presetRuleRegistry: createPresetRuleRegistry(),
           })
 
           const rule = createMockStandardSchema(schemaId)
@@ -1219,14 +1360,14 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
           const renderer = { __type: rendererType }
 
           // 路径 A: 通过 form 注册规则并查询
-          form.registerRule(ruleName, rule)
-          expect(form.getRule(ruleName)).toBe(rule)
+          form.registerPresetRule(ruleName, rule)
+          expect(form.getPresetRule(ruleName)).toBe(rule)
 
           // 路径 B: 注册另一个规则并查询
           const rule2 = createMockStandardSchema(schemaId + "_2")
 
-          form.registerRule(ruleName + "_via_internals", rule2)
-          expect(form.getRule(ruleName + "_via_internals")).toBe(rule2)
+          form.registerPresetRule(ruleName + "_via_internals", rule2)
+          expect(form.getPresetRule(ruleName + "_via_internals")).toBe(rule2)
 
           // 路径 C: 通过 form 注册渲染器并查询
           form.registerRenderer(rendererType, renderer)
@@ -1253,27 +1394,27 @@ describe("RulesRegistry 快捷方法 属性测试", () => {
  *
  * @module core/__tests__/createForm (rules-registry-getinternals unit tests)
  */
-// 单元测试：验证 createForm 返回对象包含 getRule/registerRule/hasRule 方法
+// 单元测试：验证 createForm 返回对象包含 getPresetRule/registerPresetRule/hasPresetRule 方法
 describe("RulesRegistry 快捷方法单元测试", () => {
-  // 6.1 验证 createForm 返回对象包含 getRule、registerRule、hasRule 方法
+  // 6.1 验证 createForm 返回对象包含 getPresetRule、registerPresetRule、hasPresetRule 方法
   // 验证：需求 1.1、1.2、1.3、5.4
-  it("createForm 返回对象包含 getRule、registerRule、hasRule 方法", () => {
+  it("createForm 返回对象包含 getPresetRule、registerPresetRule、hasPresetRule 方法", () => {
     const form = createForm({
-      validationRuleRegistry: createValidationRuleRegistry(),
+      presetRuleRegistry: createPresetRuleRegistry(),
     })
 
-    expect(typeof form.getRule).toBe("function")
-    expect(typeof form.registerRule).toBe("function")
-    expect(typeof form.hasRule).toBe("function")
+    expect(typeof form.getPresetRule).toBe("function")
+    expect(typeof form.registerPresetRule).toBe("function")
+    expect(typeof form.hasPresetRule).toBe("function")
 
     form.destroy()
   })
 
-  // 6.2 验证 createForm 返回对象包含 rendererRegistry 和 rulesRegistry 快捷方法
+  // 6.2 验证 createForm 返回对象包含 rendererRegistry 和 presetRuleRegistry 快捷方法
   // 验证：需求 5.1、5.2、5.3
-  it("form 返回对象包含 getRenderer、registerRenderer、getRule、registerRule、hasRule 方法", () => {
+  it("form 返回对象包含 getRenderer、registerRenderer、getPresetRule、registerPresetRule、hasPresetRule 方法", () => {
     const form = createForm({
-      validationRuleRegistry: createValidationRuleRegistry(),
+      presetRuleRegistry: createPresetRuleRegistry(),
     })
 
     const hooks = form
@@ -1282,22 +1423,22 @@ describe("RulesRegistry 快捷方法单元测试", () => {
     expect(typeof hooks.getRenderer).toBe("function")
     expect(typeof hooks.registerRenderer).toBe("function")
     expect(typeof hooks.hasRenderer).toBe("function")
-    expect(typeof hooks.getRule).toBe("function")
-    expect(typeof hooks.registerRule).toBe("function")
-    expect(typeof hooks.hasRule).toBe("function")
+    expect(typeof hooks.getPresetRule).toBe("function")
+    expect(typeof hooks.registerPresetRule).toBe("function")
+    expect(typeof hooks.hasPresetRule).toBe("function")
 
     form.destroy()
   })
 
-  // 6.3 验证未注册的规则名称 getRule 返回 undefined 且 hasRule 返回 false
+  // 6.3 验证未注册的规则名称 getPresetRule 返回 undefined 且 hasPresetRule 返回 false
   // 验证：需求 2.3、4.3
-  it("未注册的规则名称 getRule 返回 undefined 且 hasRule 返回 false", () => {
+  it("未注册的规则名称 getPresetRule 返回 undefined 且 hasPresetRule 返回 false", () => {
     const form = createForm({
-      validationRuleRegistry: createValidationRuleRegistry(),
+      presetRuleRegistry: createPresetRuleRegistry(),
     })
 
-    expect(form.getRule("__nonexistent_rule__")).toBeUndefined()
-    expect(form.hasRule("__nonexistent_rule__")).toBe(false)
+    expect(form.getPresetRule("__nonexistent_rule__")).toBeUndefined()
+    expect(form.hasPresetRule("__nonexistent_rule__")).toBe(false)
 
     form.destroy()
   })
@@ -1363,7 +1504,7 @@ describe("destroy 清理", () => {
   })
 })
 
-// 验证 setSchemas/updateSchemas/updateFieldSchema 动态更新 ViewSchemas 的行为
+// 验证 setSchemas/updateSchemas 动态更新 ViewSchemas 的行为
 describe("动态 schemas", () => {
   it("setSchemas 后更新 ViewSchemas 并保留已有字段值", () => {
     const form = createForm({
@@ -1427,58 +1568,6 @@ describe("动态 schemas", () => {
     expect(form.getViewSchemas()[1]).toMatchObject({
       name: "email",
       label: "邮箱",
-    })
-
-    form.destroy()
-  })
-
-  it("updateFieldSchema 应只更新目标字段静态 schema 并复用兄弟字段 view", () => {
-    const form = createForm({
-      schemas: [
-        { name: "name", label: "姓名", componentType: "input" },
-        { name: "age", label: "年龄", componentType: "input" },
-      ],
-    })
-
-    const [nameBefore, ageBefore] = form.getViewSchemas()
-
-    form.updateFieldSchema("name", {
-      visible: false,
-      readonly: true,
-      disabled: true,
-    })
-
-    const [nameAfter, ageAfter] = form.getViewSchemas()
-
-    expect(nameAfter).toMatchObject({
-      name: "name",
-      visible: false,
-      readonly: true,
-      disabled: true,
-    })
-    expect(nameAfter).not.toBe(nameBefore)
-    expect(ageAfter).toBe(ageBefore)
-
-    form.destroy()
-  })
-
-  it("updateFieldSchema 应同步更新 renderer componentProps 中的静态状态", () => {
-    const form = createForm({
-      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
-    })
-
-    form.updateFieldSchema("name", {
-      readonly: true,
-      disabled: true,
-    })
-
-    const [schema] = form.getViewSchemas()
-
-    expect(schema).toMatchObject({
-      componentProps: {
-        readonly: true,
-        disabled: true,
-      },
     })
 
     form.destroy()

@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest"
 
-import { createValidationRuleRegistry } from "../../registry"
+import { createPresetRuleRegistry } from "../../registry"
 import { createFormModel } from "../model"
 
 describe("FormModel", () => {
   it("不依赖 SchemaRuntime 即可管理值、重置和校验错误", () => {
     const model = createFormModel({
       initialValues: { name: "Alice" },
-      validationRuleRegistry: createValidationRuleRegistry(),
+      presetRuleRegistry: createPresetRuleRegistry(),
       validatorAdapters: [],
     })
 
     model.store.setFieldValue("name", "Bob")
-    model.validation.setFieldErrors("name", ["invalid"])
+    model.store.setFieldErrors("name", [{ type: "external", message: "invalid" }])
 
     expect(model.store.getFieldValue("name")).toBe("Bob")
-    expect(model.validation.getFieldErrors("name")).toEqual(["invalid"])
+    expect(model.store.getFieldErrors("name")).toEqual([
+      { type: "external", message: "invalid" },
+    ])
 
     model.reset()
 
     expect(model.store.getFieldValue("name")).toBe("Alice")
-    expect(model.validation.getFieldErrors("name")).toEqual([])
+    expect(model.store.getFieldErrors("name")).toEqual([])
 
     model.dispose()
   })
@@ -28,7 +30,7 @@ describe("FormModel", () => {
   it("dispose 会停止由 Model 创建的 effect", () => {
     const model = createFormModel({
       initialValues: { name: "Alice" },
-      validationRuleRegistry: createValidationRuleRegistry(),
+      presetRuleRegistry: createPresetRuleRegistry(),
       validatorAdapters: [],
     })
 

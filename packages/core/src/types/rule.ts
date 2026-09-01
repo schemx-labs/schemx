@@ -6,8 +6,8 @@
 
 import type { FieldValue, NamePath, Values } from "./form"
 import type { StandardSchemaV1 } from "./standardSchema"
-import type { ValidationRule } from "./validation"
 import type { ValidationAdapterV1 } from "./validationAdapter"
+import type { ValidationRule } from "../validator/types"
 
 /**
  * 必填校验的可选配置。
@@ -46,7 +46,7 @@ export interface RequiredOptions<TValue = unknown> {
  * }
  * ```
  */
-export type RequiredRule<TValue = unknown> = boolean | RequiredOptions<TValue>
+export type RequiredConfig<TValue = unknown> = boolean | RequiredOptions<TValue>
 
 /**
  * 去除 `undefined` 后的字段值类型，供校验规则声明其可校验的值。
@@ -67,16 +67,16 @@ export type DefinedFieldValue<
  * @example
  * ```ts
  * declare module "@schemx/core" {
- *   interface ValidationRuleDefinition {
+ *   interface PresetRuleDefinition {
  *     email: string
  *   }
  * }
  * ```
  */
-export interface ValidationRuleDefinition {}
+export interface PresetRuleDefinition {}
 
 /** 从声明合并的规则定义中提取规则名称。 */
-type DeclaredRuleName = Extract<keyof ValidationRuleDefinition, string>
+type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
 
 /**
  * 与字段值类型兼容的已声明命名规则。
@@ -85,12 +85,10 @@ type DeclaredRuleName = Extract<keyof ValidationRuleDefinition, string>
  *
  * @typeParam TValue - 字段值类型。
  */
-export type ValidationRuleName<TValue> = [DeclaredRuleName] extends [never]
+export type PresetRuleName<TValue> = [DeclaredRuleName] extends [never]
   ? string
   : {
-      [TKey in DeclaredRuleName]: TValue extends ValidationRuleDefinition[TKey]
-        ? TKey
-        : never
+      [TKey in DeclaredRuleName]: TValue extends PresetRuleDefinition[TKey] ? TKey : never
     }[DeclaredRuleName]
 
 /**
@@ -113,7 +111,7 @@ export type FieldRule<
   TName extends NamePath<TValues>,
   TValue = DefinedFieldValue<TValues, TName>,
 > =
-  | ValidationRuleName<TValue>
+  | PresetRuleName<TValue>
   | ValidationAdapterV1.Rule
   | ValidationRule<TValue, TValues, TName>
   | StandardSchemaV1<TValue, unknown>

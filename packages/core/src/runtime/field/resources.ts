@@ -1,0 +1,223 @@
+/**
+ * Field Runtime 资源管理。
+ *
+ * 管理 FieldRuntimeNode 的字段状态、校验和 dependencies effect。
+ *
+ * @module core/runtime/field/resources
+ */
+
+import { batchUpdates } from "../../reactivity"
+import { createFieldKey, setByPath } from "../../utils"
+import { areNamePathListsEqual } from "../../utils/path"
+
+import { createFieldDependenciesEffect } from "./dependenciesEffect"
+import { createValidationEffect } from "./validationEffect"
+
+import type { NamePath, SchemxFieldDependencies, Values } from "../../types"
+import type { SchemaRuntimeContext } from "../context"
+import type { FieldRuntimeNode } from "../node"
+
+/**
+ * 挂载字段运行时节点的资源。
+ *
+ * 依次创建字段运行态、写入初始值、创建校验和 dependencies effect。
+ *
+ * @typeParam TValues - 表单值类型
+ * @param node - 目标字段运行时节点
+ * @param descriptor - 字段 descriptor
+ * @param context - 运行时上下文
+ */
+export function mountFieldResources<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  context.store.registerFieldPath(node.name.value)
+  applyFieldInitialValue(node, context)
+  recreateFieldEffects(node, context)
+}
+
+/**
+ * 更新字段运行时节点的资源。
+ *
+ * 当字段名变化时先注销旧索引；更新静态 schema、视图状态、重新注册索引，
+ * 然后重建校验和 dependencies effect。
+ *
+ * @typeParam TValues - 表单值类型
+ * @param node - 目标字段运行时节点
+ * @param previousDescriptor - 上一轮 descriptor（用于比较字段名）
+ * @param nextDescriptor - 最新 descriptor
+ * @param context - 运行时上下文
+ */
+export function updateFieldResources<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  previousName: NamePath<TValues> | undefined,
+  previousDynamicConfig: SchemxFieldDependencies<TValues> | undefined,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  const nameChanged =
+    previousName !== undefined &&
+    createFieldKey(previousName) !== createFieldKey(node.name.value)
+
+  if (nameChanged) {
+    batchUpdates(() => {
+      context.store.unregisterFieldPath(previousName)
+      context.store.registerFieldPath(node.name.value)
+    })
+  }
+
+  if (!nameChanged) {
+    context.store.registerFieldPath(node.name.value)
+  }
+
+  if (nameChanged) {
+    recreateValidationEffect(node, context)
+  }
+
+  const dynamicConfig = node.staticSchema.value.dependencies
+
+  if (shouldRecreateDependenciesEffect(previousDynamicConfig, dynamicConfig)) {
+    recreateDependenciesEffect(node, context)
+  }
+}
+
+/**
+ * 卸载字段运行时节点的资源。
+ *
+ * 销毁 effect 并清理节点引用。
+ *
+ * @typeParam TValues - 表单值类型
+ * @param node - 目标字段运行时节点
+ * @param context - 运行时上下文
+ */
+export function unmountFieldResources<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  context.store.unregisterFieldPath(node.name.value)
+  node.validationEffectScope?.dispose()
+  node.validationEffectScope = null
+  node.dependenciesEffectScope?.dispose()
+  node.dependenciesEffectScope = null
+  // 运行态 Signal 在节点创建时初始化，卸载只释放字段资源。
+}
+
+/**
+ * 重建字段的校验和 dependencies effect。
+ *
+ * 销毁旧 validationEffectScope 作用域，在子作用域中重新创建
+ * createValidationEffect 和 createDependenciesEffect。
+ * effect 销毁时自动清理 node.validationEffectScope 引用。
+ *
+ * @typeParam TValues - 表单值类型
+ * @param node - 字段运行时节点
+ * @param descriptor - 字段 descriptor
+ * @param context - 运行时上下文
+ */
+function recreateFieldEffects<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  recreateValidationEffect(node, context)
+  recreateDependenciesEffect(node, context)
+}
+
+/** 创建或重建仅随字段 name 变化的 validation effect。 */
+function recreateValidationEffect<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  node.validationEffectScope?.dispose()
+
+  const validationEffectScope = node.scope.child()
+
+  node.validationEffectScope = validationEffectScope
+
+  createValidationEffect({
+    context,
+    name: node.name.value,
+    validationSchema: node.validationSchema,
+    scope: validationEffectScope,
+  })
+
+  validationEffectScope.add(() => {
+    if (node.validationEffectScope === validationEffectScope) {
+      node.validationEffectScope = null
+    }
+  })
+}
+
+/** 创建或重建 dependencies 配置发生变化的 effect。 */
+function recreateDependenciesEffect<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  node.dependenciesEffectScope?.dispose()
+
+  const dependenciesEffectScope = node.scope.child()
+
+  node.dependenciesEffectScope = dependenciesEffectScope
+
+  createFieldDependenciesEffect({
+    context,
+    taskId: `field:${node.id}:dependencies`,
+    node,
+    scope: dependenciesEffectScope,
+  })
+
+  dependenciesEffectScope.add(() => {
+    if (node.dependenciesEffectScope === dependenciesEffectScope) {
+      node.dependenciesEffectScope = null
+    }
+  })
+}
+
+/** 仅 dependencies 对象 identity 或触发字段集合变化时重建 effect。 */
+function shouldRecreateDependenciesEffect<TValues extends Values>(
+  previous: SchemxFieldDependencies<TValues> | undefined,
+  next: SchemxFieldDependencies<TValues> | undefined
+): boolean {
+  if (previous !== next) {
+    return true
+  }
+
+  return !areNamePathListsEqual(previous?.triggerFields ?? [], next?.triggerFields ?? [])
+}
+
+/**
+ * 写入字段初始值。
+ *
+ * 如果 descriptor.staticSchema 中定义了 initialValue 且当前字段值
+ * 尚未设置，则写入该初始值。仅在首次挂载时生效。
+ *
+ * @typeParam TValues - 表单值类型
+ * @param descriptor - 字段 descriptor
+ * @param context - 运行时上下文
+ */
+function applyFieldInitialValue<TValues extends Values>(
+  node: FieldRuntimeNode<TValues>,
+  context: SchemaRuntimeContext<TValues>
+): void {
+  const staticSchema = node.staticSchema.value
+
+  if (!Object.hasOwn(staticSchema, "initialValue")) {
+    return
+  }
+
+  const store = context.store
+
+  if (store.getFieldValue(node.name.value) !== undefined) {
+    return
+  }
+
+  const initialValue = staticSchema.initialValue as never
+
+  const initialValues = {} as Partial<TValues>
+
+  setByPath<TValues, NamePath<TValues>, never>(
+    initialValues,
+    node.name.value,
+    initialValue
+  )
+  store.setInitialValues(initialValues)
+  store.setFieldValue(node.name.value, initialValue)
+}

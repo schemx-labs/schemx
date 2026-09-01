@@ -224,6 +224,87 @@ export function toNamePathSegments<TValues extends Values = Values>(
 }
 
 /**
+ * 判断两个字段路径是否相同或互为父子路径。
+ *
+ * @param first - 第一个字段路径。
+ * @param second - 第二个字段路径。
+ * @returns 两个路径相同或存在父子关系时返回 `true`。
+ */
+export function areSameOrOverlappingFieldPaths<TValues extends Values>(
+  first: NamePath<TValues>,
+  second: NamePath<TValues>
+): boolean {
+  return (
+    createFieldKey(first) === createFieldKey(second) ||
+    areOverlappingFieldPaths(first, second)
+  )
+}
+
+/**
+ * 将字段路径转换为结构共享写入使用的路径段。
+ *
+ * @param path - 待转换的字段路径。
+ * @returns 结构共享写入使用的路径段。
+ */
+export function toStructuralPathSegments<TValues extends Values>(
+  path: NamePath<TValues>
+): readonly string[] {
+  if (typeof path === "string" && path !== "") {
+    const hasDot = path.includes(".")
+
+    const hasArrayIndex = /\[\d+\]/.test(path)
+
+    if (!hasDot && !hasArrayIndex) return [path]
+  }
+
+  const segments = toNamePathSegments(path)
+
+  if (typeof path === "string" && path !== "" && segments.length === 0) {
+    return [path]
+  }
+
+  return segments
+}
+
+/**
+ * 使用结构共享更新字段路径，未经过的对象和数组保留原引用。
+ *
+ * @param source - 当前路径所在的值树或子树。
+ * @param segments - 已规范化的路径段。
+ * @param value - 要写入的值。
+ * @param index - 当前递归处理的路径段索引。
+ * @returns 写入后的值树或子树。
+ */
+export function setInWithStructuralSharing(
+  source: unknown,
+  segments: readonly string[],
+  value: unknown,
+  index = 0
+): unknown {
+  if (index === segments.length) return value
+
+  const segment = segments[index]
+
+  const isArrayIndex = /^\d+$/.test(segment)
+
+  const sourceObject = source !== null && typeof source === "object" ? source : undefined
+
+  const base = sourceObject ?? (isArrayIndex ? [] : {})
+
+  const previousChild = (base as Record<string, unknown>)[segment]
+
+  const nextChild = setInWithStructuralSharing(previousChild, segments, value, index + 1)
+
+  if (Object.is(previousChild, nextChild) && sourceObject !== undefined) return base
+
+  const copy = Array.isArray(base) ? [...base] : { ...base }
+
+  ;(copy as Record<string, unknown>)[segment] = nextChild
+
+  return copy
+}
+
+/**
  * 判断 candidate 是否位于 ancestor 的严格后代路径。
  *
  * @param candidate - 待判断的字段路径。

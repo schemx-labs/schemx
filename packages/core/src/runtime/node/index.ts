@@ -1,67 +1,53 @@
 /**
  * Graph 模块统一导出。
  *
- * 提供 RuntimeNode、RuntimeNodeManager、资源作用域和生命周期管理。
+ * 提供 RuntimeNode、NodeManager、资源作用域和生命周期管理。
  *
  * @module core/runtime/node
  */
 
-export {
-  createDependencyRuntimeNode,
-  createFieldRuntimeNode,
-  createGroupRuntimeNode,
-  createRootRuntimeNode,
-} from "./runtimeNode"
-
-export { createRuntimeRegistry } from "./runtimeRegistry"
+export { collectFieldRuntimeNodes, findFieldRuntimeNode } from "./helper"
 
 export type {
-  PresentationDynamicProps,
-  PresentationStaticState,
-  DependencyRenderer,
-  DependencyRuntimeNodeInput,
-  FieldDynamicProps,
-  FieldRuntimeNodeInput,
-  FieldValidation,
-  GroupRuntimeNodeInput,
-  RuntimeNodeInput,
-} from "./input"
-
-export type {
+  FieldDynamicOverrideKey,
+  FieldDynamicOverrides,
+  FieldEffectiveSchema,
+  FieldRuntimeDiagnostics,
+  FieldValidationSchema,
   ParentRuntimeNode,
+  PresentationDynamicOverrides,
+  PresentationState,
+  PresentationStaticState,
   CreateDependencyRuntimeNodeOptions,
   CreateFieldRuntimeNodeOptions,
   CreateGroupRuntimeNodeOptions,
   CreateRootRuntimeNodeOptions,
-  CreateRuntimeNodeManagerOptions,
-  CreateRuntimeNodeOptions,
   DependencyRuntimeNode,
   FieldRuntimeNode,
   GroupRuntimeNode,
   RootRuntimeNode,
-  RuntimeChildrenState,
   RuntimeCleanup,
   RuntimeCleanupHandle,
-  RuntimeDispose,
-  RuntimeFieldIndex,
+  RuntimeScope,
   RuntimeNode,
   RuntimeNodeId,
-  RuntimeNodeManager,
-  RuntimeRegistry,
   RuntimeNodeType,
   SchemaRuntimeNode,
-  Scope,
-  ScopeCleanup,
-  ScopeCleanupHandle,
 } from "./types"
 
-export { createRuntimeNodeManager } from "./runtimeNodeManager"
-
-export { createRuntimeLifecycle, type RuntimeLifecycle } from "./runtimeLifecycle"
+export {
+  createNodeManager,
+  type NodeManager,
+  type NodeTreePredicate,
+  type NodeTreeVisitor,
+} from "./nodeManager"
 
 export {
-  createRuntimeDispose,
-  createRuntimeScope,
-  createScope,
-  reportRuntimeCleanupError,
-} from "./scope"
+  createRuntimeNodeLifecycle,
+  mountNodeResources,
+  type RuntimeNodeLifecycle,
+  unmountNodeResources,
+  updateNodeResources,
+} from "./resources"
+
+export { createRuntimeScope, reportRuntimeCleanupError } from "./runtimeScope"

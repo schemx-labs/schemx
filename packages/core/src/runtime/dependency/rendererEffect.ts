@@ -1,19 +1,19 @@
 /**
  * DependencyRendererEffect - dependency renderer 执行态容器。
  *
- * Effect state 只记录异步执行状态。renderer 返回的结构由 reconciler 写入
+ * Effect state 只记录异步执行状态。renderer 返回的结构由 SchemaTreeCommitter 写入
  * DependencyRuntimeNode.childNodes。
  *
  * @module core/runtime/dependency/rendererEffect
  */
 
 import { createSignal } from "../../reactivity"
-import { createDepSchedulerEffect } from "../dependencySchedulerEffect"
+import { createDependencySchedulerEffect } from "../dependencyScheduler"
 
 import type { Signal } from "../../reactivity"
 import type { SchemxField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { DependencyRuntimeNode, RuntimeDispose } from "../node"
+import type { DependencyRuntimeNode, RuntimeScope } from "../node"
 
 /**
  * 检查 DependencyRuntimeNode 是否有 renderer effect。
@@ -93,7 +93,7 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
   /**
    * 关联的 scope，默认创建 node 的子 scope。
    */
-  scope?: RuntimeDispose
+  scope?: RuntimeScope
 }
 
 /**
@@ -115,7 +115,7 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
   const { formApi, reconcileChildren } = context
 
   // 当前 dependency effect 独占的资源作用域。
-  const resourceScope = options.scope ?? node.dispose.child()
+  const resourceScope = options.scope ?? node.scope.child()
 
   node.rendererEffect?.dispose()
 
@@ -132,9 +132,12 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
   const abortController = createSignal<AbortController | null>(null)
 
   // 统一管理字段订阅、队列合并、异步取消和最新结果提交。
-  const schedulerEffect = createDepSchedulerEffect<TValues, SchemxField<TValues>[]>({
+  const schedulerEffect = createDependencySchedulerEffect<
+    TValues,
+    SchemxField<TValues>[]
+  >({
     context,
-    triggerFields: node.triggerFields,
+    triggerFields: node.staticSchema.value.to,
     taskId: `dependency:${node.id}:renderer`,
     scope: resourceScope,
     shouldRun: () => {
@@ -143,7 +146,11 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
     },
     run: async (signal) => {
       // 每次任务读取节点上的最新 renderer，避免使用过期配置。
-      return await Promise.resolve(node.renderer(formApi, signal))
+      return await Promise.resolve(
+        node.staticSchema.value.renderer(formApi.getFieldsValue(), formApi, {
+          abortSignal: signal,
+        })
+      )
     },
     onStart: (controller) => {
       version.value += 1
@@ -167,7 +174,7 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
             return
           }
 
-          reconcileChildren(node, childSchemas)
+          reconcileChildren(node.id, childSchemas)
         },
       })
     },

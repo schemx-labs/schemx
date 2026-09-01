@@ -1,11 +1,20 @@
 /**
  * Store 对外公开的类型定义。
  *
+ * Store 将当前值、初始值和路径级交互状态分开管理；字段注册只物化路径状态，
+ * 不拥有对应值子树。
+ *
  * @module core/store/types
  */
 
-import type { FieldArrayHandle, FieldArrayItemValue, FieldArrayPath } from "../fieldArray"
+import type {
+  FieldArrayChange,
+  FieldArrayHandle,
+  FieldArrayItemValue,
+  FieldArrayPath,
+} from "../fieldArray"
 import type { FieldValue, NamePath, Values } from "../types"
+import type { ValidationRuleIssue } from "../validator/types"
 
 /**
  * Store 配置选项。
@@ -39,6 +48,9 @@ export interface StoreState<TValues extends Values> {
  * Pending 字段类型。
  *
  * 正在操作中的字段信息。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - pending 字段路径类型。
  */
 export interface StorePending<
   TValues extends Values = Values,
@@ -51,13 +63,37 @@ export interface StorePending<
   /**
    * 操作进行期间向用户显示的提示消息。
    */
-  message: string[]
+  message: readonly string[]
+}
+
+/**
+ * Store 中单个字段的错误快照。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface StoreFieldError<TValues extends Values = Values> {
+  /**
+   * 错误所属的字段路径。
+   */
+  readonly field: NamePath<TValues>
+  /**
+   * 按错误来源顺序排列的问题列表。
+   */
+  readonly errors: readonly ValidationRuleIssue[]
 }
 
 /**
  * 表单数据存储中心的公开操作接口。
  *
  * @typeParam TValues - 表单值类型。
+ *
+ * @example
+ * ```ts
+ * const store = createStore<{ email: string }>({
+ *   initialValues: { email: "" },
+ * })
+ * store.setFieldValue("email", "ada@example.com")
+ * ```
  */
 export interface Store<TValues extends Values = Values> {
   /**
@@ -65,25 +101,49 @@ export interface Store<TValues extends Values = Values> {
    *
    * @param path - 动态数组字段路径。
    * @typeParam TPath - 动态数组字段路径类型。
+   * @returns 与数组路径绑定的结构 Handle；调用方负责在销毁订阅时取消监听。
    */
   getFieldArrayHandle<TPath extends FieldArrayPath<TValues>>(
     path: TPath
   ): FieldArrayHandle<FieldArrayItemValue<FieldValue<TValues, TPath>>>
   /**
-   * 注册 Schema 字段路径，将其作为批量写入的原子值边界。
+   * 注册 Schema 字段路径并物化对应路径状态。
    *
    * @param path - 要注册的字段路径。
-   * @throws 当路径与已注册字段存在父子重叠时抛出错误。
    */
   registerFieldPath<TName extends NamePath<TValues>>(path: TName): void
 
   /**
-   * 批量注册 Schema 字段路径，将每个路径作为批量写入的原子值边界。
+   * 反注册 Schema 字段路径；不会删除当前值、初始值或已缓存的路径状态。
+   *
+   * @param path - 要反注册的字段路径。
+   */
+  unregisterFieldPath<TName extends NamePath<TValues>>(path: TName): void
+
+  /**
+   * 批量注册 Schema 字段路径并物化对应路径状态。
    *
    * @param paths - 要注册的字段路径数组。
-   * @throws 当任一路径与已注册字段存在父子重叠时抛出错误。
    */
   registerFieldPaths<TName extends NamePath<TValues>>(paths: TName[]): void
+
+  /**
+   * 设置指定字段的当前值。
+   *
+   * @param path - 要写入的字段路径。
+   * @param value - 要写入的字段值。
+   */
+  setFieldValue<TName extends NamePath<TValues>>(
+    path: TName,
+    value: FieldValue<TValues, TName> | undefined
+  ): void
+
+  /**
+   * 批量设置字段的当前值。
+   *
+   * @param values - 要写入的字段值对象。
+   */
+  setFieldsValue(values: Partial<TValues>): void
 
   /**
    * 获取指定字段的当前值。
@@ -96,15 +156,14 @@ export interface Store<TValues extends Values = Values> {
   ): FieldValue<TValues, TName> | undefined
 
   /**
-   * 设置指定字段的当前值。
+   * 获取单个字段的无依赖快照。
    *
-   * @param path - 要写入的字段路径。
-   * @param value - 要写入的字段值。
+   * @param path - 要读取的字段路径。
+   * @returns 字段当前值的快照。
    */
-  setFieldValue<TName extends NamePath<TValues>>(
-    path: TName,
-    value: FieldValue<TValues, TName> | undefined
-  ): void
+  getFieldSnapshot<TName extends NamePath<TValues>>(
+    path: TName
+  ): FieldValue<TValues, TName> | undefined
 
   /**
    * 获取多个字段的当前值。
@@ -121,35 +180,36 @@ export interface Store<TValues extends Values = Values> {
   getFieldsValue<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
 
   /**
-   * 批量设置字段的当前值。
-   *
-   * @param values - 要写入的字段值对象。
-   */
-  setFieldsValue(values: Partial<TValues>): void
-
-  /**
-   * 获取单个字段的无依赖快照。
-   *
-   * @param path - 要读取的字段路径。
-   * @returns 字段当前值的快照。
-   */
-  getFieldSnapshot<TName extends NamePath<TValues>>(
-    path: TName
-  ): FieldValue<TValues, TName> | undefined
-
-  /**
    * 获取当前表单值的无依赖快照。
    *
    * @returns 未指定路径时返回全量快照，否则返回指定字段的部分快照。
    */
   getFieldsSnapshot(): TValues
   /**
-   * 获取指定字段的无依赖快照。
+   * 获取指定字段的无依赖当前值快照。
    *
    * @param paths - 要读取的字段路径数组。
    * @returns 指定字段组成的部分快照。
    */
   getFieldsSnapshot<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
+
+  /**
+   * 设置指定字段的初始值。
+   *
+   * @param path - 要写入的字段路径。
+   * @param value - 要写入的初始值。
+   */
+  setInitialValue<TName extends NamePath<TValues>>(
+    path: TName,
+    value: FieldValue<TValues, TName>
+  ): void
+
+  /**
+   * 批量设置字段的初始值。
+   *
+   * @param values - 要写入的初始值对象。
+   */
+  setInitialValues(values: Partial<TValues>): void
 
   /**
    * 获取指定字段的初始值。
@@ -176,53 +236,6 @@ export interface Store<TValues extends Values = Values> {
   getInitialValues<TName extends NamePath<TValues>>(paths: TName[]): Partial<TValues>
 
   /**
-   * 设置指定字段的初始值。
-   *
-   * @param path - 要写入的字段路径。
-   * @param value - 要写入的初始值。
-   */
-  setInitialValue<TName extends NamePath<TValues>>(
-    path: TName,
-    value: FieldValue<TValues, TName>
-  ): void
-
-  /**
-   * 批量设置字段的初始值。
-   *
-   * @param values - 要写入的初始值对象。
-   */
-  setInitialValues(values: Partial<TValues>): void
-
-  /**
-   * 判断指定字段是否被显式触碰或修改。
-   *
-   * @param path - 要检查的字段路径。
-   * @returns 字段是否处于 touched 状态。
-   */
-  isFieldTouched<TName extends NamePath<TValues>>(path: TName): boolean
-
-  /**
-   * 判断多个字段是否被修改。
-   *
-   * @returns 不传路径时表示任一字段被修改，传入路径时表示全部字段被修改。
-   */
-  isFieldsTouched(): boolean
-  /**
-   * 判断指定字段是否全部被修改。
-   *
-   * @param paths - 要检查的字段路径数组。
-   * @returns 指定字段是否全部处于 touched 状态。
-   */
-  isFieldsTouched<TName extends NamePath<TValues>>(paths: TName[]): boolean
-
-  /**
-   * 获取所有被显式触碰或修改的字段路径。
-   *
-   * @returns touched 字段路径数组。
-   */
-  getTouchedFields(): NamePath<TValues>[]
-
-  /**
    * 设置指定字段的 touched 状态。
    *
    * @param path - 要设置的字段路径。
@@ -242,33 +255,33 @@ export interface Store<TValues extends Values = Values> {
   ): void
 
   /**
-   * 判断指定字段是否处于 pending 状态。
+   * 判断指定字段是否被显式触碰或修改。
    *
    * @param path - 要检查的字段路径。
-   * @returns 字段是否正在执行异步操作。
+   * @returns 字段是否处于 touched 状态。
    */
-  isFieldPending<TName extends NamePath<TValues>>(path: TName): boolean
+  isFieldTouched<TName extends NamePath<TValues>>(path: TName): boolean
 
   /**
-   * 判断多个字段是否处于 pending 状态。
+   * 判断是否存在已物化但尚未 touched 的字段。
    *
-   * @returns 不传路径时表示任一字段 pending，传入路径时表示全部字段 pending。
+   * @returns 存在尚未 touched 的字段时返回 `true`。
    */
-  isFieldsPending(): boolean
+  isFieldsTouched(): boolean
   /**
-   * 判断指定字段是否全部处于 pending 状态。
+   * 判断指定字段是否全部被修改。
    *
    * @param paths - 要检查的字段路径数组。
-   * @returns 指定字段是否全部处于 pending 状态。
+   * @returns 指定字段是否全部处于 touched 状态。
    */
-  isFieldsPending<TName extends NamePath<TValues>>(paths: TName[]): boolean
+  isFieldsTouched<TName extends NamePath<TValues>>(paths: TName[]): boolean
 
   /**
-   * 获取所有处于 pending 状态的字段及其提示消息。
+   * 获取所有被显式触碰或修改的字段路径。
    *
-   * @returns pending 字段信息数组。
+   * @returns touched 字段路径数组。
    */
-  getPendingFields(): StorePending<TValues, NamePath<TValues>>[]
+  getTouchedFields(): NamePath<TValues>[]
 
   /**
    * 设置指定字段的 pending 状态。
@@ -297,6 +310,101 @@ export interface Store<TValues extends Values = Values> {
   ): void
 
   /**
+   * 判断指定字段是否处于 pending 状态。
+   *
+   * @param path - 要检查的字段路径。
+   * @returns 字段是否正在执行异步操作。
+   */
+  isFieldPending<TName extends NamePath<TValues>>(path: TName): boolean
+
+  /**
+   * 判断是否存在已物化但尚未 pending 的字段。
+   *
+   * @returns 存在尚未 pending 的字段时返回 `true`。
+   */
+  isFieldsPending(): boolean
+  /**
+   * 判断指定字段是否全部处于 pending 状态。
+   *
+   * @param paths - 要检查的字段路径数组。
+   * @returns 指定字段是否全部处于 pending 状态。
+   */
+  isFieldsPending<TName extends NamePath<TValues>>(paths: TName[]): boolean
+
+  /**
+   * 获取所有处于 pending 状态的字段及其提示消息。
+   *
+   * @returns pending 字段信息数组。
+   */
+  getPendingFields(): StorePending<TValues, NamePath<TValues>>[]
+
+  /**
+   * 覆盖指定字段的全部错误来源。
+   *
+   * @param path - 要写入的字段路径。
+   * @param errors - 要保存的问题列表。
+   */
+  setFieldErrors(path: NamePath<TValues>, errors: readonly ValidationRuleIssue[]): void
+
+  /**
+   * 批量设置多个字段的全部错误来源。
+   *
+   * @param fields - 字段路径及其对应的问题列表。
+   */
+  setFieldsErrors(fields: readonly StoreFieldError<TValues>[]): void
+
+  /**
+   * 读取指定字段按错误来源顺序合并的问题。
+   *
+   * @param path - 要读取的字段路径。
+   * @returns 字段错误问题的独立快照。
+   */
+  getFieldErrors(path: NamePath<TValues>): readonly ValidationRuleIssue[]
+
+  /**
+   * 读取多个字段的错误问题；省略路径时返回全部有错误的字段。
+   *
+   * @param paths - 可选的字段路径数组；传入后按路径顺序返回，空错误也会保留。
+   * @returns 字段错误问题的独立快照。
+   */
+  getFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[]
+
+  /**
+   * 无依赖读取指定字段的问题。
+   *
+   * @param path - 要读取的字段路径。
+   * @returns 字段错误问题的独立快照。
+   */
+  peekFieldErrors(path: NamePath<TValues>): readonly ValidationRuleIssue[]
+
+  /**
+   * 无依赖读取多个字段的错误问题；省略路径时返回全部有错误的字段。
+   *
+   * @param paths - 可选的字段路径数组；传入后按路径顺序返回，空错误也会保留。
+   * @returns 字段错误问题的独立快照。
+   */
+  peekFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[]
+
+  /**
+   * 清除指定字段的全部错误来源。
+   *
+   * @param path - 要清除的字段路径。
+   */
+  clearFieldErrors(path: NamePath<TValues>): void
+
+  /**
+   * 清除多个字段的全部错误来源；省略路径时清除全部字段。
+   *
+   * @param paths - 可选的字段路径数组。
+   */
+  clearFieldsErrors(paths?: readonly NamePath<TValues>[]): void
+
+  /**
+   * 清除所有已物化字段的错误来源。
+   */
+  clearAllErrors(): void
+
+  /**
    * 将指定字段重置为其初始值。
    *
    * @param path - 要重置的字段路径。
@@ -313,12 +421,20 @@ export interface Store<TValues extends Values = Values> {
   /**
    * 重置表单状态，可选地替换初始值基线。
    *
-   * @param values - 可选的新初始值。
+   * @param values - 可选的新完整初始值；传入后不存在的旧路径会被移除。
    */
   reset(values?: Partial<TValues>): void
 
   /**
-   * 销毁 Store 并释放字段 signal 和 batch 监听。
+   * 按数组结构变更范围清理过期错误。
+   *
+   * @param path - 发生结构变更的数组根路径。
+   * @param change - 用于判断受影响索引范围的变更描述。
+   */
+  invalidateFieldArrayErrors(path: NamePath<TValues>, change: FieldArrayChange): void
+
+  /**
+   * 销毁 Store，清空值和路径状态，并释放数组结构监听。
    */
   destroy(): void
 }

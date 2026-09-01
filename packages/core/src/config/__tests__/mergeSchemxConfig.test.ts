@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { createRendererRegistry, createValidationRuleRegistry } from "../../registry"
+import { createPresetRuleRegistry, createRendererRegistry } from "../../registry"
 import {
   mergeAndResolveSchemxConfig,
   mergeSchemxConfig,
@@ -16,28 +16,28 @@ describe("mergeSchemxConfig", () => {
     const lowPriorityRendererRegistry = createRendererRegistry()
 
     // 高优先级校验规则 Registry。
-    const highPriorityRuleRegistry = createValidationRuleRegistry()
+    const highPriorityRuleRegistry = createPresetRuleRegistry()
 
     // 低优先级校验规则 Registry。
-    const lowPriorityRuleRegistry = createValidationRuleRegistry()
+    const lowPriorityRuleRegistry = createPresetRuleRegistry()
 
     const result = mergeSchemxConfig(
       {
         defaultRendererType: "high",
         rendererRegistry: highPriorityRendererRegistry,
-        validationRuleRegistry: highPriorityRuleRegistry,
+        presetRuleRegistry: highPriorityRuleRegistry,
       },
       {
         defaultRendererType: "low",
         rendererRegistry: lowPriorityRendererRegistry,
-        validationRuleRegistry: lowPriorityRuleRegistry,
+        presetRuleRegistry: lowPriorityRuleRegistry,
       }
     )
 
     expect(result).toMatchObject({
       defaultRendererType: "high",
       rendererRegistry: highPriorityRendererRegistry,
-      validationRuleRegistry: highPriorityRuleRegistry,
+      presetRuleRegistry: highPriorityRuleRegistry,
     })
   })
 

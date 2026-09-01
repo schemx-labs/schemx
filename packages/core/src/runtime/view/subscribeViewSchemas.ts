@@ -10,7 +10,6 @@ import { createDebouncedSignalWatch } from "../../reactivity"
 
 import type { Values } from "../../types"
 import type { RootRuntimeNode } from "../node"
-import type { RootViewState, RuntimeViewState } from "./createViewState"
 import type { SchemxViewSchema } from "./types"
 
 /**
@@ -30,9 +29,7 @@ export function subscribeViewSchemas<TValues extends Values = Values>(
   // 值变化后以 16ms 防抖间隔通知 onChange
   const disposeWatch = createDebouncedSignalWatch(
     () => {
-      const rootViewState = root.viewState
-
-      return isRootViewState(rootViewState) ? rootViewState.viewSchemas.value : []
+      return root.viewSchemas?.value ?? []
     },
     (viewSchemas) => {
       try {
@@ -45,7 +42,7 @@ export function subscribeViewSchemas<TValues extends Values = Values>(
   )
 
   // Root scope 拥有 watch；Runtime 销毁时无需调用方额外 unsubscribe。
-  const disposeHandle = root.dispose.add(disposeWatch.dispose)
+  const disposeHandle = root.scope.add(disposeWatch.dispose)
 
   /**
    * 取消订阅，并从 Root scope 提前释放 watch。
@@ -55,16 +52,4 @@ export function subscribeViewSchemas<TValues extends Values = Values>(
   }
 
   return unsubscribe
-}
-
-/**
- * 类型守卫：判断 viewState 是否为 RootViewState。
- *
- * @param viewState - 待检查的运行时视图状态。
- * @returns 如果包含 viewSchemas 属性则判定为 RootViewState。
- */
-function isRootViewState<TValues extends Values>(
-  viewState: RuntimeViewState<TValues> | null | undefined
-): viewState is RootViewState<TValues> {
-  return viewState != null && "viewSchemas" in viewState
 }
