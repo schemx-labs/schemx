@@ -42,7 +42,7 @@ function normalizeSchemxAppConfig(config: SchemxConfig): SchemxConfig {
     validatorAdapters,
     defaultRendererType: config.defaultRendererType,
     rendererRegistry: config.rendererRegistry,
-    validationRuleRegistry: config.validationRuleRegistry,
+    presetRuleRegistry: config.presetRuleRegistry,
   })
 }
 

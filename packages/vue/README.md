@@ -85,21 +85,22 @@ console.log(Schemx === schemxForm) // true
 | `modelValue`             | `T`                                              | `{}`                          | `v-model` 的输入端；非空值参与初始快照，后续替换会同步到内部表单，字段变化会通过 `update:modelValue` 输出                       |
 | `initialValues`          | `T`                                              | `{}`                          | 创建内部表单时的初始值，也是 `reset()` 的还原基准                                                                               |
 | `form`                   | `SchemxInstance<T>`                              | `undefined`                   | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件级回调不会写入该实例，`v-model` 仍监听实例变化 |
+| `fieldRules`             | `SchemxFieldRulesMap<T>`                         | `undefined`                   | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先                                                                   |
 | `rendererProps`          | `SchemxRendererPropsMap<T>`                      | `undefined`                   | 按 Renderer 类型设置静态默认 Props；字段 `componentProps` 与 Runtime 注入值优先                                                 |
 | `rendererRegistry`       | `RendererRegistry`                               | 全局 `rendererRegistry`       | 当前表单使用的 Renderer Registry                                                                                                |
 | `defaultRendererType`    | `SchemxRendererKey`                              | `undefined`                   | 创建内部表单且未传 `rendererRegistry` 时的默认 Renderer 类型；Vue 全局 Registry 存在时由该 Registry 的 fallback 决定            |
-| `validationRuleRegistry` | `ValidationRuleRegistry`                         | 全局 `validationRuleRegistry` | 当前表单使用的校验规则 Registry                                                                                                 |
+| `presetRuleRegistry` | `PresetRuleRegistry`                         | 全局 `presetRuleRegistry` | 当前表单使用的预设规则 Registry                                                                                                 |
 | `validatorAdapters`      | `readonly ValidationAdapterOption[]`             | `[]`                          | 当前表单使用的第三方校验 adapter；创建内部 Form 时参与配置合并并传递给 Core                                                     |
-| `required`               | `boolean`                                        | `undefined`                   | 表单级必填默认值；字段自身配置优先，普通 `rules` 不会推导必填或显示星号                                                         |
+| `required`               | `RequiredConfig`                                 | `undefined`                   | 表单级必填默认值；字段自身配置优先，普通 `rules` 不会推导必填或显示星号                                                         |
 | `readonly`               | `boolean`                                        | `undefined`                   | 表单级只读默认值；字段自身配置优先                                                                                              |
 | `disabled`               | `boolean`                                        | `undefined`                   | 表单级禁用默认值；字段自身配置优先                                                                                              |
-| `visible`                | `boolean`                                        | `undefined`                   | 表单级可见性默认值；字段自身配置优先，均未配置时为 `true`                                                                       |
+| `visible`                | `boolean`                                        | `true`                        | 表单级可见性默认值；字段自身配置优先                                                                                              |
 | `labelIcon`              | `string`                                         | `undefined`                   | 表单级标签图标默认值；会进入字段 ViewSchema，具体是否渲染取决于适配组件                                                         |
 | `labelAlign`             | `"left" \| "center" \| "right"`                  | `undefined`                   | 表单级标签对齐默认值；字段自身配置优先，均未配置时为 `"left"`                                                                   |
 | `labelPosition`          | `"left" \| "top" \| "right"`                     | `undefined`                   | 表单级标签位置默认值；字段自身配置优先，均未配置时为 `"left"`                                                                   |
 | `labelWidth`             | `string`                                         | `undefined`                   | 表单级标签宽度默认值；字段自身配置优先，均未配置时为 `"auto"`                                                                   |
 | `contentAlign`           | `"left" \| "center" \| "right"`                  | `undefined`                   | 表单级内容对齐默认值；用于解析 Renderer 的 `align`，字段自身配置优先                                                            |
-| `validationTrigger`      | `ValidationTrigger \| ValidationTrigger[]`       | `undefined`                   | 表单级校验触发方式默认值；字段自身配置优先，均未配置时为 `"blur"`                                                               |
+| `validationTrigger`      | `ValidationTrigger \| ValidationTrigger[]`       | `["blur", "change"]`        | 表单级校验触发方式默认值；字段自身配置优先                                                                                       |
 | `colon`                  | `boolean`                                        | `undefined`                   | 表单级标签冒号默认值；字段自身配置优先，均未配置时为 `true`                                                                     |
 | `onFinish`               | `(values: Readonly<T>) => void \| Promise<void>` | `undefined`                   | `submit()` 校验通过后的回调 Prop                                                                                                |
 | `onFinishFailed`         | `(failure: ValidationFailure<T>) => void`        | `undefined`                   | `submit()` 校验失败后的回调 Prop                                                                                                |
@@ -107,13 +108,16 @@ console.log(Schemx === schemxForm) // true
 | `onLoadingChange`        | `(loading: boolean) => void`                     | `undefined`                   | 内部表单提交开始和结束时的回调                                                                                                  |
 | `onValuesChange`         | `(changedValues, latestSnapshot) => void`        | `undefined`                   | 字段值变化后的回调 Prop                                                                                                         |
 | `onFieldsChange`         | `(changedFields, allFields) => void`             | `undefined`                   | 字段路径变化后的回调 Prop                                                                                                       |
-| `onRuleError`            | `CreateValidatorOptions<T>["onRuleError"]`       | `undefined`                   | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
+| `onRuleError`            | `FormCallbackOptions<T>["onRuleError"]`          | `undefined`                   | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
+| `lifecycleHooks`         | `FormLifecycleOptions["lifecycleHooks"]`        | `undefined`                   | Runtime 生命周期钩子                                                                                                           |
+| `schedulerOptions`       | `SchedulerOptions`                               | `undefined`                   | Scheduler 时间片与 idle 队列配置                                                                                               |
+| `validationConcurrency`  | `number`                                         | `8`                           | 整表校验时同时运行的字段数                                                                                                     |
 | `loading`                | `boolean`                                        | `undefined`                   | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
-| `submitter` / `resetter` | `boolean \| SchemxFormActionConfig`              | `undefined`                   | 控制内置提交 / 重置按钮；未配置时不渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                  |
+| `submitter` / `resetter` | `boolean \| SchemxFormActionConfig`              | `true`                        | 控制内置提交 / 重置按钮；默认渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                      |
 | `class`                  | `string`                                         | `""`                          | 添加到根 `.schemx` 元素的类名                                                                                                   |
 | `style`                  | `StyleValue`                                     | `{}`                          | 绑定到根 `.schemx` 元素                                                                                                         |
 
-上述 Schema 默认配置都会参与 core 的字段规范化，通常按字段配置 → 表单 Prop → core 固定默认值合并。Registry、默认 Renderer 和 `validatorAdapters` 则按表单显式配置 → 当前 App 安装配置 → Vue 模块级 Registry → Core 模块级配置 → Core 内置默认值解析。必填只能通过 `required: true` 或 `RequiredOptions` 表达；普通 `rules` 只负责执行校验，不会显示必填星号。传入 `form` 时，`initialValues`、Registry 和所有表单回调都由外部实例的创建者配置；组件不会用同名 Props 重建或包装外部实例。
+上述 Schema 默认配置都会参与 core 的字段规范化，通常按字段配置 → 表单 Prop → core 固定默认值合并。Registry、默认 Renderer 和 `validatorAdapters` 则按表单显式配置 → 当前 App 安装配置 → Vue 模块级 Registry → Core 模块级配置 → Core 内置默认值解析。必填只能通过 `required: true` 或 `RequiredOptions` 表达；普通 `rules` 只负责执行校验，不会显示必填星号。传入 `form` 时，`initialValues`、Registry 和所有表单回调都由外部实例的创建者配置；组件不会用同名 Props 重建 Core Form，但会通过 Vue bridge 包装该实例，并同步 `schemas` 与组件声明的 schema 配置。
 
 当未显式传入 `rendererRegistry` 时，Vue `useForm()` 会使用全局 Registry；该 Registry 默认以 `input` 作为 fallback。因此若要让 `<Schemx :default-renderer-type="...">` 生效，应传入独立 Registry，或直接对 Vue 导出的全局 Registry 调用 `setFallback()`。传入外部 `form` 时，Renderer 配置由该实例决定。
 
@@ -187,16 +191,19 @@ console.log(Schemx === schemxForm) // true
 
 ### 组件 ref 暴露实例
 
-组件通过 `defineExpose` 暴露传入或内部创建的完整 `SchemxInstance<T>`。该接口当前共有 41 个成员：
+组件通过 `defineExpose` 暴露传入或内部创建的完整 `SchemxInstance<T>`：
 
-| 分类                    | 成员                                                                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 值与快照（9）           | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`、`getFieldSnapshot`、`getFieldsSnapshot`、`getInitialValue`、`getInitialValues`、`setInitialValues` |
-| touched 与 pending（6） | `isFieldTouched`、`setFieldTouched`、`getTouchedFields`、`setFieldPending`、`isFieldPending`、`getPendingFields`                                                         |
-| 重置、校验与提交（8）   | `resetFields`、`reset`、`validateField`、`validate`、`getFieldErrors`、`setFieldErrors`、`clearFieldErrors`、`submit`                                                    |
-| 响应与 Schema（9）      | `effect`、`batch`、`setSchemas`、`updateSchemas`、`updateFieldSchema`、`updateSchemaConfig`、`getViewSchemas`、`subscribeViewSchemas`、`waitForDependencies`             |
-| Registry（8）           | `getRenderer`、`registerRenderer`、`hasRenderer`、`getRule`、`registerRule`、`hasRule`、`setFieldRules`、`removeFieldRules`                                              |
-| 生命周期（1）           | `destroy`                                                                                                                                                                |
+| 分类               | 成员                                                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 值与字段数组       | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`、`getOrCreateFieldArray`                                                                                                                                                    |
+| 快照与初始值       | `getFieldSnapshot`、`getFieldsSnapshot`、`getInitialValue`、`getInitialValues`、`setInitialValue`、`setInitialValues`                                                                                                                            |
+| touched            | `isFieldTouched`、`isFieldsTouched`、`setFieldTouched`、`setFieldsTouched`、`getTouchedFields`                                                                                                                                                    |
+| pending 与 loading | `setFieldPending`、`setFieldsPending`、`isFieldPending`、`isFieldsPending`、`getPendingFields`、`isLoading`                                                                                                                                       |
+| 错误               | `getFieldErrors`、`getFieldsErrors`、`setFieldErrors`、`setFieldsErrors`、`clearFieldErrors`、`clearFieldsErrors`、`clearErrors`                                                                                                                  |
+| 重置、校验与提交   | `resetField`、`resetFields`、`reset`、`validateField`、`validate`、`submit`                                                                                                                                            |
+| 响应与 Schema      | `effect`、`batch`、`setSchemas`、`updateSchemas`、`updateSchemaConfig`、`getViewSchemas`、`subscribeViewSchemas`、`waitForDependencies`                                                                                                       |
+| Registry 与规则    | `getRenderer`、`registerRenderer`、`hasRenderer`、`getPresetRule`、`registerPresetRule`、`hasPresetRule`、`setFieldRules`、`setFieldsRules`、`removeFieldRules`、`removeFieldsRules` |
+| 生命周期           | `destroy`                                                                                                                                                                                                                                       |
 
 ```vue
 <script setup lang="ts">
@@ -249,7 +256,7 @@ app.use(Schemx, {
   schemaConfig: { showRequiredMark: false },
   defaultRendererType: "input",
   rendererRegistry,
-  validationRuleRegistry,
+  presetRuleRegistry,
   validatorAdapters: [adapter],
 })
 ```
@@ -368,7 +375,7 @@ const dependency: SchemxField<Values> = {
 
 ```ts
 interface SchemxDictionary<T extends Values = Values, R = any> {
-  api: (values: T, form: SchemxInstance<T>) => R | Promise<R>
+  api: (values: T, form: SchemxInstance<T>, signal?: AbortSignal) => R | Promise<R>
   formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => any[] | Promise<any[]>
   dependsOn?: NamePath<T>[]
   shouldFetch?: (values: T) => boolean
@@ -583,7 +590,7 @@ rendererRegistry.register("input", markRaw(InputRenderer))
 
 ```ts
 type SchemxWithDictionary<A, T extends Values = Values> = A & {
-  dict?: SchemxDictionary<T>
+  dict?: SchemxDictionary<T> | SchemxDictionary<T>["api"]
 }
 ```
 
@@ -591,7 +598,7 @@ type SchemxWithDictionary<A, T extends Values = Values> = A & {
 
 `WithRemoteOptions(WrappedComponent)` 返回一个增强组件。增强组件声明并消费：
 
-- `dict?: SchemxDictionary`：存在时调用 `useDictionary(dict, fieldName)`。
+- `dict?: SchemxDictionary | SchemxDictionary["api"]`：存在时规范化后调用 `useDictionary(dict, fieldName)`。
 - `fieldName?: NamePath`：仅作为兼容回退。HOC 位于 `Field` 内时，默认从 `useFieldContext().name` 自动取得当前字段路径；显式值只用于脱离 `Field` 的独立使用，且不会继续传给被包装组件。
 
 被包装组件实际收到所有其余 attrs、原始 `dict`，以及 HOC 决定的 `options` 和 `loading`：
@@ -715,6 +722,8 @@ componentProps: {
 | `createFormContext()`       | 在当前组件 `setup()` 同步阶段向后代提供表单实例；不接管实例所有权                                      |
 | `useFormContext()`          | 获取最近祖先提供的表单实例；缺少上下文时抛错                                                           |
 | `useField()`                | 创建字段级读写、校验和状态控制器                                                                       |
+| `useFieldArray()`           | 创建数组字段的响应式结构控制器                                                                         |
+| `createFieldArrayHook()`    | 创建绑定表单值类型的 FieldArray Hook 工厂                                                               |
 | `createFieldContext()`      | 向后代提供字段控制器                                                                                   |
 | `useFieldContext()`         | 获取当前字段控制器                                                                                     |
 | `createFormConfigContext()` | 向后代提供表单展示配置                                                                                 |
@@ -742,7 +751,7 @@ function useForm<TValues extends Values = Values>(
 ): VueSchemxInstance<TValues>
 ```
 
-源码中参数类型名为 `UseFormOptions<TValues>`，结构等同上面的 `CreateFormOptions`；`UseFormOptions` 未从根入口导出。`options` 可选，未传 Registry 时使用 Vue 全局 `rendererRegistry` 和 `validationRuleRegistry`。函数同步返回 `VueSchemxInstance<TValues>`：它与 `SchemxInstance<TValues>` 结构兼容，但 `getFieldValue()`、`getFieldErrors()`、`isFieldTouched()`、`isFieldPending()`、`getFieldsValue()` 和聚合状态读取可被 Vue effect 追踪。`useForm()` 不读取 Context，也**不会自动 `provide`**；当前 Vue effect scope 销毁时会释放 Runtime 并销毁 Form。非 Vue scope 场景应改用 Core `createForm()` 并自行销毁。
+源码中参数类型名为 `UseFormOptions<TValues>`，结构等同上面的 `CreateFormOptions`；`UseFormOptions` 未从根入口导出。`options` 可选，未传 Registry 时使用 Vue 全局 `rendererRegistry` 和 `presetRuleRegistry`。函数同步返回 `VueSchemxInstance<TValues>`：它与 `SchemxInstance<TValues>` 结构兼容，但 `getFieldValue()`、`getFieldErrors()`、`isFieldTouched()`、`isFieldPending()`、`getFieldsValue()` 和聚合状态读取可被 Vue effect 追踪。`useForm()` 不读取 Context，也**不会自动 `provide`**；当前 Vue effect scope 销毁时会释放 Runtime 并销毁 Form。非 Vue scope 场景应改用 Core `createForm()` 并自行销毁。
 
 ```ts
 import { createFormContext, useForm } from "@schemx/vue"
@@ -754,7 +763,7 @@ const form = useForm<ProfileValues>({ initialValues: { nickname: "" } })
 createFormContext(form)
 ```
 
-`useForm()` 除了补全 Vue 全局 Registry 外，会把 Core options 原样传给 `createForm()`。因此直接调用时，`modelValue` 会按 Core 规则覆盖同名 `initialValues` 并形成初始快照，`submit()` 也会等待直接传入的 `onFinish` Promise。前文 `modelValue` 不初始化、不持续反向同步，以及 `onFinish` Promise 不被等待的限制，只属于 `<Schemx>` 内部创建实例时的 Props 转换与回调包装，不属于 `useForm()` 本身。`defaultRendererType` 仍会受全局 Renderer Registry 已被补全的影响，见前文说明。
+`useForm()` 除了补全 Vue 全局 Registry 外，会把 Core options 原样传给 `createForm()`。因此直接调用时，`initialValues` 会按 Core 规则形成初始快照，`submit()` 也会等待直接传入的 `onFinish` Promise。前文 `modelValue` 的初始化与同步行为，以及 `onFinish` Promise 不被等待的限制，只属于 `<Schemx>` 内部创建实例时的 Props 转换与回调包装，不属于 `useForm()` 本身。`defaultRendererType` 仍会受全局 Renderer Registry 已被补全的影响，见前文说明。
 
 ### Vue Instance 与共享 Runtime
 
@@ -835,7 +844,7 @@ function useField<TValues extends Values = Values>(
 ): FieldInstance<TValues>
 ```
 
-Hook 从 `useFormContext()` 取得 Instance，为 `name` 创建 Core 字段控制器，并复用共享 Runtime 中的字段状态。它保留 Core `SchemxFieldInstance` 的全部成员，并增加 `value: Ref<FieldValue<...> | undefined>`、`errors: ComputedRef<readonly string[]>`、`dirty: ComputedRef<boolean>` 与 `pending: ComputedRef<boolean>`；`dirty` 读取字段 touched Ref。`getValue()`、`getErrors()`、`isTouched()` 和 `isPending()` 都读取对应 Vue Ref，`getValues()` 则通过 Instance 读取全表值。只有 `value` 可通过 `.value` 写入，其余三个 computed 状态只读。Core 方法的完整签名见 [Core 单字段控制器](../core#单字段控制器)。
+Hook 从 `useFormContext()` 取得 Instance，为 `name` 创建 Core 字段控制器，并复用共享 Runtime 中的字段状态。它保留 Core `SchemxFieldInstance` 的全部成员，并增加 `value: Ref<FieldValue<...> | undefined>`、`errors: ComputedRef<readonly string[]>`、`dirty: ComputedRef<boolean>` 与 `pending: ComputedRef<boolean>`；`dirty` 读取字段 touched Ref。`getValue()`、`getErrors()`、`isTouched()` 和 `isPending()` 都读取对应 Vue Ref，`getValues()` 则通过 Instance 读取全表值。只有 `value` 可通过 `.value` 写入，其余三个 computed 状态只读。Core 方法的完整签名见 [Core Schema source、字段与监听](../core#schema-source字段与监听)。
 
 `useField()` 不缓存字段控制器对象；每次调用只创建轻量的 Core 控制器包装，并复用当前 Runtime 中按字段 `SnapshotSource` 缓存的字段 Ref。Runtime 由 `useForm()`、Form Context 和 `useFormSelector()` 等 Vue owner 的引用计数持有，最后一个 owner 释放或手动销毁后停止订阅。`FieldInstance` 可从 `@schemx/vue` 根入口导入；不需要依赖深层路径。
 
@@ -1005,16 +1014,16 @@ Vue 包自有 2 个模块级单例：
 | 导出                     | 真实类型                              | 初始内容                                                                           | 与 `useForm()` 的关系                                |
 | ------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `rendererRegistry`       | `RendererRegistry<SchemxRendererKey>` | 空 Registry，默认 renderer key 预设为 `"input"`；未注册 `input` 时仍无法取得组件。 | 未传 `options.rendererRegistry` 时使用该单例。       |
-| `validationRuleRegistry` | `ValidationRuleRegistry`              | 模块初始化时为空，只保存显式注册的命名规则；`required` 不会写入 Registry。         | 未传 `options.validationRuleRegistry` 时使用该单例。 |
+| `presetRuleRegistry` | `PresetRuleRegistry`              | 模块初始化时为空，只保存显式注册的预设规则；`required` 不会写入 Registry。         | 未传 `options.presetRuleRegistry` 时使用该单例。 |
 
-Renderer Registry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size`；ValidationRuleRegistry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear` 和 `size`。完整签名见 Core 的 [命名规则 Registry](../core#命名规则-registry) 与 [Renderer Registry](../core#renderer-registry) 章节。
+Renderer Registry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size`；PresetRuleRegistry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear` 和 `size`。完整签名见 Core 的 [校验](../core#校验) 与 [Renderer Registry](../core#renderer-registry) 章节。
 
 ```ts
 import { markRaw } from "vue"
 
 import {
   rendererRegistry,
-  validationRuleRegistry,
+  presetRuleRegistry,
   type StandardSchemaV1,
 } from "@schemx/vue"
 
@@ -1033,7 +1042,7 @@ const phoneRule: StandardSchemaV1<string> = {
     },
   },
 }
-validationRuleRegistry.register("phone", phoneRule)
+presetRuleRegistry.register("phone", phoneRule)
 ```
 
 全局 Registry 由所有表单共享。表单独立 Registry 则由 Core 工厂新建，并通过 `useForm()` 选项或 `<Schemx>` Props 传入：
@@ -1041,16 +1050,16 @@ validationRuleRegistry.register("phone", phoneRule)
 ```ts
 import {
   createRendererRegistry,
-  createValidationRuleRegistry,
+  createPresetRuleRegistry,
   useForm,
 } from "@schemx/vue"
 
 const renderers = createRendererRegistry("input")
-const validators = createValidationRuleRegistry()
-const form = useForm({ rendererRegistry: renderers, validationRuleRegistry: validators })
+const validators = createPresetRuleRegistry()
+const form = useForm({ rendererRegistry: renderers, presetRuleRegistry: validators })
 ```
 
-`createRendererRegistry()` 和 `createValidationRuleRegistry()` 是 Core 传递导出，不是 Vue 自有 API。独立 ValidationRuleRegistry 创建时为空，只有调用方显式注册的命名规则；必填由字段的 `required` 配置处理。
+`createRendererRegistry()` 和 `createPresetRuleRegistry()` 是 Core 传递导出，不是 Vue 自有 API。独立 PresetRuleRegistry 创建时为空，只有调用方显式注册的预设规则；必填由字段的 `required` 配置处理。
 
 ## 类型参考
 
@@ -1085,11 +1094,13 @@ Vue 根入口自有以下公开类型：
 | 组件            | `Group`                                 | 渲染分组 ViewSchema。                         |
 | HOC             | `WithRemoteOptions`                     | 为 Renderer 接入 Dictionary。                 |
 | Registry        | `rendererRegistry`                      | Vue 全局 Renderer Registry。                  |
-| Registry        | `validationRuleRegistry`                | Vue 全局 ValidationRuleRegistry。             |
+| Registry        | `presetRuleRegistry`                | Vue 全局 PresetRuleRegistry。             |
 | Hook            | `useForm`                               | 创建并按 Vue scope 销毁表单。                 |
 | Context         | `createFormContext`                     | 提供表单实例。                                |
 | Context         | `useFormContext`                        | 读取表单实例。                                |
 | Hook            | `useField`                              | 创建 Vue 字段控制器。                         |
+| Hook            | `useFieldArray`                         | 创建 Vue 数组字段控制器。                     |
+| Hook            | `createFieldArrayHook`                  | 创建绑定值类型的 FieldArray Hook 工厂。       |
 | Context         | `createFieldContext`                    | 提供字段控制器。                              |
 | Context         | `useFieldContext`                       | 读取字段控制器。                              |
 | Context         | `createFormConfigContext`               | 提供表单展示配置。                            |
@@ -1101,14 +1112,18 @@ Vue 根入口自有以下公开类型：
 | Dictionary      | `useDictionary`                         | 管理函数式选项源。                            |
 | Vue 响应式      | `useStableRef`                          | 建立浅比较稳定 Ref。                          |
 | ViewSchema      | `useViewSchemas`                        | 桥接 ViewSchemas 为 Ref。                     |
+| Hook            | `useFormSelector`                       | 从表单值派生只读 Vue Ref。                    |
 | 默认导出        | `default`                               | 与 `schemxForm` 严格相等。                    |
 | Context 类型    | `FormContextProps`                      | 表单展示 Context。                            |
+| Runtime 类型    | `VueSchemxInstance`                     | 可在 Vue effect 中追踪读取的 Form Instance。  |
 | Dictionary 类型 | `SchemxDictionary`                      | 函数式选项源配置。                            |
 | 插件类型        | `SchemxInstallOptions`                  | 当前 Vue App 的默认配置安装选项。             |
 | Dictionary 类型 | `SchemxWithDictionary`                  | 为 Props 增加 `dict`。                        |
 | Dictionary 类型 | `UseDictionaryReturn`                   | `useDictionary()` 返回值。                    |
 | 表单类型        | `SchemxFormProps<TValues>`              | `<Schemx>` 组件 Props 类型。                  |
 | 字段类型        | `FieldInstance<TValues>`                | Vue Ref / Computed 桥接后的字段控制器类型。   |
+| 字段数组类型    | `UseFieldArrayReturn<TValues, TPath>`   | Vue FieldArray Hook 返回值。                  |
+| Selector 类型   | `UseFormSelectorOptions<TSelected>`     | `useFormSelector` 的比较和刷新配置。          |
 
 根入口没有名为 `SchemxForm` 的命名导出。
 
@@ -1139,8 +1154,7 @@ Vue 根入口自有以下公开类型：
 | Watch         | `createWatchFields`            | 多字段 Core Watch。                          |
 | Watch         | `createWatchAll`               | 全表 Core Watch。                            |
 | Registry      | `createRendererRegistry`       | 创建 Renderer Registry。                     |
-| Registry      | `createValidationRuleRegistry` | 创建 ValidationRuleRegistry。                |
-| Validator     | `createValidator`              | 创建底层 Validator。                         |
+| Registry      | `createPresetRuleRegistry` | 创建 PresetRuleRegistry。                |
 | Schema 守卫   | `isBaseSchema`                 | 判断原始普通字段。                           |
 | Schema 守卫   | `isGroupSchema`                | 判断原始 Group。                             |
 | Schema 守卫   | `isDependencySchema`           | 判断原始 Dependency。                        |
@@ -1172,7 +1186,6 @@ Vue 根入口自有以下公开类型：
 | 表单               | `ResolvedCreateFormOptions`      | 已归一化的 Form 创建配置。                |
 | 表单               | `SchemxInstance`                 | Core 表单实例接口。                       |
 | 表单               | `SchemxGlobalContext`            | Core 全局字段默认配置。                   |
-| Validator          | `CreateValidatorOptions`         | 规则执行异常回调配置。                    |
 | 基础               | `Values`                         | 表单值基础约束。                          |
 | 基础               | `Dynamic`                        | 静态值或同步 / 异步值函数。               |
 | 路径               | `NamePath`                       | 类型安全字段路径。                        |
@@ -1183,6 +1196,12 @@ Vue 根入口自有以下公开类型：
 | Schema source      | `SchemxSchemasInput`             | Schema 数组或 source 联合。               |
 | Schema source      | `SchemxSchemasListener`          | Schema source listener。                  |
 | 字段               | `SchemxFieldInstance`            | Core 字段控制器。                         |
+| 字段数组           | `FieldArrayField`                | 数组字段行的公开结构类型。                 |
+| 字段数组           | `FieldArrayInstance`             | 数组字段控制器接口。                       |
+| 字段数组           | `FieldArrayItemValue`            | 数组字段行值类型。                         |
+| 字段数组           | `FieldArrayPath`                 | 数组字段路径类型。                         |
+| 表单               | `SchemxFormApi`                  | 传递给动态 Schema 回调的表单 API。          |
+| 表单               | `SchemxFieldRulesMap`            | 按字段路径配置的规则映射。                 |
 | Schema             | `SchemxBase`                     | 普通字段基础接口。                        |
 | Schema             | `SchemxBaseField`                | 按 Renderer key 分布的字段联合。          |
 | Schema             | `SchemxExactBaseField`           | 保留具体 Renderer key 的字段类型。        |
@@ -1216,7 +1235,6 @@ Vue 根入口自有以下公开类型：
 | Renderer Registry  | `RendererRegistry`               | Renderer Registry 实例类型。              |
 | Renderer Registry  | `RegistryOptions`                | 注册覆盖选项（renderer 与 rule 共享）。   |
 | Renderer Registry  | `RendererMap`                    | Renderer 批量映射。                       |
-| Validator          | `Validator`                      | 底层 Validator 实例类型。                 |
 | Validator          | `ValidationRule`                 | 原生规则接口。                            |
 | Validator          | `ValidationRuleContext`          | 原生规则执行上下文。                      |
 | Validator          | `ValidationRuleIssue`            | 单条规则产生的问题。                      |
@@ -1237,17 +1255,17 @@ Vue 根入口自有以下公开类型：
 | Validator          | `ValidationAdapterOption`        | adapter 或带覆盖选项的注册项。            |
 | Validator          | `ValidationTrigger`              | 校验触发时机。                            |
 | Validator          | `StandardSchemaV1`               | Standard Schema v1 协议。                 |
-| Rule               | `ValidationRuleDefinition`       | 自定义规则声明合并接口。                  |
-| Rule               | `ValidationRuleName`             | 声明合并推导的规则 key。                  |
+| Rule               | `PresetRuleDefinition`       | 自定义规则声明合并接口。                  |
+| Rule               | `PresetRuleName`             | 声明合并推导的规则 key。                  |
 | Rule               | `RequiredOptions`                | 必填消息与空值判断配置。                  |
-| Rule               | `RequiredRule`                   | 布尔必填开关或必填配置对象。              |
+| Rule               | `RequiredConfig`                   | 布尔必填开关或必填配置对象。              |
 | Rule               | `DefinedFieldValue`              | 从表单值和路径提取已定义字段值。          |
 | Rule               | `FieldRule`                      | 单个字段规则联合类型。                    |
 | Rule               | `FieldRules`                     | Standard Schema、内置或自定义规则。       |
-| Validator Registry | `ValidationRuleRegistry`         | ValidationRuleRegistry 实例类型。         |
-| Validator Registry | `ValidationRuleFactoryContext`   | 规则工厂接收的字段上下文。                |
-| Validator Registry | `ValidationRuleFactory`          | 按字段 Schema 生成规则的工厂。            |
-| Validator Registry | `ValidationRuleEntry`            | Standard Schema 或工厂联合。              |
-| Validator Registry | `ValidationRuleMap`              | 规则名到条目的批量映射。                  |
-| Validator Registry | `ValidationRuleRegistryChange`   | Registry 变更事件。                       |
-| Validator Registry | `ValidationRuleRegistryListener` | Registry 变更监听器。                     |
+| Validator Registry | `PresetRuleRegistry`         | PresetRuleRegistry 实例类型。         |
+| Validator Registry | `PresetRuleFactoryContext`   | 规则工厂接收的字段上下文。                |
+| Validator Registry | `PresetRuleFactory`          | 按字段 Schema 生成规则的工厂。            |
+| Validator Registry | `PresetRuleEntry`            | Standard Schema、原生规则或工厂联合。              |
+| Validator Registry | `PresetRuleMap`              | 规则名到条目的批量映射。                  |
+| Validator Registry | `PresetRuleRegistryChange`   | Registry 变更事件。                       |
+| Validator Registry | `PresetRuleRegistryListener` | Registry 变更监听器。                     |

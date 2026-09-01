@@ -68,7 +68,7 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
         {
           validate: () => ({
             valid: false as const,
-            issues: [{ message }],
+            issues: [{ type: "validation" as const, message }],
           }),
         },
       ]
@@ -287,8 +287,12 @@ describe("Schemx Vue 插件安装", () => {
 
     const secondResult = await second.form.validate()
 
-    expect(firstResult.errors[0]?.issues).toEqual([{ message: "第一个 App" }])
-    expect(secondResult.errors[0]?.issues).toEqual([{ message: "第二个 App" }])
+    expect(firstResult.errors[0]?.issues).toEqual([
+      { type: "validation", message: "第一个 App" },
+    ])
+    expect(secondResult.errors[0]?.issues).toEqual([
+      { type: "validation", message: "第二个 App" },
+    ])
 
     first.wrapper.unmount()
     second.wrapper.unmount()

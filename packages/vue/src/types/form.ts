@@ -7,9 +7,10 @@ import type {
   FormLifecycleOptions,
   FormPerformanceOptions,
   NamePath,
-  RequiredRule,
+  RequiredConfig,
   SchemxConfig,
   SchemxInstance,
+  SchemxFieldRulesMap,
   SchemxSchemasInput,
   ValidationTrigger,
   Values,
@@ -23,7 +24,7 @@ import type {
  * 让运行时 Props 推导可静态解析，同时避免把这些配置误判为 fallthrough attrs。
  */
 interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
-  required?: RequiredRule<DefinedFieldValue<TValues, NamePath<TValues>>>
+  required?: RequiredConfig<DefinedFieldValue<TValues, NamePath<TValues>>>
   readonly?: boolean
   disabled?: boolean
   visible?: boolean
@@ -76,6 +77,11 @@ export interface SchemxFormProps<TValues extends Values = Values>
   schemas?: SchemxSchemasInput<TValues>
 
   /**
+   * 按字段路径配置的字段规则兜底。
+   */
+  fieldRules?: SchemxFieldRulesMap<TValues>
+
+  /**
    * Store 使用的初始表单值。
    */
   initialValues?: TValues
@@ -96,12 +102,12 @@ export interface SchemxFormProps<TValues extends Values = Values>
   loading?: boolean
 
   /**
-   * 提交按钮配置；未提供时不渲染。
+   * 提交按钮配置；默认显示，设为 false 时隐藏。
    */
   submitter?: SchemxFormAction
 
   /**
-   * 重置按钮配置；未提供时不渲染。
+   * 重置按钮配置；默认显示，设为 false 时隐藏。
    */
   resetter?: SchemxFormAction
 

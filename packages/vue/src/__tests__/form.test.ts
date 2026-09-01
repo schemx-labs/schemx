@@ -4,7 +4,7 @@ import { defineComponent, h, markRaw, nextTick, ref, watchEffect } from "vue"
 import {
   createForm,
   createRendererRegistry,
-  createValidationRuleRegistry,
+  createPresetRuleRegistry,
   type ValidationAdapter,
   type Values,
 } from "@schemx/core"
@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest"
 
 import Schemx from "../form"
 import SchemxForm from "../form.vue"
-import { validationRuleRegistry } from "../utils/rulesProvider"
+import { presetRuleRegistry } from "../utils/presetRuleProvider"
 
 const InputRenderer = defineComponent({
   name: "InputRenderer",
@@ -56,7 +56,7 @@ const CountRenderer = defineComponent({
  * 创建只返回固定失败结果的测试 adapter。
  *
  * 通过 WeakSet 保留品牌规则语义，确保测试验证的是 adapter 是否真正进入
- * Form 的 ValidationController，而不是仅凭对象形状被误识别。
+ * Form 的 Validator，而不是仅凭对象形状被误识别。
  *
  * @param id - adapter 标识。
  * @param message - adapter 生成的错误消息。
@@ -82,7 +82,7 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
         {
           validate: () => ({
             valid: false as const,
-            issues: [{ message }],
+            issues: [{ type: "validation" as const, message }],
           }),
         },
       ]
@@ -318,7 +318,7 @@ describe("SchemxForm 动态 schemas", () => {
       {
         scope: "field",
         name: "email",
-        issues: [{ message: "adapter 校验失败" }],
+        issues: [{ type: "validation", message: "adapter 校验失败" }],
       },
     ])
 
@@ -361,18 +361,20 @@ describe("SchemxForm 动态 schemas", () => {
     const result = await (wrapper.vm as any).validate()
 
     expect(result.valid).toBe(false)
-    expect(result.errors?.[0]?.issues).toEqual([{ message: "Form adapter" }])
+    expect(result.errors?.[0]?.issues).toEqual([
+      { type: "validation", message: "Form adapter" },
+    ])
 
     wrapper.unmount()
   })
 
-  it("默认使用 Vue 全局 ValidationRuleRegistry", async () => {
+  it("默认使用 Vue 全局 PresetRuleRegistry", async () => {
     const ruleName = "vue-global-rule-test"
 
-    validationRuleRegistry.register(ruleName, {
+    presetRuleRegistry.register(ruleName, {
       validate: () => ({
         valid: false,
-        issues: [{ message: "全局规则失败" }],
+        issues: [{ type: "validation", message: "全局规则失败" }],
       }),
     })
 
@@ -402,29 +404,29 @@ describe("SchemxForm 动态 schemas", () => {
         {
           scope: "field",
           name: "name",
-          issues: [{ message: "全局规则失败" }],
+          issues: [{ type: "validation", message: "全局规则失败" }],
         },
       ])
 
       wrapper.unmount()
     } finally {
-      validationRuleRegistry.unregister(ruleName)
+      presetRuleRegistry.unregister(ruleName)
     }
   })
 
-  it("局部 ValidationRuleRegistry 优先于 Vue 全局实例", async () => {
+  it("局部 PresetRuleRegistry 优先于 Vue 全局实例", async () => {
     const ruleName = "vue-local-rule-test"
 
-    validationRuleRegistry.register(ruleName, {
+    presetRuleRegistry.register(ruleName, {
       validate: () => ({ valid: true }),
     })
 
-    const localRegistry = createValidationRuleRegistry()
+    const localRegistry = createPresetRuleRegistry()
 
     localRegistry.register(ruleName, {
       validate: () => ({
         valid: false,
-        issues: [{ message: "局部规则失败" }],
+        issues: [{ type: "validation", message: "局部规则失败" }],
       }),
     })
 
@@ -436,7 +438,7 @@ describe("SchemxForm 动态 schemas", () => {
       const wrapper = mount(SchemxForm, {
         props: {
           rendererRegistry,
-          validationRuleRegistry: localRegistry,
+          presetRuleRegistry: localRegistry,
           schemas: [
             {
               name: "name",
@@ -451,11 +453,13 @@ describe("SchemxForm 动态 schemas", () => {
       const result = await (wrapper.vm as any).validate()
 
       expect(result.valid).toBe(false)
-      expect(result.errors[0]?.issues).toEqual([{ message: "局部规则失败" }])
+      expect(result.errors[0]?.issues).toEqual([
+        { type: "validation", message: "局部规则失败" },
+      ])
 
       wrapper.unmount()
     } finally {
-      validationRuleRegistry.unregister(ruleName)
+      presetRuleRegistry.unregister(ruleName)
     }
   })
 

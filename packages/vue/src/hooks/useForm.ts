@@ -14,7 +14,7 @@ import { createForm, mergeSchemxConfig, type SchemxConfig } from "@schemx/core"
 import { acquireVueFormRuntime, type VueSchemxInstance } from "../bridge"
 import { getSchemxAppConfig } from "../config"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
-import { validationRuleRegistry as globalValidationRuleRegistry } from "../utils/rulesProvider"
+import { presetRuleRegistry as globalPresetRuleRegistry } from "../utils/presetRuleProvider"
 
 import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
 
@@ -22,7 +22,7 @@ import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
  * useForm 配置选项。
  *
  * 当前与 core 层 CreateFormOptions 保持一致，并在 Vue 层自动补充默认的
- * rendererRegistry 和 validationRuleRegistry。保留独立类型用于后续扩展
+ * rendererRegistry 和 presetRuleRegistry。保留独立类型用于后续扩展
  * Vue 专属配置，而不污染 core 层接口。
  *
  * @typeParam TValues - 表单值类型
@@ -84,7 +84,7 @@ export function useForm<TValues extends Values = Values>(
     getSchemxAppConfig() as SchemxConfig<TValues>,
     {
       rendererRegistry: globalRendererRegistry,
-      validationRuleRegistry: globalValidationRuleRegistry,
+      presetRuleRegistry: globalPresetRuleRegistry,
     }
   )
 
@@ -125,7 +125,7 @@ function getUseFormSchemxConfig<TValues extends Values>(
     validatorAdapters = [],
     defaultRendererType = undefined,
     rendererRegistry = undefined,
-    validationRuleRegistry = undefined,
+    presetRuleRegistry = undefined,
   } = options
 
   return {
@@ -133,7 +133,7 @@ function getUseFormSchemxConfig<TValues extends Values>(
     rendererProps,
     defaultRendererType,
     rendererRegistry,
-    validationRuleRegistry,
+    presetRuleRegistry,
     validatorAdapters,
   }
 }
