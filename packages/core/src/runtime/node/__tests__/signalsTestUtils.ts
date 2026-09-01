@@ -1,5 +1,5 @@
 /**
- * RuntimeNode 测试用响应式状态构造与更新工具。
+ * Node 测试用响应式状态构造与更新工具。
  *
  * 节点直接持有本模块创建的 Signal 和 ComputedSignal；本模块不再提供
  * 状态容器。
@@ -8,6 +8,7 @@
  */
 
 import { createComputed, createSignal } from "../../../reactivity"
+import { isSchemaNode } from "../helper"
 
 import type { ComputedSignal, Signal } from "../../../reactivity"
 import type {
@@ -25,11 +26,10 @@ import type {
   FieldEffectiveSchema,
   FieldRuntimeDiagnostics,
   FieldValidationSchema,
-  ParentRuntimeNode,
+  ParentNode,
   PresentationDynamicOverrides,
-  PresentationState,
   PresentationStaticState,
-  SchemaRuntimeNode,
+  SchemaNode,
 } from "../types"
 
 export type { DynamicOverrideMeta } from "../types"
@@ -40,7 +40,7 @@ export interface CreateFieldRuntimeSignalsOptions<TValues extends Values = Value
   readonly key: string
   readonly name: NamePath<TValues>
   readonly staticSchema: SchemxBaseField<TValues> | SchemxResolvedBaseField<TValues>
-  readonly inheritedState?: ComputedSignal<PresentationState>
+  readonly inheritedState?: ComputedSignal<PresentationStaticState>
   readonly debug?: boolean
 }
 
@@ -70,10 +70,9 @@ export function createFieldRuntimeSignals<TValues extends Values>(
   const inheritedState =
     options.inheritedState ?? createComputed(() => DEFAULT_PRESENTATION_STATE)
 
-  const staticSchema = createSignal<SchemxBaseField<TValues>>(
-    initialStaticSchema,
-    { name: `field:${nodeId}:staticSchema` }
-  )
+  const staticSchema = createSignal<SchemxBaseField<TValues>>(initialStaticSchema, {
+    name: `field:${nodeId}:staticSchema`,
+  })
 
   const dynamicOverrides = createSignal<FieldDynamicOverrides<TValues>>(
     {},
@@ -193,8 +192,7 @@ export function setFieldStaticSchema<TValues extends Values>(
   node: FieldRuntimeSignals<TValues>,
   config: {
     readonly name: NamePath<TValues>
-    readonly staticSchema:
-      SchemxBaseField<TValues> | SchemxResolvedBaseField<TValues>
+    readonly staticSchema: SchemxBaseField<TValues> | SchemxResolvedBaseField<TValues>
   }
 ): void {
   node.staticSchema.value = normalizeFieldRuntimeStaticSchema(config.staticSchema)
@@ -240,13 +238,13 @@ export function resetFieldDynamicOverrides<TValues extends Values>(
 export interface CreatePresentationRuntimeSignalsOptions {
   readonly nodeId: number
   readonly getStaticState: () => PresentationStaticState
-  readonly inheritedState: ComputedSignal<PresentationState>
+  readonly inheritedState: ComputedSignal<PresentationStaticState>
 }
 
 /** Group/Dependency 直接持有的呈现响应式状态。 */
 export interface PresentationRuntimeSignals {
   readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
-  readonly effectiveState: ComputedSignal<PresentationState>
+  readonly effectiveState: ComputedSignal<PresentationStaticState>
 }
 
 /** 创建 Group/Dependency 的 Signal 和 ComputedSignal。 */
@@ -258,7 +256,7 @@ export function createPresentationRuntimeSignals(
     { name: `presentation:${options.nodeId}:dynamicOverrides` }
   )
 
-  const effectiveState = createComputed<PresentationState>(() => {
+  const effectiveState = createComputed<PresentationStaticState>(() => {
     return resolvePresentationState(
       options.getStaticState(),
       dynamicOverrides.value,
@@ -274,13 +272,13 @@ export function createPresentationRuntimeSignals(
 
 /** 创建节点的祖先容器状态投影。 */
 export function createInheritedPresentationState<TValues extends Values>(
-  getNode: () => SchemaRuntimeNode<TValues>
-): ComputedSignal<PresentationState> {
+  getNode: () => SchemaNode<TValues>
+): ComputedSignal<PresentationStaticState> {
   return createComputed(() => readInheritedPresentationState(getNode().parent))
 }
 
 /** 没有祖先容器时使用的默认呈现状态。 */
-export const DEFAULT_PRESENTATION_STATE: PresentationState = {
+export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
   visible: true,
   readonly: false,
   disabled: false,
@@ -288,10 +286,10 @@ export const DEFAULT_PRESENTATION_STATE: PresentationState = {
 
 /** 解析节点的最终呈现状态。 */
 export function resolvePresentationState(
-  staticState: Partial<PresentationState>,
+  staticState: Partial<PresentationStaticState>,
   overrides: PresentationDynamicOverrides,
-  inheritedState: PresentationState = DEFAULT_PRESENTATION_STATE
-): PresentationState {
+  inheritedState: PresentationStaticState = DEFAULT_PRESENTATION_STATE
+): PresentationStaticState {
   const visible =
     overrides.visible ?? staticState.visible ?? DEFAULT_PRESENTATION_STATE.visible
 
@@ -407,9 +405,9 @@ export function updateFieldDiagnostics<TValues extends Values>(
 
 /** 读取节点的祖先有效呈现状态。 */
 function readInheritedPresentationState<TValues extends Values>(
-  parent: ParentRuntimeNode<TValues> | null
-): PresentationState {
-  if (parent && parent.type !== "root") {
+  parent: ParentNode<TValues> | null
+): PresentationStaticState {
+  if (isSchemaNode(parent)) {
     return parent.effectiveState.value
   }
 
@@ -429,7 +427,7 @@ function createInitialDiagnostics<
   }
 }
 
-/** 将通用 resolved schema 补齐为 RuntimeNode 使用的完整静态配置。 */
+/** 将通用 resolved schema 补齐为 Node 使用的完整静态配置。 */
 function normalizeFieldRuntimeStaticSchema<TValues extends Values>(
   schema: SchemxBaseField<TValues> | SchemxResolvedBaseField<TValues>
 ): SchemxBaseField<TValues> {

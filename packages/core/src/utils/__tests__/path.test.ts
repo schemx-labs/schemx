@@ -7,7 +7,12 @@
  */
 import { describe, expect, it } from "vitest"
 
-import { collectObjectPathsByLeaf, getByPath, setByPath } from "../path"
+import {
+  collectObjectPathsByLeaf,
+  deleteInWithStructuralSharing,
+  getByPath,
+  setByPath,
+} from "../path"
 
 // 验证 getByPath 获取嵌套路径值、空路径返回整体、不存在路径返回 undefined
 describe("getByPath", () => {
@@ -51,6 +56,37 @@ describe("setByPath", () => {
 
   it("undefined 对象不抛异常", () => {
     expect(() => setByPath(undefined as any, "a", 1)).not.toThrow()
+  })
+})
+
+// 验证 deleteInWithStructuralSharing 删除嵌套属性、保留数组空位并复用未变化引用
+describe("deleteInWithStructuralSharing", () => {
+  it("删除嵌套属性并保留其他路径", () => {
+    const source = { user: { name: "Ada", age: 36 } }
+
+    const result = deleteInWithStructuralSharing(source, [
+      "user",
+      "name",
+    ]) as typeof source
+
+    expect(result).toEqual({ user: { age: 36 } })
+    expect(result.user).not.toBe(source.user)
+  })
+
+  it("删除数组索引时保留空位", () => {
+    const source = { users: ["Ada", "Grace"] }
+
+    const result = deleteInWithStructuralSharing(source, ["users", "0"]) as typeof source
+
+    expect(result.users).toHaveLength(2)
+    expect(0 in result.users).toBe(false)
+    expect(result.users[1]).toBe("Grace")
+  })
+
+  it("路径不存在时复用原引用", () => {
+    const source = { user: { name: "Ada" } }
+
+    expect(deleteInWithStructuralSharing(source, ["user", "email"])).toBe(source)
   })
 })
 

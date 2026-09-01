@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../../node/runtimeScope"
+import { createScope } from "../../node/scope"
 import { createScheduler } from "../scheduler"
 
 // 验证 schedule 按 normal/post 队列顺序执行任务
@@ -102,8 +102,7 @@ describe("schedule", () => {
     expect(task).not.toHaveBeenCalled()
 
     const callback = requestIdleCallback.mock.calls[0]?.[0] as
-      | ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void)
-      | undefined
+      ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void) | undefined
 
     callback?.({
       didTimeout: false,
@@ -405,7 +404,7 @@ describe("scope cancellation", () => {
   it("应该在 scope disposed 后不执行关联任务", async () => {
     const scheduler = createScheduler()
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const task = vi.fn()
 
@@ -427,7 +426,7 @@ describe("scope cancellation", () => {
   it("任务已开始后由任务自身负责响应 scope dispose", async () => {
     const scheduler = createScheduler()
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const task = vi.fn()
 

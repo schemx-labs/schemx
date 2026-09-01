@@ -11,8 +11,8 @@ import {
   type RendererRegistry,
 } from "../registry"
 
-import type { RuntimeNodeLifecycleHooks } from "../runtime/lifecycle"
-import type { RuntimeNode } from "../runtime/node"
+import type { NodeLifecycleHooks } from "../runtime/lifecycle"
+import type { ContainerNode } from "../runtime/node"
 import type { SchedulerOptions } from "../runtime/scheduler"
 import type {
   NamePath,
@@ -133,7 +133,7 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>>
+  lifecycleHooks?: NodeLifecycleHooks<ContainerNode<TValues>>
 }
 
 /**

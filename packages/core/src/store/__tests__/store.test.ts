@@ -74,6 +74,44 @@ describe("Store", () => {
     store.destroy()
   })
 
+  it("删除字段当前值并保留初始值", () => {
+    const store = createStore<NestedForm>({
+      initialValues: {
+        user: {
+          name: "Ada",
+          address: { city: "Beijing", zip: "100000" },
+        },
+        tags: ["form"],
+      },
+    })
+
+    store.setFieldTouched("user.name", true)
+    store.setFieldPending("user.name", true, "保存中")
+    store.removeFieldValue("user.name")
+
+    expect(store.getFieldValue("user.name")).toBeUndefined()
+    expect(store.getInitialValue("user.name")).toBe("Ada")
+    expect(store.isFieldTouched("user.name")).toBe(false)
+    expect(store.isFieldPending("user.name")).toBe(false)
+    expect(store.getFieldValue("user.address.city")).toBe("Beijing")
+  })
+
+  it("删除 FieldArray 根时清空值和行 key", () => {
+    const store = createStore<{ users: Array<{ name: string }> }>({
+      initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
+    })
+
+    const handle = store.getFieldArrayHandle("users")
+
+    handle.register()
+    expect(handle.getStructure()).toHaveLength(2)
+
+    store.removeFieldValue("users")
+
+    expect(Object.hasOwn(store.getFieldsValue(), "users")).toBe(false)
+    expect(handle.getStructure()).toEqual([])
+  })
+
   it("FieldArray 订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
     const store = createStore<{ users: Array<{ name: string }> }>({
       initialValues: { users: [] },
@@ -420,6 +458,21 @@ describe("Store", () => {
 
       store.setFieldValue("name", "Jane")
       expect(store.getFieldSnapshot("name")).toBe("Jane")
+    })
+
+    it("指定路径快照不会泄露内部嵌套引用", () => {
+      const store = createStore<{ profile: { name: string } }>({
+        initialValues: { profile: { name: "John" } },
+      })
+
+      const snapshot = store.getFieldsSnapshot(["profile"])
+
+      if (!snapshot.profile) {
+        throw new Error("profile 快照不应为空")
+      }
+
+      snapshot.profile.name = "Changed"
+      expect(store.getFieldValue("profile.name")).toBe("John")
     })
 
     it("同一 revision 返回稳定的完整快照", () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createFieldRuntimeSignals,
   setFieldDynamicOverrides,
-} from "../../node/__tests__/runtimeSignalsTestUtils"
+} from "../../node/__tests__/signalsTestUtils"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 

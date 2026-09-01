@@ -14,22 +14,19 @@ import type {
   ValidationTrigger,
   Values,
 } from "../../types"
-import type {
-  SchemxBaseField,
-  SchemxField,
-} from "../../types/schema"
+import type { SchemxBaseField, SchemxField } from "../../types"
 import type {
   FieldEffectiveSchema,
   FieldRuntimeDiagnostics,
   FieldValidationSchema,
   PresentationDynamicOverrides,
-  PresentationState,
+  PresentationStaticState,
 } from "../node/types"
 
 /**
  * 没有祖先容器时使用的默认呈现状态。
  */
-export const DEFAULT_PRESENTATION_STATE: PresentationState = {
+export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
   visible: true,
   readonly: false,
   disabled: false,
@@ -39,7 +36,7 @@ export const DEFAULT_PRESENTATION_STATE: PresentationState = {
  * 合并字段 Schema 与全局默认值，生成编译后的静态字段配置。
  *
  * 字段自身配置优先于 Renderer 默认 Props 和表单级默认配置；只保留编译阶段需要的
- * 静态配置，动态 dependencies 由 RuntimeNode 单独处理。
+ * 静态配置，动态 dependencies 由 Node 单独处理。
  *
  * @typeParam TValues - 表单值类型。
  * @param schema - 待编译的字段 Schema。
@@ -151,7 +148,7 @@ export function buildFieldStaticSchema<TValues extends Values>(
  * @param parentKey - 父节点的稳定 key。
  * @returns 用于 keyed reconcile 的稳定节点 key。
  */
-export function createRuntimeNodeKey<TValues extends Values>(
+export function createNodeKey<TValues extends Values>(
   schema: SchemxField<TValues>,
   index: number,
   parentKey: string
@@ -191,10 +188,10 @@ export function createRuntimeNodeKey<TValues extends Values>(
  * @returns 当前节点及其后代使用的有效呈现状态。
  */
 export function resolvePresentationState(
-  staticState: Partial<PresentationState>,
+  staticState: Partial<PresentationStaticState>,
   overrides: PresentationDynamicOverrides,
-  inheritedState: PresentationState = DEFAULT_PRESENTATION_STATE
-): PresentationState {
+  inheritedState: PresentationStaticState = DEFAULT_PRESENTATION_STATE
+): PresentationStaticState {
   const visible =
     overrides.visible ?? staticState.visible ?? DEFAULT_PRESENTATION_STATE.visible
 

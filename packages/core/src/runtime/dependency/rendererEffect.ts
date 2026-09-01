@@ -2,7 +2,7 @@
  * DependencyRendererEffect - dependency renderer 执行态容器。
  *
  * Effect state 只记录异步执行状态。renderer 返回的结构由 SchemaTreeCommitter 写入
- * DependencyRuntimeNode.childNodes。
+ * DependencyNode.childNodes。
  *
  * @module core/runtime/dependency/rendererEffect
  */
@@ -13,26 +13,26 @@ import { createDependencySchedulerEffect } from "../dependencyScheduler"
 import type { Signal } from "../../reactivity"
 import type { SchemxField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { DependencyRuntimeNode, RuntimeScope } from "../node"
+import type { DependencyNode, Scope } from "../node"
 
 /**
- * 检查 DependencyRuntimeNode 是否有 renderer effect。
+ * 检查 DependencyNode 是否有 renderer effect。
  *
  * @param node - dependency runtime 节点。
  * @returns 已挂载 effect state 时返回 true。
  */
-export function hasDependencyRendererEffect(node: DependencyRuntimeNode): boolean {
+export function hasDependencyRendererEffect(node: DependencyNode): boolean {
   return getDependencyRendererEffect(node) != null
 }
 
 /**
- * 从 DependencyRuntimeNode 获取 renderer effect。
+ * 从 DependencyNode 获取 renderer effect。
  *
  * @param node - dependency runtime 节点。
  * @returns 当前 effect state；尚未挂载时返回 undefined。
  */
 export function getDependencyRendererEffect(
-  node: DependencyRuntimeNode
+  node: DependencyNode
 ): DependencyRendererEffect | undefined {
   return node.rendererEffect ?? undefined
 }
@@ -88,16 +88,16 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
   /**
    * dependency runtime 节点。
    */
-  node: DependencyRuntimeNode<TValues>
+  node: DependencyNode<TValues>
 
   /**
    * 关联的 scope，默认创建 node 的子 scope。
    */
-  scope?: RuntimeScope
+  scope?: Scope
 }
 
 /**
- * 创建并挂载 DependencyRendererEffect 到 RuntimeNode。
+ * 创建并挂载 DependencyRendererEffect 到 Node。
  *
  * 会创建 effect state 的 run/dispose 逻辑，并把 renderer 结果经由统一 commit
  * 边界写入 dependency 子树。

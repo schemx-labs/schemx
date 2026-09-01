@@ -7,7 +7,7 @@
  * @module core/runtime/scheduler/scheduler
  */
 
-import type { RuntimeScope } from "../node"
+import type { Scope } from "../node"
 
 /**
  * 任务优先级。
@@ -89,9 +89,9 @@ export interface ScheduledTask {
   priority: SchedulerTaskPriority
 
   /**
-   * 关联的 RuntimeScope，scope dispose 时任务被取消。
+   * 关联的 Scope，scope dispose 时任务被取消。
    */
-  scope?: RuntimeScope
+  scope?: Scope
 
   /**
    * 执行任务。

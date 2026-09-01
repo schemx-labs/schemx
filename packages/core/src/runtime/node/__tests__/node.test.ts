@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest"
 import { createNodeManager } from "../nodeManager"
 
 import {
-  createTestDependencyRuntimeNode,
-  createTestFieldRuntimeNode,
-  createTestRootRuntimeNode,
-} from "./runtimeNodeTestUtils"
+  createTestDependencyNode,
+  createTestFieldNode,
+  createTestRootNode,
+} from "./nodeTestUtils"
 
 const createFieldNodeOptions = (key: string) => ({
   key,
@@ -34,7 +34,7 @@ describe("node child helpers", () => {
 
     const root = manager.getRoot()
 
-    const field = createTestFieldRuntimeNode({
+    const field = createTestFieldNode({
       node: createFieldNodeOptions("name"),
       parent: root,
     })
@@ -44,10 +44,10 @@ describe("node child helpers", () => {
     expect(root.childNodes.value).toEqual([field])
   })
 
-  it("SchemaRuntimeNode 创建时直接持有已解析配置", () => {
-    const root = createTestRootRuntimeNode()
+  it("SchemaNode 创建时直接持有已解析配置", () => {
+    const root = createTestRootNode()
 
-    const field = createTestFieldRuntimeNode({
+    const field = createTestFieldNode({
       node: createFieldNodeOptions("name"),
       parent: root,
     })
@@ -58,10 +58,10 @@ describe("node child helpers", () => {
     expect(field.validationEffectScope).toBeNull()
   })
 
-  it("DependencyRuntimeNode 创建时 dependency effect 为空", () => {
-    const root = createTestRootRuntimeNode()
+  it("DependencyNode 创建时 dependency effect 为空", () => {
+    const root = createTestRootNode()
 
-    const dependency = createTestDependencyRuntimeNode({
+    const dependency = createTestDependencyNode({
       node: createDependencyNodeOptions("mode"),
       parent: root,
     })

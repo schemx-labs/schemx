@@ -47,6 +47,26 @@ describe("createWatch 属性测试", () => {
     form.destroy()
   })
 
+  it("createWatchAll 回调接收本轮完整值快照", () => {
+    const form = createForm({ initialValues: { name: "Alice", age: 18 } })
+
+    let snapshot: { name: string; age: number } | undefined
+
+    const dispose = createWatchAll(
+      form,
+      (values) => {
+        snapshot = values
+      },
+      {}
+    )
+
+    form.setFieldValue("name", "Bob")
+
+    expect(snapshot).toEqual({ name: "Bob", age: 18 })
+    dispose()
+    form.destroy()
+  })
+
   it("watch 回调读取全表值不会扩大字段监听范围", () => {
     const form = createForm<{ province?: string; city?: string }>({
       initialValues: { province: undefined, city: undefined },

@@ -1,5 +1,5 @@
 /**
- * RuntimeNode ViewSchema 生命周期与 computed ViewSchema 图。
+ * Node ViewSchema 生命周期与 computed ViewSchema 图。
  *
  * ViewSchema computed 挂在 runtime node 上，维护增删改查所需的投影图；
  * 读取 root viewSchemas 时直接取 root computed 的当前值。
@@ -8,13 +8,9 @@
  */
 
 import { createComputed } from "../../reactivity/computed"
-import {
-  isDependencyRuntimeNode,
-  isFieldRuntimeNode,
-  isGroupRuntimeNode,
-} from "../node/helper"
+import { isDependencyNode, isFieldNode, isGroupNode } from "../node/helper"
 
-import type { RootRuntimeNode, RuntimeNode, SchemaRuntimeNode } from "../node"
+import type { ContainerNode, RootNode, SchemaNode } from "../node"
 import type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
@@ -29,28 +25,27 @@ import type { Values } from "../../types"
  * 所有子节点的 view schema，形成扁平化的顶层 schema 数组。
  *
  * @param root - root runtime 节点。
- * @param _resources - 运行时资源上下文（当前未使用）。
  */
 export function createRootRuntimeViewSchemas<TValues extends Values = Values>(
-  root: RootRuntimeNode<TValues>
+  root: RootNode<TValues>
 ): void {
   root.viewSchemas = createComputed(() => readChildrenViewSchemas(root.childNodes.value))
 }
 
 /**
- * 为 RuntimeNode 创建并注册对应 ViewSchema computed。
+ * 为 Node 创建并注册对应 ViewSchema computed。
  *
  * 根据节点类型（field / group / dependency）分别构建对应的 view computed。
  *
  * @param node - 待创建视图状态的运行时节点。
  * @param debug - 是否在 ViewSchema 中附加调试元数据。
- * @throws 当传入不支持的 schema RuntimeNode 类型时抛出错误。
+ * @throws 当传入不支持的 schema Node 类型时抛出错误。
  */
 export function createRuntimeViewSchemas<TValues extends Values = Values>(
-  node: SchemaRuntimeNode<TValues>,
+  node: SchemaNode<TValues>,
   debug = false
 ): void {
-  if (isFieldRuntimeNode(node)) {
+  if (isFieldNode(node)) {
     // 字段 View 直接由静态 schema 与有效字段状态投影，避免在 Field 状态中重复维护 ViewSchema。
     node.viewSchemas = createComputed(() => {
       const staticSchema = node.staticSchema.value
@@ -89,7 +84,7 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
     return
   }
 
-  if (isGroupRuntimeNode(node)) {
+  if (isGroupNode(node)) {
     // 分组 view 合并容器有效状态，并递归读取子节点 viewSchemas。
     node.viewSchemas = createComputed(() => {
       const effective = node.effectiveState.value
@@ -123,9 +118,11 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
     return
   }
 
-  if (isDependencyRuntimeNode(node)) {
+  if (isDependencyNode(node)) {
     // dependency 节点本身不产生 ViewSchema，直接透明展开子节点的 schema 数组。
-    node.viewSchemas = createComputed(() => readChildrenViewSchemas(node.childNodes.value))
+    node.viewSchemas = createComputed(() =>
+      readChildrenViewSchemas(node.childNodes.value)
+    )
 
     return
   }
@@ -134,15 +131,14 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
 }
 
 /**
- * 清理 RuntimeNode 对应 ViewSchema computed。
+ * 清理 Node 对应 ViewSchema computed。
  *
  * 将节点的 viewSchemas 置为 null，使节点不再参与父级投影。
  *
  * @param node - 要删除视图状态的运行时节点。
- * @param _resources - 运行时资源上下文。
  */
 export function clearRuntimeViewSchemas<TValues extends Values = Values>(
-  node: RuntimeNode<TValues>
+  node: ContainerNode<TValues>
 ): void {
   node.viewSchemas = null
 }
@@ -156,7 +152,7 @@ export function clearRuntimeViewSchemas<TValues extends Values = Values>(
  * @returns 扁平化的 ViewSchema 数组。
  */
 function readChildrenViewSchemas<TValues extends Values>(
-  children: readonly SchemaRuntimeNode<TValues>[]
+  children: readonly SchemaNode<TValues>[]
 ): readonly SchemxViewSchema<TValues>[] {
   const result: SchemxViewSchema<TValues>[] = []
 

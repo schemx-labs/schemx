@@ -6,8 +6,8 @@
  * @typeParam TValues - 表单值对象类型。
  */
 
-import type { RuntimeNodeLifecycleEmitter } from "./lifecycle"
-import type { RuntimeNode, RuntimeNodeId } from "./node"
+import type { NodeLifecycleEmitter } from "./lifecycle"
+import type { ContainerNode, NodeId } from "./node"
 import type { Scheduler } from "./scheduler"
 import type {
   FieldValue,
@@ -37,6 +37,12 @@ export interface RuntimeStorePort<TValues extends Values = Values> {
     name: TName,
     value: FieldValue<TValues, TName> | undefined
   ): void
+  /**
+   * 删除指定字段的当前值并清理其临时交互状态。
+   *
+   * @param name - 要删除的字段路径；不会修改初始值。
+   */
+  removeFieldValue<TName extends NamePath<TValues>>(name: TName): void
   setInitialValues(values: Partial<TValues>): void
 }
 
@@ -46,20 +52,13 @@ export interface RuntimeStorePort<TValues extends Values = Values> {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface RuntimeValidationPort<TValues extends Values = Values> {
-  /**
-   * 保存字段校验配置。
-   */
   setFieldConfig<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
   ): void
-
   setFieldRules<TName extends NamePath<TValues>>(
     name: TName,
     rules: FieldRules<TValues, TName> | undefined
   ): void
-  /**
-   * 移除字段校验配置。
-   */
   removeField(name: NamePath<TValues>): void
 }
 
@@ -102,17 +101,14 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    */
   readonly validation: RuntimeValidationPort<TValues>
   /**
-   * RuntimeNode 生命周期事件发布器。
+   * Node 生命周期事件发布器。
    */
-  readonly lifecycle: RuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>
+  readonly lifecycle: NodeLifecycleEmitter<ContainerNode<TValues>>
   /**
    * 唯一子节点提交边界。
    *
-   * @param parent - 接收子节点的容器 RuntimeNode。
+   * @param parent - 接收子节点的容器 Node。
    * @param schemas - 新一轮原始子 schema 列表。
    */
-  reconcileChildren(
-    parentId: RuntimeNodeId,
-    schemas: readonly SchemxField<TValues>[]
-  ): void
+  reconcileChildren(parentId: NodeId, schemas: readonly SchemxField<TValues>[]): void
 }

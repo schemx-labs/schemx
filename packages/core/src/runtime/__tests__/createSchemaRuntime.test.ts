@@ -97,6 +97,7 @@ function createTestStorePort<TValues extends Values>(): RuntimeStorePort<TValues
     setFieldValue(name, value) {
       values.set(String(name), value)
     },
+    removeFieldValue() {},
     setInitialValues(nextValues) {
       for (const [name, value] of Object.entries(nextValues)) {
         initialValues.set(name, value)

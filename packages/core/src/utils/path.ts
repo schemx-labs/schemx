@@ -305,6 +305,60 @@ export function setInWithStructuralSharing(
 }
 
 /**
+ * 使用结构共享删除字段路径，数组索引删除后保留空位。
+ *
+ * @param source - 当前路径所在的值树或子树。
+ * @param segments - 已规范化的路径段。
+ * @param index - 当前递归处理的路径段索引。
+ * @returns 删除后的值树；路径不存在时复用原引用。
+ *
+ * @example
+ * ```ts
+ * deleteInWithStructuralSharing({ user: { name: "Ada" } }, ["user", "name"])
+ * // => { user: {} }
+ * ```
+ */
+export function deleteInWithStructuralSharing(
+  source: unknown,
+  segments: readonly string[],
+  index = 0
+): unknown {
+  if (index === segments.length) {
+    return undefined
+  }
+
+  if (source === null || typeof source !== "object") {
+    return source
+  }
+
+  const segment = segments[index]
+
+  if (!Object.hasOwn(source, segment)) {
+    return source
+  }
+
+  const copy = Array.isArray(source) ? [...source] : { ...source }
+
+  if (index === segments.length - 1) {
+    delete (copy as Record<string, unknown>)[segment]
+
+    return copy
+  }
+
+  const previousChild = (source as Record<string, unknown>)[segment]
+
+  const nextChild = deleteInWithStructuralSharing(previousChild, segments, index + 1)
+
+  if (Object.is(previousChild, nextChild)) {
+    return source
+  }
+
+  ;(copy as Record<string, unknown>)[segment] = nextChild
+
+  return copy
+}
+
+/**
  * 判断 candidate 是否位于 ancestor 的严格后代路径。
  *
  * @param candidate - 待判断的字段路径。
@@ -387,15 +441,6 @@ export function createFieldKey<TValues extends Values = Values>(
   return JSON.stringify(toNamePathSegments(path)) as FieldKey
 }
 
-/**
- * 将 NamePath 统一转为 es-toolkit 运行时接受的路径格式。
- *
- * 数组路径转换成 `(string|number)[]` 格式（保留数字索引），
- * 字符串路径保持原样。
- *
- * @param path - 字段路径（字符串或数组）
- * @returns 标准化后的运行时路径，适配 es-toolkit 的 get/set 接口
- */
 /** 将类型安全的 NamePath 转换为路径库可消费的运行时路径。 */
 const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   if (Array.isArray(path)) {

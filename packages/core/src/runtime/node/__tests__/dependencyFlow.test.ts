@@ -8,7 +8,9 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeGraphHarness, flushRuntimeGraph } from "./runtimeGraphTestUtils"
+import { isDependencyNode } from "../helper"
+
+import { createRuntimeGraphHarness, flushRuntimeGraph } from "./graphTestUtils"
 
 // dependency 节点的挂载/更新/卸载流程：renderer effect 生命周期与竞态保障。
 describe("dependency flow", () => {
@@ -26,7 +28,7 @@ describe("dependency flow", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
@@ -65,7 +67,7 @@ describe("dependency flow", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
@@ -111,7 +113,7 @@ describe("dependency flow", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 

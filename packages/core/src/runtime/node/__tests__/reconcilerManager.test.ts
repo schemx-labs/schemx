@@ -8,9 +8,11 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+import { isDependencyNode, isFieldNode, isGroupNode } from "../helper"
 
-import type { FieldRuntimeNode } from "../types"
+import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
+
+import type { FieldNode } from "../types"
 
 // 验证 reconciler 通过 NodeManager 维护运行时树。
 describe("RuntimeReconciler + NodeManager", () => {
@@ -37,8 +39,8 @@ describe("RuntimeReconciler + NodeManager", () => {
 
     expect(root.childNodes.value).toHaveLength(1)
     expect(
-      root.childNodes.value[0]?.type === "group" &&
-        root.childNodes.value[0].childNodes.value[0]?.type === "group"
+      isGroupNode(root.childNodes.value[0]) &&
+        isGroupNode(root.childNodes.value[0].childNodes.value[0])
         ? root.childNodes.value[0].childNodes.value[0].childNodes.value[0]?.key
         : undefined
     ).toBe("field")
@@ -69,9 +71,7 @@ describe("RuntimeReconciler + NodeManager", () => {
   it("reconcileChildren 拒绝不存在或非容器 parent", () => {
     const { commitSchemas, context, root } = createRuntimeGraphHarness()
 
-    expect(() => context.reconcileChildren(999, [])).toThrow(
-      'RuntimeNode "999" does not exist'
-    )
+    expect(() => context.reconcileChildren(999, [])).toThrow('Node "999" does not exist')
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0]
@@ -81,7 +81,7 @@ describe("RuntimeReconciler + NodeManager", () => {
     }
 
     expect(() => context.reconcileChildren(field.id, [])).toThrow(
-      `RuntimeNode "${field.id}" cannot contain children`
+      `Node "${field.id}" cannot contain children`
     )
   })
 
@@ -96,14 +96,14 @@ describe("RuntimeReconciler + NodeManager", () => {
 
     expect(oldNode?.disposed.value).toBe(true)
     expect(newNode?.key).toBe("new")
-    expect(newNode?.type === "field" && newNode.name.value).toBe("user.name")
+    expect(isFieldNode(newNode) && newNode.name.value).toBe("user.name")
   })
 
   it("提交空 Schema 时清理资源并断开父子关系", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
     commitSchemas(root, [])
 
@@ -121,9 +121,9 @@ describe("RuntimeReconciler + NodeManager", () => {
     commitSchemas(root, [createDependencySchema(["mode"])])
 
     expect(root.childNodes.value[0]).toBe(dependency)
-    expect(
-      dependency?.type === "dependency" && dependency.staticSchema.value.to
-    ).toEqual(["mode"])
+    expect(isDependencyNode(dependency) && dependency.staticSchema.value.to).toEqual([
+      "mode",
+    ])
   })
 })
 

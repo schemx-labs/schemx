@@ -9,6 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest"
 
+import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import * as dependencyModule from "../index"
 
 import {
@@ -40,13 +41,13 @@ describe("dependency renderer effect", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
     expect(dependency.childNodes.value).toHaveLength(1)
     expect(dependency.childNodes.value[0]?.key).toBe("child")
-    expect(dependency.childNodes.value[0]?.type).toBe("field")
+    expect(isFieldNode(dependency.childNodes.value[0])).toBe(true)
   })
 
   it("renderer 返回 group schema 时应保留 group children", async () => {
@@ -88,16 +89,16 @@ describe("dependency renderer effect", () => {
 
     const dependency = root.childNodes.value[0]
 
-    expect(dependency?.type).toBe("dependency")
-    if (dependency?.type !== "dependency") {
+    expect(isDependencyNode(dependency)).toBe(true)
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
     const group = dependency.childNodes.value[0]
 
     expect(renderer).toHaveBeenCalledTimes(2)
-    expect(group?.type).toBe("group")
-    if (group?.type !== "group") {
+    expect(isGroupNode(group)).toBe(true)
+    if (!isGroupNode(group)) {
       throw new Error("expected group node")
     }
 
@@ -127,7 +128,7 @@ describe("dependency renderer effect", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
@@ -161,7 +162,7 @@ describe("dependency renderer effect", () => {
 
     const dependency = root.childNodes.value[0]
 
-    if (dependency?.type !== "dependency") {
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
@@ -200,17 +201,19 @@ describe("dependency renderer effect", () => {
     ])
     await flushRuntimeGraph(scheduler)
 
-    expect(root.childNodes.value[0]?.type).toBe("dependency")
-    if (root.childNodes.value[0]?.type !== "dependency") {
+    const dependency = root.childNodes.value[0]
+
+    expect(isDependencyNode(dependency)).toBe(true)
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
-    expect(root.childNodes.value[0].childNodes.value).toHaveLength(1)
+    expect(dependency.childNodes.value).toHaveLength(1)
 
     formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)
 
-    expect(root.childNodes.value[0].childNodes.value).toHaveLength(0)
+    expect(dependency.childNodes.value).toHaveLength(0)
   })
 
   it("失败的 renderer 不会覆盖上一次成功提交的 dependency children", async () => {
@@ -241,14 +244,14 @@ describe("dependency renderer effect", () => {
       formApi.setFieldValue("mode" as any, "b")
       await flushRuntimeGraph(scheduler)
 
-      expect(root.childNodes.value[0]?.type).toBe("dependency")
-      if (root.childNodes.value[0]?.type !== "dependency") {
+      const dependency = root.childNodes.value[0]
+
+      expect(isDependencyNode(dependency)).toBe(true)
+      if (!isDependencyNode(dependency)) {
         throw new Error("expected dependency node")
       }
 
-      expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual(
-        ["stable"]
-      )
+      expect(dependency.childNodes.value.map((child) => child.key)).toEqual(["stable"])
       expect(consoleError).toHaveBeenCalledWith(
         '[schemx] Dependency Schema "dep" renderer 执行错误',
         error
@@ -294,13 +297,13 @@ describe("dependency renderer effect", () => {
     resolveSlowRenderer([createRawFieldSchema("stale", "stale")])
     await flushRuntimeGraph(scheduler)
 
-    expect(root.childNodes.value[0]?.type).toBe("dependency")
-    if (root.childNodes.value[0]?.type !== "dependency") {
+    const dependency = root.childNodes.value[0]
+
+    expect(isDependencyNode(dependency)).toBe(true)
+    if (!isDependencyNode(dependency)) {
       throw new Error("expected dependency node")
     }
 
-    expect(root.childNodes.value[0].childNodes.value.map((child) => child.key)).toEqual([
-      "latest",
-    ])
+    expect(dependency.childNodes.value.map((child) => child.key)).toEqual(["latest"])
   })
 })

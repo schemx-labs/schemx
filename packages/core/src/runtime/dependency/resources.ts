@@ -1,7 +1,7 @@
 /**
  * Dependency Runtime 资源管理。
  *
- * 管理 DependencyRuntimeNode 的 Presentation 与 renderer effect。
+ * 管理 DependencyNode 的 Presentation 与 renderer effect。
  *
  * @module core/runtime/dependency/resources
  */
@@ -15,25 +15,19 @@ import {
 
 import { createDependencyRendererEffect } from "./rendererEffect"
 
-import type {
-  NamePath,
-  SchemxContainerDependencies,
-  SchemxDependencyField,
-  Values,
-} from "../../types"
+import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { DependencyRuntimeNode } from "../node"
+import type { DependencyNode } from "../node"
 
 /**
  * 挂载 dependency 节点的运行时能力。
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标 dependency 运行时节点
- * @param descriptor - dependency descriptor
  * @param context - 运行时上下文
  */
 export function mountDependencyResources<TValues extends Values>(
-  node: DependencyRuntimeNode<TValues>,
+  node: DependencyNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
   mountPresentationResources(node, context)
@@ -51,23 +45,22 @@ export function mountDependencyResources<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标 dependency 运行时节点
- * @param previousDescriptor - 上一轮 descriptor（用于比较 trigger 字段）
- * @param nextDescriptor - 最新 descriptor
- * @param context - 运行时上下文
+ * @param previousNode - 更新前的 dependency 运行时节点快照
  */
 export function updateDependencyResources<TValues extends Values>(
-  node: DependencyRuntimeNode<TValues>,
-  previousTriggerFields: readonly NamePath<TValues>[] | undefined,
-  previousRendererIdentity: SchemxDependencyField<TValues>["renderer"] | undefined,
-  previousDynamicConfig: SchemxContainerDependencies<TValues> | undefined,
+  node: DependencyNode<TValues>,
+  previousNode: DependencyNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  updatePresentationResources(node, previousDynamicConfig, context)
+  updatePresentationResources(node, previousNode, context)
+
+  const previousSchema = previousNode.staticSchema.peek()
+
+  const currentSchema = node.staticSchema.peek()
 
   if (
-    previousTriggerFields &&
-    areNamePathListsEqual(previousTriggerFields, node.staticSchema.value.to) &&
-    previousRendererIdentity === node.staticSchema.value.renderer &&
+    areNamePathListsEqual(previousSchema.to, currentSchema.to) &&
+    previousSchema.renderer === currentSchema.renderer &&
     node.rendererEffect
   ) {
     return
@@ -90,7 +83,7 @@ export function updateDependencyResources<TValues extends Values>(
  * @param context - 运行时上下文
  */
 export function unmountDependencyResources<TValues extends Values>(
-  node: DependencyRuntimeNode<TValues>
+  node: DependencyNode<TValues>
 ): void {
   node.rendererEffect?.dispose()
   node.rendererEffect = null

@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createStore } from "../../store"
 import { createDependencySchedulerEffect } from "../dependencyScheduler"
-import { createRuntimeScope } from "../node/runtimeScope"
+import { createScope } from "../node/scope"
 import { createScheduler } from "../scheduler"
 
 import type { SchemxFormApi } from "../../types"
@@ -78,7 +78,7 @@ describe("createDependencySchedulerEffect", () => {
     const context = createTestContext(formApi, scheduler)
 
     // 跟踪 effect 生命周期。
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     // 任务额外读取非触发字段，用于验证非追踪边界。
     const run = vi.fn(() => {
@@ -121,7 +121,7 @@ describe("createDependencySchedulerEffect", () => {
 
     const context = createTestContext(formApi, scheduler)
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     // 记录后续字段变化产生的任务次数。
     const run = vi.fn(() => "resolved")
@@ -155,7 +155,7 @@ describe("createDependencySchedulerEffect", () => {
 
     const context = createTestContext(formApi, scheduler)
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const run = vi.fn(() => "resolved")
 
@@ -189,7 +189,7 @@ describe("createDependencySchedulerEffect", () => {
 
     const context = createTestContext(formApi, scheduler)
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     // 记录初始任务和合并后的更新任务。
     const run = vi.fn(() => "resolved")
@@ -224,7 +224,7 @@ describe("createDependencySchedulerEffect", () => {
 
     const context = createTestContext(formApi, scheduler)
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     // 保存每次任务的完成函数，以控制新旧任务的完成顺序。
     const resolvers: Array<(value: string) => void> = []

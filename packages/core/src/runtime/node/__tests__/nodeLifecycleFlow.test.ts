@@ -9,18 +9,18 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { findFieldRuntimeNode } from "../helper"
-import { createRuntimeNodeLifecycle, mountNodeResources } from "../resources"
+import { findFieldNode, isFieldNode } from "../helper"
+import { createNodeLifecycle, mountNodeResources } from "../resources"
 
-import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 import {
   createFieldRuntimeSignals,
   resetFieldDynamicOverrides,
   setFieldDynamicOverrides,
-} from "./runtimeSignalsTestUtils"
+} from "./signalsTestUtils"
 
 import type { SchemxResolvedBaseField } from "../../../types"
-import type { FieldRuntimeNode } from "../types"
+import type { FieldNode } from "../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护
 describe("node lifecycle flow", () => {
@@ -32,7 +32,7 @@ describe("node lifecycle flow", () => {
 
     const { compiler, context } = createRuntimeGraphHarness(hooks)
 
-    const lifecycle = createRuntimeNodeLifecycle(context)
+    const lifecycle = createNodeLifecycle(context)
 
     const node = compiler.createNode(createRawFieldSchema("detached"), "", 0)
 
@@ -90,12 +90,12 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const node = root.childNodes.value[0] as FieldRuntimeNode
+    const node = root.childNodes.value[0] as FieldNode
 
     commitSchemas(root, [])
 
     expect(node.disposed.value).toBe(true)
-    expect(findFieldRuntimeNode(root, "name" as never)).toBeUndefined()
+    expect(findFieldNode(root, "name" as never)).toBeUndefined()
     expect(error).toHaveBeenCalledTimes(2)
 
     error.mockRestore()
@@ -110,7 +110,7 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "旧标签" }])
-    const node = root.childNodes.value[0] as FieldRuntimeNode
+    const node = root.childNodes.value[0] as FieldNode
 
     setFieldDynamicOverrides(
       node,
@@ -130,43 +130,36 @@ describe("node lifecycle flow", () => {
 
     expect(hooks.mounted).toHaveBeenCalledWith(node)
 
-    const [updatedNode, updatedPreviousRuntimeNode] = hooks.updated.mock.calls[0] ?? []
+    const [updatedNode, updatedPreviousNode] = hooks.updated.mock.calls[0] ?? []
 
     expect(updatedNode).toBe(node)
-    expect(updatedPreviousRuntimeNode).toMatchObject({
+    expect(updatedPreviousNode).toMatchObject({
       type: "field",
       key: "name",
     })
-    expect(updatedPreviousRuntimeNode).toHaveProperty("configToken")
-    expect(updatedPreviousRuntimeNode.configToken).toBe(previousConfigToken)
+    expect(updatedPreviousNode).toHaveProperty("configToken")
+    expect(updatedPreviousNode.configToken).toBe(previousConfigToken)
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.name.value).toBe(
+      "name"
+    )
     expect(
-      updatedPreviousRuntimeNode.type === "field" && updatedPreviousRuntimeNode.name.value
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.staticSchema.value.name
     ).toBe("name")
+    expect(updatedPreviousNode).not.toBe(updatedNode)
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.staticSchema).not.toBe(
+      updatedNode.staticSchema
+    )
     expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.staticSchema.value.name
-    ).toBe("name")
-    expect(updatedPreviousRuntimeNode).not.toBe(updatedNode)
-    expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.staticSchema
-    ).not.toBe(updatedNode.staticSchema)
-    expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.dynamicOverrides
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.dynamicOverrides
     ).not.toBe(updatedNode.dynamicOverrides)
     expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.effectiveSchema
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.effectiveSchema
     ).not.toBe(updatedNode.effectiveSchema)
     expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.effectiveSchema.value
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.effectiveSchema.value
     ).toMatchObject({ label: "旧标签", visible: false })
-    expect(updatedNode.type === "field" && updatedNode.name.value).toBe("nickname")
-    expect(
-      updatedNode.type === "field" && updatedNode.effectiveSchema.value
-    ).toMatchObject({
+    expect(isFieldNode(updatedNode) && updatedNode.name.value).toBe("nickname")
+    expect(isFieldNode(updatedNode) && updatedNode.effectiveSchema.value).toMatchObject({
       label: "新标签",
       visible: false,
     })
@@ -181,8 +174,8 @@ describe("node lifecycle flow", () => {
     )
 
     expect(
-      updatedPreviousRuntimeNode.type === "field" &&
-        updatedPreviousRuntimeNode.effectiveSchema.value.visible
+      isFieldNode(updatedPreviousNode) &&
+        updatedPreviousNode.effectiveSchema.value.visible
     ).toBe(false)
     expect(nextConfigToken).not.toBe(previousConfigToken)
   })
@@ -191,7 +184,7 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
     const firstConfigToken = field.configToken
 
@@ -208,12 +201,12 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
     expect(field.staticSchema).toBeDefined()
     expect(field.viewSchemas).not.toBeNull()
     expect(field.validationEffectScope).toBeDefined()
-    expect(findFieldRuntimeNode(root, "name" as any)).toBe(field)
+    expect(findFieldNode(root, "name" as any)).toBe(field)
 
     commitSchemas(root, [])
 
@@ -221,14 +214,14 @@ describe("node lifecycle flow", () => {
     expect(field.staticSchema).toBeDefined()
     expect(field.viewSchemas).toBeNull()
     expect(field.validationEffectScope).toBeNull()
-    expect(findFieldRuntimeNode(root, "name" as any)).toBeUndefined()
+    expect(findFieldNode(root, "name" as any)).toBeUndefined()
   })
 
   it("field update 会释放旧 validationEffectScope 并挂载新的 validationEffectScope", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
     const previousValidationEffectScope = field.validationEffectScope
 
@@ -247,7 +240,7 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
     const validationScope = field.validationEffectScope
 
@@ -265,18 +258,18 @@ describe("node lifecycle flow", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
-    const field = root.childNodes.value[0] as FieldRuntimeNode
+    const field = root.childNodes.value[0] as FieldNode
 
-    expect(findFieldRuntimeNode(root, "name" as any)).toBe(field)
+    expect(findFieldNode(root, "name" as any)).toBe(field)
 
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
 
-    expect(findFieldRuntimeNode(root, "name" as any)).toBeUndefined()
-    expect(findFieldRuntimeNode(root, "nickname" as any)).toBe(field)
+    expect(findFieldNode(root, "name" as any)).toBeUndefined()
+    expect(findFieldNode(root, "nickname" as any)).toBe(field)
 
     commitSchemas(root, [])
 
-    expect(findFieldRuntimeNode(root, "nickname" as any)).toBeUndefined()
+    expect(findFieldNode(root, "nickname" as any)).toBeUndefined()
   })
 })
 

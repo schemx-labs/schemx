@@ -5,31 +5,25 @@
  */
 
 import { areNamePathListsEqual } from "../../utils/path"
+import { isGroupNode } from "../node/helper"
 
 import { createPresentationDependenciesEffect } from "./dependenciesEffect"
 
 import type { SchemxContainerDependencies, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type {
-  DependencyRuntimeNode,
-  GroupRuntimeNode,
-} from "../node"
+import type { DependencyNode, GroupNode } from "../node"
 
 /**
  * 需要维护容器状态的运行时节点类型。
  */
 type StatefulPresentationNode<TValues extends Values> =
-  GroupRuntimeNode<TValues> | DependencyRuntimeNode<TValues>
+  GroupNode<TValues> | DependencyNode<TValues>
 
-/**
- * 需要维护容器状态的 descriptor 类型。
- */
 /**
  * 挂载容器状态和动态属性 effect。
  *
  * @typeParam TValues - 当前表单值类型。
  * @param node - Group 或 Dependency 运行时节点。
- * @param descriptor - 对应的容器 descriptor。
  * @param context - 表单运行时上下文。
  */
 export function mountPresentationResources<TValues extends Values>(
@@ -43,8 +37,7 @@ export function mountPresentationResources<TValues extends Values>(
  * 更新容器静态状态，并仅在 dependencies 配置变化时重建状态 effect。
  *
  * @param node - Group 或 Dependency 运行时节点。
- * @param previousDescriptor - 上一轮容器 descriptor。
- * @param nextDescriptor - 最新容器 descriptor。
+ * @param previousNode - 更新前的容器运行时节点快照。
  * @param context - 表单运行时上下文。
  *
  * @remarks
@@ -53,10 +46,12 @@ export function mountPresentationResources<TValues extends Values>(
  */
 export function updatePresentationResources<TValues extends Values>(
   node: StatefulPresentationNode<TValues>,
-  previousDynamicConfig: SchemxContainerDependencies<TValues> | undefined,
+  previousNode: StatefulPresentationNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  const dynamicConfig = node.staticSchema.value.dependencies
+  const previousDynamicConfig = previousNode.staticSchema.peek().dependencies
+
+  const dynamicConfig = node.staticSchema.peek().dependencies
 
   if (hasSameDynamicConfig(previousDynamicConfig, dynamicConfig)) {
     return
@@ -92,7 +87,7 @@ export function unmountPresentationResources<TValues extends Values>(
  * 重建节点的容器动态 effect，并将其生命周期绑定到节点作用域。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param node - 接收动态覆盖的容器 RuntimeNode。
+ * @param node - 接收动态覆盖的容器 Node。
  * @param context - 表单运行时上下文。
  */
 function recreatePresentationEffect<TValues extends Values>(
@@ -117,7 +112,7 @@ function recreatePresentationEffect<TValues extends Values>(
     context,
     taskId: `presentation:${node.id}:dependencies`,
     node,
-    schemaLabel: `${node.type === "group" ? "Group" : "Dependency"} Schema "${node.key}"`,
+    schemaLabel: `${isGroupNode(node) ? "Group" : "Dependency"} Schema "${node.key}"`,
     scope: presentationEffectScope,
   })
 

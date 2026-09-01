@@ -101,7 +101,7 @@ describe("FieldSignalMap", () => {
     expect(map.isFieldTouched(bracketPath)).toBe(false)
   })
 
-  it("反注册不会删除已物化的字段状态", () => {
+  it("反注册不会删除已注册的字段状态", () => {
     const map = createFieldSignalMap<TestValues>()
 
     map.registerFieldPath("profile.name")
@@ -180,6 +180,30 @@ describe("FieldSignalMap", () => {
     )
 
     for (const dispose of disposes) dispose()
+  })
+
+  it("删除当前值并清理字段交互状态，但保留初始值", () => {
+    const map = createFieldSignalMap<TestValues>({ initialValues })
+
+    map.setFieldTouched("profile.name", true)
+    map.setFieldPending("profile.name", true, "保存中")
+    map.removeFieldValue("profile.name")
+
+    expect(map.getFieldValue("profile.name")).toBeUndefined()
+    expect(map.getFieldInitialValue("profile.name")).toBe("Ada")
+    expect(map.isFieldTouched("profile.name")).toBe(false)
+    expect(map.isFieldPending("profile.name")).toBe(false)
+    expect(map.getFieldPendingMessage("profile.name")).toEqual([])
+    expect(map.getFieldValue("profile.email")).toBe("ada@example.com")
+  })
+
+  it("删除数组索引字段时不改变其他索引", () => {
+    const map = createFieldSignalMap<TestValues>({ initialValues })
+
+    map.removeFieldValue("users[0].name" as NamePath<TestValues>)
+
+    expect(map.getFieldValue("users[0].name" as NamePath<TestValues>)).toBeUndefined()
+    expect(map.getFieldValue("users[1].name" as NamePath<TestValues>)).toBe("Grace")
   })
 
   it("初始值通知不触发当前值依赖", () => {
@@ -323,7 +347,7 @@ describe("FieldSignalMap", () => {
     disposeField()
   })
 
-  it("应该按 paths 获取多个或全部已物化字段状态", () => {
+  it("应该按 paths 获取多个或全部已注册字段状态", () => {
     const map = createFieldSignalMap<TestValues>({ initialValues })
 
     map.registerFieldPath("profile.name")

@@ -1,7 +1,7 @@
 /**
  * Schema compiler 实现。
  *
- * 将用户传入的 SchemxField schema 编译为 SchemaRuntimeNode。
+ * 将用户传入的 SchemxField schema 编译为 SchemaNode。
  * 通过 WeakMap 以 schema 对象引用为键，并按父级与索引位置缓存配置 token。
  * version 机制在编译选项变化时失效 token，使位置未变的 schema 重新创建节点。
  *
@@ -11,12 +11,13 @@
 import { mergeAndResolveSchemxConfig } from "../../config"
 import { createComputed, createSignal } from "../../reactivity"
 import { isDependencySchema, isGroupSchema } from "../../utils"
-import { createRuntimeScope } from "../node/runtimeScope"
+import { isSchemaNode } from "../node/helper"
+import { createScope } from "../node/scope"
 
 import {
   buildFieldStaticSchema,
   createInitialDiagnostics,
-  createRuntimeNodeKey,
+  createNodeKey,
   DEFAULT_PRESENTATION_STATE,
   isValidationSchemaEqual,
   resolveComponentProps,
@@ -24,21 +25,24 @@ import {
 } from "./helper"
 
 import type { Compile, CompileOptions } from "./types"
-import type { SchemxInstance, SchemxSchemaConfig, Values } from "../../types"
 import type {
   SchemxBaseField,
   SchemxDependencyField,
+  SchemxField,
   SchemxGroupField,
+  SchemxInstance,
+  SchemxSchemaConfig,
+  Values,
 } from "../../types"
-import type { SchemxField } from "../../types/schema"
-import type { FieldDynamicOverrides, PresentationDynamicOverrides } from "../node"
 import type {
-  DependencyRuntimeNode,
-  FieldRuntimeNode,
+  DependencyNode,
+  FieldDynamicOverrides,
+  FieldNode,
   FieldValidationSchema,
-  GroupRuntimeNode,
-  RuntimeScope,
-  SchemaRuntimeNode,
+  GroupNode,
+  PresentationDynamicOverrides,
+  SchemaNode,
+  Scope,
 } from "../node"
 
 /**
@@ -98,7 +102,7 @@ export function createCompile<TValues extends Values = Values>(
   let compileCache = createCompileCache<TValues>()
 
   /**
-   * 编译单个 Schema 并创建一个尚未挂载的 SchemaRuntimeNode。
+   * 编译单个 Schema 并创建一个尚未挂载的 SchemaNode。
    *
    * @param schema - 要编译的字段、分组或 dependency Schema。
    * @param parentKey - 父节点的稳定 key。
@@ -110,9 +114,9 @@ export function createCompile<TValues extends Values = Values>(
     schema: SchemxField<TValues>,
     parentKey: string,
     index: number,
-    scope?: RuntimeScope
-  ): SchemaRuntimeNode<TValues> {
-    const key = createRuntimeNodeKey(schema, index, parentKey)
+    scope?: Scope
+  ): SchemaNode<TValues> {
+    const key = createNodeKey(schema, index, parentKey)
 
     const configToken = getConfigToken(schema, key, compileCache)
 
@@ -143,7 +147,7 @@ export function createCompile<TValues extends Values = Values>(
       const inheritedState = createComputed(() => {
         const parent = node.parent
 
-        return parent && parent.type !== "root"
+        return parent && isSchemaNode(parent)
           ? parent.effectiveState.value
           : DEFAULT_PRESENTATION_STATE
       })
@@ -156,12 +160,12 @@ export function createCompile<TValues extends Values = Values>(
         )
       })
 
-      const node: GroupRuntimeNode<TValues> = {
+      const node: GroupNode<TValues> = {
         id,
         key,
         type: "group",
         parent: null,
-        scope: scope ?? createRuntimeScope(),
+        scope: scope ?? createScope(),
         disposed: createSignal(false),
         configToken,
         staticSchema: staticSchemaSignal,
@@ -199,7 +203,7 @@ export function createCompile<TValues extends Values = Values>(
       const inheritedState = createComputed(() => {
         const parent = node.parent
 
-        return parent && parent.type !== "root"
+        return parent && isSchemaNode(parent)
           ? parent.effectiveState.value
           : DEFAULT_PRESENTATION_STATE
       })
@@ -212,12 +216,12 @@ export function createCompile<TValues extends Values = Values>(
         )
       })
 
-      const node: DependencyRuntimeNode<TValues> = {
+      const node: DependencyNode<TValues> = {
         id,
         key,
         type: "dependency",
         parent: null,
-        scope: scope ?? createRuntimeScope(),
+        scope: scope ?? createScope(),
         disposed: createSignal(false),
         configToken,
         staticSchema,
@@ -265,7 +269,7 @@ export function createCompile<TValues extends Values = Values>(
     const inheritedState = createComputed(() => {
       const parent = node.parent
 
-      return parent && parent.type !== "root"
+      return parent && isSchemaNode(parent)
         ? parent.effectiveState.value
         : DEFAULT_PRESENTATION_STATE
     })
@@ -356,12 +360,12 @@ export function createCompile<TValues extends Values = Values>(
       }
     })
 
-    const node: FieldRuntimeNode<TValues> = {
+    const node: FieldNode<TValues> = {
       id,
       key,
       type: "field",
       parent: null,
-      scope: scope ?? createRuntimeScope(),
+      scope: scope ?? createScope(),
       disposed: createSignal(false),
       configToken,
       name: nameSignal,

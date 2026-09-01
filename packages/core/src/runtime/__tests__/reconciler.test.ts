@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
   createRawFieldSchema,
   createRuntimeGraphHarness,
-} from "../node/__tests__/runtimeGraphTestUtils"
+} from "../node/__tests__/graphTestUtils"
 
-describe("RuntimeNode 协调", () => {
+describe("Node 协调", () => {
   it("提交 Schema 后创建、挂载对应节点", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 

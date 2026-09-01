@@ -15,6 +15,7 @@ import { createSignal } from "../reactivity/signal"
 import {
   areSameOrOverlappingFieldPaths,
   createFieldKey,
+  deleteInWithStructuralSharing,
   getByPath,
   isDescendantFieldPath,
   isFieldArrayDescendantAffected,
@@ -106,7 +107,7 @@ export interface FieldSignalMapError<TValues extends Values> {
 /**
  * Store 使用的字段路径和值状态操作接口。
  *
- * 接口以单路径读写为主，并提供已物化字段状态的批量遍历能力。
+ * 接口以单路径读写为主，并提供已注册字段状态的批量遍历能力。
  * Store 负责批量值写入边界和 FieldArray 结构算法。
  *
  * @typeParam TValues - 表单值类型。
@@ -119,7 +120,7 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    */
   registerFieldPath(path: NamePath<TValues>): void
   /**
-   * 反注册字段路径；不会删除值、初始值或已物化的字段状态。
+   * 反注册字段路径；不会删除值、初始值或已注册的字段状态。
    *
    * @param path - 要反注册的字段路径。
    */
@@ -132,6 +133,13 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    * @returns 值实际发生变化时返回 `true`。
    */
   setFieldValue(path: NamePath<TValues>, value: unknown): boolean
+  /**
+   * 删除单个字段的当前值，并清理该路径的临时交互状态。
+   *
+   * @param path - 要删除的字段路径；空根路径表示清空全部当前值。
+   * @returns 当前值实际发生变化时返回 `true`。
+   */
+  removeFieldValue(path: NamePath<TValues>): boolean
   /**
    * 读取当前值并建立指定路径的字段级依赖。
    *
@@ -279,38 +287,38 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    */
   clearFieldErrors(path: NamePath<TValues>): void
   /**
-   * 清除所有已物化字段的错误来源。
+   * 清除所有已注册字段的错误来源。
    */
   clearAllErrors(): void
   /**
-   * 获取多个或全部已物化字段的状态记录。
+   * 获取多个或全部已注册字段的状态记录。
    *
-   * @param paths - 可选的字段路径列表；省略时返回全部已物化字段。
+   * @param paths - 可选的字段路径列表；省略时返回全部已注册字段。
    * @returns 按路径顺序排列的字段状态记录。
    */
   getFieldStates(paths?: readonly NamePath<TValues>[]): readonly FieldState<TValues>[]
   /**
-   * 迭代多个或全部已物化字段的路径和状态记录。
+   * 迭代多个或全部已注册字段的路径和状态记录。
    *
-   * @param paths - 可选的字段路径列表；省略时迭代全部已物化字段。
+   * @param paths - 可选的字段路径列表；省略时迭代全部已注册字段。
    * @returns 字段路径与状态记录迭代器。
    */
   getFieldEntries(
     paths?: readonly NamePath<TValues>[]
   ): IterableIterator<[NamePath<TValues>, FieldState<TValues>]>
   /**
-   * 迭代多个或全部已物化字段的状态记录。
+   * 迭代多个或全部已注册字段的状态记录。
    *
-   * @param paths - 可选的字段路径列表；省略时迭代全部已物化字段。
+   * @param paths - 可选的字段路径列表；省略时迭代全部已注册字段。
    * @returns 字段状态记录迭代器。
    */
   getFieldValues(
     paths?: readonly NamePath<TValues>[]
   ): IterableIterator<FieldState<TValues>>
   /**
-   * 迭代多个或全部已物化字段的路径。
+   * 迭代多个或全部已注册字段的路径。
    *
-   * @param paths - 可选的字段路径列表；省略时迭代全部已物化字段。
+   * @param paths - 可选的字段路径列表；省略时迭代全部已注册字段。
    * @returns 字段路径迭代器。
    */
   getFieldKeys(paths?: readonly NamePath<TValues>[]): IterableIterator<NamePath<TValues>>
@@ -389,7 +397,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     this.ensureState(path)
   }
 
-  // 保留已物化状态；Store 的反注册只影响上层注册边界。
+  // 保留已注册状态；Store 的反注册只影响上层注册边界。
   unregisterFieldPath(_path: NamePath<TValues>): void {}
 
   // 读取 revision 以建立字段级依赖，再从唯一值树读取字段值。
@@ -413,6 +421,30 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     const changed = this.writeCurrentValue(path, value)
 
     if (changed) this.notifyValueChanged(path)
+
+    return changed
+  }
+
+  /** 删除当前值并清理指定路径的临时交互状态。 */
+  removeFieldValue(path: NamePath<TValues>): boolean {
+    const segments = toStructuralPathSegments(path)
+
+    const nextValues =
+      segments.length === 0 ? {} : deleteInWithStructuralSharing(this.values, segments)
+
+    const changed = !Object.is(nextValues, this.values)
+
+    if (changed) {
+      this.values = nextValues as TValues
+      this.onValueChanged()
+      this.notifyValueChanged(path)
+    }
+
+    const state = this.states.get(createFieldKey(path))
+
+    if (state) {
+      this.clearState(state)
+    }
 
     return changed
   }
@@ -583,7 +615,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     this.errorRevision.value += 1
   }
 
-  // 批量清除已物化字段的错误，并合并为一次版本通知。
+  // 批量清除已注册字段的错误，并合并为一次版本通知。
   clearAllErrors(): void {
     let changed = false
 
@@ -689,7 +721,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   }
 
   /**
-   * 获取指定路径对应的已物化状态记录。
+   * 获取指定路径对应的已注册状态记录。
    *
    * @param paths - 可选的字段路径列表；省略时返回全部状态。
    * @returns 按字段路径顺序排列的状态记录。

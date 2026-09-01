@@ -9,7 +9,7 @@
 import { createDebouncedSignalWatch } from "../../reactivity"
 
 import type { Values } from "../../types"
-import type { RootRuntimeNode } from "../node"
+import type { RootNode } from "../node"
 import type { SchemxViewSchema } from "./types"
 
 /**
@@ -23,7 +23,7 @@ import type { SchemxViewSchema } from "./types"
  * @returns 取消订阅函数，调用后停止监听。
  */
 export function subscribeViewSchemas<TValues extends Values = Values>(
-  root: RootRuntimeNode<TValues>,
+  root: RootNode<TValues>,
   onChange: (schemas: readonly SchemxViewSchema<TValues>[]) => void
 ): () => void {
   // 值变化后以 16ms 防抖间隔通知 onChange

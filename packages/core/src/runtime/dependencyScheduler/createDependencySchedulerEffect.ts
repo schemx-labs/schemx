@@ -9,7 +9,7 @@ import { createAbortableTaskRunner } from "../scheduler/abortableTaskRunner"
 
 import type { NamePath, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { RuntimeScope } from "../node"
+import type { Scope } from "../node"
 import type { SchedulerTaskPriority } from "../scheduler"
 
 /**
@@ -67,7 +67,7 @@ export interface CreateDependencySchedulerEffectOptions<TValues extends Values, 
   /**
    * effect 所属的父生命周期作用域。
    */
-  readonly scope: RuntimeScope
+  readonly scope: Scope
 
   /**
    * effect 建立时是否立即执行一次任务。

@@ -1,7 +1,7 @@
 /**
  * Field Runtime 资源管理。
  *
- * 管理 FieldRuntimeNode 的字段状态、校验和 dependencies effect。
+ * 管理 FieldNode 的字段状态、校验和 dependencies effect。
  *
  * @module core/runtime/field/resources
  */
@@ -15,7 +15,7 @@ import { createValidationEffect } from "./validationEffect"
 
 import type { NamePath, SchemxFieldDependencies, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FieldRuntimeNode } from "../node"
+import type { FieldNode } from "../node"
 
 /**
  * 挂载字段运行时节点的资源。
@@ -24,14 +24,13 @@ import type { FieldRuntimeNode } from "../node"
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
- * @param descriptor - 字段 descriptor
  * @param context - 运行时上下文
  */
 export function mountFieldResources<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  context.store.registerFieldPath(node.name.value)
+  context.store.registerFieldPath(node.name.peek())
   applyFieldInitialValue(node, context)
   recreateFieldEffects(node, context)
 }
@@ -44,36 +43,41 @@ export function mountFieldResources<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
- * @param previousDescriptor - 上一轮 descriptor（用于比较字段名）
- * @param nextDescriptor - 最新 descriptor
+ * @param previousNode - 更新前的字段运行时节点快照
  * @param context - 运行时上下文
  */
 export function updateFieldResources<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
-  previousName: NamePath<TValues> | undefined,
-  previousDynamicConfig: SchemxFieldDependencies<TValues> | undefined,
+  node: FieldNode<TValues>,
+  previousNode: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  const nameChanged =
-    previousName !== undefined &&
-    createFieldKey(previousName) !== createFieldKey(node.name.value)
+  const previousName = previousNode.name.peek()
+
+  const nameChanged = createFieldKey(previousName) !== createFieldKey(node.name.peek())
 
   if (nameChanged) {
     batchUpdates(() => {
       context.store.unregisterFieldPath(previousName)
-      context.store.registerFieldPath(node.name.value)
+
+      if (previousNode.staticSchema.peek().preserve === false) {
+        context.store.removeFieldValue(previousName)
+      }
+
+      context.store.registerFieldPath(node.name.peek())
     })
   }
 
   if (!nameChanged) {
-    context.store.registerFieldPath(node.name.value)
+    context.store.registerFieldPath(node.name.peek())
   }
 
   if (nameChanged) {
     recreateValidationEffect(node, context)
   }
 
-  const dynamicConfig = node.staticSchema.value.dependencies
+  const previousDynamicConfig = previousNode.staticSchema.peek().dependencies
+
+  const dynamicConfig = node.staticSchema.peek().dependencies
 
   if (shouldRecreateDependenciesEffect(previousDynamicConfig, dynamicConfig)) {
     recreateDependenciesEffect(node, context)
@@ -90,10 +94,10 @@ export function updateFieldResources<TValues extends Values>(
  * @param context - 运行时上下文
  */
 export function unmountFieldResources<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  context.store.unregisterFieldPath(node.name.value)
+  context.store.unregisterFieldPath(node.name.peek())
   node.validationEffectScope?.dispose()
   node.validationEffectScope = null
   node.dependenciesEffectScope?.dispose()
@@ -110,11 +114,10 @@ export function unmountFieldResources<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型
  * @param node - 字段运行时节点
- * @param descriptor - 字段 descriptor
  * @param context - 运行时上下文
  */
 function recreateFieldEffects<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
   recreateValidationEffect(node, context)
@@ -123,7 +126,7 @@ function recreateFieldEffects<TValues extends Values>(
 
 /** 创建或重建仅随字段 name 变化的 validation effect。 */
 function recreateValidationEffect<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
   node.validationEffectScope?.dispose()
@@ -148,7 +151,7 @@ function recreateValidationEffect<TValues extends Values>(
 
 /** 创建或重建 dependencies 配置发生变化的 effect。 */
 function recreateDependenciesEffect<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
   node.dependenciesEffectScope?.dispose()
@@ -190,11 +193,10 @@ function shouldRecreateDependenciesEffect<TValues extends Values>(
  * 尚未设置，则写入该初始值。仅在首次挂载时生效。
  *
  * @typeParam TValues - 表单值类型
- * @param descriptor - 字段 descriptor
  * @param context - 运行时上下文
  */
 function applyFieldInitialValue<TValues extends Values>(
-  node: FieldRuntimeNode<TValues>,
+  node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
   const staticSchema = node.staticSchema.value

@@ -52,10 +52,7 @@ export function createFormObserver<
 
   return model.effect(() => {
     // 读取当前值以建立响应式依赖。
-    const latestValues = model.store.getFieldsValue()
-
-    // 当前字段状态的稳定快照。
-    const latestSnapshot = model.store.getFieldsSnapshot()
+    const latestSnapshot = model.store.getFieldsValue()
 
     // 只向回调报告本轮发生变化的值。
     const changedValues = diff(latestSnapshot, prevSnapshot)
@@ -67,7 +64,7 @@ export function createFormObserver<
       callbacks.onValuesChange?.(changedValues, latestSnapshot)
       callbacks.onFieldsChange?.(
         changedPaths,
-        collectObjectPathsByLeaf<TValues, TName>(latestValues)
+        collectObjectPathsByLeaf<TValues, TName>(latestSnapshot)
       )
     }
 

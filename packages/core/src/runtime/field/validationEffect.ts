@@ -14,7 +14,7 @@ import type { ComputedSignal } from "../../reactivity/computed"
 import type { PresetRuleFactoryContext } from "../../registry"
 import type { SchemxBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FieldValidationSchema, RuntimeScope } from "../node"
+import type { FieldValidationSchema, Scope } from "../node"
 
 /**
  * 创建 ValidationEffect 的配置选项。
@@ -46,10 +46,10 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
   /**
    * 关联的 scope。
    *
-   * ValidationEffect 会取得该 RuntimeScope 的销毁权：调用 `effect.dispose()` 会销毁传入的整个 RuntimeScope。
-   * 请传入仅由该 effect 所有的专用 RuntimeScope；RuntimeScope 销毁时会同步注销该字段的规则与错误。
+   * ValidationEffect 会取得该 Scope 的销毁权：调用 `effect.dispose()` 会销毁传入的整个 Scope。
+   * 请传入仅由该 effect 所有的专用 Scope；Scope 销毁时会同步注销该字段的规则与错误。
    */
-  scope: RuntimeScope
+  scope: Scope
 }
 
 /**
@@ -57,10 +57,10 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
  */
 export interface ValidationEffect {
   /**
-   * 销毁创建该 effect 时传入的整个 RuntimeScope，并注销字段校验规则。
+   * 销毁创建该 effect 时传入的整个 Scope，并注销字段校验规则。
    *
-   * 该方法不是只释放 effect 自身；不要将 `effect.dispose` 注册为同一 RuntimeScope 的清理回调，
-   * 也不要传入仍需要继续使用的表单或字段 RuntimeScope。
+   * 该方法不是只释放 effect 自身；不要将 `effect.dispose` 注册为同一 Scope 的清理回调，
+   * 也不要传入仍需要继续使用的表单或字段 Scope。
    */
   dispose(): void
 }
@@ -102,10 +102,10 @@ function resolveFieldRules(
  *
  * @example
  * ```ts
- * const effectScope = createRuntimeScope()
+ * const effectScope = createScope()
  * const effect = createValidationEffect({ context, name, validationSchema, scope: effectScope })
  *
- * // 由专用 RuntimeScope 的拥有者在字段卸载时调用。
+ * // 由专用 Scope 的拥有者在字段卸载时调用。
  * effect.dispose()
  * ```
  */

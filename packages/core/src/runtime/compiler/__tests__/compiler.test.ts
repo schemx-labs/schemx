@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { normalizeSchemas } from "../../../utils"
+import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import { createCompile } from "../index"
 
 import type { SchemxField, SchemxInstance } from "../../../types"
@@ -21,7 +22,7 @@ describe("createCompile().createNode", () => {
       key: "field:email",
     })
 
-    expect(node.type === "field" && node.staticSchema.value.componentType).toBe("input")
+    expect(isFieldNode(node) && node.staticSchema.value.componentType).toBe("input")
     expect(schema).not.toHaveProperty("componentType")
   })
 
@@ -61,7 +62,7 @@ describe("createCompile().createNode", () => {
       0
     )
 
-    if (node.type !== "field") {
+    if (!isFieldNode(node)) {
       throw new Error("expected field node")
     }
 
@@ -94,7 +95,7 @@ describe("createCompile().createNode", () => {
       1
     )
 
-    if (topLevelNode.type !== "field") {
+    if (!isFieldNode(topLevelNode)) {
       throw new Error("expected field node")
     }
 
@@ -124,7 +125,7 @@ describe("createCompile().createNode", () => {
       0
     )
 
-    if (node.type !== "field") {
+    if (!isFieldNode(node)) {
       throw new Error("expected field node")
     }
 
@@ -144,7 +145,7 @@ describe("createCompile().createNode", () => {
 
     expect(node.type).toBe("group")
     expect(node).not.toHaveProperty("children")
-    if (node.type !== "group") {
+    if (!isGroupNode(node)) {
       throw new Error("expected group node")
     }
 
@@ -161,7 +162,7 @@ describe("createCompile().createNode", () => {
     )
 
     expect(node).toMatchObject({ type: "dependency" })
-    if (node.type !== "dependency") {
+    if (!isDependencyNode(node)) {
       throw new Error("expected dependency node")
     }
 

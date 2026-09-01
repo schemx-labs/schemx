@@ -11,8 +11,8 @@ import {
   createFieldRuntimeSignals,
   setFieldDynamicOverrides,
   setFieldStaticSchema,
-} from "../../node/__tests__/runtimeSignalsTestUtils"
-import { createRuntimeScope } from "../../node/runtimeScope"
+} from "../../node/__tests__/signalsTestUtils"
+import { createScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
 import { createValidationEffect } from "../validationEffect"
 
@@ -75,7 +75,7 @@ const createFormConfigContext = () => {
 // createValidationEffect 基本功能：规则注册与可见性/只读/禁用联动
 describe("createValidationEffect", () => {
   it("应该创建只负责规则注册的 ValidationEffect", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig()
 
@@ -109,7 +109,7 @@ describe("createValidationEffect", () => {
   })
 
   it("showRequiredMark=false 时仍应注册 required 校验", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig(
       createSchema({ required: true, showRequiredMark: false })
@@ -142,7 +142,7 @@ describe("createValidationEffect", () => {
   })
 
   it("仅更新 placeholder 不会重新同步校验规则", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig()
 
@@ -179,7 +179,7 @@ describe("createValidationEffect", () => {
 // 规则管理：visible=false / readonly / disabled 时注销规则并清空错误
 describe("rule management", () => {
   it("应该在 visible=false 时从 Validator 注销规则并清空错误", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig(createSchema({ visible: false }))
 
@@ -205,7 +205,7 @@ describe("rule management", () => {
   })
 
   it("应该在 readonly=true 时从 Validator 注销规则并清空错误", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig(createSchema({ readonly: true }))
 
@@ -231,7 +231,7 @@ describe("rule management", () => {
   })
 
   it("应该在 disabled=true 时从 Validator 注销规则并清空错误", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig(createSchema({ disabled: true }))
 
@@ -257,7 +257,7 @@ describe("rule management", () => {
   })
 
   it("字段呈现态在响应式 effect 中变化时不应同步写 Validator 造成循环", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const config = createFieldConfig()
 

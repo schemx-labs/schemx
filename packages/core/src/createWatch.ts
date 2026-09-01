@@ -383,10 +383,7 @@ export const createWatchAll = <
    * 释放用于追踪完整表单快照的响应式 effect。
    */
   const dispose = form.effect(() => {
-    form.getFieldsValue()
-
-    // 传递给公开回调的完整快照。
-    const latestSnapshot = form.getFieldsSnapshot()
+    const latestSnapshot = form.getFieldsValue()
 
     if (isFirst) {
       isFirst = false

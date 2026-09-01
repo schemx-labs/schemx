@@ -23,6 +23,7 @@ export {
   toNamePathSegments,
   toStructuralPathSegments,
   setInWithStructuralSharing,
+  deleteInWithStructuralSharing,
   isDescendantFieldPath,
   areSameOrOverlappingFieldPaths,
   areOverlappingFieldPaths,

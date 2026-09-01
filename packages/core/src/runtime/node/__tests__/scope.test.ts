@@ -1,5 +1,5 @@
 /**
- * RuntimeScope 资源生命周期管理测试。
+ * Scope 资源生命周期管理测试。
  *
  * 覆盖 scope 的创建、子 scope 释放顺序、cleanup 重复注册、提前注销
  * 以及 disposed 后注册立即执行等行为。
@@ -9,12 +9,12 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../runtimeScope"
+import { createScope } from "../scope"
 
-// RuntimeScope 资源生命周期：子 scope 释放顺序、cleanup 注册与提前注销、disposed 后注册
-describe("RuntimeScope", () => {
-  it("createRuntimeScope 创建 RuntimeScope 生命周期边界", () => {
-    const scope = createRuntimeScope()
+// Scope 资源生命周期：子 scope 释放顺序、cleanup 注册与提前注销、disposed 后注册
+describe("Scope", () => {
+  it("createScope 创建 Scope 生命周期边界", () => {
+    const scope = createScope()
 
     const childScope = scope.child()
 
@@ -31,7 +31,7 @@ describe("RuntimeScope", () => {
   })
 
   it("add 返回的 handle 可以提前执行并避免 scope 重复清理", () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const cleanup = vi.fn()
 
@@ -47,7 +47,7 @@ describe("RuntimeScope", () => {
   })
 
   it("dispose 时先释放子 scope，再按逆序执行当前 scope cleanup", () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const childScope = scope.child()
 
@@ -65,7 +65,7 @@ describe("RuntimeScope", () => {
   })
 
   it("disposed 后注册 cleanup 会立即执行并返回已释放 handle", () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const cleanup = vi.fn()
 
@@ -77,7 +77,7 @@ describe("RuntimeScope", () => {
   })
 
   it("disposed 后创建的 child 会立即处于已释放状态", () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     scope.dispose()
 
@@ -92,7 +92,7 @@ describe("RuntimeScope", () => {
   })
 
   it("同一个 cleanup 函数重复注册时应按注册次数执行", () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const cleanup = vi.fn()
 

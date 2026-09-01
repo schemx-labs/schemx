@@ -223,6 +223,35 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
+   * 删除指定字段的当前值，并同步清理其 FieldArray 根状态。
+   *
+   * @param path - 要删除的字段路径；不会修改初始值。
+   */
+  removeFieldValue<TName extends NamePath<TValues>>(path: TName): void {
+    batchUpdates(() => {
+      const arrayState = this.arrays.get(createFieldKey(path))
+
+      if (arrayState) {
+        const previousLength = this.getArrayLength(arrayState.path)
+
+        this.fieldStates.removeFieldValue(arrayState.path)
+        arrayState.keys.value = []
+        arrayState.change.value = {
+          previousLength,
+          nextLength: 0,
+          ranges: this.createRootChangeRange(previousLength, 0),
+          resetKeys: true,
+        }
+
+        return
+      }
+
+      this.fieldStates.removeFieldValue(path)
+      this.rebuildNestedArrayKeys(path)
+    })
+  }
+
+  /**
    * 按叶子路径和已创建数组根批量写入当前值。
    *
    * @param values - 要合并写入的字段值对象。
@@ -584,7 +613,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 读取多个字段的错误问题；省略路径时返回全部存在错误的已物化字段。
+   * 读取多个字段的错误问题；省略路径时返回全部存在错误的已注册字段。
    */
   getFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[] {
     if (paths === undefined) {
@@ -611,7 +640,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 无依赖读取多个字段的错误问题；省略路径时返回全部存在错误的已物化字段。
+   * 无依赖读取多个字段的错误问题；省略路径时返回全部存在错误的已注册字段。
    */
   peekFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[] {
     if (paths === undefined) {
@@ -638,7 +667,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 清除多个字段的错误问题；省略路径时清除全部已物化字段。
+   * 清除多个字段的错误问题；省略路径时清除全部已注册字段。
    */
   clearFieldsErrors(paths?: readonly NamePath<TValues>[]): void {
     if (paths === undefined) {
@@ -655,7 +684,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 清除全部已物化字段保存的错误问题。
+   * 清除全部已注册字段保存的错误问题。
    */
   clearAllErrors(): void {
     this.fieldStates.clearAllErrors()
@@ -792,7 +821,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     for (const path of paths) {
       const value = track ? this.getFieldValue(path) : this.getFieldSnapshot(path)
 
-      setByPath(result, path, cloneDeep(value))
+      setByPath(result, path, track ? cloneDeep(value) : value)
     }
 
     return result

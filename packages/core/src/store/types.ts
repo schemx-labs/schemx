@@ -139,6 +139,13 @@ export interface Store<TValues extends Values = Values> {
   ): void
 
   /**
+   * 删除指定字段的当前值并清理该字段的临时交互状态。
+   *
+   * @param path - 要删除的字段路径；不会修改初始值。
+   */
+  removeFieldValue<TName extends NamePath<TValues>>(path: TName): void
+
+  /**
    * 批量设置字段的当前值。
    *
    * @param values - 要写入的字段值对象。
@@ -263,7 +270,7 @@ export interface Store<TValues extends Values = Values> {
   isFieldTouched<TName extends NamePath<TValues>>(path: TName): boolean
 
   /**
-   * 判断是否存在已物化但尚未 touched 的字段。
+   * 判断是否存在已注册但尚未 touched 的字段。
    *
    * @returns 存在尚未 touched 的字段时返回 `true`。
    */
@@ -318,7 +325,7 @@ export interface Store<TValues extends Values = Values> {
   isFieldPending<TName extends NamePath<TValues>>(path: TName): boolean
 
   /**
-   * 判断是否存在已物化但尚未 pending 的字段。
+   * 判断是否存在已注册但尚未 pending 的字段。
    *
    * @returns 存在尚未 pending 的字段时返回 `true`。
    */
@@ -400,7 +407,7 @@ export interface Store<TValues extends Values = Values> {
   clearFieldsErrors(paths?: readonly NamePath<TValues>[]): void
 
   /**
-   * 清除所有已物化字段的错误来源。
+   * 清除所有已注册字段的错误来源。
    */
   clearAllErrors(): void
 

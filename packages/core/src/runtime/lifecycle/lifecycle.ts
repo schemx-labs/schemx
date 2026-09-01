@@ -1,5 +1,5 @@
 /**
- * RuntimeNode 生命周期事件。
+ * Node 生命周期事件。
  *
  * 该模块只转发已完成的运行时状态变更，不执行节点资源的挂载、更新或卸载。
  *
@@ -7,11 +7,11 @@
  */
 
 /**
- * RuntimeNode 生命周期 Hook。
+ * Node 生命周期 Hook。
  *
  * @typeParam TNode - 运行时节点类型。
  */
-export interface RuntimeNodeLifecycleHooks<TNode> {
+export interface NodeLifecycleHooks<TNode> {
   /**
    * 节点创建后、资源挂载前触发。
    *
@@ -42,11 +42,11 @@ export interface RuntimeNodeLifecycleHooks<TNode> {
 }
 
 /**
- * RuntimeNode 生命周期事件的内部发布器。
+ * Node 生命周期事件的内部发布器。
  *
  * @typeParam TNode - 运行时节点类型。
  */
-export interface RuntimeNodeLifecycleEmitter<TNode> {
+export interface NodeLifecycleEmitter<TNode> {
   /**
    * 发布节点创建事件。
    *
@@ -75,7 +75,7 @@ export interface RuntimeNodeLifecycleEmitter<TNode> {
 }
 
 /**
- * 创建 RuntimeNode 生命周期事件发布器。
+ * 创建 Node 生命周期事件发布器。
  *
  * Hook 的异常会被隔离，不能中断 Runtime 资源操作。
  *
@@ -85,16 +85,16 @@ export interface RuntimeNodeLifecycleEmitter<TNode> {
  *
  * @example
  * ```ts
- * const lifecycle = createRuntimeNodeLifecycleEmitter({
+ * const lifecycle = createNodeLifecycleEmitter({
  *   mounted: (node) => console.log(node),
  * })
  *
  * lifecycle.emitMounted(node)
  * ```
  */
-export function createRuntimeNodeLifecycleEmitter<TNode>(
-  hooks: RuntimeNodeLifecycleHooks<TNode> = {}
-): RuntimeNodeLifecycleEmitter<TNode> {
+export function createNodeLifecycleEmitter<TNode>(
+  hooks: NodeLifecycleHooks<TNode> = {}
+): NodeLifecycleEmitter<TNode> {
   /**
    * 调用生命周期 Hook，并隔离 Hook 抛出的异常。
    *

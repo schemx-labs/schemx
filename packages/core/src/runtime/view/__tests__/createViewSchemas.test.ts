@@ -9,14 +9,14 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  createDependencyRuntimeNode,
-  createFieldRuntimeNode,
-  createGroupRuntimeNode,
-  createRootRuntimeNode,
-} from "../../node/__tests__/runtimeNodeTestUtils"
-import { setFieldDynamicOverrides } from "../../node/__tests__/runtimeSignalsTestUtils"
+  createDependencyNode,
+  createFieldNode,
+  createGroupNode,
+  createRootNode,
+} from "../../node/__tests__/nodeTestUtils"
+import { setFieldDynamicOverrides } from "../../node/__tests__/signalsTestUtils"
 import { createNodeManager } from "../../node/nodeManager"
-import { createRuntimeScope } from "../../node/runtimeScope"
+import { createScope } from "../../node/scope"
 import {
   clearRuntimeViewSchemas,
   createRootRuntimeViewSchemas,
@@ -29,10 +29,10 @@ import type {
   SchemxDependencyField,
   SchemxResolvedBaseField,
 } from "../../../types"
-// 验证 createViewSchemas 对各类 RuntimeNode 的 ViewSchema 创建、更新与清理。
+// 验证 createViewSchemas 对各类 Node 的 ViewSchema 创建、更新与清理。
 describe("createViewSchemas", () => {
   it("为 root 创建并注册 root viewSchemas", () => {
-    const root = createRootRuntimeNode({ scope: createRuntimeScope() })
+    const root = createRootNode({ scope: createScope() })
 
     createRootRuntimeViewSchemas(root)
 
@@ -42,10 +42,10 @@ describe("createViewSchemas", () => {
   it("为 field 创建并注册 field viewSchemas", () => {
     const nodeOptions = createFieldNodeOptions()
 
-    const node = createFieldRuntimeNode({
+    const node = createFieldNode({
       id: 1,
       ...nodeOptions,
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRuntimeViewSchemas(node)
@@ -58,10 +58,10 @@ describe("createViewSchemas", () => {
   it("field viewSchemas 跟随 effectiveSchema computed 更新", () => {
     const nodeOptions = createFieldNodeOptions({ label: "姓名", visible: true })
 
-    const node = createFieldRuntimeNode({
+    const node = createFieldNode({
       id: 1,
       ...nodeOptions,
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRuntimeViewSchemas(node)
@@ -86,10 +86,10 @@ describe("createViewSchemas", () => {
       componentProps: componentProps as never,
     })
 
-    const node = createFieldRuntimeNode({
+    const node = createFieldNode({
       id: 1,
       ...nodeOptions,
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRuntimeViewSchemas(node)
@@ -109,10 +109,10 @@ describe("createViewSchemas", () => {
   it("为 group 创建并注册 group viewSchemas", () => {
     const nodeOptions = createGroupNodeOptions()
 
-    const node = createGroupRuntimeNode({
+    const node = createGroupNode({
       id: 1,
       ...nodeOptions,
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRuntimeViewSchemas(node)
@@ -123,10 +123,10 @@ describe("createViewSchemas", () => {
   })
 
   it("debug 模式为 group view 附加调试元数据", () => {
-    const node = createGroupRuntimeNode({
+    const node = createGroupNode({
       id: 1,
       ...createGroupNodeOptions(),
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRuntimeViewSchemas(node, true)
@@ -142,22 +142,22 @@ describe("createViewSchemas", () => {
 
     const root = nodeManager.getRoot()
 
-    const group = createGroupRuntimeNode({
+    const group = createGroupNode({
       id: 1,
       ...createGroupNodeOptions(),
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
-    const dependency = createDependencyRuntimeNode({
+    const dependency = createDependencyNode({
       id: 2,
       ...createDependencyNodeOptions(),
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
-    const field = createFieldRuntimeNode({
+    const field = createFieldNode({
       id: 3,
       ...createFieldNodeOptions(),
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     createRootRuntimeViewSchemas(root)
@@ -170,19 +170,17 @@ describe("createViewSchemas", () => {
     nodeManager.insert(dependency, group.id)
     nodeManager.insert(field, dependency.id)
 
-    expect(root.viewSchemas?.value.map((schema) => schema.key)).toEqual([
-      "group:0",
-    ])
+    expect(root.viewSchemas?.value.map((schema) => schema.key)).toEqual(["group:0"])
     expect(group.viewSchemas?.value[0]).toMatchObject({
       children: [{ key: "field:name" }],
     })
   })
 
   it("清理节点 viewSchemas", () => {
-    const node = createFieldRuntimeNode({
+    const node = createFieldNode({
       id: 1,
       ...createFieldNodeOptions(),
-      scope: createRuntimeScope(),
+      scope: createScope(),
     })
 
     node.viewSchemas = {} as never

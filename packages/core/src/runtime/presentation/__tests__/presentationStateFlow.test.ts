@@ -11,14 +11,11 @@ import { describe, expect, it, vi } from "vitest"
 import {
   createRuntimeGraphHarness,
   flushRuntimeGraph,
-} from "../../node/__tests__/runtimeGraphTestUtils"
+} from "../../node/__tests__/graphTestUtils"
+import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 
 import type { SchemxField } from "../../../types"
-import type {
-  DependencyRuntimeNode,
-  FieldRuntimeNode,
-  GroupRuntimeNode,
-} from "../../node"
+import type { DependencyNode, FieldNode, GroupNode } from "../../node"
 
 describe("呈现状态运行时链路", () => {
   it("嵌套 Group 和 Dependency 状态应递归约束后代字段", async () => {
@@ -451,12 +448,12 @@ describe("呈现状态运行时链路", () => {
  * @returns Group 运行时节点。
  * @throws 节点类型不是 Group 时抛出测试错误。
  */
-function expectGroup(node: unknown): GroupRuntimeNode {
-  if (!node || (node as GroupRuntimeNode).type !== "group") {
+function expectGroup(node: unknown): GroupNode {
+  if (!isGroupNode(node as GroupNode | undefined)) {
     throw new Error("expected group runtime node")
   }
 
-  return node as GroupRuntimeNode
+  return node as GroupNode
 }
 
 /**
@@ -466,12 +463,12 @@ function expectGroup(node: unknown): GroupRuntimeNode {
  * @returns Dependency 运行时节点。
  * @throws 节点类型不是 Dependency 时抛出测试错误。
  */
-function expectDependency(node: unknown): DependencyRuntimeNode {
-  if (!node || (node as DependencyRuntimeNode).type !== "dependency") {
+function expectDependency(node: unknown): DependencyNode {
+  if (!isDependencyNode(node as DependencyNode | undefined)) {
     throw new Error("expected dependency runtime node")
   }
 
-  return node as DependencyRuntimeNode
+  return node as DependencyNode
 }
 
 /**
@@ -481,10 +478,10 @@ function expectDependency(node: unknown): DependencyRuntimeNode {
  * @returns Field 运行时节点。
  * @throws 节点类型不是 Field 时抛出测试错误。
  */
-function expectField(node: unknown): FieldRuntimeNode {
-  if (!node || (node as FieldRuntimeNode).type !== "field") {
+function expectField(node: unknown): FieldNode {
+  if (!isFieldNode(node as FieldNode | undefined)) {
     throw new Error("expected field runtime node")
   }
 
-  return node as FieldRuntimeNode
+  return node as FieldNode
 }

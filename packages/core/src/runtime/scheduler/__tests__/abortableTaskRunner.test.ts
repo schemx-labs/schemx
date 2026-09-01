@@ -7,14 +7,14 @@
  */
 import { describe, expect, it, vi } from "vitest"
 
-import { createRuntimeScope } from "../../node/runtimeScope"
+import { createScope } from "../../node/scope"
 import { createAbortableTaskRunner } from "../abortableTaskRunner"
 import { createScheduler } from "../scheduler"
 
 // 验证 createAbortableTaskRunner 的任务执行、中止、scope 清理、dispose 等行为
 describe("createAbortableTaskRunner", () => {
   it("run 应通过 scheduler 跟踪任务并提交成功结果", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -34,7 +34,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("run 应返回当前任务的执行结果", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -48,7 +48,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("run 应在任务执行前提交当前 AbortController", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -74,7 +74,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("新的 run 应 abort 旧 run，旧结果不应提交", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -114,7 +114,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("被替代但永不 settle 的旧任务不会阻塞 scheduler idle", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -141,7 +141,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("scope dispose 后不应提交成功或错误结果", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -169,7 +169,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("只应提交最新任务的错误", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 
@@ -210,7 +210,7 @@ describe("createAbortableTaskRunner", () => {
   })
 
   it("dispose 后 run 不再执行任务", async () => {
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const scheduler = createScheduler()
 

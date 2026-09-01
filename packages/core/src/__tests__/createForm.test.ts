@@ -15,6 +15,7 @@ import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createPresetRuleRegistry, createRendererRegistry } from "../registry"
 import { CompileError } from "../runtime/compiler"
+import { isFieldNode } from "../runtime/node/helper"
 
 interface StudentFormValues {
   student: Array<{
@@ -690,7 +691,7 @@ describe("渲染器注册中心下沉 单元测试", () => {
     form.destroy()
   })
 
-  it("销毁 RuntimeNode 时 FormModel 仍然可用", () => {
+  it("销毁 Node 时 FormModel 仍然可用", () => {
     let valueDuringUnmount: string | undefined
 
     const form = createForm<{ name: string }>({
@@ -1547,7 +1548,7 @@ describe("动态 schemas", () => {
 
     expect(
       unmounted.mock.calls.some(
-        ([node]) => node.type === "field" && node.key.endsWith("/name")
+        ([node]) => isFieldNode(node) && node.key.endsWith("/name")
       )
     ).toBe(true)
 

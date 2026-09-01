@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest"
 
 import { createNodeManager } from "../nodeManager"
 
-import { createFieldRuntimeNode, createGroupRuntimeNode } from "./runtimeNodeTestUtils"
+import { createFieldNode, createGroupNode } from "./nodeTestUtils"
 
 describe("NodeManager", () => {
   it("创建 root 并注册到节点索引", () => {
@@ -28,9 +28,9 @@ describe("NodeManager", () => {
 
     const root = manager.getRoot()
 
-    const first = createFieldRuntimeNode({ id: 1, ...createFieldNodeOptions("first") })
+    const first = createFieldNode({ id: 1, ...createFieldNodeOptions("first") })
 
-    const second = createFieldRuntimeNode({ id: 2, ...createFieldNodeOptions("second") })
+    const second = createFieldNode({ id: 2, ...createFieldNodeOptions("second") })
 
     manager.insert(first, root.id)
     manager.insert(second, root.id, 0)
@@ -50,9 +50,9 @@ describe("NodeManager", () => {
 
     const root = manager.getRoot()
 
-    const group = createGroupRuntimeNode({ id: 1, ...createGroupNodeOptions("group") })
+    const group = createGroupNode({ id: 1, ...createGroupNodeOptions("group") })
 
-    const field = createFieldRuntimeNode({ id: 2, ...createFieldNodeOptions("field") })
+    const field = createFieldNode({ id: 2, ...createFieldNodeOptions("field") })
 
     manager.insert(group, root.id)
     manager.insert(field, group.id)
@@ -68,12 +68,26 @@ describe("NodeManager", () => {
     expect(field.scope.disposed).toBe(false)
   })
 
+  it("values 只返回仍在节点索引中的活跃节点", () => {
+    const manager = createNodeManager()
+
+    const root = manager.getRoot()
+
+    const field = createFieldNode({ id: 1, ...createFieldNodeOptions("field") })
+
+    manager.insert(field, root.id)
+    expect(manager.values()).toEqual([root, field])
+
+    manager.remove(field.id)
+    expect(manager.values()).toEqual([root])
+  })
+
   it("dispose 关闭索引并拒绝后续写操作", () => {
     const manager = createNodeManager()
 
     const root = manager.getRoot()
 
-    const field = createFieldRuntimeNode({ id: 1, ...createFieldNodeOptions("field") })
+    const field = createFieldNode({ id: 1, ...createFieldNodeOptions("field") })
 
     manager.insert(field, root.id)
     manager.clear()
@@ -84,7 +98,7 @@ describe("NodeManager", () => {
     expect(manager.size).toBe(0)
     expect(() =>
       manager.insert(
-        createFieldRuntimeNode({ id: 2, ...createFieldNodeOptions("next") }),
+        createFieldNode({ id: 2, ...createFieldNodeOptions("next") }),
         root.id
       )
     ).toThrow("NodeManager has already been disposed")

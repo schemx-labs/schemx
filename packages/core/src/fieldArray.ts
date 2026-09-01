@@ -529,11 +529,7 @@ export function createFieldArrayController<
 
     const removed = new Set(uniqueIndexes)
 
-    const firstRemovedIndex = uniqueIndexes[0]
-
-    if (firstRemovedIndex === undefined) {
-      return
-    }
+    const firstRemovedIndex = uniqueIndexes[0] as number
 
     commit(
       items.length,

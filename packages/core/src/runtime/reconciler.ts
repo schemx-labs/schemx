@@ -1,32 +1,27 @@
 /**
- * RuntimeNode 协调器。
+ * Node 协调器。
  *
- * 统一编排 Compiler、NodeManager 与 RuntimeNodeLifecycle。
+ * 统一编排 Compiler、NodeManager 与 NodeLifecycle。
  *
  * @module core/runtime/reconciler
  */
 
-import { isGroupSchema } from "../utils"
+import { createFieldKey, isDescendantFieldPath, isGroupSchema } from "../utils"
 
 import { CompileError } from "./compiler"
-import { findFieldRuntimeNode } from "./node/helper"
+import { findFieldNode, isFieldNode, isGroupNode, isParentNode } from "./node/helper"
 
 import type { Compile } from "./compiler"
 import type { SchemxField, Values } from "../types"
 import type { NodeManager } from "./node/nodeManager"
-import type { RuntimeNodeLifecycle } from "./node/resources"
-import type {
-  ParentRuntimeNode,
-  RuntimeNode,
-  RuntimeNodeId,
-  SchemaRuntimeNode,
-} from "./node/types"
+import type { NodeLifecycle } from "./node/resources"
+import type { ContainerNode, NodeId, ParentNode, SchemaNode } from "./node/types"
 
 /**
- * RuntimeNode 协调器的唯一公开接口。
+ * Node 协调器的唯一公开接口。
  *
  * Reconciler 根据 Schema 生成 detached 节点，与当前树按 key 进行复用、移动、更新或
- * 删除，并通过 RuntimeNodeLifecycle 管理资源边界。
+ * 删除，并通过 NodeLifecycle 管理资源边界。
  *
  * @typeParam TValues - 表单值类型。
  *
@@ -37,7 +32,7 @@ import type {
  */
 export interface Reconciler<TValues extends Values = Values> {
   /**
-   * 使用完整根 Schema 协调整棵 RuntimeNode 树。
+   * 使用完整根 Schema 协调整棵 Node 树。
    *
    * @param schemas - 新一轮根节点 Schema 列表。
    */
@@ -48,40 +43,43 @@ export interface Reconciler<TValues extends Values = Values> {
    * @param parentId - 要协调的父节点 id。
    * @param schemas - 新一轮直接子节点 Schema 列表。
    */
-  reconcileChildren(
-    parentId: RuntimeNodeId,
-    schemas: readonly SchemxField<TValues>[]
-  ): void
+  reconcileChildren(parentId: NodeId, schemas: readonly SchemxField<TValues>[]): void
   /**
    * 移除节点及其子树，并完成生命周期清理。
    *
-   * @param id - 要移除的 SchemaRuntimeNode id。
+   * @param id - 要移除的 SchemaNode id。
    */
-  remove(id: RuntimeNodeId): void
+  remove(id: NodeId): void
   /**
-   * 清空全部 SchemaRuntimeNode，保留 root。
+   * 清空全部 SchemaNode，保留 root。
    */
   clear(): void
 }
 
 interface CreateReconcilerOptions<TValues extends Values> {
-  // 负责将 Schema 编译为 detached RuntimeNode。
+  // 负责将 Schema 编译为 detached Node。
   readonly compiler: Compile<TValues>
-  // 负责维护当前 RuntimeNode 树结构。
+  // 负责维护当前 Node 树结构。
   readonly nodeManager: NodeManager<TValues>
   // 负责节点资源与生命周期事件。
-  readonly lifecycle: RuntimeNodeLifecycle<TValues>
+  readonly lifecycle: NodeLifecycle<TValues>
 }
 
-interface RuntimeNodeUpdate<TValues extends Values> {
+interface NodeUpdate<TValues extends Values> {
   // 树中被复用的当前节点。
-  readonly current: SchemaRuntimeNode<TValues>
+  readonly current: SchemaNode<TValues>
   // 编译出的下一轮节点配置。
-  readonly desired: SchemaRuntimeNode<TValues>
+  readonly desired: SchemaNode<TValues>
+}
+
+/** 单次 children 协调产生的新节点和待清理旧节点。 */
+interface ReconcileNodeResult<TValues extends Values> {
+  readonly children: readonly SchemaNode<TValues>[]
+  readonly removed: readonly ContainerNode<TValues>[]
 }
 
 /**
- * 创建 RuntimeNode 协调器。
+ * 创建 Node 协调器。
  *
  * @typeParam TValues - 表单值类型。
  * @param options - Compiler、NodeManager 和生命周期门面。
@@ -105,7 +103,7 @@ export function createReconciler<TValues extends Values>(
 
   // 先校验字段路径，再创建 detached 节点并协调当前 parent 的直接 children。
   const reconcileChildren = (
-    parentId: RuntimeNodeId,
+    parentId: NodeId,
     schemas: readonly SchemxField<TValues>[]
   ): void => {
     const parent = requireParentNode(parentId)
@@ -114,21 +112,29 @@ export function createReconciler<TValues extends Values>(
 
     const desiredNodes = createDesiredNodes(parent, schemas)
 
-    const children = reconcileNode(parent, desiredNodes)
+    const result = reconcileNode(parent, desiredNodes)
 
-    for (let index = 0; index < schemas.length; index += 1) {
-      const schema = schemas[index]
+    try {
+      for (let index = 0; index < schemas.length; index += 1) {
+        const schema = schemas[index]
 
-      const node = children[index]
+        const node = result.children[index]
 
-      if (node && schema && node.type === "group" && isGroupSchema(schema)) {
-        reconcileChildren(node.id, schema.children)
+        if (node && schema && isGroupNode(node) && isGroupSchema(schema)) {
+          reconcileChildren(node.id, schema.children)
+        }
       }
+    } catch (error) {
+      cleanupRemovedNodes(result.removed)
+
+      throw error
     }
+
+    cleanupRemovedNodes(result.removed)
   }
 
   // 统一通过资源清理流程移除节点。
-  const remove = (id: RuntimeNodeId): void => {
+  const remove = (id: NodeId): void => {
     removeNode(id)
   }
 
@@ -141,18 +147,18 @@ export function createReconciler<TValues extends Values>(
    * 获取可承载子节点的父节点。
    *
    * @param parentId - 要读取的父节点 id。
-   * @returns 合法的 ParentRuntimeNode。
+   * @returns 合法的 ParentNode。
    * @throws 当节点不存在或为 field 节点时抛出错误。
    */
-  function requireParentNode(parentId: RuntimeNodeId): ParentRuntimeNode<TValues> {
+  function requireParentNode(parentId: NodeId): ParentNode<TValues> {
     const node = nodeManager.get(parentId)
 
     if (!node) {
-      throw new Error(`[schemx] RuntimeNode "${parentId}" does not exist`)
+      throw new Error(`[schemx] Node "${parentId}" does not exist`)
     }
 
-    if (node.type === "field") {
-      throw new Error(`[schemx] RuntimeNode "${parentId}" cannot contain children`)
+    if (!isParentNode(node)) {
+      throw new Error(`[schemx] Node "${parentId}" cannot contain children`)
     }
 
     return node
@@ -166,7 +172,7 @@ export function createReconciler<TValues extends Values>(
    * @throws 发现字段路径已被其他子树占用时抛出 CompileError。
    */
   function validateRuntimeFieldNames(
-    parent: ParentRuntimeNode<TValues>,
+    parent: ParentNode<TValues>,
     schemas: readonly SchemxField<TValues>[]
   ): void {
     if (parent === nodeManager.getRoot()) {
@@ -193,9 +199,9 @@ export function createReconciler<TValues extends Values>(
           continue
         }
 
-        const existing = findFieldRuntimeNode(nodeManager.getRoot(), schema.name)
+        const existing = findFieldNode(nodeManager.getRoot(), schema.name)
 
-        if (existing && !isRuntimeNodeInSubtree(existing, parent)) {
+        if (existing && !isNodeInSubtree(existing, parent)) {
           throw new CompileError(
             `[schemx] Duplicate field name "${schema.name}" at ${schemaLocation}; it is already used by runtime node "${existing.key}".`,
             schema
@@ -216,10 +222,10 @@ export function createReconciler<TValues extends Values>(
    * @throws 发现重复运行时 key 或任一节点编译失败时抛出错误。
    */
   function createDesiredNodes(
-    parent: ParentRuntimeNode<TValues>,
+    parent: ParentNode<TValues>,
     schemas: readonly SchemxField<TValues>[]
-  ): SchemaRuntimeNode<TValues>[] {
-    const nodes: SchemaRuntimeNode<TValues>[] = []
+  ): SchemaNode<TValues>[] {
+    const nodes: SchemaNode<TValues>[] = []
 
     const keys = new Set<string>()
 
@@ -265,10 +271,10 @@ export function createReconciler<TValues extends Values>(
    * @returns 已发出 created 事件但尚未挂载的节点。
    */
   function createNode(
-    parent: ParentRuntimeNode<TValues>,
+    parent: ParentNode<TValues>,
     schema: SchemxField<TValues>,
     index: number
-  ): SchemaRuntimeNode<TValues> {
+  ): SchemaNode<TValues> {
     const node = compiler.createNode(schema, parent.key, index, parent.scope.child())
 
     lifecycle.created(node)
@@ -284,25 +290,25 @@ export function createReconciler<TValues extends Values>(
    *
    * @param parent - 当前要协调的父节点。
    * @param desiredNodes - 本轮编译出的 detached 节点。
-   * @returns 协调完成后的直接子节点。
+   * @returns 协调完成后的直接子节点及待清理旧节点。
    */
   function reconcileNode(
-    parent: ParentRuntimeNode<TValues>,
-    desiredNodes: readonly SchemaRuntimeNode<TValues>[]
-  ): readonly SchemaRuntimeNode<TValues>[] {
+    parent: ParentNode<TValues>,
+    desiredNodes: readonly SchemaNode<TValues>[]
+  ): ReconcileNodeResult<TValues> {
     const previousChildren = nodeManager.getChildren(parent.id)
 
     const currentByKey = indexCurrentNodes(previousChildren)
 
-    const nextChildren: SchemaRuntimeNode<TValues>[] = []
+    const nextChildren: SchemaNode<TValues>[] = []
 
-    const mountedNodes: SchemaRuntimeNode<TValues>[] = []
+    const mountedNodes: SchemaNode<TValues>[] = []
 
-    const updates: RuntimeNodeUpdate<TValues>[] = []
+    const updates: NodeUpdate<TValues>[] = []
 
-    const discardedNodes: SchemaRuntimeNode<TValues>[] = []
+    const discardedNodes: SchemaNode<TValues>[] = []
 
-    const removedNodes: RuntimeNode<TValues>[] = []
+    const removedNodes: ContainerNode<TValues>[] = []
 
     for (const desired of desiredNodes) {
       const current = currentByKey.get(desired.key)
@@ -365,9 +371,11 @@ export function createReconciler<TValues extends Values>(
       throw error
     }
 
+    const removed: ContainerNode<TValues>[] = []
+
     nodeManager.transaction(() => {
       for (const node of removedNodes) {
-        removeNode(node.id)
+        removed.push(...nodeManager.remove(node.id))
       }
     })
 
@@ -375,7 +383,10 @@ export function createReconciler<TValues extends Values>(
       lifecycle.discard(node)
     }
 
-    return nodeManager.getChildren(parent.id)
+    return {
+      children: nodeManager.getChildren(parent.id),
+      removed,
+    }
   }
 
   /**
@@ -384,10 +395,7 @@ export function createReconciler<TValues extends Values>(
    * @param current - 树中保留的当前节点。
    * @param desired - 携带下一轮配置的 detached 节点。
    */
-  function updateNode(
-    current: SchemaRuntimeNode<TValues>,
-    desired: SchemaRuntimeNode<TValues>
-  ): void {
+  function updateNode(current: SchemaNode<TValues>, desired: SchemaNode<TValues>): void {
     lifecycle.update(current, desired)
   }
 
@@ -398,7 +406,7 @@ export function createReconciler<TValues extends Values>(
    * @param parentId - 目标父节点 id。
    * @param index - 目标位置。
    */
-  function moveNode(id: RuntimeNodeId, parentId: RuntimeNodeId, index: number): void {
+  function moveNode(id: NodeId, parentId: NodeId, index: number): void {
     if (nodeManager.getIndex(id) !== index) {
       nodeManager.move(id, parentId, index)
     }
@@ -409,7 +417,7 @@ export function createReconciler<TValues extends Values>(
    *
    * @param id - 要移除的节点 id。
    */
-  function removeNode(id: RuntimeNodeId): void {
+  function removeNode(id: NodeId): void {
     cleanupRemovedNodes(nodeManager.remove(id))
   }
 
@@ -418,14 +426,33 @@ export function createReconciler<TValues extends Values>(
    *
    * @param removed - 按 preorder 排列的已移除节点。
    */
-  function cleanupRemovedNodes(removed: readonly RuntimeNode<TValues>[]): void {
+  function cleanupRemovedNodes(removed: readonly ContainerNode<TValues>[]): void {
     for (const node of [...removed].reverse()) {
-      lifecycle.unmount(node)
+      lifecycle.unmount(node, {
+        isRemoveFieldValue: shouldRemoveFieldValue(node),
+      })
     }
 
     for (const node of [...removed].reverse()) {
       lifecycle.dispose(node)
     }
+  }
+
+  /** 判断被移除字段的值是否仍可安全删除。 */
+  function shouldRemoveFieldValue(node: ContainerNode<TValues>): boolean {
+    if (!isFieldNode(node) || node.staticSchema.peek().preserve !== false) {
+      return false
+    }
+
+    const activeFields = nodeManager.values().filter(isFieldNode)
+
+    const pathKey = createFieldKey(node.name.peek())
+
+    return !activeFields.some(
+      (field) =>
+        createFieldKey(field.name.peek()) === pathKey ||
+        isDescendantFieldPath(field.name.peek(), node.name.peek())
+    )
   }
 
   /**
@@ -436,9 +463,9 @@ export function createReconciler<TValues extends Values>(
    * @param mountedNodes - 本轮已成功挂载的节点。
    */
   function rollbackTree(
-    parent: ParentRuntimeNode<TValues>,
-    previousChildren: readonly SchemaRuntimeNode<TValues>[],
-    mountedNodes: readonly SchemaRuntimeNode<TValues>[]
+    parent: ParentNode<TValues>,
+    previousChildren: readonly SchemaNode<TValues>[],
+    mountedNodes: readonly SchemaNode<TValues>[]
   ): void {
     nodeManager.transaction(() => {
       for (const node of [...mountedNodes].reverse()) {
@@ -473,9 +500,9 @@ export function createReconciler<TValues extends Values>(
  * @returns 以节点 key 为键的当前节点映射。
  */
 function indexCurrentNodes<TValues extends Values>(
-  children: readonly SchemaRuntimeNode<TValues>[]
-): Map<string, SchemaRuntimeNode<TValues>> {
-  const nodesByKey = new Map<string, SchemaRuntimeNode<TValues>>()
+  children: readonly SchemaNode<TValues>[]
+): Map<string, SchemaNode<TValues>> {
+  const nodesByKey = new Map<string, SchemaNode<TValues>>()
 
   for (const child of children) {
     nodesByKey.set(child.key, child)
@@ -492,11 +519,11 @@ function indexCurrentNodes<TValues extends Values>(
  * @param parent - 候选父节点。
  * @returns 节点自身或其祖先链包含 `parent` 时返回 `true`。
  */
-function isRuntimeNodeInSubtree<TValues extends Values>(
-  node: RuntimeNode<TValues>,
-  parent: ParentRuntimeNode<TValues>
+function isNodeInSubtree<TValues extends Values>(
+  node: ContainerNode<TValues>,
+  parent: ParentNode<TValues>
 ): boolean {
-  let current: RuntimeNode<TValues> | null = node
+  let current: ContainerNode<TValues> | null = node
 
   while (current) {
     if (current === parent) {

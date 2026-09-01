@@ -12,14 +12,14 @@ import {
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type {
-  DependencyRuntimeNode,
-  GroupRuntimeNode,
+  DependencyNode,
+  GroupNode,
   PresentationDynamicOverrides,
-  RuntimeScope,
+  Scope,
 } from "../node"
 
 type StatefulPresentationNode<TValues extends Values> =
-  GroupRuntimeNode<TValues> | DependencyRuntimeNode<TValues>
+  GroupNode<TValues> | DependencyNode<TValues>
 
 /**
  * 容器依赖配置支持的动态属性键。
@@ -59,17 +59,17 @@ export interface CreatePresentationDependenciesEffectOptions<
   /**
    * 控制 effect 与异步任务生命周期的作用域。
    */
-  readonly scope: RuntimeScope
+  readonly scope: Scope
 }
 
 /**
  * 创建容器级 dependencies effect。
  *
  * 该 effect 统一处理 Group 和 Dependency 的 `visible`、`readonly`、`disabled`
- * 动态覆盖，并将解析结果写入容器 RuntimeNode 的 Signal。
+ * 动态覆盖，并将解析结果写入容器 Node 的 Signal。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param options - 容器 RuntimeNode 和资源作用域。
+ * @param options - 容器 Node 和资源作用域。
  *
  * @remarks
  * 具体的字段订阅、异步竞态和 `trigger` 执行由通用依赖 effect 负责。

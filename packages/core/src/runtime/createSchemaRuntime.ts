@@ -1,31 +1,25 @@
 import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
-import { type SchemxSchemas } from "../createSchemas"
 import { normalizeSchemas } from "../utils"
 
 import { createCompile } from "./compiler"
-import {
-  createRuntimeNodeLifecycleEmitter,
-  type RuntimeNodeLifecycleHooks,
-} from "./lifecycle"
-import {
-  createRuntimeNodeLifecycle,
-  createRuntimeScope,
-  type RootRuntimeNode,
-  type RuntimeNode,
-} from "./node"
-import { findFieldRuntimeNode } from "./node/helper"
+import { createNodeLifecycleEmitter } from "./lifecycle"
+import { createNodeLifecycle, createScope } from "./node"
+import { findFieldNode } from "./node/helper"
 import { createNodeManager } from "./node/nodeManager"
 import { createReconciler } from "./reconciler"
 import { createScheduler } from "./scheduler"
 import { subscribeViewSchemas } from "./view"
 import { createRootRuntimeViewSchemas } from "./view/createViewSchemas"
 
+import type { ContainerNode, RootNode } from "./node"
+import type { SchemxSchemas } from "../createSchemas"
 import type {
   RuntimeStorePort,
   RuntimeValidationPort,
   SchemaRuntimeContext,
 } from "./context"
-import type { SchedulerDiagnostics, SchedulerOptions } from "./scheduler"
+import type { NodeLifecycleHooks } from "./lifecycle"
+import type { SchedulerOptions } from "./scheduler"
 import type { SchemxViewSchema } from "./view"
 import type {
   NamePath,
@@ -81,7 +75,7 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>>
+  lifecycleHooks?: NodeLifecycleHooks<ContainerNode<TValues>>
   /** 是否启用 Runtime diagnostics。 */
   debug?: boolean
   /** Scheduler 时间片与 idle 任务配置。 */
@@ -97,7 +91,7 @@ export interface SchemaRuntime<TValues extends Values> {
   /**
    * Runtime 根节点。
    */
-  readonly root: RootRuntimeNode<TValues>
+  readonly root: RootNode<TValues>
   /**
    * 挂载 Schema source 并订阅后续变更；同一 Runtime 只能挂载一次。
    * @throws Runtime 已挂载时抛出错误。
@@ -145,17 +139,6 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   waitForCriticalIdle(timeout?: number): Promise<boolean>
   /**
-   * 读取 Scheduler 调度诊断快照。
-   */
-  getSchedulerDiagnostics(): SchedulerDiagnostics
-  /**
-   * 安排一次 Runtime 空闲后的 post 任务。
-   *
-   * @param id - 用于调度去重的任务标识。
-   * @param task - Runtime 进入 post 阶段后执行的任务。
-   */
-  deferPostTask(id: string, task: () => void): void
-  /**
    * 幂等释放 Runtime 的节点、调度器和订阅资源。
    */
   dispose(): void
@@ -175,7 +158,7 @@ export function createSchemaRuntime<TValues extends Values>(
   options: CreateSchemaRuntimeOptions<TValues>
 ): SchemaRuntime<TValues> {
   // 管理 Runtime 内部订阅、调度任务和销毁顺序。
-  const scope = createRuntimeScope()
+  const scope = createScope()
 
   // 执行 dependency 与 post 阶段任务。
   const scheduler = createScheduler({
@@ -185,7 +168,7 @@ export function createSchemaRuntime<TValues extends Values>(
   })
 
   // 广播 Runtime 生命周期事件。
-  const lifecycle = createRuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>(
+  const lifecycle = createNodeLifecycleEmitter<ContainerNode<TValues>>(
     options.lifecycleHooks
   )
 
@@ -233,7 +216,7 @@ export function createSchemaRuntime<TValues extends Values>(
   // Runtime 根节点及其视图状态。
   const root = nodeManager.getRoot()
 
-  const runtimeNodeLifecycle = createRuntimeNodeLifecycle(context)
+  const runtimeNodeLifecycle = createNodeLifecycle(context)
 
   const reconciler = createReconciler<TValues>({
     compiler: compile,
@@ -304,7 +287,7 @@ export function createSchemaRuntime<TValues extends Values>(
   const getEffectiveFieldSchema = (
     name: NamePath<TValues>
   ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined => {
-    return findFieldRuntimeNode(root, name)?.effectiveSchema.value
+    return findFieldNode(root, name)?.effectiveSchema.value
   }
 
   /**
@@ -337,22 +320,6 @@ export function createSchemaRuntime<TValues extends Values>(
     return scheduler.whenIdle({ timeout, includeIdle: false })
   }
 
-  const getSchedulerDiagnostics = (): SchedulerDiagnostics => {
-    return scheduler.getDiagnostics()
-  }
-
-  /**
-   * 在当前 Runtime 的作用域内注册 post 阶段任务。
-   */
-  const deferPostTask = (id: string, task: () => void): void => {
-    scheduler.schedule({
-      id,
-      priority: "post",
-      scope,
-      run: task,
-    })
-  }
-
   /**
    * 幂等释放 Runtime 持有的节点、调度和订阅资源。
    */
@@ -378,8 +345,6 @@ export function createSchemaRuntime<TValues extends Values>(
     subscribeViewSchemas: subscribeRuntimeViewSchemas,
     waitForIdle,
     waitForCriticalIdle,
-    getSchedulerDiagnostics,
-    deferPostTask,
     dispose,
   }
 }

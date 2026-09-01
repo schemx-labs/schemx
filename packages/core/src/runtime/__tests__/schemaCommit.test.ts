@@ -11,9 +11,10 @@ import { describe, expect, it } from "vitest"
 import {
   createRawFieldSchema,
   createRuntimeGraphHarness,
-} from "../node/__tests__/runtimeGraphTestUtils"
+} from "../node/__tests__/graphTestUtils"
+import { isFieldNode, isGroupNode } from "../node/helper"
 
-// 验证原始 Schema 提交后的 RuntimeNode 树行为。
+// 验证原始 Schema 提交后的 Node 树行为。
 describe("commitSchemas", () => {
   it("创建、复用并按最新 schema 排列子节点", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
@@ -45,7 +46,7 @@ describe("commitSchemas", () => {
     commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "新标签" }])
 
     expect(root.childNodes.value[0]).toBe(field)
-    expect(field?.type === "field" && field.staticSchema.value.label).toBe("新标签")
+    expect(isFieldNode(field) && field.staticSchema.value.label).toBe("新标签")
   })
 
   it("同 key 不同类型会替换节点并释放旧节点", () => {
@@ -66,7 +67,7 @@ describe("commitSchemas", () => {
 
     expect(group).not.toBe(previous)
     expect(group?.type).toBe("group")
-    expect(group?.type === "group" && group.childNodes.value[0]?.key).toBe("child")
+    expect(isGroupNode(group) && group.childNodes.value[0]?.key).toBe("child")
     expect(previous?.disposed.value).toBe(true)
   })
 
@@ -147,7 +148,7 @@ describe("commitSchemas", () => {
 
     const group = root.childNodes.value[1]
 
-    if (!group || group.type !== "group") {
+    if (!isGroupNode(group)) {
       throw new Error("expected group")
     }
 
@@ -172,7 +173,7 @@ describe("commitSchemas", () => {
 
     const group = root.childNodes.value[0]
 
-    if (!group || group.type !== "group") {
+    if (!isGroupNode(group)) {
       throw new Error("expected group")
     }
 
@@ -200,9 +201,9 @@ describe("commitSchemas", () => {
 
     const outer = root.childNodes.value[0]
 
-    expect(outer?.type).toBe("group")
+    expect(isGroupNode(outer)).toBe(true)
     expect(
-      outer?.type === "group" && outer.childNodes.value[0]?.type === "group"
+      isGroupNode(outer) && isGroupNode(outer.childNodes.value[0])
         ? outer.childNodes.value[0].childNodes.value[0]?.key
         : undefined
     ).toBe("email")

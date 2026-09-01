@@ -13,17 +13,14 @@ import { createSignal } from "../../../reactivity"
 import { normalizeSchemas } from "../../../utils"
 import { type Compile, createCompile } from "../../compiler"
 import { type SchemaRuntimeContext } from "../../context"
-import {
-  createRuntimeNodeLifecycleEmitter,
-  type RuntimeNodeLifecycleHooks,
-} from "../../lifecycle"
+import { createNodeLifecycleEmitter, type NodeLifecycleHooks } from "../../lifecycle"
 import { createReconciler } from "../../reconciler"
 import { createScheduler, type Scheduler } from "../../scheduler"
 import { createNodeManager } from "../nodeManager"
-import { createRuntimeNodeLifecycle } from "../resources"
+import { createNodeLifecycle } from "../resources"
 
 import type { SchemxField, SchemxFormApi, Values } from "../../../types"
-import type { ParentRuntimeNode, RootRuntimeNode, RuntimeNode } from "../types"
+import type { ContainerNode, ParentNode, RootNode } from "../types"
 
 /**
  * 运行时图测试夹具的接口类型，包含 context、root、scheduler 及 formApi。
@@ -31,10 +28,10 @@ import type { ParentRuntimeNode, RootRuntimeNode, RuntimeNode } from "../types"
 export interface RuntimeGraphTestHarness<TValues extends Values = Values> {
   readonly context: SchemaRuntimeContext<TValues>
   readonly compiler: Compile<TValues>
-  readonly root: RootRuntimeNode
+  readonly root: RootNode
   readonly scheduler: Scheduler
   readonly commitSchemas: (
-    parent: ParentRuntimeNode<TValues>,
+    parent: ParentNode<TValues>,
     schemas: SchemxField<TValues>[]
   ) => void
   readonly formApi: SchemxFormApi<TValues>
@@ -85,15 +82,14 @@ export function createRawFieldSchema<TValues extends Values = Values>(
  * @param initialValues - 初始字段值
  */
 export function createRuntimeGraphHarness<TValues extends Values = Values>(
-  lifecycleHooks: RuntimeNodeLifecycleHooks<RuntimeNode<TValues>> = {},
+  lifecycleHooks: NodeLifecycleHooks<ContainerNode<TValues>> = {},
   initialValues: Record<string, unknown> = {}
 ): RuntimeGraphTestHarness<TValues> {
   const signals = new Map<string, ReturnType<typeof createSignal<unknown>>>()
 
   const values = { ...initialValues }
 
-  const lifecycle =
-    createRuntimeNodeLifecycleEmitter<RuntimeNode<TValues>>(lifecycleHooks)
+  const lifecycle = createNodeLifecycleEmitter<ContainerNode<TValues>>(lifecycleHooks)
 
   const scheduler = createScheduler()
 
@@ -180,6 +176,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     unregisterFieldPath: vi.fn(),
     getFieldValue: readValue,
     setFieldValue: writeValue,
+    removeFieldValue: vi.fn(),
     setInitialValues: instance.setInitialValues,
   }
 
@@ -203,7 +200,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
   const root = nodeManager.getRoot()
 
-  const runtimeNodeLifecycle = createRuntimeNodeLifecycle(context)
+  const runtimeNodeLifecycle = createNodeLifecycle(context)
 
   const reconciler = createReconciler({
     compiler: compile,
@@ -212,7 +209,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   })
 
   const commitSchemas = (
-    parent: ParentRuntimeNode<TValues>,
+    parent: ParentNode<TValues>,
     schemas: SchemxField<TValues>[]
   ): void => {
     const normalizedSchemas = normalizeSchemas<TValues>(schemas, "text")
@@ -228,7 +225,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   return {
     context,
     compiler: compile,
-    root: root as unknown as RootRuntimeNode,
+    root: root as unknown as RootNode,
     scheduler,
     commitSchemas,
     formApi,

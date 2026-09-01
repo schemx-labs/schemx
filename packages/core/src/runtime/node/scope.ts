@@ -1,22 +1,17 @@
 /**
- * RuntimeScope - 资源生命周期边界。
+ * Scope - 资源生命周期边界。
  *
- * RuntimeScope 管理 cleanup 的注册、嵌套 scope、dispose 执行。
+ * Scope 管理 cleanup 的注册、嵌套 scope、dispose 执行。
  * 规则：
  * - dispose 幂等
  * - 子 scope 先释放，父 scope 后释放
  * - cleanup 抛错不阻断后续 cleanup
  * - disposed 后 add() 立即执行 cleanup 并返回已释放 handle
  *
- * @module core/runtime/node/runtimeScope
+ * @module core/runtime/node/scope
  */
 
-import type {
-  RuntimeCleanup,
-  RuntimeCleanupHandle,
-  RuntimeCleanupRecord,
-  RuntimeScope,
-} from "./types"
+import type { Cleanup, CleanupHandle, CleanupRecord, Scope } from "./types"
 
 /**
  * 创建一个资源生命周期作用域。
@@ -24,7 +19,7 @@ import type {
  * 已释放的 scope 再调用 `add()` 时会立即执行 cleanup，这让调用方无需为异步
  * mount 流程额外判断资源是否已经过期。
  *
- * @returns 新创建的 `RuntimeScope`。
+ * @returns 新创建的 `Scope`。
  *
  * @remarks
  * 内部维护 cleanupRecords 集合和 childScopes 集合。dispose 时先释放子 scope，
@@ -33,17 +28,17 @@ import type {
  *
  * @example
  * ```ts
- * const scope = createRuntimeScope()
+ * const scope = createScope()
  * scope.add(() => console.log("released"))
  * scope.dispose()
  * ```
  */
-export function createRuntimeScope(): RuntimeScope {
+export function createScope(): Scope {
   let disposed = false
 
-  const cleanupRecords = new Set<RuntimeCleanupRecord>()
+  const cleanupRecords = new Set<CleanupRecord>()
 
-  const childScopes = new Set<RuntimeScope>()
+  const childScopes = new Set<Scope>()
 
   /**
    * 注册释放函数。
@@ -54,7 +49,7 @@ export function createRuntimeScope(): RuntimeScope {
    * @param cleanup - 释放函数。
    * @returns 释放句柄，可提前执行该 cleanup。
    */
-  const add = (cleanup: RuntimeCleanup): RuntimeCleanupHandle => {
+  const add = (cleanup: Cleanup): CleanupHandle => {
     if (disposed) {
       // 已释放的 scope 不再持有新资源，直接执行 cleanup 保持调用方语义稳定。
       runCleanup(cleanup)
@@ -63,7 +58,7 @@ export function createRuntimeScope(): RuntimeScope {
     }
 
     // 每次 add 都创建独立记录；同一个 cleanup 函数重复注册也应独立释放。
-    const record: RuntimeCleanupRecord = {
+    const record: CleanupRecord = {
       cleanup,
       disposed: false,
     }
@@ -97,10 +92,10 @@ export function createRuntimeScope(): RuntimeScope {
    * 子 scope 会被父 scope 跟踪；父 scope dispose 时自动释放子 scope。
    * 子 scope 提前释放后自动从父 scope 摘除。
    *
-   * @returns 子 RuntimeScope 实例。
+   * @returns 子 Scope 实例。
    */
-  const child = (): RuntimeScope => {
-    const childScope = createRuntimeScope()
+  const child = (): Scope => {
+    const childScope = createScope()
 
     if (disposed) {
       childScope.dispose()
@@ -165,9 +160,9 @@ export function createRuntimeScope(): RuntimeScope {
  *
  * 当 scope 已释放后调用 `add()` 时返回此 handle，避免调用方额外判空。
  *
- * @returns 已释放状态的 RuntimeCleanupHandle。
+ * @returns 已释放状态的 CleanupHandle。
  */
-const createDisposedHandle = (): RuntimeCleanupHandle => {
+const createDisposedHandle = (): CleanupHandle => {
   return {
     disposed: true,
     dispose: noop,
@@ -182,31 +177,31 @@ const noop = (): void => {}
 /**
  * 执行 cleanup 并捕获错误。
  *
- * cleanup 抛错不阻断后续清理流程，错误通过 reportRuntimeCleanupError 上报。
+ * cleanup 抛错不阻断后续清理流程，错误通过 reportCleanupError 上报。
  *
  * @param cleanup - 要执行的 cleanup 函数。
  */
-const runCleanup = (cleanup: RuntimeCleanup): void => {
+const runCleanup = (cleanup: Cleanup): void => {
   try {
     cleanup()
   } catch (error) {
-    reportRuntimeCleanupError(error)
+    reportCleanupError(error)
   }
 }
 
 /**
  * 报告 cleanup 错误。
  *
- * RuntimeScope 会吞掉 cleanup 抛出的错误以保证后续清理继续执行；这个函数是统一的
+ * Scope 会吞掉 cleanup 抛出的错误以保证后续清理继续执行；这个函数是统一的
  * 错误上报出口。
  *
  * @param error - cleanup 抛出的错误。
  *
  * @example
  * ```ts
- * reportRuntimeCleanupError(error)
+ * reportCleanupError(error)
  * ```
  */
-export function reportRuntimeCleanupError(error: unknown): void {
-  console.error("[schemx] RuntimeScope cleanup 执行错误", error)
+export function reportCleanupError(error: unknown): void {
+  console.error("[schemx] Scope cleanup 执行错误", error)
 }

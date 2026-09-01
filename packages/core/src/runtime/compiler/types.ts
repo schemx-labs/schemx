@@ -15,7 +15,7 @@ import type {
   SchemxSchemaConfig,
   Values,
 } from "../../types"
-import type { RuntimeScope, SchemaRuntimeNode } from "../node"
+import type { SchemaNode, Scope } from "../node"
 
 /**
  * 编译器选项。
@@ -51,7 +51,7 @@ export interface CompileOptions<TValues extends Values> {
    */
   formInstance: SchemxInstance<TValues>
   /**
-   * 是否为 RuntimeNode 创建 diagnostics Signal。
+   * 是否为 Node 创建 diagnostics Signal。
    */
   debug?: boolean
 }
@@ -65,7 +65,7 @@ export interface CompileOptions<TValues extends Values> {
  */
 export interface Compile<TValues extends Values = Values> {
   /**
-   * 编译单个 schema 并创建一个尚未挂载的 SchemaRuntimeNode。
+   * 编译单个 schema 并创建一个尚未挂载的 SchemaNode。
    *
    * @param schema - 要编译的字段、分组或 dependency schema。
    * @param parentKey - 父节点的稳定 key。
@@ -77,8 +77,8 @@ export interface Compile<TValues extends Values = Values> {
     schema: SchemxField<TValues>,
     parentKey: string,
     index: number,
-    scope?: RuntimeScope
-  ): SchemaRuntimeNode<TValues>
+    scope?: Scope
+  ): SchemaNode<TValues>
   /**
    * 失效当前 compiler 实例的缓存。
    *

@@ -2,7 +2,7 @@
  * Field dependencies - 字段级动态呈现态派生。
  *
  * 根据 staticSchema 中的依赖配置监听 triggerFields，并把解析结果写入
- * FieldRuntimeNode.dynamicOverrides。
+ * FieldNode.dynamicOverrides。
  * 该模块不修改 descriptor/schema。
  *
  * @module core/runtime/field/dependencies
@@ -19,8 +19,8 @@ import type { SchemaRuntimeContext } from "../context"
 import type {
   FieldDynamicOverrideKey,
   FieldDynamicOverrides,
-  FieldRuntimeNode,
-  RuntimeScope,
+  FieldNode,
+  Scope,
 } from "../node"
 
 /**
@@ -41,8 +41,6 @@ export const FIELD_DYNAMIC_OVERRIDE_KEYS = [
   "rules",
 ] as const
 
-/** 动态依赖可以覆盖的字段属性 key。 */
-
 /**
  * 创建字段 dependencies effect 的运行时依赖。
  *
@@ -59,18 +57,18 @@ export interface CreateFieldDependenciesEffectOptions<TValues extends Values = V
    */
   taskId: string
 
-  /** 字段 RuntimeNode，提供静态 schema 和动态覆盖 Signal。 */
-  node: FieldRuntimeNode<TValues>
+  /** 字段 Node，提供静态 schema 和动态覆盖 Signal。 */
+  node: FieldNode<TValues>
   /**
    * 当前 effect 所属的资源作用域。
    */
-  scope: RuntimeScope
+  scope: Scope
 }
 
 /**
  * 创建字段级 dependencies effect。
  *
- * @param options - dependencies effect 所需的 RuntimeNode 和运行时上下文。
+ * @param options - dependencies effect 所需的 Node 和运行时上下文。
  */
 export function createFieldDependenciesEffect<TValues extends Values = Values>(
   options: CreateFieldDependenciesEffectOptions<TValues>

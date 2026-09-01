@@ -1,8 +1,8 @@
 /**
- * RuntimeNode 子系统类型定义。
+ * Node 子系统类型定义。
  *
- * 定义所有 RuntimeNode 类型（root / field / group / dependency）、
- * 生命周期接口（RuntimeScope）、
+ * 定义所有 Node 类型（root / field / group / dependency）、
+ * 生命周期接口（Scope）、
  * 以及创建选项（Create*Options）。
  *
  * @module core/runtime/node/types
@@ -23,16 +23,16 @@ import type { DependencyRendererEffect } from "../dependency/rendererEffect"
 import type { SchemxViewSchema } from "../view/types"
 
 /**
- * RuntimeScope 执行的清理函数。
+ * Scope 执行的清理函数。
  */
-export type RuntimeCleanup = () => void
+export type Cleanup = () => void
 
 /**
  * cleanup 注册后的释放句柄。
  *
  * 可通过 handle.dispose() 提前释放该 cleanup，不影响 scope 整体生命周期。
  */
-export interface RuntimeCleanupHandle {
+export interface CleanupHandle {
   /**
    * 标记该清理任务是否已经执行或被释放。
    */
@@ -49,7 +49,7 @@ export interface RuntimeCleanupHandle {
  * 提供资源注册（add）、子 scope 创建（child）、以及整体释放（dispose）能力。
  * dispose 幂等；先释放子 scope，再按 LIFO 执行当前 scope 的 cleanup。
  */
-export interface RuntimeScope {
+export interface Scope {
   /**
    * 标记当前 scope 是否已经进入释放状态。
    */
@@ -60,11 +60,11 @@ export interface RuntimeScope {
    * @param cleanup - 资源释放函数。
    * @returns 可提前执行该释放函数的句柄。
    */
-  add(cleanup: RuntimeCleanup): RuntimeCleanupHandle
+  add(cleanup: Cleanup): CleanupHandle
   /**
    * 创建子 scope；父 scope 释放时自动释放子 scope。
    */
-  child(): RuntimeScope
+  child(): Scope
   /**
    * 释放当前 scope 及所有子 scope，按 LIFO 执行 cleanup；幂等。
    */
@@ -72,13 +72,13 @@ export interface RuntimeScope {
 }
 
 /**
- * RuntimeScope 内部保存的清理记录。
+ * Scope 内部保存的清理记录。
  */
-export interface RuntimeCleanupRecord {
+export interface CleanupRecord {
   /**
    * 当前记录对应的清理函数。
    */
-  cleanup: RuntimeCleanup
+  cleanup: Cleanup
   /**
    * 标记该清理函数是否已经执行。
    */
@@ -88,35 +88,17 @@ export interface RuntimeCleanupRecord {
 /**
  * Runtime node 支持的节点类型。
  */
-export type RuntimeNodeType = "root" | "field" | "group" | "dependency"
+export type NodeType = "root" | "field" | "group" | "dependency"
 
 /**
- * RuntimeNode 内部稳定 id。
+ * Node 内部稳定 id。
  */
-export type RuntimeNodeId = number
-
-/**
- * 容器节点的已解析静态状态。
- */
-export interface PresentationStaticState {
-  /**
-   * 最终解析后的可见状态。
-   */
-  readonly visible: boolean
-  /**
-   * 最终解析后的只读状态。
-   */
-  readonly readonly: boolean
-  /**
-   * 最终解析后的禁用状态。
-   */
-  readonly disabled: boolean
-}
+export type NodeId = number
 
 /**
  * Group、Dependency 和 Field 共享的有效呈现状态。
  */
-export interface PresentationState {
+export interface PresentationStaticState {
   /**
    * 当前节点及其后代是否可见。
    */
@@ -134,7 +116,7 @@ export interface PresentationState {
 /**
  * 容器 dependencies 解析出的动态呈现覆盖。
  */
-export type PresentationDynamicOverrides = Partial<PresentationState>
+export type PresentationDynamicOverrides = Partial<PresentationStaticState>
 
 /**
  * 字段 dependencies 可以覆盖的字段属性。
@@ -194,7 +176,7 @@ export interface FieldRuntimeDiagnostics<TValues extends Values = Values> {
  */
 export interface FieldEffectiveSchema<TValues extends Values = Values> {
   /**
-   * RuntimeNode 使用的稳定 key。
+   * Node 使用的稳定 key。
    */
   readonly key: string
   /**
@@ -306,13 +288,13 @@ export interface DynamicOverrideMeta<TValues extends Values = Values> {
 }
 
 /**
- * 所有 RuntimeNode 共享的结构字段。
+ * 所有 Node 共享的结构字段。
  */
-interface BaseRuntimeNode<TValues extends Values = Values> {
+interface BaseNode<TValues extends Values = Values> {
   /**
-   * RuntimeNode 内部稳定 id。
+   * Node 内部稳定 id。
    */
-  readonly id: RuntimeNodeId
+  readonly id: NodeId
 
   /**
    * 用于 keyed reconcile 的稳定 key。
@@ -322,21 +304,21 @@ interface BaseRuntimeNode<TValues extends Values = Values> {
   /**
    * 节点类型。
    */
-  readonly type: RuntimeNodeType
+  readonly type: NodeType
 
   /**
-   * 父 RuntimeNode。
+   * 父 Node。
    *
    * root 节点没有 parent（值为 null）。
    */
-  parent: RuntimeNode<TValues> | null
+  parent: ContainerNode<TValues> | null
 
   /**
-   * RuntimeNode 自身的完整生命周期边界。
+   * Node 自身的完整生命周期边界。
    *
    * 当 node 被 reconcile 移除时调用 dispose()。
    */
-  scope: RuntimeScope
+  scope: Scope
 
   /**
    * 节点是否已经进入销毁流程。
@@ -350,15 +332,13 @@ interface BaseRuntimeNode<TValues extends Values = Values> {
 }
 
 /**
- * RootRuntimeNode - 透明根节点。
+ * RootNode - 透明根节点。
  *
  * Root 不对应任何 schema，只负责承载顶层 children。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface RootRuntimeNode<
-  TValues extends Values = Values,
-> extends BaseRuntimeNode<TValues> {
+export interface RootNode<TValues extends Values = Values> extends BaseNode<TValues> {
   /**
    * 根节点类型标记。
    */
@@ -372,20 +352,17 @@ export interface RootRuntimeNode<
   /**
    * 顶层 runtime 子节点。
    */
-  readonly childNodes: Signal<readonly SchemaRuntimeNode<TValues>[]>
-
+  readonly childNodes: Signal<readonly SchemaNode<TValues>[]>
 }
 
 /**
- * FieldRuntimeNode - 字段节点。
+ * FieldNode - 字段节点。
  *
  * Field 不承载结构子节点，已解析配置和运行态直接挂在 node 上。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface FieldRuntimeNode<
-  TValues extends Values = Values,
-> extends BaseRuntimeNode<TValues> {
+export interface FieldNode<TValues extends Values = Values> extends BaseNode<TValues> {
   /**
    * 字段节点类型标记。
    */
@@ -394,7 +371,7 @@ export interface FieldRuntimeNode<
   /**
    * 字段节点的父容器；根字段的 `parent` 为 `null`。
    */
-  parent: ParentRuntimeNode<TValues> | null
+  parent: ParentNode<TValues> | null
 
   /**
    * 当前字段配置的身份令牌；配置变化时由 Compiler 重新生成。
@@ -434,24 +411,22 @@ export interface FieldRuntimeNode<
   /**
    * 字段校验 effect 使用的资源作用域。
    */
-  validationEffectScope: RuntimeScope | null
+  validationEffectScope: Scope | null
 
   /**
    * 仅管理字段 dependencies effect 的独立资源作用域。
    */
-  dependenciesEffectScope: RuntimeScope | null
+  dependenciesEffectScope: Scope | null
 }
 
 /**
- * GroupRuntimeNode - 分组节点。
+ * GroupNode - 分组节点。
  *
  * Group 负责 schema 结构嵌套，通过 childNodes 承载静态编译后的子节点。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface GroupRuntimeNode<
-  TValues extends Values = Values,
-> extends BaseRuntimeNode<TValues> {
+export interface GroupNode<TValues extends Values = Values> extends BaseNode<TValues> {
   /**
    * 分组节点类型标记。
    */
@@ -460,7 +435,7 @@ export interface GroupRuntimeNode<
   /**
    * 分组节点的父容器；根分组的 `parent` 为 `null`。
    */
-  parent: ParentRuntimeNode<TValues> | null
+  parent: ParentNode<TValues> | null
 
   /**
    * 当前分组配置的身份令牌。
@@ -480,30 +455,30 @@ export interface GroupRuntimeNode<
   /**
    * 分组继承祖先状态并合并自身配置后的呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationState>
+  readonly effectiveState: ComputedSignal<PresentationStaticState>
 
   /**
    * 分组呈现 effect 使用的资源作用域。
    */
-  presentationEffectScope: RuntimeScope | null
+  presentationEffectScope: Scope | null
 
   /**
    * 静态 schema children 编译后的 runtime 子节点。
    */
-  readonly childNodes: Signal<readonly SchemaRuntimeNode<TValues>[]>
+  readonly childNodes: Signal<readonly SchemaNode<TValues>[]>
 }
 
 /**
- * DependencyRuntimeNode - 动态 dependency 节点。
+ * DependencyNode - 动态 dependency 节点。
  *
  * Dependency 的 children 来自 renderer 动态产物，而非静态编译。
  * 额外持有 rendererEffect，用于管理动态 renderer 的执行状态与生命周期。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface DependencyRuntimeNode<
+export interface DependencyNode<
   TValues extends Values = Values,
-> extends BaseRuntimeNode<TValues> {
+> extends BaseNode<TValues> {
   /**
    * 依赖节点类型标记。
    */
@@ -512,7 +487,7 @@ export interface DependencyRuntimeNode<
   /**
    * 依赖节点的父容器；根依赖的 `parent` 为 `null`。
    */
-  parent: ParentRuntimeNode<TValues> | null
+  parent: ParentNode<TValues> | null
 
   /**
    * 当前 dependency 配置的身份令牌。
@@ -532,7 +507,7 @@ export interface DependencyRuntimeNode<
   /**
    * 依赖节点继承祖先状态并合并自身配置后的呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationState>
+  readonly effectiveState: ComputedSignal<PresentationStaticState>
 
   /**
    * 动态 renderer 的执行状态与资源作用域。
@@ -542,66 +517,63 @@ export interface DependencyRuntimeNode<
   /**
    * 依赖节点呈现 effect 使用的资源作用域。
    */
-  presentationEffectScope: RuntimeScope | null
+  presentationEffectScope: Scope | null
 
   /**
    * dependency renderer 产出的动态 runtime 子节点。
    */
-  readonly childNodes: Signal<readonly SchemaRuntimeNode<TValues>[]>
+  readonly childNodes: Signal<readonly SchemaNode<TValues>[]>
 }
 
 /**
- * 所有 RuntimeNode 的联合类型。
+ * 所有 Node 的联合类型。
  *
  * @typeParam TValues - 表单值类型。
  */
-export type RuntimeNode<TValues extends Values = Values> =
-  | RootRuntimeNode<TValues>
-  | FieldRuntimeNode<TValues>
-  | GroupRuntimeNode<TValues>
-  | DependencyRuntimeNode<TValues>
+export type ContainerNode<TValues extends Values = Values> =
+  RootNode<TValues> | FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
 
 /**
- * 除 root 外，所有由 schema 创建的 RuntimeNode。
+ * 除 root 外，所有由 schema 创建的 Node。
  *
- * 即 FieldRuntimeNode | GroupRuntimeNode | DependencyRuntimeNode。
+ * 即 FieldNode | GroupNode | DependencyNode。
  *
  * @typeParam TValues - 表单值类型。
  */
-export type SchemaRuntimeNode<TValues extends Values = Values> =
-  FieldRuntimeNode<TValues> | GroupRuntimeNode<TValues> | DependencyRuntimeNode<TValues>
+export type SchemaNode<TValues extends Values = Values> =
+  FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
 
 /**
- * 可以承载子节点的 RuntimeNode。
+ * 可以承载子节点的 Node。
  *
- * 即 RootRuntimeNode | GroupRuntimeNode | DependencyRuntimeNode。
+ * 即 RootNode | GroupNode | DependencyNode。
  * field 节点没有子节点。
  *
  * @typeParam TValues - 表单值类型。
  */
-export type ParentRuntimeNode<TValues extends Values = Values> =
-  RootRuntimeNode<TValues> | GroupRuntimeNode<TValues> | DependencyRuntimeNode<TValues>
+export type ParentNode<TValues extends Values = Values> =
+  RootNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
 
 /**
- * RootRuntimeNode 创建选项。
+ * RootNode 创建选项。
  */
-export interface CreateRootRuntimeNodeOptions {
+export interface CreateRootNodeOptions {
   /**
    * 根节点使用的资源作用域。
    */
-  scope: RuntimeScope
+  scope: Scope
 }
 
 /**
- * FieldRuntimeNode 创建选项。
+ * FieldNode 创建选项。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface CreateFieldRuntimeNodeOptions<TValues extends Values = Values> {
+export interface CreateFieldNodeOptions<TValues extends Values = Values> {
   /**
    * 分配给字段节点的稳定 id。
    */
-  id: RuntimeNodeId
+  id: NodeId
   /**
    * 节点的稳定 key。
    */
@@ -625,19 +597,19 @@ export interface CreateFieldRuntimeNodeOptions<TValues extends Values = Values> 
   /**
    * 字段节点使用的资源作用域；省略时创建独立作用域。
    */
-  scope?: RuntimeScope
+  scope?: Scope
 }
 
 /**
- * GroupRuntimeNode 创建选项。
+ * GroupNode 创建选项。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface CreateGroupRuntimeNodeOptions<TValues extends Values = Values> {
+export interface CreateGroupNodeOptions<TValues extends Values = Values> {
   /**
    * 分配给分组节点的稳定 id。
    */
-  id: RuntimeNodeId
+  id: NodeId
   /**
    * 节点的稳定 key。
    */
@@ -653,19 +625,19 @@ export interface CreateGroupRuntimeNodeOptions<TValues extends Values = Values> 
   /**
    * 分组节点使用的资源作用域；省略时创建独立作用域。
    */
-  scope?: RuntimeScope
+  scope?: Scope
 }
 
 /**
- * DependencyRuntimeNode 创建选项。
+ * DependencyNode 创建选项。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface CreateDependencyRuntimeNodeOptions<TValues extends Values = Values> {
+export interface CreateDependencyNodeOptions<TValues extends Values = Values> {
   /**
    * 分配给依赖节点的稳定 id。
    */
-  id: RuntimeNodeId
+  id: NodeId
   /**
    * 节点的稳定 key。
    */
@@ -681,5 +653,5 @@ export interface CreateDependencyRuntimeNodeOptions<TValues extends Values = Val
   /**
    * 依赖节点使用的资源作用域；省略时创建独立作用域。
    */
-  scope?: RuntimeScope
+  scope?: Scope
 }

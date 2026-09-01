@@ -1,35 +1,35 @@
 /**
- * 运行时节点（RuntimeNode）的测试辅助工具。
+ * 运行时节点（Node）的测试辅助工具。
  *
- * 提供创建 RootRuntimeNode、FieldRuntimeNode、GroupRuntimeNode 和
- * DependencyRuntimeNode 的工厂函数，用于隔离测试节点结构操作。
+ * 提供创建 RootNode、FieldNode、GroupNode 和
+ * DependencyNode 的工厂函数，用于隔离测试节点结构操作。
  *
  * @module core/runtime/node/__tests__/runtimeNodeTestUtils
  */
 import { createSignal } from "../../../reactivity"
-import { createRuntimeScope } from "../runtimeScope"
+import { createScope } from "../scope"
 
 import {
   createFieldRuntimeSignals,
   createInheritedPresentationState,
   createPresentationRuntimeSignals,
-} from "./runtimeSignalsTestUtils"
+} from "./signalsTestUtils"
 
 import type { Values } from "../../../types"
 import type {
-  CreateDependencyRuntimeNodeOptions,
-  CreateFieldRuntimeNodeOptions,
-  CreateGroupRuntimeNodeOptions,
-  DependencyRuntimeNode,
-  FieldRuntimeNode,
-  GroupRuntimeNode,
-  ParentRuntimeNode,
-  RootRuntimeNode,
-  RuntimeScope,
+  CreateDependencyNodeOptions,
+  CreateFieldNodeOptions,
+  CreateGroupNodeOptions,
+  DependencyNode,
+  FieldNode,
+  GroupNode,
+  ParentNode,
+  RootNode,
+  Scope,
 } from "../types"
 
-/** 仅供测试创建 RootRuntimeNode。 */
-export function createRootRuntimeNode(options: { scope: RuntimeScope }): RootRuntimeNode {
+/** 仅供测试创建 RootNode。 */
+export function createRootNode(options: { scope: Scope }): RootNode {
   return {
     id: 0,
     key: "schemx:root",
@@ -42,10 +42,10 @@ export function createRootRuntimeNode(options: { scope: RuntimeScope }): RootRun
   }
 }
 
-/** 仅供测试创建 FieldRuntimeNode。 */
-export function createFieldRuntimeNode<TValues extends Values = Values>(
-  options: CreateFieldRuntimeNodeOptions<TValues>
-): FieldRuntimeNode<TValues> {
+/** 仅供测试创建 FieldNode。 */
+export function createFieldNode<TValues extends Values = Values>(
+  options: CreateFieldNodeOptions<TValues>
+): FieldNode<TValues> {
   const signals = createFieldRuntimeSignals<TValues>({
     nodeId: options.id,
     key: options.key,
@@ -55,12 +55,12 @@ export function createFieldRuntimeNode<TValues extends Values = Values>(
     debug: options.debug,
   })
 
-  const node: FieldRuntimeNode<TValues> = {
+  const node: FieldNode<TValues> = {
     id: options.id,
     key: options.key,
     type: "field",
     parent: null,
-    scope: options.scope ?? createRuntimeScope(),
+    scope: options.scope ?? createScope(),
     disposed: createSignal(false),
     configToken: options.configToken,
     ...signals,
@@ -72,10 +72,10 @@ export function createFieldRuntimeNode<TValues extends Values = Values>(
   return node
 }
 
-/** 仅供测试创建 GroupRuntimeNode。 */
-export function createGroupRuntimeNode<TValues extends Values = Values>(
-  options: CreateGroupRuntimeNodeOptions<TValues>
-): GroupRuntimeNode<TValues> {
+/** 仅供测试创建 GroupNode。 */
+export function createGroupNode<TValues extends Values = Values>(
+  options: CreateGroupNodeOptions<TValues>
+): GroupNode<TValues> {
   const staticSchema = createSignal(options.staticSchema)
 
   const signals = createPresentationRuntimeSignals({
@@ -88,12 +88,12 @@ export function createGroupRuntimeNode<TValues extends Values = Values>(
     inheritedState: createInheritedPresentationState(() => node),
   })
 
-  const node: GroupRuntimeNode<TValues> = {
+  const node: GroupNode<TValues> = {
     id: options.id,
     key: options.key,
     type: "group",
     parent: null,
-    scope: options.scope ?? createRuntimeScope(),
+    scope: options.scope ?? createScope(),
     disposed: createSignal(false),
     configToken: options.configToken,
     staticSchema,
@@ -106,10 +106,10 @@ export function createGroupRuntimeNode<TValues extends Values = Values>(
   return node
 }
 
-/** 仅供测试创建 DependencyRuntimeNode。 */
-export function createDependencyRuntimeNode<TValues extends Values = Values>(
-  options: CreateDependencyRuntimeNodeOptions<TValues>
-): DependencyRuntimeNode<TValues> {
+/** 仅供测试创建 DependencyNode。 */
+export function createDependencyNode<TValues extends Values = Values>(
+  options: CreateDependencyNodeOptions<TValues>
+): DependencyNode<TValues> {
   const staticSchema = createSignal(options.staticSchema)
 
   const signals = createPresentationRuntimeSignals({
@@ -122,12 +122,12 @@ export function createDependencyRuntimeNode<TValues extends Values = Values>(
     inheritedState: createInheritedPresentationState(() => node),
   })
 
-  const node: DependencyRuntimeNode<TValues> = {
+  const node: DependencyNode<TValues> = {
     id: options.id,
     key: options.key,
     type: "dependency",
     parent: null,
-    scope: options.scope ?? createRuntimeScope(),
+    scope: options.scope ?? createScope(),
     disposed: createSignal(false),
     configToken: options.configToken,
     staticSchema,
@@ -142,18 +142,18 @@ export function createDependencyRuntimeNode<TValues extends Values = Values>(
 }
 
 /**
- * 创建测试用的 RootRuntimeNode，支持注入自定义 id、key 和 dispose scope。
+ * 创建测试用的 RootNode，支持注入自定义 id、key 和 dispose scope。
  *
  * @param options - 可选覆盖参数
  */
-export function createTestRootRuntimeNode(
+export function createTestRootNode(
   options: {
     id?: number
     key?: string
-    scope?: RuntimeScope
+    scope?: Scope
   } = {}
-): RootRuntimeNode {
-  const root = createRootRuntimeNode({ scope: options.scope ?? createRuntimeScope() })
+): RootNode {
+  const root = createRootNode({ scope: options.scope ?? createScope() })
 
   return {
     ...root,
@@ -163,17 +163,17 @@ export function createTestRootRuntimeNode(
 }
 
 /**
- * 创建测试用的 FieldRuntimeNode，默认挂载到 parent 的 dispose scope 下。
+ * 创建测试用的 FieldNode，默认挂载到 parent 的 dispose scope 下。
  *
  * @param options - 必填节点配置和 parent，可选 id 和 scope
  */
-export function createTestFieldRuntimeNode(options: {
+export function createTestFieldNode(options: {
   id?: number
-  node: Omit<CreateFieldRuntimeNodeOptions, "id" | "scope">
-  parent: ParentRuntimeNode
-  scope?: RuntimeScope
-}): FieldRuntimeNode {
-  return createFieldRuntimeNode({
+  node: Omit<CreateFieldNodeOptions, "id" | "scope">
+  parent: ParentNode
+  scope?: Scope
+}): FieldNode {
+  return createFieldNode({
     id: options.id ?? 1,
     ...options.node,
     scope: options.scope ?? options.parent.scope.child(),
@@ -181,17 +181,17 @@ export function createTestFieldRuntimeNode(options: {
 }
 
 /**
- * 创建测试用的 GroupRuntimeNode，默认挂载到 parent 的 dispose scope 下。
+ * 创建测试用的 GroupNode，默认挂载到 parent 的 dispose scope 下。
  *
  * @param options - 必填节点配置和 parent，可选 id 和 scope
  */
-export function createTestGroupRuntimeNode(options: {
+export function createTestGroupNode(options: {
   id?: number
-  node: Omit<CreateGroupRuntimeNodeOptions, "id" | "scope">
-  parent: ParentRuntimeNode
-  scope?: RuntimeScope
-}): GroupRuntimeNode {
-  return createGroupRuntimeNode({
+  node: Omit<CreateGroupNodeOptions, "id" | "scope">
+  parent: ParentNode
+  scope?: Scope
+}): GroupNode {
+  return createGroupNode({
     id: options.id ?? 1,
     ...options.node,
     scope: options.scope ?? options.parent.scope.child(),
@@ -199,17 +199,17 @@ export function createTestGroupRuntimeNode(options: {
 }
 
 /**
- * 创建测试用的 DependencyRuntimeNode，默认挂载到 parent 的 dispose scope 下。
+ * 创建测试用的 DependencyNode，默认挂载到 parent 的 dispose scope 下。
  *
  * @param options - 必填节点配置和 parent，可选 id 和 scope
  */
-export function createTestDependencyRuntimeNode(options: {
+export function createTestDependencyNode(options: {
   id?: number
-  node: Omit<CreateDependencyRuntimeNodeOptions, "id" | "scope">
-  parent: ParentRuntimeNode
-  scope?: RuntimeScope
-}): DependencyRuntimeNode {
-  return createDependencyRuntimeNode({
+  node: Omit<CreateDependencyNodeOptions, "id" | "scope">
+  parent: ParentNode
+  scope?: Scope
+}): DependencyNode {
+  return createDependencyNode({
     id: options.id ?? 1,
     ...options.node,
     scope: options.scope ?? options.parent.scope.child(),

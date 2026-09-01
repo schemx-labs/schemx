@@ -9,9 +9,11 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import { createRawFieldSchema, createRuntimeGraphHarness } from "./runtimeGraphTestUtils"
+import { isGroupNode } from "../helper"
 
-import type { RuntimeNode } from "../types"
+import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
+
+import type { ContainerNode } from "../types"
 
 // 运行时节点流：key 复用、kind 替换、嵌套提交与 cleanup 观察时机。
 describe("runtime node flow", () => {
@@ -50,9 +52,9 @@ describe("runtime node flow", () => {
     ])
 
     expect(root.childNodes.value[0]).not.toBe(first)
-    expect(root.childNodes.value[0]?.type).toBe("group")
+    expect(isGroupNode(root.childNodes.value[0])).toBe(true)
     expect(
-      root.childNodes.value[0]?.type === "group" &&
+      isGroupNode(root.childNodes.value[0]) &&
         root.childNodes.value[0].childNodes.value[0]?.key
     ).toBe("child")
     expect(first?.disposed.value).toBe(true)
@@ -79,7 +81,7 @@ describe("runtime node flow", () => {
   it("removed-node cleanup 观察到的是已经提交的新 parent.children", () => {
     // 回调创建早于 harness 返回 root，必须在创建后补充引用。
     // eslint-disable-next-line prefer-const
-    let rootRef: Extract<RuntimeNode, { childNodes: unknown }> | undefined
+    let rootRef: Extract<ContainerNode, { childNodes: unknown }> | undefined
 
     const unmounted = vi.fn(() => {
       expect(rootRef?.childNodes.value.map((child) => child.key)).toEqual(["next"])
@@ -95,7 +97,7 @@ describe("runtime node flow", () => {
     expect(unmounted).toHaveBeenCalledTimes(1)
   })
 
-  it("提交 Schema 后创建并协调 RuntimeNode", () => {
+  it("提交 Schema 后创建并协调 Node", () => {
     const { commitSchemas, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("field")])

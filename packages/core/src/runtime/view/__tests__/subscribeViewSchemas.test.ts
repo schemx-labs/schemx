@@ -9,15 +9,15 @@
 import { describe, expect, it, vi } from "vitest"
 
 import createForm from "../../../createForm"
-import { createFieldRuntimeNode } from "../../node/__tests__/runtimeNodeTestUtils"
+import { createFieldNode } from "../../node/__tests__/nodeTestUtils"
 import { createNodeManager } from "../../node/nodeManager"
 import { createRootRuntimeViewSchemas } from "../createViewSchemas"
 import { subscribeViewSchemas } from "../subscribeViewSchemas"
 
-import type { RootRuntimeNode } from "../../node"
+import type { RootNode } from "../../node"
 
 function createRootWithViewSchemas(): {
-  root: RootRuntimeNode
+  root: RootNode
   manager: ReturnType<typeof createNodeManager>
 } {
   const manager = createNodeManager()
@@ -124,7 +124,7 @@ describe("subscribeViewSchemas", () => {
 
     unsubscribe()
     manager.insert(
-      createFieldRuntimeNode({
+      createFieldNode({
         id: 1,
         key: "field:name",
         configToken: Symbol("field:name"),

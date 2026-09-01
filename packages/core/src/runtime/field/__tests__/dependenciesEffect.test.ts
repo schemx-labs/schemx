@@ -11,18 +11,18 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createSignal } from "../../../reactivity"
 import { resolveDependencyProps } from "../../dependencyScheduler"
-import { createFieldRuntimeNode } from "../../node/__tests__/runtimeNodeTestUtils"
+import { createFieldNode } from "../../node/__tests__/nodeTestUtils"
 import {
   createFieldRuntimeSignals,
   setFieldDynamicOverrides,
-} from "../../node/__tests__/runtimeSignalsTestUtils"
-import { createRuntimeScope } from "../../node/runtimeScope"
+} from "../../node/__tests__/signalsTestUtils"
+import { createScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
 import { createFieldDependenciesEffect } from "../dependenciesEffect"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 import type { SchemaRuntimeContext } from "../../context"
-import type { FieldRuntimeNode } from "../../node"
+import type { FieldNode } from "../../node"
 
 function createTestSchema(
   overrides: Partial<SchemxResolvedBaseField> = {}
@@ -52,7 +52,7 @@ function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
 
 function createDependenciesNode(
   schema: SchemxResolvedBaseField
-): FieldRuntimeNode<{ country?: string }> {
+): FieldNode<{ country?: string }> {
   const dynamicConfig = {
     triggerFields: ["country" as const],
     visible: (values: { country?: string }) => values.country === "CN",
@@ -60,7 +60,7 @@ function createDependenciesNode(
     showRequiredMark: (values: { country?: string }) => values.country === "US",
   }
 
-  return createFieldRuntimeNode<{ country?: string }>({
+  return createFieldNode<{ country?: string }>({
     id: 1,
     key: "province",
     configToken: Symbol("province"),
@@ -351,7 +351,7 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
   it("只应写入 dynamicOverrides，并驱动 effectiveSchema", async () => {
     const scheduler = createScheduler()
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const values = createSignal<{ country?: string }>({ country: "US" })
 
@@ -419,7 +419,7 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
   it("旧 dependencies 异步结果晚于新结果完成时不应覆盖最新 dynamicOverrides", async () => {
     const scheduler = createScheduler()
 
-    const scope = createRuntimeScope()
+    const scope = createScope()
 
     const values = createSignal<{ country?: string }>({ country: "US" })
 

@@ -187,6 +187,11 @@ export interface SchemxBase<
   componentProps?: SchemxComponentProps<TValues, TKey>
 
   /**
+   * 在当前 schema 被删除时保留字段值，默认值 true
+   */
+  preserve?: boolean
+
+  /**
    * 占位提示文本（静态默认值）
    */
   placeholder?: string

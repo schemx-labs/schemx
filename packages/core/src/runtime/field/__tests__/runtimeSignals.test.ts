@@ -15,7 +15,7 @@ import {
   resetFieldDynamicOverrides,
   setFieldDynamicOverrides,
   setFieldStaticSchema,
-} from "../../node/__tests__/runtimeSignalsTestUtils"
+} from "../../node/__tests__/signalsTestUtils"
 
 import type { SchemxResolvedBaseField } from "../../../types"
 

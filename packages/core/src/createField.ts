@@ -314,7 +314,7 @@ export function createField<
   /**
    * 判断当前字段是否被触碰或修改。
    */
-  const isTouched = (): boolean => form.isFieldTouched(name) ?? false
+  const isTouched = (): boolean => form.isFieldTouched(name)
 
   /**
    * 设置字段交互状态。
@@ -338,7 +338,7 @@ export function createField<
   /**
    * 判断当前字段是否处于 pending 状态。
    */
-  const isPending = (): boolean => form.isFieldPending(name) ?? false
+  const isPending = (): boolean => form.isFieldPending(name)
 
   /**
    * 创建依赖当前字段读取的响应式副作用。

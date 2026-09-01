@@ -543,7 +543,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * 替换当前表单的 root schemas。
    *
    * 字段值、错误和 touched 状态由 store/validator 按字段路径保留；
-   * 被移除字段的运行时资源会随 RuntimeNode 卸载释放。
+   * 被移除字段的运行时资源会随 Node 卸载释放。
    *
    * @param schemas - 下一版 root schema 列表
    */
