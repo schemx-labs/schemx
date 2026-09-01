@@ -56,10 +56,10 @@ See the documentation for each package for complete examples, style import instr
 Core validation uses the `required` field, a named rule Registry, and a flat result discriminated by the `valid` field:
 
 ```ts
-import { createForm, createValidationRuleRegistry } from "@schemx/core"
+import { createForm, createPresetRuleRegistry } from "@schemx/core"
 import { z } from "zod"
 
-const registry = createValidationRuleRegistry()
+const registry = createPresetRuleRegistry()
 registry.register("email", z.string().email("Invalid email format"))
 
 const form = createForm<{ email: string }>({
@@ -73,7 +73,7 @@ const form = createForm<{ email: string }>({
       rules: ["email"],
     },
   ],
-  validationRuleRegistry: registry,
+  presetRuleRegistry: registry,
 })
 
 const result = await form.validate()

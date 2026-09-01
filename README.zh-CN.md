@@ -56,10 +56,10 @@ pnpm add @schemx/vant @schemx/vue @schemx/core vant vue
 Core 校验使用 `required` 字段、命名规则 Registry，以及以 `valid` 为判别字段的扁平结果：
 
 ```ts
-import { createForm, createValidationRuleRegistry } from "@schemx/core"
+import { createForm, createPresetRuleRegistry } from "@schemx/core"
 import { z } from "zod"
 
-const registry = createValidationRuleRegistry()
+const registry = createPresetRuleRegistry()
 registry.register("email", z.string().email("邮箱格式错误"))
 
 const form = createForm<{ email: string }>({
@@ -73,7 +73,7 @@ const form = createForm<{ email: string }>({
       rules: ["email"],
     },
   ],
-  validationRuleRegistry: registry,
+  presetRuleRegistry: registry,
 })
 
 const result = await form.validate()
