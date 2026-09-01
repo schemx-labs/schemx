@@ -9,9 +9,9 @@ describe("@schemx/vant 根入口", () => {
       isEmptyDisplayValue: expect.any(Function),
       isRendererInteractive: expect.any(Function),
       resolveRendererMode: expect.any(Function),
-      validationRuleRegistry: expect.any(Object),
-      createValidationRuleRegistry: expect.any(Function),
-      ValidationRuleRegistry: expect.any(Function),
+      presetRuleRegistry: expect.any(Object),
+      createPresetRuleRegistry: expect.any(Function),
+      PresetRuleRegistry: expect.any(Function),
       RendererRegistry: expect.any(Function),
     })
 

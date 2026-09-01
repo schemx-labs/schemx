@@ -986,7 +986,7 @@ const schemas = [
 ]
 ```
 
-通过组件 `ref` 可调用 `SchemxInstance`。它包含值、快照、初始值、touched、pending、校验、提交与重置、响应式 effect、Schema 更新、默认配置、view、Renderer / Validator 注册和 `destroy` 等完整实例能力；实例契约以 `@schemx/core` 的 `SchemxInstance` 类型为准。
+通过组件 `ref` 可调用 `SchemxInstance`。它包含值、快照、初始值、touched、pending、校验、提交与重置、响应式 effect、Schema 更新、默认配置、view、Renderer / 预设规则注册和 `destroy` 等完整实例能力；实例契约以 `@schemx/core` 的 `SchemxInstance` 类型为准。
 
 ## 导出清单
 
@@ -1044,11 +1044,13 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 组件       | `Group`                   | 渲染分组 ViewSchema。                                   |
 | HOC        | `WithRemoteOptions`       | 为 Renderer 接入 Dictionary。                           |
 | Registry   | `rendererRegistry`        | Vue 全局 Renderer Registry；Vant 默认注册写入此实例。   |
-| Registry   | `validationRuleRegistry`  | Vue 全局 ValidationRuleRegistry。                       |
+| Registry   | `presetRuleRegistry`  | Vue 全局 PresetRuleRegistry。                       |
 | Hook       | `useForm`                 | 创建并按 Vue scope 销毁表单。                           |
 | Context    | `createFormContext`       | 提供表单实例。                                          |
 | Context    | `useFormContext`          | 读取表单实例。                                          |
 | Hook       | `useField`                | 创建 Vue 字段控制器。                                   |
+| Hook       | `useFieldArray`           | 创建 Vue 数组字段控制器。                               |
+| Hook       | `createFieldArrayHook`    | 创建绑定值类型的 FieldArray Hook 工厂。                 |
 | Context    | `createFieldContext`      | 提供字段控制器。                                        |
 | Context    | `useFieldContext`         | 读取字段控制器。                                        |
 | Context    | `createFormConfigContext` | 提供表单展示配置。                                      |
@@ -1060,18 +1062,22 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Dictionary | `useDictionary`           | 管理函数式选项源。                                      |
 | Vue 响应式 | `useStableRef`            | 建立浅比较稳定 Ref。                                    |
 | ViewSchema | `useViewSchemas`          | 桥接 ViewSchemas 为 Ref。                               |
+| Hook       | `useFormSelector`         | 从表单值派生只读 Vue Ref。                              |
 
 ### Vue 自有传递类型
 
 | 分类            | 导出                   | 用途                                                          |
 | --------------- | ---------------------- | ------------------------------------------------------------- |
 | Context 类型    | `FormContextProps`     | 表单展示 Context。                                            |
+| Runtime 类型    | `VueSchemxInstance`    | 可在 Vue effect 中追踪读取的 Form Instance。                  |
 | Dictionary 类型 | `SchemxDictionary`     | 函数式选项源配置。                                            |
 | 插件类型        | `SchemxInstallOptions` | 当前 Vue App 的默认配置安装选项，等同于 Core `SchemxConfig`。 |
 | Dictionary 类型 | `SchemxWithDictionary` | 为 Renderer Props 增加可选 `dict`。                           |
 | Dictionary 类型 | `UseDictionaryReturn`  | `useDictionary()` 的响应式状态与控制方法。                    |
 | 表单类型        | `SchemxFormProps`      | Vue 表单组件 Props 类型。                                     |
 | 字段类型        | `FieldInstance`        | Vue Ref / Computed 桥接后的字段控制器类型。                   |
+| 字段数组类型    | `UseFieldArrayReturn`  | Vue FieldArray Hook 返回值。                                 |
+| Selector 类型   | `UseFormSelectorOptions` | `useFormSelector` 的比较和刷新配置。                       |
 
 这些 Vue API 的完整契约与边界见 [Vue README](../vue)。
 
@@ -1102,8 +1108,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Watch         | `createWatchFields`            | 多字段 Core Watch。                          |
 | Watch         | `createWatchAll`               | 全表 Core Watch。                            |
 | Registry      | `createRendererRegistry`       | 创建 Renderer Registry。                     |
-| Registry      | `createValidationRuleRegistry` | 创建 ValidationRuleRegistry。                |
-| Validator     | `createValidator`              | 创建底层 Validator。                         |
+| Registry      | `createPresetRuleRegistry` | 创建 PresetRuleRegistry。                |
 | Schema 守卫   | `isBaseSchema`                 | 判断原始普通字段。                           |
 | Schema 守卫   | `isGroupSchema`                | 判断原始 Group。                             |
 | Schema 守卫   | `isDependencySchema`           | 判断原始 Dependency。                        |
@@ -1135,7 +1140,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 表单               | `ResolvedCreateFormOptions`      | 已归一化的 Form 创建配置。                |
 | 表单               | `SchemxInstance`                 | Core 表单实例接口。                       |
 | 表单               | `SchemxGlobalContext`            | Core 全局字段默认配置。                   |
-| Validator          | `CreateValidatorOptions`         | 规则执行异常回调配置。                    |
 | 基础               | `Values`                         | 表单值基础约束。                          |
 | 基础               | `Dynamic`                        | 静态值或同步 / 异步值函数。               |
 | 路径               | `NamePath`                       | 类型安全字段路径。                        |
@@ -1146,6 +1150,12 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema source      | `SchemxSchemasInput`             | Schema 数组或 source 联合。               |
 | Schema source      | `SchemxSchemasListener`          | Schema source listener。                  |
 | 字段               | `SchemxFieldInstance`            | Core 字段控制器。                         |
+| 字段数组           | `FieldArrayField`                | 数组字段行的公开结构类型。                 |
+| 字段数组           | `FieldArrayInstance`             | 数组字段控制器接口。                       |
+| 字段数组           | `FieldArrayItemValue`            | 数组字段行值类型。                         |
+| 字段数组           | `FieldArrayPath`                 | 数组字段路径类型。                         |
+| 表单               | `SchemxFormApi`                  | 传递给动态 Schema 回调的表单 API。          |
+| 表单               | `SchemxFieldRulesMap`            | 按字段路径配置的规则映射。                 |
 | Schema             | `SchemxBase`                     | 普通字段基础接口。                        |
 | Schema             | `SchemxBaseField`                | 按 Renderer key 分布的字段联合。          |
 | Schema             | `SchemxExactBaseField`           | 保留具体 Renderer key 的字段类型。        |
@@ -1179,7 +1189,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Renderer Registry  | `RendererRegistry`               | Renderer Registry 实例类型。              |
 | Renderer Registry  | `RegistryOptions`                | 注册覆盖选项（renderer 与 rule 共享）。   |
 | Renderer Registry  | `RendererMap`                    | Renderer 批量映射。                       |
-| Validator          | `Validator`                      | 底层 Validator 实例类型。                 |
 | Validator          | `ValidationRule`                 | 原生规则接口。                            |
 | Validator          | `ValidationRuleContext`          | 原生规则执行上下文。                      |
 | Validator          | `ValidationRuleIssue`            | 单条规则产生的问题。                      |
@@ -1200,20 +1209,20 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Validator          | `ValidationAdapterOption`        | adapter 或带覆盖选项的注册项。            |
 | Validator          | `ValidationTrigger`              | 校验触发时机。                            |
 | Validator          | `StandardSchemaV1`               | Standard Schema v1 协议。                 |
-| Rule               | `ValidationRuleDefinition`       | 自定义规则声明合并接口。                  |
-| Rule               | `ValidationRuleName`             | 声明合并推导的规则 key。                  |
+| Rule               | `PresetRuleDefinition`       | 自定义规则声明合并接口。                  |
+| Rule               | `PresetRuleName`             | 声明合并推导的规则 key。                  |
 | Rule               | `RequiredOptions`                | 必填消息与空值判断配置。                  |
-| Rule               | `RequiredRule`                   | 布尔必填开关或必填配置对象。              |
+| Rule               | `RequiredConfig`                   | 布尔必填开关或必填配置对象。              |
 | Rule               | `DefinedFieldValue`              | 从表单值和路径提取已定义字段值。          |
 | Rule               | `FieldRule`                      | 单个字段规则联合类型。                    |
 | Rule               | `FieldRules`                     | Standard Schema、内置或自定义规则。       |
-| Validator Registry | `ValidationRuleRegistry`         | ValidationRuleRegistry 实例类型。         |
-| Validator Registry | `ValidationRuleFactoryContext`   | 规则工厂接收的字段上下文。                |
-| Validator Registry | `ValidationRuleFactory`          | 按字段 Schema 生成规则的工厂。            |
-| Validator Registry | `ValidationRuleEntry`            | Standard Schema 或工厂联合。              |
-| Validator Registry | `ValidationRuleMap`              | 规则名到条目的批量映射。                  |
-| Validator Registry | `ValidationRuleRegistryChange`   | Registry 变更事件。                       |
-| Validator Registry | `ValidationRuleRegistryListener` | Registry 变更监听器。                     |
+| Validator Registry | `PresetRuleRegistry`         | PresetRuleRegistry 实例类型。         |
+| Validator Registry | `PresetRuleFactoryContext`   | 规则工厂接收的字段上下文。                |
+| Validator Registry | `PresetRuleFactory`          | 按字段 Schema 生成规则的工厂。            |
+| Validator Registry | `PresetRuleEntry`            | Standard Schema、原生规则或工厂联合。              |
+| Validator Registry | `PresetRuleMap`              | 规则名到条目的批量映射。                  |
+| Validator Registry | `PresetRuleRegistryChange`   | Registry 变更事件。                       |
+| Validator Registry | `PresetRuleRegistryListener` | Registry 变更监听器。                     |
 
 这些 Core API 由 Vue 传递，并非 Vant Renderer 能力；完整签名、语义和已知边界见 [Core README](../core)。
 
