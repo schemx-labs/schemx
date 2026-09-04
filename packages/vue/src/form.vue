@@ -7,18 +7,22 @@
 -->
 
 <script lang="ts" setup generic="TValues extends Values = Values">
-  import { computed, reactive, useSlots, watch } from "vue"
+  import { computed, nextTick, reactive, toRaw, useSlots, watch } from "vue"
 
   import {
     defaultSchemxConfigKeys,
     isSchemxSchemas,
+    isViewDynamicSchema,
     isViewGroupSchema,
+    mergeSchemxConfig,
   } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import Button from "./components/Button"
+  import Dynamic from "./components/Dynamic"
   import Field from "./components/Field"
   import Group from "./components/Group"
+  import { mergeVueSchemxConfig } from "./config"
   import {
     createFormConfigContext,
     createFormContext,
@@ -26,12 +30,15 @@
     useFormSelector,
     useViewSchemas,
   } from "./hooks"
-  import { getSectionPosition } from "./utils/helpers"
+  import { getSectionPosition, normalizeNameKey } from "./utils/helpers"
 
   import type { SchemxFormActionConfig, SchemxFormProps } from "./types/index"
   import type {
+    SchemxConfig,
     SchemxInstance,
     SchemxSchemaConfig,
+    SchemxViewDynamicSchema,
+    SchemxViewFieldSchema,
     SchemxViewGroupSchema,
     SchemxViewSchema,
     Values,
@@ -69,8 +76,12 @@
     fieldRules: undefined,
     schedulerOptions: undefined,
     validationConcurrency: undefined,
-    visible: true,
-    validationTrigger: () => ["blur", "change"],
+    visible: undefined,
+    validationTrigger: undefined,
+    readonly: undefined,
+    disabled: undefined,
+    colon: undefined,
+    showRequiredMark: undefined,
   })
 
   /**
@@ -94,13 +105,37 @@
     // Vue 保留 `required` 对当前 TValues 的泛型约束；Core 的表单级配置使用
     // unknown 表示任意字段值。运行时该回调只会接收当前 Form 的字段值，因此在
     // Vue 到 Core 的适配边界收窄为 Core 配置类型。
-    return pick(props, defaultSchemxConfigKeys) as Partial<SchemxSchemaConfig>
+    const schemaConfig = pick(
+      props,
+      defaultSchemxConfigKeys
+    ) as Partial<SchemxSchemaConfig>
+
+    return Object.fromEntries(
+      Object.entries(schemaConfig).filter(([, value]) => value !== undefined)
+    ) as Partial<SchemxSchemaConfig>
   }
+
+  const isExternalForm = props.form !== undefined
+
+  /** 保持 SchemxForm 既有默认行为、且允许 Provider/App 覆盖的最低优先级配置。 */
+  const formFallbackConfig: SchemxConfig = {
+    schemaConfig: {
+      visible: true,
+      validationTrigger: ["blur", "change"],
+    },
+  }
+
+  const initialSchemaConfig =
+    (isExternalForm
+      ? mergeSchemxConfig({ schemaConfig: pickSchemaConfig() }, formFallbackConfig)
+          .schemaConfig
+      : mergeVueSchemxConfig({ schemaConfig: pickSchemaConfig() }, formFallbackConfig)
+          .schemaConfig) ?? {}
 
   /**
    * 保存供后代组件读取的响应式表单级 schema 配置。
    */
-  const formSchemaConfig = reactive<Partial<SchemxSchemaConfig>>(pickSchemaConfig())
+  const formSchemaConfig = reactive<Partial<SchemxSchemaConfig>>(initialSchemaConfig)
 
   /**
    * 创建 FormContext 上下文
@@ -119,7 +154,7 @@
     ? props.form
     : useForm<TValues>({
         schemas: props.schemas,
-        schemaConfig: pickSchemaConfig(),
+        schemaConfig: initialSchemaConfig,
         initialValues:
           Object.keys(props.modelValue).length > 0
             ? props.modelValue
@@ -181,8 +216,6 @@
           props.onFieldsChange?.(changedPaths, allPaths)
         },
       })
-
-  const isExternalForm = props.form !== undefined
 
   /**
    * 注册表单上下文。
@@ -291,6 +324,21 @@
 
   let syncingFromModel = false
 
+  /** 记录 Core 发出的、等待标准 v-model 回传的一次性快照身份。 */
+  const internalModelEchoes = new Set<TValues>()
+
+  /** 发出内部模型更新，并记录等待父级原样回传的快照。 */
+  const emitModelValue = (values: TValues): void => {
+    const rawValues = toRaw(values)
+
+    internalModelEchoes.add(rawValues)
+    emit("update:modelValue", values)
+
+    void nextTick(() => {
+      internalModelEchoes.delete(rawValues)
+    })
+  }
+
   /**
    * 将外部 modelValue 同步到 Core，并标记窗口以阻止 v-model 回写。
    *
@@ -299,9 +347,17 @@
   watch(
     () => props.modelValue,
     (values) => {
+      if (internalModelEchoes.delete(toRaw(values))) {
+        return
+      }
+
       syncingFromModel = true
-      formInstance.setFieldsValue(values)
-      syncingFromModel = false
+
+      try {
+        formInstance.setFieldsValue(values)
+      } finally {
+        syncingFromModel = false
+      }
     },
     { deep: true }
   )
@@ -335,7 +391,7 @@
     (latestSnapshot) => {
       if (syncingFromModel) return
 
-      emit("update:modelValue", latestSnapshot)
+      emitModelValue(latestSnapshot)
     },
     { flush: "sync" }
   )
@@ -356,6 +412,10 @@
   )
 
   const viewSchemas = useViewSchemas(formInstance)
+
+  /** 根据字段路径生成渲染 key，路径变化时重新绑定对应字段控制器。 */
+  const getFieldRenderKey = (schema: SchemxViewFieldSchema<TValues>): string =>
+    `${schema.key}:${normalizeNameKey(schema.name)}`
 
   /**
    * 根据 ViewSchema 在当前列表中的位置生成首尾样式类。
@@ -410,8 +470,19 @@
         </template>
       </Group>
 
+      <Dynamic
+        v-else-if="isViewDynamicSchema(schema)"
+        :schema="schema as SchemxViewDynamicSchema"
+        :view-schemas="viewSchemas as SchemxViewSchema[]"
+      >
+        <template v-for="(_, slotName) in fieldSlots" #[slotName]="slotProps">
+          <slot :name="slotName" v-bind="slotProps ?? {}" />
+        </template>
+      </Dynamic>
+
       <Field
         v-else
+        :key="getFieldRenderKey(schema as SchemxViewFieldSchema<TValues>)"
         :schema="schema as SchemxViewSchema"
         :class="getFieldClass(schema as SchemxViewSchema<TValues>)"
       >

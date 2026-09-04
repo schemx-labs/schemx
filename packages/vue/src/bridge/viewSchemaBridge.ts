@@ -6,7 +6,7 @@
 
 import { computed, shallowRef } from "vue"
 
-import { isViewGroupSchema } from "@schemx/core"
+import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 
 import type { VueViewSchemaState } from "./types"
 import type { SchemxInstance, SchemxViewSchema, Values } from "@schemx/core"
@@ -57,6 +57,10 @@ function createViewSchemaIndex<TValues extends Values>(
 
       if (isViewGroupSchema(schema)) {
         appendSchemas(schema.children)
+      } else if (isViewDynamicSchema(schema)) {
+        for (const item of schema.items) {
+          appendSchemas(item.children)
+        }
       }
     }
   }

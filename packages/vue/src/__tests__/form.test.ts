@@ -1,10 +1,21 @@
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
-import { defineComponent, h, markRaw, nextTick, ref, watchEffect } from "vue"
+import {
+  defineComponent,
+  h,
+  markRaw,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  watchEffect,
+} from "vue"
 
 import {
   createForm,
-  createRendererRegistry,
   createPresetRuleRegistry,
+  createRendererRegistry,
+  isViewDynamicSchema,
+  type SchemxInstance,
   type ValidationAdapter,
   type Values,
 } from "@schemx/core"
@@ -52,6 +63,12 @@ const CountRenderer = defineComponent({
   },
 })
 
+interface DynamicFormValues {
+  users: Array<{
+    name: string
+  }>
+}
+
 /**
  * 创建只返回固定失败结果的测试 adapter。
  *
@@ -91,6 +108,196 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
 }
 
 describe("SchemxForm 动态 schemas", () => {
+  it("透明渲染 Dynamic Schema 的数组项字段", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const DynamicInput = defineComponent({
+      name: "DynamicInput",
+      props: {
+        value: String,
+      },
+      setup(props) {
+        return () => h("span", { "data-testid": "dynamic-input" }, props.value)
+      },
+    })
+
+    rendererRegistry.register("input", markRaw(DynamicInput))
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        initialValues: {
+          users: [{ name: "Ada" }],
+        },
+        schemas: [
+          {
+            key: "users-schema",
+            name: "users",
+            item: [{ name: "name", label: "姓名", componentType: "input" }],
+          },
+        ],
+      },
+    })
+
+    expect(wrapper.findAll('[data-testid="dynamic-input"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="dynamic-input"]').text()).toBe("Ada")
+
+    const form = wrapper.vm as unknown as SchemxInstance<DynamicFormValues>
+
+    form.setFieldValue("users", (users) => [...(users ?? []), { name: "Grace" }])
+    await new Promise((resolve) => setTimeout(resolve, 24))
+    await nextTick()
+
+    expect(wrapper.findAll('[data-testid="dynamic-input"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-testid="dynamic-input"]')[1]?.text()).toBe("Grace")
+
+    wrapper.unmount()
+  })
+
+  it("标准 v-model 回显保留 Dynamic 行组件，并在移动时更新字段路径", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const modelValue = ref<DynamicFormValues>({
+      users: [{ name: "Ada" }, { name: "Grace" }],
+    })
+
+    const formRef = ref<SchemxInstance<DynamicFormValues>>()
+
+    let mountCount = 0
+
+    let unmountCount = 0
+
+    const DynamicInput = defineComponent({
+      name: "ControlledDynamicInput",
+      props: {
+        value: String,
+      },
+      setup(props) {
+        onMounted(() => {
+          mountCount += 1
+        })
+        onUnmounted(() => {
+          unmountCount += 1
+        })
+
+        return () => h("span", { "data-testid": "controlled-dynamic-input" }, props.value)
+      },
+    })
+
+    rendererRegistry.register("input", markRaw(DynamicInput))
+
+    const ControlledForm = defineComponent({
+      setup() {
+        return () =>
+          h(SchemxForm, {
+            ref: formRef,
+            rendererRegistry,
+            modelValue: modelValue.value,
+            schemas: [
+              {
+                key: "users-schema",
+                name: "users",
+                item: [
+                  {
+                    key: "user-row",
+                    label: "用户",
+                    children: [{ name: "name", label: "姓名", componentType: "input" }],
+                  },
+                ],
+              },
+            ],
+            "onUpdate:modelValue": (nextValues) => {
+              modelValue.value = nextValues as DynamicFormValues
+            },
+          })
+      },
+    })
+
+    const wrapper = mount(ControlledForm)
+
+    const form = formRef.value
+
+    if (!form) {
+      throw new Error("SchemxForm 实例未暴露")
+    }
+
+    const initialView = form.getViewSchemas()[0]
+
+    if (!initialView || !isViewDynamicSchema(initialView)) {
+      throw new Error("Dynamic ViewSchema 未生成")
+    }
+
+    const initialKeys = initialView.items.map((item) => item.key)
+
+    expect(mountCount).toBe(2)
+
+    form.setFieldValue("users.0.name", "Ada Updated")
+    await nextTick()
+
+    const afterFieldUpdate = form.getViewSchemas()[0]
+
+    if (!afterFieldUpdate || !isViewDynamicSchema(afterFieldUpdate)) {
+      throw new Error("Dynamic ViewSchema 未生成")
+    }
+
+    expect(afterFieldUpdate.items.map((item) => item.key)).toEqual(initialKeys)
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(0)
+    expect(wrapper.findAll('[data-testid="controlled-dynamic-input"]')[0]?.text()).toBe(
+      "Ada Updated"
+    )
+
+    form.setFieldValue("users", (users) => {
+      const next = [...(users ?? [])]
+
+      const moved = next.pop()
+
+      if (moved) {
+        next.unshift(moved)
+      }
+
+      return next
+    })
+    await new Promise((resolve) => setTimeout(resolve, 24))
+    await nextTick()
+
+    const afterMove = form.getViewSchemas()[0]
+
+    if (!afterMove || !isViewDynamicSchema(afterMove)) {
+      throw new Error("Dynamic ViewSchema 未生成")
+    }
+
+    expect(afterMove.items.map((item) => item.key)).toEqual([
+      initialKeys[1],
+      initialKeys[0],
+    ])
+    expect(
+      wrapper
+        .findAll('[data-testid="controlled-dynamic-input"]')
+        .map((item) => item.text())
+    ).toEqual(["Grace", "Ada Updated"])
+    expect(mountCount).toBe(4)
+    expect(unmountCount).toBe(2)
+
+    modelValue.value = {
+      users: modelValue.value.users.map((user) => ({ ...user })),
+    }
+    await nextTick()
+
+    const afterExternalReplace = form.getViewSchemas()[0]
+
+    if (!afterExternalReplace || !isViewDynamicSchema(afterExternalReplace)) {
+      throw new Error("Dynamic ViewSchema 未生成")
+    }
+
+    expect(afterExternalReplace.items.map((item) => item.key)).not.toEqual([
+      initialKeys[1],
+      initialKeys[0],
+    ])
+
+    wrapper.unmount()
+  })
+
   it("应合并 Form 根节点的内部 class 与外部 class/style", () => {
     const wrapper = mount(SchemxForm, {
       props: {

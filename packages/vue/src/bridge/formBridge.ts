@@ -9,14 +9,12 @@
 
 import { createFormStateAdapter } from "@schemx/core/adapter"
 
-import { getVueFieldArrayState } from "./fieldArrayBridge"
 import { getVueFieldState } from "./fieldBridge"
 import { createVueFormInstance } from "./formInstance"
 import { bindSnapshotSource } from "./helpers"
 import { createVueViewSchemaState } from "./viewSchemaBridge"
 
 import type {
-  ManagedVueFieldArrayState,
   VueFieldDependency,
   VueFieldState,
   VueFormDependency,
@@ -24,7 +22,7 @@ import type {
   VueFormRuntime,
   VueSchemxInstance,
 } from "./types"
-import type { FieldArrayPath, NamePath, SchemxInstance, Values } from "@schemx/core"
+import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
 /** 同一 Core Form 只创建一个稳定 Runtime。 */
 const runtimeCache = new WeakMap<object, VueFormRuntime<Values>>()
@@ -101,11 +99,6 @@ function createVueFormRuntime<TValues extends Values>(
 
     const fieldStates = new Map<object, VueFieldState<TValues>>()
 
-    const fieldArrayStates = new Map<
-      object,
-      ManagedVueFieldArrayState<TValues, FieldArrayPath<TValues>>
-    >()
-
     let viewSchemaState: VueFormResources<TValues>["viewSchemaState"]
 
     let disposed = false
@@ -117,12 +110,7 @@ function createVueFormRuntime<TValues extends Values>(
 
       disposed = true
 
-      for (const fieldArrayState of fieldArrayStates.values()) {
-        fieldArrayState.dispose()
-      }
-
       viewSchemaState?.dispose()
-      fieldArrayStates.clear()
       fieldStates.clear()
       stateAdapter.dispose()
     }
@@ -134,7 +122,6 @@ function createVueFormRuntime<TValues extends Values>(
       pendingFields,
       loading,
       fieldStates,
-      fieldArrayStates,
       viewSchemaState,
       dispose,
     }
@@ -243,10 +230,6 @@ function createVueFormRuntime<TValues extends Values>(
     return getVueFieldState(ensureResources(), name)
   }
 
-  const getFieldArrayState = <TPath extends FieldArrayPath<TValues>>(name: TPath) => {
-    return getVueFieldArrayState(ensureResources(), name)
-  }
-
   const getViewSchemaState = () => {
     const currentResources = ensureResources()
 
@@ -282,7 +265,6 @@ function createVueFormRuntime<TValues extends Values>(
     trackForm,
     getValuesRef,
     getFieldState,
-    getFieldArrayState,
     getViewSchemaState,
     destroy,
   }

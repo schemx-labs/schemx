@@ -10,10 +10,10 @@
 import { computed, defineComponent, getCurrentInstance, PropType, ref, watch } from "vue"
 import type { ClassValue, StyleValue, VNodeChild } from "vue"
 
-import { isViewGroupSchema } from "@schemx/core"
+import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
-import { normalizeId } from "../../utils"
+import { normalizeId, normalizeNameKey } from "../../utils"
 import Field from "../Field"
 
 import { createGroupSlotRenderers } from "./slot"
@@ -104,6 +104,16 @@ const Group = defineComponent({
       const bodyId = `${idBase}-body`
 
       const renderChild = (child: SchemxViewSchema): VNodeChild => {
+        if (isViewDynamicSchema(child)) {
+          if (child.visible === false) {
+            return null
+          }
+
+          return child.items.map((item) =>
+            item.children.map((itemChild) => renderChild(itemChild))
+          )
+        }
+
         if (isViewGroupSchema(child)) {
           return (
             <Group
@@ -116,7 +126,13 @@ const Group = defineComponent({
           )
         }
 
-        return <Field key={child.key} schema={child} v-slots={slots} />
+        return (
+          <Field
+            key={`${child.key}:${normalizeNameKey(child.name)}`}
+            schema={child}
+            v-slots={slots}
+          />
+        )
       }
 
       const { hasHeader, renderBodyContent, renderHeaderContent } =

@@ -60,14 +60,16 @@ export interface SchemxFieldSlotProps<TValues extends Values = Values> {
 }
 
 /** 字段内容 Slot 额外获得的默认 Renderer VNode。 */
-export interface SchemxFieldContentSlotProps<TValues extends Values = Values>
-  extends SchemxFieldSlotProps<TValues> {
+export interface SchemxFieldContentSlotProps<
+  TValues extends Values = Values,
+> extends SchemxFieldSlotProps<TValues> {
   columnElement: VNodeChild
 }
 
 /** 字段错误 Slot 额外获得的当前错误列表。 */
-export interface SchemxFieldErrorSlotProps<TValues extends Values = Values>
-  extends SchemxFieldSlotProps<TValues> {
+export interface SchemxFieldErrorSlotProps<
+  TValues extends Values = Values,
+> extends SchemxFieldSlotProps<TValues> {
   errors: readonly string[]
 }
 

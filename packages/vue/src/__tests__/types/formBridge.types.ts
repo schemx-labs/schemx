@@ -9,4 +9,6 @@ declare const instance: VueSchemxInstance<FormValues>
 
 const coreCompatibleForm: SchemxInstance<FormValues> = instance
 
+instance.setFieldValue("name", (previous) => previous ?? "")
+
 void coreCompatibleForm

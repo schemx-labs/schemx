@@ -9,12 +9,10 @@
  */
 import { onScopeDispose } from "vue"
 
-import { createForm, mergeSchemxConfig, type SchemxConfig } from "@schemx/core"
+import { createForm, type SchemxConfig } from "@schemx/core"
 
 import { acquireVueFormRuntime, type VueSchemxInstance } from "../bridge"
-import { getSchemxAppConfig } from "../config"
-import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
-import { presetRuleRegistry as globalPresetRuleRegistry } from "../utils/presetRuleProvider"
+import { mergeVueSchemxConfig } from "../config"
 
 import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
 
@@ -36,7 +34,7 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  * 创建由当前 Vue effect scope 持有的表单实例。
  *
  * useForm 只负责以下职责：
- * 1. 合并表单显式、App 安装和 Vue 层默认配置；
+ * 1. 合并表单显式、组件树 Provider、App 安装和 Vue 层默认配置；
  * 2. 同步创建 SchemxInstance；
  * 3. 在当前 effect scope 销毁时调用 instance.destroy()。
  *
@@ -78,15 +76,7 @@ export function useForm<TValues extends Values = Values>(
   options: UseFormOptions<TValues> = {}
 ): VueSchemxInstance<TValues> {
   // 按表单、App、Vue 包默认值的优先级解析可继承配置。
-  const configuredOptions = mergeSchemxConfig<TValues>(
-    getUseFormSchemxConfig(options),
-    // App 安装配置以 Values 存储；在 useForm 边界关联到当前 TValues。
-    getSchemxAppConfig() as SchemxConfig<TValues>,
-    {
-      rendererRegistry: globalRendererRegistry,
-      presetRuleRegistry: globalPresetRuleRegistry,
-    }
-  )
+  const configuredOptions = mergeVueSchemxConfig<TValues>(getUseFormSchemxConfig(options))
 
   // 将已合并配置写入 Form 创建选项，避免 Core 再按较低优先级覆盖 Vue 结果。
   const mergedOptions: CreateFormOptions<TValues> = {

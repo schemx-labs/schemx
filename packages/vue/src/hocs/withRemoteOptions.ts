@@ -15,7 +15,6 @@ import type { SchemxDictionary } from "@/types/dictionary"
 import { useFieldContext } from "../hooks/provideFieldContext"
 import { useDictionary } from "../hooks/useDictionary"
 
-
 /**
  * WithRemoteOptions 注入给被包装组件的额外 Props
  */
@@ -92,7 +91,7 @@ export function WithRemoteOptions(WrappedComponent: Component): Component {
       // 内嵌于 Field 时自动从字段 Context 获取目标字段；显式 fieldName
       // 保留给脱离 Field 的独立使用场景。
       const fieldName = dictionary
-        ? (attrs.fieldName as string | undefined) ?? useFieldContext().name
+        ? ((attrs.fieldName as string | undefined) ?? useFieldContext().name)
         : undefined
 
       const dictResult = dictionary ? useDictionary(dictionary, fieldName) : null

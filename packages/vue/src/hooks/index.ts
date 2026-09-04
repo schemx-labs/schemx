@@ -16,9 +16,6 @@ export { createFormContext, useFormContext } from "./provideFormContext"
 /** useField - 单字段控制 */
 export { useField } from "./useField"
 
-/** useFieldArray - 动态数组字段 Hook。 */
-export { createFieldArrayHook, useFieldArray } from "./useFieldArray"
-
 /** createFieldContext - 表单上下文注入与消费 */
 export { createFieldContext, useFieldContext } from "./provideFieldContext"
 

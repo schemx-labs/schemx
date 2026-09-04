@@ -8,8 +8,10 @@ export type SchemxButtonSize = "small" | "medium" | "large"
 /**
  * 内置按钮的 Props。
  */
-export interface SchemxButtonProps
-  extends Omit<ButtonHTMLAttributes, "disabled" | "size"> {
+export interface SchemxButtonProps extends Omit<
+  ButtonHTMLAttributes,
+  "disabled" | "size"
+> {
   /** 点击事件。 */
   onClick?: (event: MouseEvent) => void
   /** 是否显示加载状态。加载时按钮不可点击。 */

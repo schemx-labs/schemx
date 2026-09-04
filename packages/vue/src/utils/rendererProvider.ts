@@ -8,10 +8,7 @@
  * @module utils/rendererProvider
  */
 
-import {
-  createRendererRegistry,
-  type RendererRegistry,
-} from "@schemx/core/adapter"
+import { createRendererRegistry, type RendererRegistry } from "@schemx/core/adapter"
 
 import type { SchemxRendererKey } from "@schemx/core"
 

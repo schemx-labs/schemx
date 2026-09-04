@@ -10,9 +10,6 @@
 import type { ComputedRef, ShallowRef } from "vue"
 
 import type {
-  FieldArrayField,
-  FieldArrayInstance,
-  FieldArrayPath,
   FieldValue,
   NamePath,
   SchemxInstance,
@@ -50,16 +47,6 @@ export interface VueFieldState<
   readonly pending: ShallowRef<boolean>
 }
 
-/** Vue 中 FieldArray 结构的共享 Ref 投影。 */
-export interface ManagedVueFieldArrayState<
-  TValues extends Values,
-  TPath extends FieldArrayPath<TValues>,
-> {
-  readonly controller: FieldArrayInstance<TValues, TPath>
-  readonly fields: Readonly<ShallowRef<readonly FieldArrayField[]>>
-  dispose(): void
-}
-
 /** Vue 中 ViewSchema 列表及其索引的共享投影。 */
 export interface VueViewSchemaState<TValues extends Values = Values> {
   readonly schemasByKey: ComputedRef<ReadonlyMap<string, SchemxViewSchema<TValues>>>
@@ -80,10 +67,6 @@ export interface VueFormResources<TValues extends Values> {
   readonly pendingFields: ShallowRef<PendingFieldsSnapshot<TValues>>
   readonly loading: ShallowRef<boolean>
   readonly fieldStates: Map<object, VueFieldState<TValues>>
-  readonly fieldArrayStates: Map<
-    object,
-    ManagedVueFieldArrayState<TValues, FieldArrayPath<TValues>>
-  >
   viewSchemaState?: VueViewSchemaState<TValues>
   dispose(): void
 }
@@ -114,9 +97,6 @@ export interface VueFormRuntime<TValues extends Values = Values> {
   getFieldState<TName extends NamePath<TValues>>(
     name: TName
   ): VueFieldState<TValues, TName>
-  getFieldArrayState<TPath extends FieldArrayPath<TValues>>(
-    name: TPath
-  ): Pick<ManagedVueFieldArrayState<TValues, TPath>, "controller" | "fields">
   getViewSchemaState(): VueViewSchemaState<TValues>
   destroy(): void
 }

@@ -26,6 +26,10 @@ export { WithRemoteOptions } from "./hocs"
 /** 组件 */
 export { default as Field } from "./components/Field"
 export { default as Group } from "./components/Group"
+export {
+  default as ConfigProvider,
+  type ConfigProviderProps,
+} from "./components/ConfigProvider"
 
 /** schemx/core 导出 */
 export * from "@schemx/core"
