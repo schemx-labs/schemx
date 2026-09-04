@@ -76,6 +76,8 @@ release_execute_plan_steps() {
     ui_task --title '推送正式版提交' --log live -- bash "$workflow_root/scripts/workflow/domains/release/runner.sh" push-commit || return
     source_sha='HEAD'
     release_create_markers "$plan_file" "$source_sha" false || return
+  elif [[ "$channel" == next ]]; then
+    release_create_markers "$plan_file" "$source_sha" true || return
   fi
   release_render_outcome "$plan_file" || return
   ui_group_end success '发布步骤执行完成。' || return

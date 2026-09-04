@@ -36,6 +36,7 @@ if targets_has_script vite-plugin-realpath-fallback lint; then
   exit 1
 fi
 
+ui_can_spinner() { return 1; }
 pnpm() {
   printf '%s\n' '["1.0.0-beta.0","1.0.0-beta.2","1.0.0-rc.1"]'
 }
@@ -64,8 +65,8 @@ preflight_with_npm_token() {
   printf '%s\n' "$@" > "$publish_arguments_file"
 }
 NPM_OTP=123456 publish_package '/tmp/schemx-core' next
-rg -qx -- '--otp' "$publish_arguments_file"
-rg -qx '123456' "$publish_arguments_file"
+grep -Fxq -- '--otp' "$publish_arguments_file"
+grep -Fxq -- '123456' "$publish_arguments_file"
 rm -f "$publish_arguments_file"
 
 if versions_baseline 0.2.3 unknown >/dev/null; then
