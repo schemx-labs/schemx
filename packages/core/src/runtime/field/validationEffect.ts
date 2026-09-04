@@ -65,24 +65,42 @@ export interface ValidationEffect {
   dispose(): void
 }
 
-/** 保存一次校验规则注册所需的字段配置快照。 */
+/**
+ * 保存一次校验规则注册所需的字段配置快照。
+ */
 interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
-  /** 字段是否可见。 */
+  /**
+   * 字段是否可见。
+   */
   visible: boolean
-  /** 字段是否只读。 */
+  /**
+   * 字段是否只读。
+   */
   readonly: boolean
-  /** 字段是否禁用。 */
+  /**
+   * 字段是否禁用。
+   */
   disabled: boolean
-  /** 用于错误提示的字段标签。 */
+  /**
+   * 用于错误提示的字段标签。
+   */
   label: string
-  /** 字段是否必填。 */
+  /**
+   * 字段是否必填。
+   */
   required: SchemxBaseField<TValues>["required"]
-  /** 字段当前规则列表。 */
+  /**
+   * 字段当前规则列表。
+   */
   rules: SchemxBaseField<TValues>["rules"]
 }
 
 /**
  * 解析可包含延迟工厂的字段规则条目。
+ *
+ * @param rules - 规则数组或延迟规则工厂。
+ * @param context - 传给延迟规则工厂的字段上下文。
+ * @returns 解析后的规则值。
  */
 function resolveFieldRules(
   rules: unknown,
@@ -167,6 +185,8 @@ export function createValidationEffect<TValues extends Values = Values>(
 
   /**
    * 将规则注册延后到 post 队列，避免与字段呈现态更新竞争。
+   *
+   * @param snapshot - 当前字段用于注册校验的配置快照。
    */
   const scheduleRegistration = (
     snapshot: ValidationRegistrationSnapshot<TValues>
@@ -219,6 +239,10 @@ export function createValidationEffect<TValues extends Values = Values>(
 
 /**
  * 判断 rules 是否非空：数组时检查长度，非数组时做 truthy 判断。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param rules - 要检查的字段规则。
+ * @returns 存在至少一条可用规则时返回 `true`。
  */
 function hasRules<TValues extends Values>(
   rules: SchemxBaseField<TValues>["rules"]

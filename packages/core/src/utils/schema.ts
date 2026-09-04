@@ -9,24 +9,23 @@
 import type {
   SchemxBaseField,
   SchemxDependencyField,
+  SchemxDynamicField,
   SchemxField,
   SchemxGroupField,
-  SchemxResolvedBaseField,
-  SchemxResolvedField,
-  SchemxResolvedGroupField,
   Values,
 } from "../types"
 
 /**
  * Schema 的结构类型。
  */
-export type SchemaKind = "field" | "group" | "dependency"
+export type SchemaKind = "field" | "group" | "dependency" | "dynamic"
 
 /**
  * 按结构属性识别 Schema 类型。
  *
- * `children` 的优先级最高，其次是 `to` 或 `renderer`；没有容器结构属性时
- * 视为普通字段。该函数只负责分类，字段完整性由编译阶段校验。
+ * 同时包含稳定 `key`、`name` 和 `item` 时识别为 Dynamic；其后是普通 Group
+ * 的 `children`，再其次是 `to` 或 `renderer`；没有容器结构属性时视为普通字段。
+ * 该函数只负责分类，字段完整性由编译阶段校验。
  *
  * @param schema - 待识别的未知 Schema。
  * @returns Schema 的结构类型。
@@ -41,6 +40,15 @@ export type SchemaKind = "field" | "group" | "dependency"
 export function getSchemaKind<TValues extends Values = Values>(
   schema: SchemxField | SchemxField<TValues>
 ): SchemaKind {
+  if (
+    typeof schema === "object" &&
+    typeof schema.key === "string" &&
+    Object.hasOwn(schema, "name") &&
+    Object.hasOwn(schema, "item")
+  ) {
+    return "dynamic"
+  }
+
   if (Object.hasOwn(schema, "children")) {
     return "group"
   }
@@ -53,9 +61,39 @@ export function getSchemaKind<TValues extends Values = Values>(
 }
 
 /**
+ * 类型守卫：判断是否为 Dynamic 数组字段配置。
+ *
+ * Dynamic 必须同时提供非空稳定 key、数组 name 和 item 模板；该结构与
+ * Group 的 `children` 通过 `name` 区分。
+ *
+ * @param schema - 列配置。
+ * @returns 是否为 Dynamic Schema。
+ *
+ * @example
+ * ```ts
+ * if (isDynamicSchema(schema)) {
+ *   console.log(schema.name, schema.item)
+ * }
+ * ```
+ */
+export function isDynamicSchema<TValues extends Values = Values>(
+  schema: SchemxField<TValues>
+): schema is SchemxDynamicField<TValues> {
+  return (
+    typeof schema === "object" &&
+    typeof schema.key === "string" &&
+    schema.key.length > 0 &&
+    Object.hasOwn(schema, "name") &&
+    typeof (schema as { name?: unknown }).name === "string" &&
+    Object.hasOwn(schema, "item") &&
+    Array.isArray((schema as { item?: unknown }).item)
+  )
+}
+
+/**
  * 类型守卫：判断是否为基础字段配置
  *
- * 不包含 `children`、`to` 或 `renderer` 的 Schema 按普通字段处理。
+ * 不包含 `children`、`item`、`to` 或 `renderer` 的 Schema 按普通字段处理。
  *
  * @param schema - 列配置
  * @returns 是否为基础字段
@@ -194,56 +232,4 @@ export function findSchema<TValues extends Values = Values>(
   }
 
   return undefined
-}
-
-/**
- * 类型守卫：判断是否为 序列化后的 基础字段配置
- *
- * Resolved Schema 不包含 Dependency，排除 Group 后即为普通字段。
- *
- * @param schema - 列配置
- * @returns 是否为基础字段
- *
- * @example
- * ```ts
- * // 在处理 getViewSchemas 返回的解析后 schemas 时使用
- * const viewSchemas = form.getViewSchemas()
- *
- * viewSchemas.forEach(schema => {
- *   if (isBaseResolvedSchema(schema)) {
- *     console.log('基础字段:', schema.name)
- *   }
- * })
- * ```
- */
-export function isBaseResolvedSchema<TValues extends Values = Values>(
-  schema: SchemxResolvedField<TValues>
-): schema is SchemxResolvedBaseField<TValues> {
-  return !isGroupResolvedSchema(schema)
-}
-
-/**
- * 类型守卫：判断是否为 序列化后的 分组列配置
- *
- * @param schema - 列配置
- * @returns 是否为包含 `children` 的分组列
- *
- * @example
- * ```ts
- * const viewSchemas = form.getViewSchemas()
- *
- * viewSchemas.forEach(schema => {
- *   if (isGroupResolvedSchema(schema)) {
- *     // 递归处理子字段
- *     schema.children.forEach(child => {
- *       console.log('子字段:', child)
- *     })
- *   }
- * })
- * ```
- */
-export function isGroupResolvedSchema<TValues extends Values = Values>(
-  schema: SchemxResolvedField<TValues>
-): schema is SchemxResolvedGroupField<TValues> {
-  return "children" in schema
 }

@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { createRendererRegistry } from "../rendererRegistry"
 
-
 const Comp1 = { name: "Comp1" }
 
 const Comp2 = { name: "Comp2" }

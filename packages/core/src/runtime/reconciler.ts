@@ -6,10 +6,21 @@
  * @module core/runtime/reconciler
  */
 
-import { createFieldKey, isDescendantFieldPath, isGroupSchema } from "../utils"
+import {
+  createFieldKey,
+  isDescendantFieldPath,
+  isDynamicSchema,
+  isGroupSchema,
+} from "../utils"
 
 import { CompileError } from "./compiler"
-import { findFieldNode, isFieldNode, isGroupNode, isParentNode } from "./node/helper"
+import {
+  findFieldNode,
+  isDynamicNode,
+  isFieldNode,
+  isGroupNode,
+  isParentNode,
+} from "./node/helper"
 
 import type { Compile } from "./compiler"
 import type { SchemxField, Values } from "../types"
@@ -72,9 +83,17 @@ interface NodeUpdate<TValues extends Values> {
   readonly desired: SchemaNode<TValues>
 }
 
-/** 单次 children 协调产生的新节点和待清理旧节点。 */
+/**
+ * 单次 children 协调产生的新节点和待清理旧节点。
+ */
 interface ReconcileNodeResult<TValues extends Values> {
+  /**
+   * 协调完成后的直接子节点，顺序与输入 Schema 一致。
+   */
   readonly children: readonly SchemaNode<TValues>[]
+  /**
+   * 已从树中移除、等待生命周期清理的节点。
+   */
   readonly removed: readonly ContainerNode<TValues>[]
 }
 
@@ -96,12 +115,21 @@ export function createReconciler<TValues extends Values>(
 ): Reconciler<TValues> {
   const { compiler, lifecycle, nodeManager } = options
 
-  // 根级协调复用同一套 children reconciliation 流程。
+  /**
+   * 以 root 为父节点协调整棵 Schema 树。
+   *
+   * @param schemas - 新一轮根节点 Schema 列表。
+   */
   const reconcile = (schemas: readonly SchemxField<TValues>[]): void => {
     reconcileChildren(nodeManager.getRoot().id, schemas)
   }
 
-  // 先校验字段路径，再创建 detached 节点并协调当前 parent 的直接 children。
+  /**
+   * 先校验字段路径，再创建 detached 节点并协调当前 parent 的直接 children。
+   *
+   * @param parentId - 要协调的父节点 id。
+   * @param schemas - 新一轮直接子节点 Schema 列表。
+   */
   const reconcileChildren = (
     parentId: NodeId,
     schemas: readonly SchemxField<TValues>[]
@@ -133,7 +161,11 @@ export function createReconciler<TValues extends Values>(
     cleanupRemovedNodes(result.removed)
   }
 
-  // 统一通过资源清理流程移除节点。
+  /**
+   * 统一通过资源清理流程移除节点。
+   *
+   * @param id - 要移除的 SchemaNode id。
+   */
   const remove = (id: NodeId): void => {
     removeNode(id)
   }
@@ -175,11 +207,16 @@ export function createReconciler<TValues extends Values>(
     parent: ParentNode<TValues>,
     schemas: readonly SchemxField<TValues>[]
   ): void {
-    if (parent === nodeManager.getRoot()) {
+    if (parent === nodeManager.getRoot() || hasDynamicAncestor(parent)) {
       return
     }
 
-    // 递归检查分组内部字段，并保留 Schema 位置用于诊断。
+    /**
+     * 递归检查分组内部字段，并保留 Schema 位置用于诊断。
+     *
+     * @param items - 当前层级的 Schema 列表。
+     * @param location - 当前列表在根 Schema 中的诊断位置。
+     */
     const visit = (items: readonly SchemxField<TValues>[], location: string): void => {
       for (let index = 0; index < items.length; index += 1) {
         const schema = items[index]
@@ -192,6 +229,10 @@ export function createReconciler<TValues extends Values>(
 
         if (isGroupSchema(schema)) {
           visit(schema.children, `${schemaLocation}.children`)
+          continue
+        }
+
+        if (isDynamicSchema(schema)) {
           continue
         }
 
@@ -211,6 +252,26 @@ export function createReconciler<TValues extends Values>(
     }
 
     visit(schemas, "schemas")
+  }
+
+  /**
+   * 判断协调范围是否位于 Dynamic 数组节点下。
+   *
+   * @param node - 要检查的协调父节点。
+   * @returns 祖先链中包含 Dynamic 节点时返回 `true`。
+   */
+  function hasDynamicAncestor(node: ParentNode<TValues>): boolean {
+    let current: ContainerNode<TValues> | null = node
+
+    while (current) {
+      if (isDynamicNode(current)) {
+        return true
+      }
+
+      current = current.parent
+    }
+
+    return false
   }
 
   /**
@@ -438,7 +499,12 @@ export function createReconciler<TValues extends Values>(
     }
   }
 
-  /** 判断被移除字段的值是否仍可安全删除。 */
+  /**
+   * 判断被移除字段的值是否仍可安全删除。
+   *
+   * @param node - 即将从运行时树中移除的节点。
+   * @returns 字段未被其他活动字段或后代字段复用时返回 `true`。
+   */
   function shouldRemoveFieldValue(node: ContainerNode<TValues>): boolean {
     if (!isFieldNode(node) || node.staticSchema.peek().preserve !== false) {
       return false

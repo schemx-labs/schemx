@@ -4,7 +4,7 @@
  * 提供创建 RootNode、FieldNode、GroupNode 和
  * DependencyNode 的工厂函数，用于隔离测试节点结构操作。
  *
- * @module core/runtime/node/__tests__/runtimeNodeTestUtils
+ * @module core/runtime/node/__tests__/nodeTestUtils
  */
 import { createSignal } from "../../../reactivity"
 import { createScope } from "../scope"
@@ -28,7 +28,12 @@ import type {
   Scope,
 } from "../types"
 
-/** 仅供测试创建 RootNode。 */
+/**
+ * 仅供测试创建 RootNode。
+ *
+ * @param options - RootNode 使用的资源作用域。
+ * @returns 新的 RootNode。
+ */
 export function createRootNode(options: { scope: Scope }): RootNode {
   return {
     id: 0,
@@ -42,7 +47,13 @@ export function createRootNode(options: { scope: Scope }): RootNode {
   }
 }
 
-/** 仅供测试创建 FieldNode。 */
+/**
+ * 仅供测试创建 FieldNode。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param options - FieldNode 创建配置。
+ * @returns 新的 FieldNode。
+ */
 export function createFieldNode<TValues extends Values = Values>(
   options: CreateFieldNodeOptions<TValues>
 ): FieldNode<TValues> {
@@ -72,7 +83,13 @@ export function createFieldNode<TValues extends Values = Values>(
   return node
 }
 
-/** 仅供测试创建 GroupNode。 */
+/**
+ * 仅供测试创建 GroupNode。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param options - GroupNode 创建配置。
+ * @returns 新的 GroupNode。
+ */
 export function createGroupNode<TValues extends Values = Values>(
   options: CreateGroupNodeOptions<TValues>
 ): GroupNode<TValues> {
@@ -106,7 +123,13 @@ export function createGroupNode<TValues extends Values = Values>(
   return node
 }
 
-/** 仅供测试创建 DependencyNode。 */
+/**
+ * 仅供测试创建 DependencyNode。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param options - DependencyNode 创建配置。
+ * @returns 新的 DependencyNode。
+ */
 export function createDependencyNode<TValues extends Values = Values>(
   options: CreateDependencyNodeOptions<TValues>
 ): DependencyNode<TValues> {
@@ -144,7 +167,8 @@ export function createDependencyNode<TValues extends Values = Values>(
 /**
  * 创建测试用的 RootNode，支持注入自定义 id、key 和 dispose scope。
  *
- * @param options - 可选覆盖参数
+ * @param options - 可选的 id、key 和资源作用域覆盖参数。
+ * @returns 配置后的 RootNode。
  */
 export function createTestRootNode(
   options: {
@@ -165,7 +189,8 @@ export function createTestRootNode(
 /**
  * 创建测试用的 FieldNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填节点配置和 parent，可选 id 和 scope
+ * @param options - 必填节点配置和 parent，可选 id 和 scope。
+ * @returns 配置后的 FieldNode。
  */
 export function createTestFieldNode(options: {
   id?: number
@@ -183,7 +208,8 @@ export function createTestFieldNode(options: {
 /**
  * 创建测试用的 GroupNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填节点配置和 parent，可选 id 和 scope
+ * @param options - 必填节点配置和 parent，可选 id 和 scope。
+ * @returns 配置后的 GroupNode。
  */
 export function createTestGroupNode(options: {
   id?: number
@@ -201,7 +227,8 @@ export function createTestGroupNode(options: {
 /**
  * 创建测试用的 DependencyNode，默认挂载到 parent 的 dispose scope 下。
  *
- * @param options - 必填节点配置和 parent，可选 id 和 scope
+ * @param options - 必填节点配置和 parent，可选 id 和 scope。
+ * @returns 配置后的 DependencyNode。
  */
 export function createTestDependencyNode(options: {
   id?: number

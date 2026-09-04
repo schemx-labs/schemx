@@ -6,7 +6,9 @@ import { createCompile } from "../index"
 
 import type { SchemxField, SchemxInstance } from "../../../types"
 
-/** 验证 compiler 直接创建节点，并保留配置 token 缓存语义。 */
+/**
+ * 验证 compiler 直接创建节点，并保留配置 token 缓存语义。
+ */
 describe("createCompile().createNode", () => {
   it("编译已在边界规范化的字段", () => {
     const compile = createCompile({ defaultRendererType: "input" })

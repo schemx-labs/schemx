@@ -158,6 +158,10 @@ export function createAbortableTaskRunner<TValue = void>(
    * - 所属 scope 已被销毁
    * - 当前 AbortController 已被中止
    * - 版本号与最新不匹配（说明有更新的 run() 调用）
+   *
+   * @param currentVersion - 本次任务启动时记录的版本号。
+   * @param currentController - 本次任务使用的 AbortController。
+   * @returns 任务应被视为过期时返回 `true`。
    */
   const isStale = (
     currentVersion: number,
@@ -173,6 +177,10 @@ export function createAbortableTaskRunner<TValue = void>(
    *
    * 任务完成后先判断是否过期：如果已过期则不触发 onSuccess/onError/onSettled；
    * 成功的过期任务仍返回其原始值，失败的过期任务按 `throwOnError` 决定是否抛出。
+   *
+   * @param currentVersion - 本次任务启动时记录的版本号。
+   * @param currentController - 本次任务使用的 AbortController。
+   * @returns 任务结果；未返回结果时为 `undefined`。
    */
   const runCurrentTask = async (
     currentVersion: number,

@@ -34,14 +34,27 @@ export interface SchedulerOptions {
    */
   readonly idleTimeout?: number
 
-  /** 是否收集调度诊断数据；默认关闭。 */
+  /**
+   * 是否收集调度诊断数据；默认关闭。
+   */
   readonly collectDiagnostics?: boolean
 }
 
-/** Scheduler 调度诊断快照。 */
+/**
+ * Scheduler 调度诊断快照。
+ */
 export interface SchedulerDiagnostics {
+  /**
+   * 各优先级队列当前排队的任务数量。
+   */
   readonly queued: Readonly<Record<SchedulerTaskPriority, number>>
+  /**
+   * 调度过程中为让出主线程而暂停的次数。
+   */
   readonly yieldedCount: number
+  /**
+   * 已执行同步任务中的最长耗时（毫秒）。
+   */
   readonly maxTaskDurationMs: number
 }
 
@@ -64,7 +77,9 @@ export interface SchedulerIdleOptions {
   readonly includeIdle?: boolean
 }
 
-/** 异步任务是否参与关键空闲判断的配置。 */
+/**
+ * 异步任务是否参与关键空闲判断的配置。
+ */
 export interface SchedulerTrackOptions {
   /**
    * 任务所属优先级；idle 任务不会阻塞关键空闲判断。
@@ -129,26 +144,28 @@ export interface Scheduler {
   flush(): Promise<void>
 
   /**
-   * 等待所有任务完成（包括异步任务）。
+   * 等待指定范围内所有任务完成（包括异步任务）。
    *
-   * @param timeout - 超时时间（毫秒），默认 10000
-   * @returns Promise<true> 所有任务完成，Promise<false> 超时
+   * @param options - 超时时间及是否包含 idle 任务的配置。
+   * @returns 所有指定范围的任务完成时返回 `true`，超时时返回 `false`。
    */
   whenIdle(options?: SchedulerIdleOptions): Promise<boolean>
 
   /**
    * 等待所有任务完成；保留数字参数以兼容旧调用方。
    *
-   * @param timeout - 最大等待时间（毫秒）
+   * @param timeout - 最大等待时间（毫秒）。
+   * @returns 所有任务完成时返回 `true`，超时时返回 `false`。
    */
   whenIdle(timeout?: number): Promise<boolean>
 
   /**
    * 跟踪异步任务。
    *
-   * @typeParam TResult - 返回值类型
-   * @param promise - 异步任务
-   * @returns 原始 promise
+   * @typeParam TResult - 返回值类型。
+   * @param promise - 要跟踪的异步任务。
+   * @param options - 任务优先级配置。
+   * @returns 原始 Promise。
    */
   track<TResult>(
     promise: Promise<TResult>,
@@ -159,6 +176,11 @@ export interface Scheduler {
    * 跟踪可提前从 idle 判断中移除的逻辑任务。
    *
    * cancel 不会中止原始 Promise；调用方仍需自行中止底层操作。
+   *
+   * @typeParam TResult - 任务返回值类型。
+   * @param promise - 要跟踪的异步任务。
+   * @param options - 任务优先级配置。
+   * @returns 原始 Promise 及其逻辑取消句柄。
    */
   trackCancellable<TResult>(
     promise: Promise<TResult>,
@@ -170,25 +192,45 @@ export interface Scheduler {
    */
   dispose(): void
 
-  /** 读取当前调度诊断快照。 */
+  /**
+   * 读取当前调度诊断快照。
+   *
+   * @returns 当前队列、让出次数和最长任务耗时。
+   */
   getDiagnostics(): SchedulerDiagnostics
 }
 
-/** Scheduler 跟踪的可取消逻辑任务。 */
+/**
+ * Scheduler 跟踪的可取消逻辑任务。
+ *
+ * @typeParam TResult - 任务返回值类型。
+ */
 export interface CancellableTask<TResult> {
-  /** 原始任务 Promise。 */
+  /**
+   * 原始任务 Promise。
+   */
   readonly promise: Promise<TResult>
-  /** 任务失效后将其从 idle 判断中移除。 */
+  /**
+   * 任务失效后将其从 idle 判断中移除，但不会中止原始 Promise。
+   */
   cancel(): void
 }
 
-/** 保存等待调度器进入 idle 状态的调用方及其超时句柄。 */
+/**
+ * 保存等待调度器进入 idle 状态的调用方及其超时句柄。
+ */
 interface IdleWaiter {
-  /** 等待结果的 resolve 回调。 */
+  /**
+   * 等待结果的 resolve 回调。
+   */
   readonly resolve: (idle: boolean) => void
-  /** 是否将 idle 任务纳入空闲判断。 */
+  /**
+   * 是否将 idle 任务纳入空闲判断。
+   */
   readonly includeIdle: boolean
-  /** 等待超时句柄。 */
+  /**
+   * 等待超时句柄。
+   */
   timeoutId?: ReturnType<typeof globalThis.setTimeout>
 }
 
@@ -201,14 +243,25 @@ const DEFAULT_TIME_SLICE_MS = 5
 
 const DEFAULT_IDLE_TIMEOUT = 1000
 
-/** 浏览器空闲回调的最小结构，避免 Scheduler 依赖 DOM 类型。 */
+/**
+ * 浏览器空闲回调的最小结构，避免 Scheduler 依赖 DOM 类型。
+ */
 interface IdleDeadlineLike {
   readonly didTimeout: boolean
   timeRemaining(): number
 }
 
-/** 支持 requestIdleCallback 的运行时全局对象。 */
+/**
+ * 支持 requestIdleCallback 的运行时全局对象。
+ */
 interface IdleCallbackHost {
+  /**
+   * 注册浏览器空闲回调。
+   *
+   * @param callback - 空闲时间到达时执行的回调。
+   * @param options - 空闲回调的最大等待时间。
+   * @returns 运行时生成的回调句柄。
+   */
   requestIdleCallback?: (
     callback: (deadline: IdleDeadlineLike) => void,
     options: { timeout: number }
@@ -218,6 +271,7 @@ interface IdleCallbackHost {
 /**
  * 创建一个 Scheduler 实例。
  *
+ * @param options - 时间片、idle 超时和诊断配置。
  * @returns 新创建的 Scheduler
  *
  * @example
@@ -295,6 +349,8 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
 
   /**
    * 在浏览器空闲回调中处理 idle 队列。
+   *
+   * @param deadline - 浏览器提供的空闲时间预算；非浏览器回退时为 `undefined`。
    */
   const flushIdle = async (deadline: IdleDeadlineLike | undefined): Promise<void> => {
     if (disposed || !hasQueuedIdleTasks()) {
@@ -317,6 +373,8 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
    * 如果已有正在执行的 flush 则复用其 Promise，防止并发执行；显式 flush
    * 可通过 shouldFlushIdleTasks 让已有任务循环继续处理 idle 队列。
    * flush 完成后自动检查空闲状态并通知等待者。
+   *
+   * @param idleDeadline - 当前浏览器空闲时间预算；主动 flush 时为 `undefined`。
    */
   const startFlush = async (idleDeadline?: IdleDeadlineLike): Promise<void> => {
     if (disposed) {
@@ -343,6 +401,8 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
    * 循环按优先级从队列中取任务，直到当前可执行队列为空或调度器被释放。
    * 每个时间片最多连续执行 timeSliceMs 毫秒的同步工作，随后让出主线程；
    * 这只能在任务边界切片，单个长同步任务仍需调用方自行拆分。
+   *
+   * @param idleDeadline - 当前浏览器空闲时间预算；非 idle flush 时为 `undefined`。
    */
   const flushOnce = async (idleDeadline?: IdleDeadlineLike): Promise<void> => {
     let sliceStartedAt = getCurrentTime()
@@ -420,6 +480,8 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
    * 按优先级将任务加入对应队列。normal/post 通过 microtask 执行；idle 任务
    * 则等待浏览器空闲回调，并由超时兜底避免长期饥饿。
    * 已释放的调度器或任务直接忽略。
+   *
+   * @param task - 要加入对应优先级队列的任务。
    */
   const schedule = (task: ScheduledTask): void => {
     // 跳过已 disposed 的调度器或任务
@@ -521,6 +583,10 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
 
   /**
    * 当前时间片是否应让出主线程。
+   *
+   * @param sliceStartedAt - 当前时间片开始时的单调时间戳。
+   * @param idleDeadline - 当前浏览器空闲时间预算；非 idle flush 时为 `undefined`。
+   * @returns 达到时间片或空闲预算时返回 `true`。
    */
   const shouldYield = (
     sliceStartedAt: number,
@@ -535,6 +601,9 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
 
   /**
    * 空闲预算耗尽且没有前台任务时，结束本次 idle 回调并等待下一次机会。
+   *
+   * @param idleDeadline - 当前浏览器空闲时间预算。
+   * @returns 应暂停当前 idle flush 时返回 `true`。
    */
   const shouldPauseForIdleDeadline = (
     idleDeadline: IdleDeadlineLike | undefined
@@ -552,6 +621,11 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
    *
    * 增加飞行中任务计数，任务完成后减少计数并检查空闲状态。
    * 用于确保 whenIdle 能正确等待所有异步任务完成。
+   *
+   * @typeParam TResult - 任务返回值类型。
+   * @param promise - 要跟踪的异步任务。
+   * @param options - 任务优先级配置。
+   * @returns 原始任务结果。
    */
   const track = async <TResult>(
     promise: Promise<TResult>,
@@ -562,6 +636,11 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
 
   /**
    * 将异步工作作为可取消的逻辑任务纳入 idle 判断。
+   *
+   * @typeParam TResult - 任务返回值类型。
+   * @param promise - 要跟踪的异步任务。
+   * @param options - 任务优先级配置。
+   * @returns 原始 Promise 及其逻辑取消句柄。
    */
   const trackCancellable = <TResult>(
     promise: Promise<TResult>,
@@ -593,14 +672,14 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
   }
 
   /**
-   * 等待所有任务完成。
+   * 等待指定范围内所有任务完成。
    *
    * 如果当前空闲则立即 resolve true；
-   * 否则注册回调，等待所有队列清空且异步任务完成后 resolve。
+   * 否则注册回调，等待指定范围的队列清空且异步任务完成后 resolve。
    * 超时未完成则 resolve false。
    *
-   * @param timeout - 超时时间（毫秒），默认 10000
-   * @returns true 表示所有任务已完成，false 表示超时
+   * @param timeoutOrOptions - 最大等待时间，或包含超时和 idle 范围的配置。
+   * @returns 指定范围的任务已完成时返回 `true`，超时时返回 `false`。
    */
   const whenIdle = (
     timeoutOrOptions: number | SchedulerIdleOptions = 10000
@@ -628,7 +707,11 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
   /**
    * 检查调度器是否空闲。
    *
-   * 空闲条件：无正在执行的 flush、无飞行中异步任务、队列为空。
+   * 当 `includeIdle` 为 `true` 时检查全部队列和异步任务；为 `false` 时只检查
+   * normal/post 队列及关键异步任务。
+   *
+   * @param includeIdle - 是否将 idle 队列和 idle 异步任务纳入判断。
+   * @returns 调度器达到指定范围的空闲条件时返回 `true`。
    */
   const isIdle = (includeIdle = true): boolean => {
     const hasActiveTasks = includeIdle ? currentFlush !== null : activeCriticalTasks > 0
@@ -694,6 +777,9 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
 
   /**
    * 结束一个 idle waiter，并清理其 timeout。
+   *
+   * @param waiter - 要结束的空闲等待者。
+   * @param idle - 要交付给等待者的空闲结果。
    */
   const settleIdleWaiter = (waiter: IdleWaiter, idle: boolean): void => {
     if (!idleWaiters.delete(waiter)) {
@@ -761,6 +847,13 @@ function getCurrentTime(): number {
 
 /**
  * 让出当前事件循环，使浏览器有机会处理输入和绘制。
+ *
+ * @returns 在下一个事件循环阶段完成的 Promise。
+ *
+ * @example
+ * ```ts
+ * await yieldToHost()
+ * ```
  */
 export function yieldToHost(): Promise<void> {
   return new Promise((resolve) => {
@@ -784,6 +877,9 @@ export function yieldToHost(): Promise<void> {
 
 /**
  * 规范化空闲等待参数，保留旧的数字参数形式。
+ *
+ * @param timeoutOrOptions - 数字超时，或空闲等待配置。
+ * @returns 补齐默认值后的空闲等待配置。
  */
 function normalizeIdleOptions(
   timeoutOrOptions: number | SchedulerIdleOptions
@@ -805,6 +901,9 @@ function normalizeIdleOptions(
  * 检查值是否为 PromiseLike（具有 then 方法的对象）。
  *
  * 用于区分同步任务与异步任务，以便 track() 正确计数。
+ *
+ * @param value - 要检查的值。
+ * @returns 值具有可调用的 `then` 方法时返回 `true`。
  */
 const isPromiseLike = (value: unknown): value is PromiseLike<unknown> => {
   return (

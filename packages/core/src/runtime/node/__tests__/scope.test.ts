@@ -4,7 +4,7 @@
  * 覆盖 scope 的创建、子 scope 释放顺序、cleanup 重复注册、提前注销
  * 以及 disposed 后注册立即执行等行为。
  *
- * @module core/runtime/node/__tests__/runtimeScope.test
+ * @module core/runtime/node/__tests__/scope.test
  */
 
 import { describe, expect, it, vi } from "vitest"

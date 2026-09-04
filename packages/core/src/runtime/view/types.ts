@@ -1,16 +1,17 @@
 /**
  * ViewSchema 类型定义。
  *
- * ViewSchema 是渲染层消费的 schema 快照：它保留 SchemxField 的扁平字段格式，
+ * ViewSchema 是渲染层消费的 schema 快照：它保留 SchemxField 的渲染结构，
  * 但只包含 core 已处理好的静态渲染数据。dependency schema 会被透明展开，
- * 不会出现在最终结果中。
+ * Dynamic schema 会保留数组行边界。
  *
  * @module core/runtime/view/types
  */
 
 import type {
-  SchemxResolvedBaseField,
-  SchemxResolvedGroupField,
+  SchemxBaseField,
+  SchemxDynamicField,
+  SchemxGroupField,
   Values,
 } from "../../types"
 import type { FieldDynamicOverrideKey } from "../node"
@@ -40,7 +41,7 @@ export interface SchemxViewDebugMeta {
    */
   readonly runtimeNodeId: number
   /**
-   * 运行时节点类型（field / group / dependency / root）
+   * 运行时节点类型（field / group / dynamic）。
    */
   readonly runtimeNodeType: string
   /**
@@ -72,7 +73,7 @@ export interface SchemxViewDebugMeta {
  * Omit 掉 "key" 和 "dependencies" 后由运行时节点重新注入运行时字段。
  */
 export type SchemxViewFieldSchema<TValues extends Values = Values> = DistributiveOmit<
-  SchemxResolvedBaseField<TValues>,
+  SchemxBaseField<TValues>,
   "key" | "dependencies"
 > & {
   /**
@@ -99,7 +100,7 @@ export type SchemxViewFieldSchema<TValues extends Values = Values> = Distributiv
  * Omit 掉 "key"、"children" 和 "dependencies" 后由运行时节点重新注入。
  */
 export type SchemxViewGroupSchema<TValues extends Values = Values> = DistributiveOmit<
-  SchemxResolvedGroupField<TValues>,
+  SchemxGroupField<TValues>,
   "key" | "children" | "dependencies"
 > & {
   /**
@@ -117,9 +118,67 @@ export type SchemxViewGroupSchema<TValues extends Values = Values> = Distributiv
 }
 
 /**
+ * Dynamic 数组 ViewSchema 的行投影。
+ *
+ * `key` 来自 FieldArray 的稳定行身份，`index` 是当前路径展开所使用的索引。
+ */
+export interface SchemxViewDynamicItem<TValues extends Values = Values> {
+  /**
+   * 当前数组行的稳定 key。
+   */
+  readonly key: string
+  /**
+   * 当前数组行索引。
+   */
+  readonly index: number
+  /**
+   * 当前行展开后的字段与 Group。
+   */
+  readonly children: readonly SchemxViewSchema<TValues>[]
+}
+
+/**
+ * Dynamic 数组 ViewSchema。
+ *
+ * Raw Schema 的 `item` 模板在这里按 FieldArray 行展开为 `items`，避免与 Group
+ * ViewSchema 的 `children` 结构混淆。
+ */
+export type SchemxViewDynamicSchema<TValues extends Values = Values> = Omit<
+  SchemxDynamicField<TValues>,
+  "item" | "dependencies"
+> & {
+  /**
+   * Dynamic 节点的稳定运行时 key。
+   */
+  readonly key: string
+  /**
+   * 当前数组的行投影。
+   */
+  readonly items: readonly SchemxViewDynamicItem<TValues>[]
+  /**
+   * Dynamic 容器是否可见。
+   */
+  readonly visible: boolean
+  /**
+   * Dynamic 容器是否只读。
+   */
+  readonly readonly: boolean
+  /**
+   * Dynamic 容器是否禁用。
+   */
+  readonly disabled: boolean
+  /**
+   * 调试元数据。
+   */
+  readonly debug?: Readonly<SchemxViewDebugMeta>
+}
+
+/**
  * 渲染层消费的 schema 联合类型。
  *
  * 渲染层只需遍历此类型数组即可完成表单渲染，无需关心 dependency schema 的处理。
  */
 export type SchemxViewSchema<TValues extends Values = Values> =
-  SchemxViewFieldSchema<TValues> | SchemxViewGroupSchema<TValues>
+  | SchemxViewFieldSchema<TValues>
+  | SchemxViewGroupSchema<TValues>
+  | SchemxViewDynamicSchema<TValues>

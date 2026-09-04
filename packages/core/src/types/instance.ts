@@ -6,12 +6,18 @@
  * @module types/instance
  */
 
-import type { FieldArrayInstance, FieldArrayPath } from "../fieldArray"
 import type { PresetRuleEntry, RegistryOptions } from "../registry"
 import type { SchemxViewSchema } from "../runtime/view"
 import type { StorePending } from "../store"
 import type { ValidationResult } from "../validator"
-import type { FieldValue, NamePath, SchemxSchemaConfig, Values } from "./form"
+import type {
+  FieldValue,
+  NamePath,
+  SchemxSchemaConfig,
+  SetValueAction,
+  SetValuesAction,
+  Values,
+} from "./form"
 import type { SchemxRendererKey } from "./renderer"
 import type { FieldRules } from "./rule"
 import type { SchemxField } from "./schema"
@@ -70,7 +76,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * 支持嵌套路径，如 'user.address.city'。
    *
    * @param name - 字段路径
-   * @param value - 字段值
+   * @param action - 字段值或基于当前值计算下一值的 updater
    *
    * @example
    * ```typescript
@@ -80,7 +86,7 @@ export interface SchemxInstance<TValues extends Values = Values> {
    */
   setFieldValue<TName extends NamePath<TValues>>(
     name: TName,
-    value: FieldValue<TValues, TName> | undefined
+    action: SetValueAction<TValues, TName>
   ): void
 
   /**
@@ -88,24 +94,14 @@ export interface SchemxInstance<TValues extends Values = Values> {
    *
    * 一次性更新多个字段，只触发一次通知。
    *
-   * @param values - 要设置的字段值对象
+   * @param action - 要设置的字段值对象或基于当前值计算下一值的 updater
    *
    * @example
    * ```typescript
    * form.setFieldsValue({ name: 'John', age: 25 })
    * ```
    */
-  setFieldsValue: (values: Partial<TValues>) => void
-
-  /**
-   * 获取指定数组字段的动态结构控制器。
-   *
-   * FieldArray 会把数组根作为原子值边界，同时允许通过
-   * `users.0.name` 这样的普通路径访问数组项内部字段。
-   */
-  getOrCreateFieldArray<TPath extends FieldArrayPath<TValues>>(
-    name: TPath
-  ): FieldArrayInstance<TValues, TPath>
+  setFieldsValue: (action: SetValuesAction<TValues>) => void
 
   /**
    * 获取单个字段值的快照
@@ -184,24 +180,24 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * 设置单个字段的初始值。
    *
    * @param name - 字段路径
-   * @param value - 要写入的初始值
+   * @param action - 要写入的初始值或基于当前初始值计算下一值的 updater
    */
   setInitialValue<TName extends NamePath<TValues>>(
     name: TName,
-    value: FieldValue<TValues, TName>
+    action: SetValueAction<TValues, TName>
   ): void
 
   /**
    * 批量设置多个字段的初始值。
    *
-   * @param values - 要设置的字段值对象
+   * @param action - 要设置的初始值对象或基于当前初始值计算下一值的 updater
    *
    * @example
    * ```typescript
    * form.setInitialValues({ name: 'Bob', age: 30 })
    * ```
    */
-  setInitialValues: (values: Partial<TValues>) => void
+  setInitialValues: (action: SetValuesAction<TValues>) => void
 
   /**
    * 检查单个字段是否发生过显式交互。
@@ -775,7 +771,6 @@ export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
   | "getFieldsValue"
   | "setFieldValue"
   | "setFieldsValue"
-  | "getOrCreateFieldArray"
   | "getFieldSnapshot"
   | "getFieldsSnapshot"
   | "getInitialValue"

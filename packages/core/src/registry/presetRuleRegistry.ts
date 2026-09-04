@@ -3,20 +3,28 @@ import type { PresetRuleDefinition } from "../types/rule"
 import type { StandardSchemaV1 } from "../types/standardSchema"
 import type { ValidationRule } from "../validator/types"
 
-/** 从声明合并的规则定义中提取规则名称。 */
+/**
+ * 从声明合并的规则定义中提取规则名称。
+ */
 type DeclaredPresetRuleName = Extract<keyof PresetRuleDefinition, string>
 
-/** 在存在声明规则与否的两种模式间选择规则 key 类型。 */
+/**
+ * 在存在声明规则与否的两种模式间选择规则 key 类型。
+ */
 type PresetRuleKey = [DeclaredPresetRuleName] extends [never]
   ? string
   : DeclaredPresetRuleName
 
-/** 根据规则名称映射到对应的字段值类型。 */
+/**
+ * 根据规则名称映射到对应的字段值类型。
+ */
 type PresetRuleValue<TKey extends PresetRuleKey> = TKey extends DeclaredPresetRuleName
   ? PresetRuleDefinition[TKey]
   : unknown
 
-/** 规则注册表中已经解析、可直接执行的规则条目。 */
+/**
+ * 规则注册表中已经解析、可直接执行的规则条目。
+ */
 type ResolvedPresetRuleEntry<TValue> =
   StandardSchemaV1<TValue, unknown> | ValidationRule<TValue>
 
@@ -130,9 +138,13 @@ export type PresetRuleRegistryListener = (change: PresetRuleRegistryChange) => v
  * ```
  */
 export class PresetRuleRegistry {
-  /** 保存规则名称到原始注册条目的映射。 */
+  /**
+   * 保存规则名称到原始注册条目的映射。
+   */
   private readonly rules = new Map<string, PresetRuleEntry<unknown>>()
-  /** 保存规则注册表变更监听器。 */
+  /**
+   * 保存规则注册表变更监听器。
+   */
   private readonly listeners = new Set<PresetRuleRegistryListener>()
 
   /**
@@ -172,6 +184,14 @@ export class PresetRuleRegistry {
    * 批量注册命名校验规则，已有同名规则会被覆盖。
    *
    * @param rules - 名称到规则或规则工厂的映射。
+   *
+   * @example
+   * ```ts
+   * registry.registerAll({
+   *   email: emailRule,
+   *   password: passwordRule,
+   * })
+   * ```
    */
   registerAll(rules: PresetRuleMap): void {
     for (const [name, rule] of Object.entries(rules)) {
@@ -186,6 +206,11 @@ export class PresetRuleRegistry {
    *
    * @param name - 要移除的规则名称。
    * @returns 该规则是否曾存在。
+   *
+   * @example
+   * ```ts
+   * registry.unregister("email") // => true
+   * ```
    */
   unregister(name: string): boolean {
     const deleted = this.rules.delete(name)
@@ -201,6 +226,11 @@ export class PresetRuleRegistry {
    * @typeParam TKey - 规则名称。
    * @param name - 要读取的规则名称。
    * @returns 注册条目；未注册时返回 `undefined`。
+   *
+   * @example
+   * ```ts
+   * const emailRule = registry.get("email")
+   * ```
    */
   get<TKey extends PresetRuleKey>(
     name: TKey
@@ -217,6 +247,15 @@ export class PresetRuleRegistry {
    * @param name - 要解析的规则名称。
    * @param context - 提供给规则工厂的字段元数据。
    * @returns 已解析的规则；未注册时返回 `undefined`。
+   *
+   * @example
+   * ```ts
+   * const rule = registry.resolve("email", {
+   *   name: "email",
+   *   label: "邮箱",
+   *   required: true,
+   * })
+   * ```
    */
   resolve<TName extends PropertyKey>(
     name: string,
@@ -234,6 +273,11 @@ export class PresetRuleRegistry {
    *
    * @param name - 要查询的规则名称。
    * @returns 名称是否存在于注册中心。
+   *
+   * @example
+   * ```ts
+   * registry.has("email") // => true
+   * ```
    */
   has(name: string): boolean {
     return this.rules.has(name)
@@ -243,6 +287,11 @@ export class PresetRuleRegistry {
    * 返回当前已注册的规则名称快照。
    *
    * @returns 不会随注册中心后续变化而改变的名称数组。
+   *
+   * @example
+   * ```ts
+   * const names = registry.keys()
+   * ```
    */
   keys(): PresetRuleKey[] {
     return Array.from(this.rules.keys()) as PresetRuleKey[]
@@ -250,6 +299,11 @@ export class PresetRuleRegistry {
 
   /**
    * 清空全部命名规则。
+   *
+   * @example
+   * ```ts
+   * registry.clear()
+   * ```
    */
   clear(): void {
     const names = [...this.rules.keys()]
@@ -262,6 +316,11 @@ export class PresetRuleRegistry {
    * 返回当前规则数量。
    *
    * @returns 已注册规则的数量。
+   *
+   * @example
+   * ```ts
+   * const count = registry.size()
+   * ```
    */
   size(): number {
     return this.rules.size
@@ -272,6 +331,15 @@ export class PresetRuleRegistry {
    *
    * @param listener - 接收变更快照的监听函数。
    * @returns 取消订阅的函数；可重复调用。
+   *
+   * @example
+   * ```ts
+   * const unsubscribe = registry.subscribe((change) => {
+   *   console.log(change.type, change.names)
+   * })
+   *
+   * unsubscribe()
+   * ```
    */
   subscribe(listener: PresetRuleRegistryListener): () => void {
     this.listeners.add(listener)

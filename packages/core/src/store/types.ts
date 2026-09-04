@@ -9,11 +9,13 @@
 
 import type {
   FieldArrayChange,
-  FieldArrayHandle,
-  FieldArrayItemValue,
   FieldArrayPath,
-} from "../fieldArray"
-import type { FieldValue, NamePath, Values } from "../types"
+  FieldValue,
+  NamePath,
+  SetValueAction,
+  SetValuesAction,
+  Values,
+} from "../types"
 import type { ValidationRuleIssue } from "../validator/types"
 
 /**
@@ -26,22 +28,6 @@ export interface StoreOptions<TValues extends Partial<Values>> {
    * 创建 Store 时写入的初始字段值。
    */
   initialValues?: TValues
-}
-
-/**
- * Store 状态接口。
- *
- * @typeParam TValues - 表单值类型。
- */
-export interface StoreState<TValues extends Values> {
-  /**
-   * 当前字段值快照。
-   */
-  values: TValues
-  /**
-   * 用于重置字段的初始值快照。
-   */
-  initialValues: TValues
 }
 
 /**
@@ -83,6 +69,26 @@ export interface StoreFieldError<TValues extends Values = Values> {
 }
 
 /**
+ * Runtime 使用的数组结构只读句柄。
+ *
+ * 句柄只允许注册数组路径、读取行 key 和订阅结构变化，不暴露任何数组写操作。
+ */
+export interface ArrayStructureHandle {
+  /**
+   * 注册数组路径并初始化行 key；重复调用幂等。
+   */
+  register(): void
+  /**
+   * 读取当前数组行的稳定 key。
+   */
+  getKeys(): readonly string[]
+  /**
+   * 订阅结构变化，并返回取消订阅函数。
+   */
+  subscribe(listener: (change: FieldArrayChange) => void): () => void
+}
+
+/**
  * 表单数据存储中心的公开操作接口。
  *
  * @typeParam TValues - 表单值类型。
@@ -97,15 +103,15 @@ export interface StoreFieldError<TValues extends Values = Values> {
  */
 export interface Store<TValues extends Values = Values> {
   /**
-   * 创建指定数组路径的 Handle。
+   * 创建指定数组路径的 Runtime 结构 Handle。
    *
    * @param path - 动态数组字段路径。
    * @typeParam TPath - 动态数组字段路径类型。
-   * @returns 与数组路径绑定的结构 Handle；调用方负责在销毁订阅时取消监听。
+   * @returns 只读数组结构 Handle。
    */
-  getFieldArrayHandle<TPath extends FieldArrayPath<TValues>>(
+  getArrayStructureHandle<TPath extends FieldArrayPath<TValues>>(
     path: TPath
-  ): FieldArrayHandle<FieldArrayItemValue<FieldValue<TValues, TPath>>>
+  ): ArrayStructureHandle
   /**
    * 注册 Schema 字段路径并物化对应路径状态。
    *
@@ -131,11 +137,11 @@ export interface Store<TValues extends Values = Values> {
    * 设置指定字段的当前值。
    *
    * @param path - 要写入的字段路径。
-   * @param value - 要写入的字段值。
+   * @param action - 要写入的字段值或基于当前值计算下一值的 updater。
    */
   setFieldValue<TName extends NamePath<TValues>>(
     path: TName,
-    value: FieldValue<TValues, TName> | undefined
+    action: SetValueAction<TValues, TName>
   ): void
 
   /**
@@ -148,9 +154,9 @@ export interface Store<TValues extends Values = Values> {
   /**
    * 批量设置字段的当前值。
    *
-   * @param values - 要写入的字段值对象。
+   * @param action - 要写入的字段值对象或基于当前值计算下一值的 updater。
    */
-  setFieldsValue(values: Partial<TValues>): void
+  setFieldsValue(action: SetValuesAction<TValues>): void
 
   /**
    * 获取指定字段的当前值。
@@ -204,19 +210,19 @@ export interface Store<TValues extends Values = Values> {
    * 设置指定字段的初始值。
    *
    * @param path - 要写入的字段路径。
-   * @param value - 要写入的初始值。
+   * @param action - 要写入的初始值或基于当前初始值计算下一值的 updater。
    */
   setInitialValue<TName extends NamePath<TValues>>(
     path: TName,
-    value: FieldValue<TValues, TName>
+    action: SetValueAction<TValues, TName>
   ): void
 
   /**
    * 批量设置字段的初始值。
    *
-   * @param values - 要写入的初始值对象。
+   * @param action - 要写入的初始值对象或基于当前初始值计算下一值的 updater。
    */
-  setInitialValues(values: Partial<TValues>): void
+  setInitialValues(action: SetValuesAction<TValues>): void
 
   /**
    * 获取指定字段的初始值。

@@ -23,6 +23,29 @@ export type FieldValue<
 > = PathValue<TValues, TName>
 
 /**
+ * 设置字段值时使用的直接值或函数式 updater。
+ *
+ * 函数参数始终按 updater 解释，因此不支持把函数本身作为字段值。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 要写入的字段路径类型。
+ */
+export type SetValueAction<TValues extends Values, TName extends NamePath<TValues>> =
+  | FieldValue<TValues, TName>
+  | undefined
+  | ((
+      previousValue: FieldValue<TValues, TName>
+    ) => FieldValue<TValues, TName> | undefined)
+
+/**
+ * 批量设置字段值时使用的部分值或函数式 updater。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export type SetValuesAction<TValues extends Values> =
+  Partial<TValues> | ((previousValues: Readonly<TValues>) => Partial<TValues>)
+
+/**
  * 表单值对象类型。
  *
  * 顶层以字符串 key 索引，嵌套结构由 `NamePath` 和路径工具进一步约束。
@@ -70,11 +93,3 @@ export type SchemxFieldRulesMap<TValues extends Values = Values> = {
  * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
  */
 export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemxConfigKey>
-
-/**
- * Schema 通用配置上下文。
- */
-export interface SchemxGlobalContext {
-  /** 当前生效的全局 Schema 默认配置。 */
-  schemaConfig: Partial<SchemxSchemaConfig>
-}

@@ -38,8 +38,8 @@ export function mountFieldResources<TValues extends Values>(
 /**
  * 更新字段运行时节点的资源。
  *
- * 当字段名变化时先注销旧索引；更新静态 schema、视图状态、重新注册索引，
- * 然后重建校验和 dependencies effect。
+ * 当字段名变化时先注销旧索引并重新注册新路径，然后按配置变化重建校验和
+ * dependencies effect。
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
@@ -109,7 +109,7 @@ export function unmountFieldResources<TValues extends Values>(
  * 重建字段的校验和 dependencies effect。
  *
  * 销毁旧 validationEffectScope 作用域，在子作用域中重新创建
- * createValidationEffect 和 createDependenciesEffect。
+ * createValidationEffect 和 createFieldDependenciesEffect。
  * effect 销毁时自动清理 node.validationEffectScope 引用。
  *
  * @typeParam TValues - 表单值类型
@@ -124,7 +124,13 @@ function recreateFieldEffects<TValues extends Values>(
   recreateDependenciesEffect(node, context)
 }
 
-/** 创建或重建仅随字段 name 变化的 validation effect。 */
+/**
+ * 创建或重建字段的 validation effect。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param node - 当前字段运行时节点。
+ * @param context - 表单运行时上下文。
+ */
 function recreateValidationEffect<TValues extends Values>(
   node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
@@ -149,7 +155,13 @@ function recreateValidationEffect<TValues extends Values>(
   })
 }
 
-/** 创建或重建 dependencies 配置发生变化的 effect。 */
+/**
+ * 创建或重建字段的 dependencies effect。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param node - 当前字段运行时节点。
+ * @param context - 表单运行时上下文。
+ */
 function recreateDependenciesEffect<TValues extends Values>(
   node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
@@ -174,7 +186,14 @@ function recreateDependenciesEffect<TValues extends Values>(
   })
 }
 
-/** 仅 dependencies 对象 identity 或触发字段集合变化时重建 effect。 */
+/**
+ * 判断 dependencies 配置是否需要重建 effect。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param previous - 上一轮 dependencies 配置。
+ * @param next - 当前 dependencies 配置。
+ * @returns 配置引用或触发字段集合变化时返回 `true`。
+ */
 function shouldRecreateDependenciesEffect<TValues extends Values>(
   previous: SchemxFieldDependencies<TValues> | undefined,
   next: SchemxFieldDependencies<TValues> | undefined
@@ -189,10 +208,11 @@ function shouldRecreateDependenciesEffect<TValues extends Values>(
 /**
  * 写入字段初始值。
  *
- * 如果 descriptor.staticSchema 中定义了 initialValue 且当前字段值
+ * 如果 node.staticSchema 中定义了 initialValue 且当前字段值
  * 尚未设置，则写入该初始值。仅在首次挂载时生效。
  *
  * @typeParam TValues - 表单值类型
+ * @param node - 要写入初始值的字段运行时节点
  * @param context - 运行时上下文
  */
 function applyFieldInitialValue<TValues extends Values>(

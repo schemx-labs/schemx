@@ -9,9 +9,9 @@
 export { createStore } from "./store"
 
 export type {
+  ArrayStructureHandle,
   Store,
   StoreFieldError,
-  StoreState,
   StoreOptions,
   StorePending,
 } from "./types"

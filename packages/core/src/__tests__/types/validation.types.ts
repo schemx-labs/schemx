@@ -8,7 +8,6 @@ import type {
   PresetRuleFactory,
   RequiredConfig,
   RequiredOptions,
-  SchemxDependencies,
   SchemxDependencyDependencies,
   SchemxExactBaseField,
   SchemxField,
@@ -269,19 +268,19 @@ const dynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
   rules: () => [filesSchema],
 }
 
-const invalidDynamicRequired: SchemxDependencies<FormValues, "files"> = {
+const invalidDynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
   triggerFields: ["email"],
   // @ts-expect-error files 字段的动态 required 不能使用 string 值判断器。
   required: () => ({ isEmpty: (value: string | null | undefined) => !value?.trim() }),
 }
 
-const invalidDynamicRules: SchemxDependencies<FormValues, "files"> = {
+const invalidDynamicRules: SchemxFieldDependencies<FormValues, "files"> = {
   triggerFields: ["email"],
   // @ts-expect-error files 字段的动态 rules 不能使用 number Schema。
   rules: () => [numberSchema],
 }
 
-const invalidDynamicRequiredMark: SchemxDependencies<FormValues, "files"> = {
+const invalidDynamicRequiredMark: SchemxFieldDependencies<FormValues, "files"> = {
   triggerFields: ["email"],
   // @ts-expect-error 动态 showRequiredMark 只能返回 boolean。
   showRequiredMark: () => "显示",

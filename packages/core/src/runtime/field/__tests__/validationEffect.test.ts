@@ -16,7 +16,7 @@ import { createScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
 import { createValidationEffect } from "../validationEffect"
 
-import type { SchemxBaseField, SchemxResolvedBaseField } from "../../../types"
+import type { SchemxBaseField } from "../../../types"
 import type { SchemaRuntimeContext } from "../../context"
 
 interface TestValues {
@@ -25,7 +25,7 @@ interface TestValues {
 
 interface FieldConfig {
   readonly key: string
-  readonly staticSchema: SchemxResolvedBaseField<TestValues>
+  readonly staticSchema: SchemxBaseField<TestValues>
 }
 
 const createSchema = (
@@ -43,7 +43,7 @@ const createSchema = (
 
 const createFieldConfig = (schema = createSchema()): FieldConfig => ({
   key: "field:0:field",
-  staticSchema: schema as SchemxResolvedBaseField<TestValues>,
+  staticSchema: schema as SchemxBaseField<TestValues>,
 })
 
 const createFormConfigContext = () => {
@@ -307,8 +307,8 @@ describe("rule management", () => {
 })
 
 function createTestSchemaForUS2(
-  overrides: Partial<SchemxResolvedBaseField> = {}
-): SchemxResolvedBaseField {
+  overrides: Partial<SchemxBaseField<TestValues>> = {}
+): SchemxBaseField<TestValues> {
   return {
     componentType: "input",
     label: "测试字段",
@@ -321,7 +321,7 @@ function createTestSchemaForUS2(
     rules: [],
     validationTrigger: "onChange",
     ...overrides,
-  } as SchemxResolvedBaseField
+  } as SchemxBaseField<TestValues>
 }
 
 // validationEffect 从 effectiveSchema 读取 rules、visible/readonly/disabled 和 label 信息

@@ -84,6 +84,16 @@ export interface DebouncedSignalWatchControls {
  * @param options - watch 配置。
  *
  * @returns 停止监听的函数。
+ *
+ * @example
+ * ```ts
+ * const stop = createSignalWatch(
+ *   () => keyword.value,
+ *   (value) => search(value)
+ * )
+ *
+ * stop()
+ * ```
  */
 export function createSignalWatch<TValue>(
   source: () => TValue,

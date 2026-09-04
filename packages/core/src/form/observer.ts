@@ -34,6 +34,17 @@ export interface FormObserverCallbacks<
  * @param model - 提供值快照和响应式 effect 的 FormModel。
  * @param callbacks - 值变化与字段变化回调。
  * @returns 取消订阅的函数。
+ *
+ * @example
+ * ```ts
+ * const stop = createFormObserver(model, {
+ *   onValuesChange: (changedValues) => {
+ *     console.log(changedValues)
+ *   },
+ * })
+ *
+ * stop()
+ * ```
  */
 export function createFormObserver<
   TValues extends Values,

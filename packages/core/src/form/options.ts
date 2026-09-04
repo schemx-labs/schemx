@@ -63,15 +63,25 @@ export interface FormSchemaOptions<TValues extends Values = Values> {
  * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
  */
 export interface FormRegistryOptions<TValues extends Values = Values> {
-  /** 按 Renderer 类型配置的静态默认 Props。 */
+  /**
+   * 按 Renderer 类型配置的静态默认 Props。
+   */
   rendererProps?: SchemxRendererPropsMap<TValues>
-  /** 自定义渲染器注册表。 */
+  /**
+   * 自定义渲染器注册表。
+   */
   rendererRegistry?: RendererRegistry
-  /** 未显式指定 componentType 时使用的默认渲染器类型。 */
+  /**
+   * 未显式指定 componentType 时使用的默认渲染器类型。
+   */
   defaultRendererType?: SchemxRendererKey<TValues>
-  /** 自定义预设校验规则注册表。 */
+  /**
+   * 自定义预设校验规则注册表。
+   */
   presetRuleRegistry?: PresetRuleRegistry
-  /** 第三方校验器适配器列表。 */
+  /**
+   * 第三方校验器适配器列表。
+   */
   validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
@@ -140,9 +150,13 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
  * `createForm` 的性能调度配置。
  */
 export interface FormPerformanceOptions {
-  /** Scheduler 时间片与 idle 队列配置。 */
+  /**
+   * Scheduler 时间片与 idle 队列配置。
+   */
   schedulerOptions?: SchedulerOptions
-  /** 整表校验时同时运行的字段数，默认 `8`。 */
+  /**
+   * 整表校验时同时运行的字段数，默认 `8`。
+   */
   validationConcurrency?: number
 }
 
@@ -181,13 +195,21 @@ export interface ResolvedCreateFormOptions<
   CreateFormOptions<TValues, TName>,
   "initialValues" | "schemaConfig" | "rendererRegistry" | "presetRuleRegistry"
 > {
-  /** 已完成默认值合并的初始表单值。 */
+  /**
+   * 已完成默认值合并的初始表单值。
+   */
   initialValues: TValues
-  /** 已完成默认值合并的 Schema 配置。 */
+  /**
+   * 已完成默认值合并的 Schema 配置。
+   */
   schemaConfig: SchemxSchemaConfig
-  /** 已解析的 Renderer Registry。 */
+  /**
+   * 已解析的 Renderer Registry。
+   */
   rendererRegistry: RendererRegistry
-  /** 已解析的预设规则 Registry。 */
+  /**
+   * 已解析的预设规则 Registry。
+   */
   presetRuleRegistry: PresetRuleRegistry
 }
 
@@ -197,6 +219,13 @@ export interface ResolvedCreateFormOptions<
  * @typeParam TValues - 表单值对象类型。
  * @param options - 用户传入的 Form 配置。
  * @returns 合并后的原始 Form 配置类型。
+ *
+ * @example
+ * ```ts
+ * const options = mergeCreateFormOptions({
+ *   initialValues: { name: "Schemx" },
+ * })
+ * ```
  */
 export function mergeCreateFormOptions<TValues extends Values>(
   options: CreateFormOptions<TValues>
@@ -244,8 +273,16 @@ export function mergeCreateFormOptions<TValues extends Values>(
  * 缺省对象与列表会标准化为空值，使低优先级全局配置仍可被纯合并器继承；
  * 标量和 Registry 的 `undefined` 则由合并器忽略，不会覆盖全局配置。
  *
+ * @typeParam TValues - 表单值对象类型。
  * @param options - 当前 Form 的完整创建选项。
  * @returns 适合传给 {@link mergeAndResolveSchemxConfig} 的 Form 级配置。
+ *
+ * @example
+ * ```ts
+ * const config = getFormSchemxConfig({
+ *   schemaConfig: { readonly: true },
+ * })
+ * ```
  */
 export function getFormSchemxConfig<TValues extends Values>(
   options: CreateFormOptions<TValues>

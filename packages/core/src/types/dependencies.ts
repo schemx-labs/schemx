@@ -196,7 +196,7 @@ export interface SchemxDependencyDependencies<
 > extends SchemxContainerDependencies<TValues> {}
 
 /**
- * DynamicArray 容器的结构化依赖配置。
+ * Dynamic 容器的结构化依赖配置。
  *
  * 用于动态控制由 renderer 生成的子树呈现状态；后续 dynamicArray 专属动态属性
  * 应在此扩展。
@@ -208,17 +208,6 @@ export interface SchemxDynamicDependencies<
 > extends SchemxContainerDependencies<TValues> {}
 
 /**
- * 字段依赖配置的旧名称。
- *
- * @deprecated 请使用 {@link SchemxFieldDependencies}，以明确该配置只适用于普通字段。
- */
-export type SchemxDependencies<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-  TKey extends string = SchemxRendererKey<TValues>,
-> = SchemxFieldDependencies<TValues, TName, TKey>
-
-/**
  * 可解析的属性键（不含 triggerFields 和 trigger）
  *
  * 用于约束 defaults 对象的键值范围。
@@ -227,13 +216,6 @@ export type SchemxFieldDependenciesConditionKey = Exclude<
   keyof SchemxFieldDependencies,
   "triggerFields" | "trigger"
 >
-
-/**
- * 字段依赖可解析属性键的旧名称。
- *
- * @deprecated 请使用 {@link SchemxFieldDependenciesConditionKey}。
- */
-export type SchemxDependenciesConditionKey = SchemxFieldDependenciesConditionKey
 
 /**
  * 从 SchemxFieldDependencies 中提取各属性的静态返回类型
@@ -256,7 +238,7 @@ export type SchemxDependenciesConditionKey = SchemxFieldDependenciesConditionKey
  * //   disabled: boolean
  * //   visible: boolean
  * // }
- * type Defaults = SchemxDependenciesStaticProps<MyForm>
+ * type Defaults = SchemxFieldDependenciesStaticProps<MyForm>
  * ```
  */
 export type SchemxFieldDependenciesStaticProps<
@@ -272,14 +254,3 @@ export type SchemxFieldDependenciesStaticProps<
     ? TResult
     : never
 }
-
-/**
- * 字段依赖静态属性类型的旧名称。
- *
- * @deprecated 请使用 {@link SchemxFieldDependenciesStaticProps}。
- */
-export type SchemxDependenciesStaticProps<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-  TKey extends string = SchemxRendererKey<TValues>,
-> = SchemxFieldDependenciesStaticProps<TValues, TName, TKey>

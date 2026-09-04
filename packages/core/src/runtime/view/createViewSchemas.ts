@@ -8,10 +8,11 @@
  */
 
 import { createComputed } from "../../reactivity/computed"
-import { isDependencyNode, isFieldNode, isGroupNode } from "../node/helper"
+import { isDependencyNode, isDynamicNode, isFieldNode, isGroupNode } from "../node/helper"
 
 import type { ContainerNode, RootNode, SchemaNode } from "../node"
 import type {
+  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
@@ -35,7 +36,7 @@ export function createRootRuntimeViewSchemas<TValues extends Values = Values>(
 /**
  * 为 Node 创建并注册对应 ViewSchema computed。
  *
- * 根据节点类型（field / group / dependency）分别构建对应的 view computed。
+ * 根据节点类型（field / group / dependency / dynamic）分别构建对应的 view computed。
  *
  * @param node - 待创建视图状态的运行时节点。
  * @param debug - 是否在 ViewSchema 中附加调试元数据。
@@ -112,6 +113,58 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
               }
             : {}),
         } satisfies SchemxViewGroupSchema<TValues>,
+      ]
+    })
+
+    return
+  }
+
+  if (isDynamicNode(node)) {
+    // Dynamic 节点保留数组行边界，模板字段通过稳定行 key 分组投影。
+    node.viewSchemas = createComputed(() => {
+      const staticSchema = node.staticSchema.value
+
+      const effective = node.effectiveState.value
+
+      const {
+        dependencies: _dependencies,
+        item: _item,
+        ...viewStaticSchema
+      } = staticSchema
+
+      const childNodes = node.childNodes.value
+
+      return [
+        {
+          ...viewStaticSchema,
+          key: node.key,
+          visible: effective.visible,
+          readonly: effective.readonly,
+          disabled: effective.disabled,
+          items: node.dynamicRows.value.map((row) => {
+            const rowPrefix = `${node.key}/${row.key}/`
+
+            const rowChildren = childNodes.filter((child) =>
+              child.key.startsWith(rowPrefix)
+            )
+
+            return {
+              key: row.key,
+              index: row.index,
+              children: readChildrenViewSchemas(rowChildren),
+            }
+          }),
+          ...(debug
+            ? {
+                debug: {
+                  runtimeNodeId: node.id,
+                  runtimeNodeType: "dynamic",
+                  hasRuntimeState: true,
+                  hasDependencyEffect: staticSchema.dependencies != null,
+                },
+              }
+            : {}),
+        } satisfies SchemxViewDynamicSchema<TValues>,
       ]
     })
 

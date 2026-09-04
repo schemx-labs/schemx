@@ -11,7 +11,7 @@
 
 import type { SchemxGroupDependencies } from "./dependencies"
 import type { Values } from "./form"
-import type { SchemxField, SchemxResolvedField } from "./schema"
+import type { SchemxField } from "./schema"
 
 /**
  * 自定义 Group Schema 基础字段扩展接口
@@ -94,14 +94,4 @@ export interface SchemxGroupField<
    * 折叠时是否卸载后代 Renderer，默认保持现有行为 `true`。
    */
   destroyOnCollapse?: boolean
-}
-
-/**
- * 编译后的分组静态 schema。
- */
-export type SchemxResolvedGroupField<TValues extends Values = Values> = Omit<
-  SchemxGroupField<TValues>,
-  "children" | "dependencies"
-> & {
-  children: SchemxResolvedField<TValues>[]
 }

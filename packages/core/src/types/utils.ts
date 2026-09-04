@@ -9,30 +9,6 @@
 import type * as CSS from "csstype"
 
 /**
- * 精确类型约束，禁止对象字面量中出现目标类型未定义的属性。
- *
- * TypeScript 的多余属性检查在展开运算符场景下可能失效，
- * 此工具类型通过将未知 key 映射为 never 来强制报错。
- *
- * @typeParam TBase - 目标类型
- * @typeParam TActual - 实际传入的类型，必须是 TBase 的子类型
- *
- * @example
- * ```ts
- * interface Props { name: string; age: number }
- *
- * function create<TActual extends Props>(props: Exact<Props, TActual>): Props {
- *   return props
- * }
- *
- * create({ name: "test", age: 18 })          // 正常
- * create({ name: "test", age: 18, x: true }) // 报错：x 不能赋值给 never
- * ```
- */
-export type Exact<TBase, TActual extends TBase> = TBase &
-  Record<Exclude<keyof TActual, keyof TBase>, never>
-
-/**
  * 原始类型联合。
  */
 type Primitive = string | number | boolean | bigint | symbol | null | undefined

@@ -4,7 +4,7 @@
  * 提供创建原始 schema、完整运行时图测试夹具以及
  * 异步刷新调度器的方法，供各测试套件共用。
  *
- * @module core/runtime/node/__tests__/runtimeGraphTestUtils
+ * @module core/runtime/node/__tests__/graphTestUtils
  */
 import { vi } from "vitest"
 

@@ -20,13 +20,11 @@ import { createScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
 import { createFieldDependenciesEffect } from "../dependenciesEffect"
 
-import type { SchemxResolvedBaseField } from "../../../types"
+import type { SchemxBaseField } from "../../../types"
 import type { SchemaRuntimeContext } from "../../context"
 import type { FieldNode } from "../../node"
 
-function createTestSchema(
-  overrides: Partial<SchemxResolvedBaseField> = {}
-): SchemxResolvedBaseField {
+function createTestSchema(overrides: Partial<SchemxBaseField> = {}): SchemxBaseField {
   return {
     componentType: "input",
     label: "测试字段",
@@ -39,7 +37,7 @@ function createTestSchema(
     rules: [],
     validationTrigger: "onChange",
     ...overrides,
-  } as SchemxResolvedBaseField
+  } as SchemxBaseField
 }
 
 function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
@@ -51,7 +49,7 @@ function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {
 }
 
 function createDependenciesNode(
-  schema: SchemxResolvedBaseField
+  schema: SchemxBaseField
 ): FieldNode<{ country?: string }> {
   const dynamicConfig = {
     triggerFields: ["country" as const],

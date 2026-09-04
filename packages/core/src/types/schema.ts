@@ -7,9 +7,10 @@
  */
 
 import type { SchemxDependencyField } from "./dependency"
-import type { SchemxBase, SchemxResolvedBaseField } from "./field"
+import type { SchemxDynamicField } from "./dynamic"
+import type { SchemxBase } from "./field"
 import type { NamePath, Values } from "./form"
-import type { SchemxGroupField, SchemxResolvedGroupField } from "./group"
+import type { SchemxGroupField } from "./group"
 import type { SchemxRendererDefinition } from "./renderer"
 
 /**
@@ -40,9 +41,4 @@ export type SchemxField<TValues extends Values = Values> =
   | SchemxRendererField<TValues>
   | SchemxGroupField<TValues>
   | SchemxDependencyField<TValues>
-
-/**
- * 解析后的静态 schema 类型。
- */
-export type SchemxResolvedField<TValues extends Values = Values> =
-  SchemxResolvedBaseField<TValues> | SchemxResolvedGroupField<TValues>
+  | SchemxDynamicField<TValues>

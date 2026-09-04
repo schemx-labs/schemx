@@ -199,7 +199,7 @@ const accountFields: SchemxField<AccountValues> = {
 
 | 类别             | API                                                                                                                              | 用途                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 值与字段数组     | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`、`getOrCreateFieldArray`                                  | 读取或更新当前字段值，或获取数组字段控制器。读取会参与响应式追踪。      |
+| 值               | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`                                                    | 读取或更新当前字段值；数组同样通过 `setFieldValue` 的 updater 更新。读取会参与响应式追踪。 |
 | 快照与初始值     | `getFieldSnapshot`、`getFieldsSnapshot`、`getInitialValue`、`getInitialValues`、`setInitialValue`、`setInitialValues`            | 获取非追踪快照，或维护重置基准。                                        |
 | touched          | `isFieldTouched`、`isFieldsTouched`、`setFieldTouched`、`setFieldsTouched`、`getTouchedFields`                                   | 管理字段交互状态。                                                      |
 | pending          | `isFieldPending`、`isFieldsPending`、`setFieldPending`、`setFieldsPending`、`getPendingFields`                                   | 管理字段异步操作状态与提示。                                            |
@@ -303,7 +303,7 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 
 | 类别            | 导出                                                                                                                                               |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema 判断     | `isBaseSchema`、`isGroupSchema`、`isDependencySchema`、`isBaseResolvedSchema`、`isGroupResolvedSchema`                                             |
+| Schema 判断     | `isBaseSchema`、`isGroupSchema`、`isDependencySchema`                                             |
 | ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`                                                                                                     |
 | 路径工具        | `getByPath`、`setByPath`、`collectObjectPathsByLeaf`                                                                                               |
 | 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxFieldRulesMap`、`StandardSchemaV1` |

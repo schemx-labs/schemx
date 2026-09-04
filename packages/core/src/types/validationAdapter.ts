@@ -48,9 +48,13 @@ export declare namespace ValidationAdapterV1 {
     TValues extends Values = Values,
     TName extends NamePath<TValues> = NamePath<TValues>,
   > {
-    /** 当前正在解析的字段路径。 */
+    /**
+     * 当前正在解析的字段路径。
+     */
     readonly name: TName
-    /** 当前字段显示标签。 */
+    /**
+     * 当前字段显示标签。
+     */
     readonly label: string
   }
 

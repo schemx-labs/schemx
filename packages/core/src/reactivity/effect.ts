@@ -26,6 +26,15 @@ export interface SignalEffectOptions {
  * @param options - reactive effect 的配置。
  *
  * @returns 释放该 effect 的函数。
+ *
+ * @example
+ * ```ts
+ * const dispose = createSignalEffect(() => {
+ *   console.log(count.value)
+ * })
+ *
+ * dispose()
+ * ```
  */
 export function createSignalEffect(
   fn: () => void,
@@ -52,6 +61,11 @@ export function createSignalEffect(
  * @remarks
  * 在 callback 等非依赖源逻辑中读取 signal 时，应使用该方法避免
  * 将额外的 signal 意外注册为当前 effect 的依赖。
+ *
+ * @example
+ * ```ts
+ * const snapshot = runSignalUntracked(() => source.value)
+ * ```
  */
 export function runSignalUntracked<TValue>(fn: () => TValue): TValue {
   return untracked(fn)

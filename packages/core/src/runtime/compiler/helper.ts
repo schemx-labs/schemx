@@ -9,12 +9,12 @@ import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../util
 import type { CompileOptions } from "./types"
 import type {
   NamePath,
+  SchemxBaseField,
   SchemxComponentProps,
-  SchemxResolvedBaseField,
   ValidationTrigger,
   Values,
 } from "../../types"
-import type { SchemxBaseField, SchemxField } from "../../types"
+import type { SchemxField } from "../../types"
 import type {
   FieldEffectiveSchema,
   FieldRuntimeDiagnostics,
@@ -48,7 +48,7 @@ export function buildFieldStaticSchema<TValues extends Values>(
   schema: SchemxBaseField<TValues>,
   key: string,
   options: CompileOptions<TValues>
-): SchemxResolvedBaseField<TValues> {
+): SchemxBaseField<TValues> {
   const { schemaConfig, formInstance } = options
 
   const {
@@ -115,7 +115,7 @@ export function buildFieldStaticSchema<TValues extends Values>(
     validationTrigger: normalizeTrigger(
       validationTrigger ?? schemaConfig.validationTrigger ?? "blur"
     ),
-  } as SchemxResolvedBaseField<TValues>
+  } as SchemxBaseField<TValues>
 
   if (mergedReadonly) {
     normalizedSchema.contentAlign = "right"

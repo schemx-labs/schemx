@@ -25,9 +25,8 @@ import {
   toStructuralPathSegments,
 } from "../utils/path"
 
-import type { FieldArrayChange } from "../fieldArray"
 import type { Signal } from "../reactivity/signal"
-import type { FieldValue, NamePath, Values } from "../types"
+import type { FieldArrayChange, FieldValue, NamePath, Values } from "../types"
 import type { FieldKey } from "../utils/path"
 import type { ValidationRuleIssue } from "../validator/types"
 
@@ -70,38 +69,6 @@ interface FieldState<TValues extends Values> {
   readonly pendingMessage: Signal<readonly string[]>
   // 字段按来源独立响应的错误问题。
   readonly errors: Signal<readonly ValidationRuleIssue[]>
-}
-
-/**
- * FieldSignalMap 中单个 pending 字段的聚合快照。
- *
- * @typeParam TValues - 表单值类型。
- */
-export interface FieldSignalMapPending<TValues extends Values> {
-  /**
-   * 当前 pending 字段的路径。
-   */
-  readonly path: NamePath<TValues>
-  /**
-   * pending 对应的展示消息副本。
-   */
-  readonly message: readonly string[]
-}
-
-/**
- * FieldSignalMap 中单个存在错误的字段快照。
- *
- * @typeParam TValues - 表单值类型。
- */
-export interface FieldSignalMapError<TValues extends Values> {
-  /**
-   * 当前错误所属的字段路径。
-   */
-  readonly path: NamePath<TValues>
-  /**
-   * 按固定展示顺序合并后的错误问题。
-   */
-  readonly issues: readonly ValidationRuleIssue[]
 }
 
 /**
@@ -425,7 +392,9 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     return changed
   }
 
-  /** 删除当前值并清理指定路径的临时交互状态。 */
+  /**
+   * 删除当前值并清理指定路径的临时交互状态。
+   */
   removeFieldValue(path: NamePath<TValues>): boolean {
     const segments = toStructuralPathSegments(path)
 
@@ -481,15 +450,23 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     return changed
   }
 
-  // FieldArray 提交即使值相等也要清理过期状态并发布结构变化。
+  // 数组根提交按引用写入，避免深度相等的克隆行被误判为无变化。
   setFieldArrayValue(
     path: NamePath<TValues>,
     value: unknown,
     change: FieldArrayChange
   ): boolean {
-    const changed = this.writeCurrentValue(path, value)
+    const previousValue = getByPath<TValues>(this.values, path)
 
-    if (!changed) this.onValueChanged()
+    if (Object.is(previousValue, value)) return false
+
+    this.values = setInWithStructuralSharing(
+      this.values,
+      toStructuralPathSegments(path),
+      value
+    ) as TValues
+
+    this.onValueChanged()
 
     this.clearArrayTransientState(path, change)
     this.invalidateFieldArrayErrors(path, change)
@@ -522,7 +499,14 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
         let next = current
 
-        if (isFieldArrayDescendantOutOfRange(state.path, arrayPath, change.nextLength)) {
+        if (createFieldKey(state.path) === createFieldKey(arrayPath)) {
+          next =
+            change.ranges.length > 0 || change.resetKeys === true
+              ? current.filter((error) => error.type === "configuration")
+              : current
+        } else if (
+          isFieldArrayDescendantOutOfRange(state.path, arrayPath, change.nextLength)
+        ) {
           next = []
         } else if (isFieldArrayDescendantAffected(state.path, arrayPath, change)) {
           next = current.filter((error) => error.type === "configuration")

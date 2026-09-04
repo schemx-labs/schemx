@@ -135,9 +135,7 @@ export class RendererRegistry<
    */
   register(type: TKey, renderer: TRenderer, options?: RegistryOptions): void {
     if (this.renderers.has(type) && options?.override === false) {
-      console.warn(
-        `[schemx] 渲染器 "${type}" 已存在，跳过注册`
-      )
+      console.warn(`[schemx] 渲染器 "${type}" 已存在，跳过注册`)
 
       return
     }
@@ -203,9 +201,7 @@ export class RendererRegistry<
     let renderer = this.renderers.get(type)
 
     if (!renderer) {
-      console.warn(
-        `[schemx] 未找到渲染器 "${type}"，回退到 "${this.fallbackType}"`
-      )
+      console.warn(`[schemx] 未找到渲染器 "${type}"，回退到 "${this.fallbackType}"`)
 
       if (this.fallbackType) renderer = this.renderers.get(this.fallbackType)
     }
@@ -233,7 +229,7 @@ export class RendererRegistry<
    * 移除渲染器
    *
    * 如果移除的是当前回退类型，会从剩余渲染器中智能选取新回退类型。
-   * 若无剩余渲染器则清除回退类型。
+   * 若无剩余渲染器，回退类型保持原值，但无法解析出组件。
    *
    * @param type - 渲染器类型标识
    * @returns 是否成功移除
@@ -253,9 +249,7 @@ export class RendererRegistry<
       const firstKey = this.renderers.keys().next().value
 
       if (firstKey) {
-        console.warn(
-          `[schemx] 回退渲染器已移除，已自动重置为 "${String(firstKey)}"`
-        )
+        console.warn(`[schemx] 回退渲染器已移除，已自动重置为 "${String(firstKey)}"`)
 
         this.fallbackType = firstKey
       }
@@ -294,9 +288,7 @@ export class RendererRegistry<
    */
   setFallback(type: TKey): void {
     if (!this.renderers.has(type)) {
-      console.warn(
-        `[schemx] 无法将未注册的渲染器 "${type}" 设为回退渲染器`
-      )
+      console.warn(`[schemx] 无法将未注册的渲染器 "${type}" 设为回退渲染器`)
 
       return
     }
@@ -324,7 +316,7 @@ export class RendererRegistry<
    * @example
    * ```typescript
    * renderer.clear()
-   * registry.size() // => 0
+   * renderer.size() // => 0
    * ```
    */
   clear(): void {

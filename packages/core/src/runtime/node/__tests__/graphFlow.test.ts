@@ -4,7 +4,7 @@
  * 覆盖同 key 节点复用、不同 kind 的节点替换、嵌套 group 提交、removed-node
  * cleanup 观察时机等流程行为。
  *
- * @module core/runtime/node/__tests__/runtimeGraphFlow.test
+ * @module core/runtime/node/__tests__/graphFlow.test
  */
 
 import { describe, expect, it, vi } from "vitest"

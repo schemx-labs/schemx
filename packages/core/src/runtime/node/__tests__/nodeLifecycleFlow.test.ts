@@ -4,7 +4,7 @@
  * 覆盖节点生命周期事件触发、节点配置同步、validationEffectScope 管理、
  * Root 字段查询以及字段删除后的 scope 释放（US3）等行为。
  *
- * @module core/runtime/node/__tests__/runtimeNodeLifecycleFlow.test
+ * @module core/runtime/node/__tests__/nodeLifecycleFlow.test
  */
 
 import { describe, expect, it, vi } from "vitest"
@@ -19,7 +19,7 @@ import {
   setFieldDynamicOverrides,
 } from "./signalsTestUtils"
 
-import type { SchemxResolvedBaseField } from "../../../types"
+import type { SchemxBaseField } from "../../../types"
 import type { FieldNode } from "../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护
@@ -273,9 +273,7 @@ describe("node lifecycle flow", () => {
   })
 })
 
-function createTestSchema(
-  overrides: Partial<SchemxResolvedBaseField> = {}
-): SchemxResolvedBaseField {
+function createTestSchema(overrides: Partial<SchemxBaseField> = {}): SchemxBaseField {
   return {
     componentType: "input",
     label: "测试字段",
@@ -288,7 +286,7 @@ function createTestSchema(
     rules: [],
     validationTrigger: "onChange",
     ...overrides,
-  } as SchemxResolvedBaseField
+  } as SchemxBaseField
 }
 
 function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {

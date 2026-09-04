@@ -29,22 +29,24 @@ export interface MergedSchemxConfig<TValues extends Values = Values> extends Omi
 }
 
 /**
- * 按从后到前的优先级合并多个 Schemx 配置。
+ * 按参数顺序从高到低合并多个 Schemx 配置。
  *
- * 参数越靠前优先级越高。普通对象字段由 `es-toolkit` 的 `merge` 深度合并；
- * `rendererProps` 按 Renderer key 和 Props 属性浅合并，`validatorAdapters`
- * 按低优先级到高优先级排列，其他配置项取最高优先级值。
+ * 参数越靠前优先级越高：`configs[0]` 最高，后续参数依次降低；发生冲突时，
+ * `schemaConfig` 和其他普通配置项取更靠前参数的值。`rendererProps` 按 Renderer
+ * key 和 Props 属性浅合并，同名属性由更靠前参数覆盖；`validatorAdapters` 则按
+ * 低优先级到高优先级排列，便于后续按 adapter 优先级解析。函数内部从最后一个
+ * 参数开始向前应用配置，以实现上述优先级。
  * 函数不读取或修改全局配置，也不会修改输入对象或补齐任何默认值。
  *
- * @param configs - 按高到低优先级传入的配置列表。
+ * @param configs - 按优先级从高到低传入的配置列表；第一个参数优先级最高。
  * @returns 保留未设置和显式 `undefined` 值的合并配置。
  *
  * @example
  * const config = mergeSchemxConfig(
- *   { schemaConfig: { readonly: true } },
- *   { schemaConfig: { disabled: true } }
+ *   { schemaConfig: { readonly: true, labelWidth: "120px" } }, // 最高优先级
+ *   { schemaConfig: { readonly: false, disabled: true, labelWidth: "80px" } },
  * )
- * // { schemaConfig: { disabled: true, readonly: true } }
+ * // { schemaConfig: { readonly: true, disabled: true, labelWidth: "120px" } }
  *
  * @remarks
  * `undefined` 也是可被高优先级配置显式写入的值，可用于清除低优先级的字段默认值。

@@ -11,6 +11,8 @@ export { createValidator, type CreateValidatorOptions } from "./validator"
 
 export { createRequiredValidationRule } from "./built-in.rules"
 
+export type { ValidationAdapterV1 } from "../types/validationAdapter"
+
 export type {
   ValidationRuleContext,
   ValidationRuleIssue,
@@ -19,7 +21,6 @@ export type {
   AdapterRule,
   ValidationAdapterRule,
   ValidationAdapterID,
-  ValidationAdapterV1,
   ValidationAdapter,
   ValidationAdapterRegistration,
   ValidationAdapterOption,

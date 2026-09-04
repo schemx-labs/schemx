@@ -2,11 +2,11 @@
  * Store 的唯一实现。
  *
  * 当前值、初始值、字段交互状态和注册路径均由 FieldSignalMap 统一持有；Store
- * 只协调全表 revision、快照和 FieldArray 结构。
+ * 只协调全表 revision、快照和动态数组结构。
  *
  * @module core/store/store
  */
-import { cloneDeep, isEqual } from "es-toolkit"
+import { cloneDeep } from "es-toolkit"
 
 import { batchUpdates, createSignal, createSignalWatch, type Signal } from "../reactivity"
 import {
@@ -23,16 +23,24 @@ import { createFieldSignalMap, type FieldSignalMap } from "./fieldSignalMap"
 
 import type {
   FieldArrayChange,
-  FieldArrayHandle,
-  FieldArrayItemValue,
   FieldArrayPath,
-} from "../fieldArray"
-import type { FieldValue, NamePath, Values } from "../types"
-import type { Store, StoreFieldError, StoreOptions, StorePending } from "./types"
+  FieldValue,
+  NamePath,
+  SetValueAction,
+  SetValuesAction,
+  Values,
+} from "../types"
+import type {
+  ArrayStructureHandle,
+  Store,
+  StoreFieldError,
+  StoreOptions,
+  StorePending,
+} from "./types"
 import type { FieldKey } from "../utils/path"
 import type { ValidationRuleIssue } from "../validator/types"
 
-// 保存 FieldArray 的行 key 和最近一次结构变更，不保存数组值。
+// 保存动态数组的行 key 和最近一次结构变更，不保存数组值。
 interface ArrayState<TValues extends Values> {
   // 数组根路径。
   readonly path: NamePath<TValues>
@@ -44,17 +52,56 @@ interface ArrayState<TValues extends Values> {
   nextKey: number
 }
 
-// 描述数组根替换是普通写入还是 reset。
-interface ReplaceArrayOptions {
-  // reset 会强制重建行 key，普通 set 在值相等时可以 no-op。
-  readonly mode: "set" | "reset"
+/**
+ * 解析单字段直接值或函数式 updater。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 当前字段路径类型。
+ * @param action - 直接字段值或基于旧值计算新值的 updater。
+ * @param previousValue - 当前字段值；字段不存在时为 `undefined`。
+ * @returns 解析后的字段值。
+ */
+function resolveSetValueAction<TValues extends Values, TName extends NamePath<TValues>>(
+  action: SetValueAction<TValues, TName>,
+  previousValue: FieldValue<TValues, TName> | undefined
+): FieldValue<TValues, TName> | undefined {
+  if (typeof action !== "function") {
+    return action
+  }
+
+  return (
+    action as (
+      previousValue: FieldValue<TValues, TName>
+    ) => FieldValue<TValues, TName> | undefined
+  )(previousValue as FieldValue<TValues, TName>)
+}
+
+/**
+ * 解析批量直接值或函数式 updater。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param action - 部分表单值或基于旧值计算下一部分值的 updater。
+ * @param previousValues - 当前完整表单值快照。
+ * @returns 解析后的部分表单值。
+ */
+function resolveSetValuesAction<TValues extends Values>(
+  action: SetValuesAction<TValues>,
+  previousValues: TValues
+): Partial<TValues> {
+  if (typeof action !== "function") {
+    return action
+  }
+
+  return (action as (previousValues: Readonly<TValues>) => Partial<TValues>)(
+    previousValues
+  )
 }
 
 // Store 的唯一状态实现，统一管理值、路径状态、数组结构和快照。
 class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   // 管理唯一值树、字段级 revision 和 touched/pending 状态。
   private readonly fieldStates: FieldSignalMap<TValues>
-  // 按规范化数组路径缓存 FieldArray 结构状态。
+  // 按规范化数组路径缓存数组结构状态。
   private readonly arrays = new Map<FieldKey, ArrayState<TValues>>()
 
   // 任意当前值变更都会递增的全表版本。
@@ -85,64 +132,25 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 创建指定数组路径的内部 Handle。
+   * 创建指定数组路径的 Runtime 结构句柄。
    *
-   * Handle 的 `register` 首次调用时创建数组状态；数组值由字段状态容器统一管理，
-   * Handle 只暴露行 key、结构提交和变更订阅能力。
+   * 句柄只暴露数组路径注册、行 key 读取和结构订阅；数组值必须通过普通
+   * `setFieldValue` 或 `setFieldsValue` 更新。
    *
    * @param path - 动态数组字段路径。
-   * @returns 与数组路径绑定的 FieldArray Handle。
+   * @returns 只读数组结构句柄。
    */
-  getFieldArrayHandle<TPath extends FieldArrayPath<TValues>>(
+  getArrayStructureHandle<TPath extends FieldArrayPath<TValues>>(
     path: TPath
-  ): FieldArrayHandle<FieldArrayItemValue<FieldValue<TValues, TPath>>> {
-    type TItem = FieldArrayItemValue<FieldValue<TValues, TPath>>
-
-    // 注册数组状态并生成初始行 key。
+  ): ArrayStructureHandle {
     const register = (): void => {
       this.ensureArrayState(path)
     }
 
-    // 读取数组根当前值。
-    const getValue = (): readonly TItem[] | null | undefined => {
-      return this.fieldStates.peekFieldValue(path) as readonly TItem[] | null | undefined
-    }
-
-    // 读取数组根当前行 key。
-    const getStructure = (): readonly string[] => {
+    const getKeys = (): readonly string[] => {
       return this.getArrayState(path).keys.value
     }
 
-    /**
-     * 创建指定数量的行 key。
-     *
-     * @param count - 要创建的行 key 数量。
-     */
-    const createKeys = (count: number): readonly string[] => {
-      return this.createArrayKeys(this.getArrayState(path), count)
-    }
-
-    /**
-     * 提交数组值、行 key 和结构变化描述。
-     *
-     * @param value - 提交后的数组值。
-     * @param keys - 与数组值长度一致的行 key。
-     * @param change - 本次数组结构变化描述。
-     */
-    const commit = (
-      value: readonly TItem[],
-      keys: readonly string[],
-      change: FieldArrayChange
-    ): void => {
-      this.commitArray(path, value, keys, change)
-    }
-
-    /**
-     * 订阅数组结构变化。
-     *
-     * @param listener - 结构变化时接收变化描述的回调。
-     * @returns 取消订阅函数。
-     */
     const subscribe = (listener: (change: FieldArrayChange) => void): (() => void) => {
       const state = this.getArrayState(path)
 
@@ -158,10 +166,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
 
     return {
       register,
-      getValue,
-      getStructure,
-      createKeys,
-      commit,
+      getKeys,
       subscribe,
     }
   }
@@ -200,25 +205,29 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 写入字段当前值；已创建的 FieldArray 根会按整数组替换处理。
+   * 写入字段当前值；函数参数按 updater 解释。
    *
    * @param path - 要写入的字段路径。
-   * @param value - 要写入的值，`undefined` 也会作为路径值写入。
+   * @param action - 要写入的值或基于当前值计算下一值的 updater。
    */
   setFieldValue<TName extends NamePath<TValues>>(
     path: TName,
-    value: FieldValue<TValues, TName> | undefined
+    action: SetValueAction<TValues, TName>
   ): void {
     batchUpdates(() => {
+      const previousValue = this.fieldStates.peekFieldValue(path)
+
+      const nextValue = resolveSetValueAction(action, previousValue)
+
       const arrayState = this.arrays.get(createFieldKey(path))
 
       if (arrayState) {
-        this.replaceArrayRoot(arrayState.path, value, { mode: "set" })
+        this.updateArrayRoot(arrayState, nextValue)
 
         return
       }
 
-      this.fieldStates.setFieldValue(path, value)
+      this.fieldStates.setFieldValue(path, nextValue)
     })
   }
 
@@ -232,39 +241,39 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       const arrayState = this.arrays.get(createFieldKey(path))
 
       if (arrayState) {
-        const previousLength = this.getArrayLength(arrayState.path)
-
-        this.fieldStates.removeFieldValue(arrayState.path)
-        arrayState.keys.value = []
-        arrayState.change.value = {
-          previousLength,
-          nextLength: 0,
-          ranges: this.createRootChangeRange(previousLength, 0),
-          resetKeys: true,
-        }
+        this.removeArrayRoot(arrayState)
 
         return
       }
 
+      const previousArrayLengths = this.getNestedArrayLengths(path)
+
       this.fieldStates.removeFieldValue(path)
-      this.rebuildNestedArrayKeys(path)
+      this.rebuildNestedArrayKeys(path, previousArrayLengths)
     })
   }
 
   /**
    * 按叶子路径和已创建数组根批量写入当前值。
    *
-   * @param values - 要合并写入的字段值对象。
+   * @param action - 要合并写入的字段值对象或基于当前值计算下一值的 updater。
    */
-  setFieldsValue(values: Partial<TValues>): void {
+  setFieldsValue(action: SetValuesAction<TValues>): void {
+    const values = resolveSetValuesAction(
+      action,
+      this.fieldStates.peekFieldValue("" as NamePath<TValues>) as TValues
+    )
+
     const paths = this.getBatchWritePaths(values)
 
     batchUpdates(() => {
       for (const path of paths) {
         const value = getByPath(values, path)
 
-        if (this.arrays.has(createFieldKey(path))) {
-          this.replaceArrayRoot(path, value, { mode: "set" })
+        const arrayState = this.arrays.get(createFieldKey(path))
+
+        if (arrayState) {
+          this.updateArrayRoot(arrayState, value)
         } else {
           this.fieldStates.setFieldValue(path, value)
         }
@@ -361,21 +370,30 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * 更新字段初始值，不改变当前值或 touched/pending 状态。
    *
    * @param path - 要更新的字段路径。
-   * @param value - 新的初始值。
+   * @param action - 新的初始值或基于当前初始值计算下一值的 updater。
    */
   setInitialValue<TName extends NamePath<TValues>>(
     path: TName,
-    value: FieldValue<TValues, TName>
+    action: SetValueAction<TValues, TName>
   ): void {
-    this.fieldStates.setFieldInitialValue(path, value)
+    const previousValue = this.fieldStates.peekFieldInitialValue(path)
+
+    const nextValue = resolveSetValueAction(action, previousValue)
+
+    this.fieldStates.setFieldInitialValue(path, nextValue)
   }
 
   /**
    * 按叶子路径和已创建数组根批量更新初始值。
    *
-   * @param values - 要合并写入的初始值对象。
+   * @param action - 要合并写入的初始值对象或基于当前初始值计算下一值的 updater。
    */
-  setInitialValues(values: Partial<TValues>): void {
+  setInitialValues(action: SetValuesAction<TValues>): void {
+    const values = resolveSetValuesAction(
+      action,
+      this.fieldStates.peekFieldInitialValue("" as NamePath<TValues>) as TValues
+    )
+
     const paths = this.getBatchWritePaths(values)
 
     if (paths.length === 0) return
@@ -693,7 +711,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   /**
    * 将单个路径恢复为初始值，并清理该路径及其后代的交互状态。
    *
-   * FieldArray 根会同时重建全部行 key；普通父路径会同步重建其下的数组结构。
+   * 已注册数组根会同时重建全部行 key；普通父路径会同步重建其下的数组结构。
    *
    * @param path - 要重置的字段路径。
    */
@@ -702,20 +720,16 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       const arrayState = this.arrays.get(createFieldKey(path))
 
       if (arrayState) {
-        this.replaceArrayRoot(
-          arrayState.path,
-          this.fieldStates.peekFieldInitialValue(path),
-          {
-            mode: "reset",
-          }
-        )
+        this.resetArrayRoot(arrayState)
 
         return
       }
 
+      const previousArrayLengths = this.getNestedArrayLengths(path)
+
       this.fieldStates.setFieldValue(path, this.fieldStates.peekFieldInitialValue(path))
       this.fieldStates.clearFieldTransientState(path)
-      this.rebuildNestedArrayKeys(path)
+      this.rebuildNestedArrayKeys(path, previousArrayLengths)
     })
   }
 
@@ -735,7 +749,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   /**
    * 重置整份 Store，并可选地把传入值替换为新的初始值基线。
    *
-   * 重置会清理所有路径的 touched/pending 状态，并为已创建的 FieldArray 重建行 key。
+   * 重置会清理所有路径的 touched/pending 状态，并为已注册数组重建行 key。
    * 传入的 `values` 被视为完整基线，不存在于其中的旧路径会从当前值中移除。
    *
    * @param values - 可选的新完整初始值；省略时恢复现有初始值。
@@ -782,6 +796,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
         }
 
         arrayState.keys.value = this.createArrayKeys(arrayState, nextLength)
+        this.fieldStates.invalidateFieldArrayErrors(arrayState.path, change)
         arrayState.change.value = change
       }
 
@@ -924,7 +939,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
 
     if (!state) {
       throw new Error(
-        `[schemx] FieldArray field "${normalizeNamePath(path)}" is not registered.`
+        `[schemx] Array structure "${normalizeNamePath(path)}" is not registered.`
       )
     }
 
@@ -957,61 +972,62 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 原子提交数组值和行 key，并按变更范围清理 transient 状态。
-   *
-   * @param path - 数组根路径。
-   * @param value - 提交后的数组值。
-   * @param keys - 与数组值一一对应的行 key。
-   * @param change - 本次数组结构变化描述。
+   * 按数组项引用协调数组根的行 key，并提交结构变更。
    */
-  private commitArray(
-    path: NamePath<TValues>,
-    value: readonly unknown[],
-    keys: readonly string[],
-    change: FieldArrayChange
-  ): void {
-    const state = this.getArrayState(path)
+  private updateArrayRoot(state: ArrayState<TValues>, value: unknown): void {
+    const previousValue = this.fieldStates.peekFieldValue(state.path)
 
-    const currentValue = this.fieldStates.peekFieldValue(path)
+    if (Object.is(previousValue, value)) {
+      return
+    }
 
-    const nextValue = [...value]
+    const previousItems = Array.isArray(previousValue) ? previousValue : []
 
-    if (keys.length !== nextValue.length) {
+    const nextItems = Array.isArray(value) ? value : []
+
+    const previousKeys = [...state.keys.peek()]
+
+    if (previousKeys.length !== previousItems.length) {
       throw new Error(
-        `[schemx] FieldArray field "${normalizeNamePath(path)}" has inconsistent key state.`
+        `[schemx] Array structure "${normalizeNamePath(state.path)}" is inconsistent.`
       )
     }
 
-    const keysUnchanged = state.keys.peek().every((key, index) => key === keys[index])
+    const nextKeys = this.reconcileArrayKeys(
+      state,
+      previousItems,
+      nextItems,
+      previousKeys
+    )
 
-    if (isEqual(currentValue, nextValue) && keysUnchanged) return
+    const change: FieldArrayChange = {
+      previousLength: previousItems.length,
+      nextLength: nextItems.length,
+      ranges: this.createKeyChangeRanges(previousKeys, nextKeys),
+    }
 
-    state.keys.value = [...keys]
-    this.fieldStates.setFieldArrayValue(path, nextValue, change)
-    state.change.value = change
+    const keysChanged = !this.areKeysEqual(previousKeys, nextKeys)
+
+    if (keysChanged) {
+      state.keys.value = nextKeys
+    }
+
+    this.fieldStates.setFieldArrayValue(state.path, value, change)
+
+    if (keysChanged) {
+      state.change.value = change
+    }
   }
 
   /**
-   * 替换数组根值并为新数组生成完整行 key。
-   *
-   * @param path - 数组根路径。
-   * @param value - 新数组值，允许为 `null` 或 `undefined`。
-   * @param options - 指定普通 set 或 reset 语义。
+   * 重置数组根并强制为每一行重新分配 key。
    */
-  private replaceArrayRoot(
-    path: NamePath<TValues>,
-    value: unknown,
-    options: ReplaceArrayOptions
-  ): void {
-    const state = this.getArrayState(path)
+  private resetArrayRoot(state: ArrayState<TValues>): void {
+    const previousLength = this.getArrayLength(state.path)
 
-    const currentValue = this.fieldStates.peekFieldValue(path)
-
-    const previousLength = this.getArrayLength(path)
+    const value = this.fieldStates.peekFieldInitialValue(state.path)
 
     const nextLength = Array.isArray(value) ? value.length : 0
-
-    if (options.mode === "set" && isEqual(currentValue, value)) return
 
     const change: FieldArrayChange = {
       previousLength,
@@ -1020,15 +1036,126 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       resetKeys: true,
     }
 
-    const keys = this.createArrayKeys(state, nextLength)
-
-    state.keys.value = keys
-    this.fieldStates.setFieldArrayValue(
-      path,
-      Array.isArray(value) ? [...value] : value,
-      change
-    )
+    state.keys.value = this.createArrayKeys(state, nextLength)
+    this.fieldStates.setFieldValue(state.path, value)
+    this.fieldStates.clearFieldTransientState(state.path)
+    this.fieldStates.invalidateFieldArrayErrors(state.path, change)
     state.change.value = change
+  }
+
+  /**
+   * 删除数组根值并清空全部行 key、临时状态和过期错误。
+   */
+  private removeArrayRoot(state: ArrayState<TValues>): void {
+    const previousLength = this.getArrayLength(state.path)
+
+    const change: FieldArrayChange = {
+      previousLength,
+      nextLength: 0,
+      ranges: this.createRootChangeRange(previousLength, 0),
+      resetKeys: true,
+    }
+
+    this.fieldStates.removeFieldValue(state.path)
+    this.fieldStates.clearFieldTransientState(state.path)
+    this.fieldStates.clearFieldErrors(state.path)
+    this.fieldStates.invalidateFieldArrayErrors(state.path, change)
+    state.keys.value = []
+    state.change.value = change
+  }
+
+  /**
+   * 为新数组按旧数组项引用/原始值队列复用行 key。
+   */
+  private reconcileArrayKeys(
+    state: ArrayState<TValues>,
+    previousItems: readonly unknown[],
+    nextItems: readonly unknown[],
+    previousKeys: readonly string[]
+  ): string[] {
+    const oldIndexQueues = new Map<unknown, number[]>()
+
+    for (let index = 0; index < previousItems.length; index += 1) {
+      const item = previousItems[index]
+
+      const queue = oldIndexQueues.get(item)
+
+      if (queue) {
+        queue.push(index)
+      } else {
+        oldIndexQueues.set(item, [index])
+      }
+    }
+
+    const nextKeys: string[] = []
+
+    for (const item of nextItems) {
+      const queue = oldIndexQueues.get(item)
+
+      const previousIndex = queue?.shift()
+
+      if (previousIndex !== undefined) {
+        const key = previousKeys[previousIndex]
+
+        if (key === undefined) {
+          throw new Error(
+            `[schemx] Array structure "${normalizeNamePath(state.path)}" is inconsistent.`
+          )
+        }
+
+        nextKeys.push(key)
+      } else {
+        nextKeys.push(...this.createArrayKeys(state, 1))
+      }
+    }
+
+    return nextKeys
+  }
+
+  /**
+   * 根据新旧 key 的索引差异生成并合并影响范围。
+   */
+  private createKeyChangeRanges(
+    previousKeys: readonly string[],
+    nextKeys: readonly string[]
+  ): FieldArrayChange["ranges"] {
+    const ranges: { start: number; end: number }[] = []
+
+    let rangeStart: number | undefined
+
+    const length = Math.max(previousKeys.length, nextKeys.length)
+
+    for (let index = 0; index < length; index += 1) {
+      const changed = previousKeys[index] !== nextKeys[index]
+
+      if (changed && rangeStart === undefined) {
+        rangeStart = index
+      }
+
+      if (!changed && rangeStart !== undefined) {
+        ranges.push({ start: rangeStart, end: index - 1 })
+        rangeStart = undefined
+      }
+    }
+
+    if (rangeStart !== undefined) {
+      ranges.push({ start: rangeStart, end: length - 1 })
+    }
+
+    return ranges
+  }
+
+  /**
+   * 按顺序比较两组行 key。
+   */
+  private areKeysEqual(
+    previousKeys: readonly string[],
+    nextKeys: readonly string[]
+  ): boolean {
+    return (
+      previousKeys.length === nextKeys.length &&
+      previousKeys.every((key, index) => key === nextKeys[index])
+    )
   }
 
   /**
@@ -1060,14 +1187,46 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 重置父路径时，为其下已创建的数组状态重建行 key。
-   *
-   * @param path - 被重置的父路径。
+   * 获取指定父路径下已注册数组的当前长度。
    */
-  private rebuildNestedArrayKeys(path: NamePath<TValues>): void {
+  private getNestedArrayLengths(path: NamePath<TValues>): Map<FieldKey, number> {
+    const lengths = new Map<FieldKey, number>()
+
+    for (const state of this.arrays.values()) {
+      if (isDescendantFieldPath(state.path, path)) {
+        lengths.set(createFieldKey(state.path), this.getArrayLength(state.path))
+      }
+    }
+
+    return lengths
+  }
+
+  /**
+   * 重置或删除父路径时，为其下已注册数组重建行 key 并发布结构变化。
+   */
+  private rebuildNestedArrayKeys(
+    path: NamePath<TValues>,
+    previousLengths: ReadonlyMap<FieldKey, number>
+  ): void {
     for (const state of this.arrays.values()) {
       if (!isDescendantFieldPath(state.path, path)) continue
-      state.keys.value = this.createArrayKeys(state, this.getArrayLength(state.path))
+
+      const previousLength = previousLengths.get(createFieldKey(state.path)) ?? 0
+
+      const nextLength = this.getArrayLength(state.path)
+
+      const change: FieldArrayChange = {
+        previousLength,
+        nextLength,
+        ranges: this.createRootChangeRange(previousLength, nextLength),
+        resetKeys: true,
+      }
+
+      state.keys.value = this.createArrayKeys(state, nextLength)
+      this.fieldStates.clearFieldTransientState(state.path)
+      this.fieldStates.clearFieldErrors(state.path)
+      this.fieldStates.invalidateFieldArrayErrors(state.path, change)
+      state.change.value = change
     }
   }
 }

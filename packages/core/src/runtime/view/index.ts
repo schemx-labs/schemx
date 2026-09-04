@@ -8,10 +8,12 @@
  */
 export { subscribeViewSchemas } from "./subscribeViewSchemas"
 
-export { isSchemxViewFieldSchema, isViewGroupSchema } from "./helper"
+export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "./helper"
 
 export type {
   SchemxViewDebugMeta,
+  SchemxViewDynamicItem,
+  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,

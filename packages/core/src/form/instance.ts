@@ -14,12 +14,23 @@ import type {
   ValidationRuleIssue,
 } from "../validator"
 
-/** 将公开错误消息转换为 Store 保存的 external 问题。 */
+/**
+ * 将公开错误消息转换为 Store 保存的 external 问题。
+ *
+ * @param messages - 要转换为 external 问题的公开错误消息。
+ */
 function toExternalIssues(messages: readonly string[]): readonly ValidationRuleIssue[] {
   return messages.map((message) => ({ type: "external", message, code: "external" }))
 }
 
-/** 读取字段问题并转换为公开错误消息。 */
+/**
+ * 读取字段问题并转换为公开错误消息。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ * @param store - 保存字段问题的 Store。
+ * @param name - 要读取问题的字段路径。
+ * @returns 当前字段的公开错误消息。
+ */
 function getFieldErrorMessages<TValues extends Values>(
   store: Store<TValues>,
   name: NamePath<TValues>
@@ -27,7 +38,14 @@ function getFieldErrorMessages<TValues extends Values>(
   return store.getFieldErrors(name).map((issue) => issue.message)
 }
 
-/** 读取多个字段问题并转换为公开错误消息。 */
+/**
+ * 读取多个字段问题并转换为公开错误消息。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ * @param store - 保存字段问题的 Store。
+ * @param names - 要读取的字段路径；省略时读取全部字段。
+ * @returns 各字段及其公开错误消息的快照。
+ */
 function getFieldsErrorMessages<TValues extends Values>(
   store: Store<TValues>,
   names?: readonly NamePath<TValues>[]
@@ -40,19 +58,33 @@ function getFieldsErrorMessages<TValues extends Values>(
 
 /**
  * Form 校验完成后的生命周期回调。
+ *
+ * @typeParam TValues - 表单值对象类型。
  */
 export interface FormCallbacks<TValues extends Values> {
-  /** 校验成功后接收只读值快照的回调。 */
+  /**
+   * 校验成功后接收只读值快照的回调。
+   */
   onFinish?: (values: Readonly<TValues>) => void | Promise<void>
-  /** 校验失败后接收失败详情的回调。 */
+  /**
+   * 校验失败后接收失败详情的回调。
+   */
   onFinishFailed?: (failure: ValidationFailure<TValues>) => void
-  /** 完整表单重置完成后调用。 */
+  /**
+   * 完整表单重置完成后调用。
+   */
   onReset?: () => void
-  /** 提交流程状态变化时调用。 */
+  /**
+   * 提交流程状态变化时调用。
+   */
   onLoadingChange?: (loading: boolean) => void
 }
 
-/** 创建 Form 对外实例所需依赖。 */
+/**
+ * 创建 Form 对外实例所需依赖。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ */
 export interface CreateFormInstanceOptions<TValues extends Values> {
   model: FormModel<TValues>
   getRuntime: () => SchemaRuntime<TValues> | undefined
@@ -70,6 +102,12 @@ export interface CreateFormInstanceOptions<TValues extends Values> {
  * @param model - 提供值、错误和批处理能力的 FormModel。
  * @param instance - 提供校验、提交和字段规则能力的公开 Form 实例。
  * @returns 面向动态 renderer 的 Form API。
+ *
+ * @example
+ * ```ts
+ * const formApi = createFormApi(model, instance)
+ * const values = formApi.getFieldsValue()
+ * ```
  */
 export function createFormApi<TValues extends Values>(
   model: FormModel<TValues>,
@@ -88,7 +126,6 @@ export function createFormApi<TValues extends Values>(
   return {
     setFieldValue: model.store.setFieldValue.bind(model.store),
     setFieldsValue: model.store.setFieldsValue.bind(model.store),
-    getOrCreateFieldArray: model.getOrCreateFieldArray,
     getFieldValue: model.store.getFieldValue.bind(model.store),
     getFieldsValue: model.store.getFieldsValue.bind(model.store),
     getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
@@ -135,6 +172,13 @@ export function createFormApi<TValues extends Values>(
  *
  * @remarks
  * Runtime 断开后，读操作返回安全的空值，写操作不再触发已销毁的 Runtime。
+ * 通常由 {@link createForm} 间接调用，不建议业务代码直接组装底层依赖。
+ *
+ * @example
+ * ```ts
+ * const instance = createFormInstance(instanceOptions)
+ * const values = instance.getFieldsValue()
+ * ```
  */
 export function createFormInstance<TValues extends Values>(
   options: CreateFormInstanceOptions<TValues>
@@ -314,7 +358,6 @@ export function createFormInstance<TValues extends Values>(
   return {
     setFieldValue: model.store.setFieldValue.bind(model.store),
     setFieldsValue: model.store.setFieldsValue.bind(model.store),
-    getOrCreateFieldArray: model.getOrCreateFieldArray,
     getFieldValue: model.store.getFieldValue.bind(model.store),
     getFieldsValue: model.store.getFieldsValue.bind(model.store),
     getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
@@ -376,6 +419,10 @@ export function createFormInstance<TValues extends Values>(
 
 /**
  * 创建依赖解析超时的表单级失败结果。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ * @param values - 超时发生时应保留的表单值快照。
+ * @returns 表示依赖解析超时的失败结果。
  */
 function createDependencyTimeoutResult<TValues extends Values>(
   values: TValues

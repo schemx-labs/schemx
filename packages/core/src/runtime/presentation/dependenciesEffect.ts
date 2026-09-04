@@ -13,13 +13,14 @@ import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type {
   DependencyNode,
+  DynamicNode,
   GroupNode,
   PresentationDynamicOverrides,
   Scope,
 } from "../node"
 
 type StatefulPresentationNode<TValues extends Values> =
-  GroupNode<TValues> | DependencyNode<TValues>
+  GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * 容器依赖配置支持的动态属性键。
@@ -53,7 +54,9 @@ export interface CreatePresentationDependenciesEffectOptions<
    */
   readonly schemaLabel: string
 
-  /** 接收动态覆盖的 Group 或 Dependency 节点。 */
+  /**
+   * 接收动态覆盖的 Group、Dependency 或 Dynamic 节点。
+   */
   readonly node: StatefulPresentationNode<TValues>
 
   /**
@@ -65,7 +68,7 @@ export interface CreatePresentationDependenciesEffectOptions<
 /**
  * 创建容器级 dependencies effect。
  *
- * 该 effect 统一处理 Group 和 Dependency 的 `visible`、`readonly`、`disabled`
+ * 该 effect 统一处理 Group、Dependency 和 Dynamic 的 `visible`、`readonly`、`disabled`
  * 动态覆盖，并将解析结果写入容器 Node 的 Signal。
  *
  * @typeParam TValues - 当前表单值类型。

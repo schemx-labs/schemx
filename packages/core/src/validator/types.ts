@@ -6,12 +6,15 @@
  * @module core/validator/types
  */
 
-import type { FieldArrayChange } from "../fieldArray"
-import type { NamePath, Values } from "../types/form"
-import type { DefinedFieldValue, FieldRules, RequiredConfig } from "../types/rule"
-import type { ValidationAdapterV1 } from "../types/validationAdapter"
-
-export type { ValidationAdapterV1 } from "../types/validationAdapter"
+import type {
+  DefinedFieldValue,
+  FieldArrayChange,
+  FieldRules,
+  NamePath,
+  RequiredConfig,
+  ValidationAdapterV1,
+  Values,
+} from "../types"
 
 /**
  * 由 adapter 创建、且只能由创建它的 adapter 实例识别的规则声明。

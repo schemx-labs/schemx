@@ -17,7 +17,7 @@ import type { SchemxField, SchemxRendererKey, Values } from "../types"
 /**
  * 标准化 schema 配置。
  *
- * 合法且无需补值的 schema 会保留原引用；只有 field 使用默认组件类型或 group
+ * 合法且无需补值的 schema 会保留原引用；只有 field 使用默认组件类型或容器
  * 子节点变化时才会创建新对象。旧版 Group 与 Dependency 容器会被过滤并告警。
  *
  * @typeParam T - 表单值类型。
@@ -37,7 +37,12 @@ export function normalizeSchemas<TValues extends Values = Values>(
 ): SchemxField<TValues>[] {
   const fieldLocations = new Map<string, string>()
 
-  const normalize = (items: unknown, path: string): SchemxField<TValues>[] => {
+  const normalize = (
+    items: unknown,
+    path: string,
+    locations: Map<string, string> = fieldLocations,
+    dynamicTemplate = false
+  ): SchemxField<TValues>[] => {
     if (!Array.isArray(items)) {
       throw new CompileError(`[schemx] ${path} 必须是数组`)
     }
@@ -58,6 +63,18 @@ export function normalizeSchemas<TValues extends Values = Values>(
       const schema = item as Record<string, unknown>
 
       const kind = getSchemaKind(schema as unknown as SchemxField<TValues>)
+
+      if (
+        dynamicTemplate &&
+        kind !== "field" &&
+        kind !== "group" &&
+        kind !== "dependency"
+      ) {
+        throw new CompileError(
+          `[schemx] ${itemPath} 只能包含 Field、Group 或 Dependency Schema，不能包含 ${kind} Schema`,
+          schema
+        )
+      }
 
       if (kind === "group" && schema.componentType === "group") {
         console.warn(
@@ -107,7 +124,7 @@ export function normalizeSchemas<TValues extends Values = Values>(
 
         const fieldKey = createFieldKey(schema.name)
 
-        const previousLocation = fieldLocations.get(fieldKey)
+        const previousLocation = locations.get(fieldKey)
 
         if (previousLocation) {
           throw new CompileError(
@@ -116,7 +133,7 @@ export function normalizeSchemas<TValues extends Values = Values>(
           )
         }
 
-        fieldLocations.set(fieldKey, itemPath)
+        locations.set(fieldKey, itemPath)
       } else if (kind === "group") {
         if (typeof schema.label !== "string") {
           throw new CompileError(`[schemx] ${itemPath}.label 必须是字符串`)
@@ -126,10 +143,51 @@ export function normalizeSchemas<TValues extends Values = Values>(
           throw new CompileError(`[schemx] ${itemPath}.children 必须是数组`, schema)
         }
 
-        const children = normalize(schema.children, `${itemPath}.children`)
+        const children = normalize(
+          schema.children,
+          `${itemPath}.children`,
+          locations,
+          dynamicTemplate
+        )
 
         if (children !== schema.children) {
           normalized = { ...schema, children } as SchemxField<TValues>
+        }
+      } else if (kind === "dynamic") {
+        if (typeof schema.key !== "string" || schema.key.length === 0) {
+          throw new CompileError(`[schemx] ${itemPath}.key 必须是非空字符串`, schema)
+        }
+
+        if (typeof schema.name !== "string" || schema.name.length === 0) {
+          throw new CompileError(`[schemx] ${itemPath}.name 必须是非空字符串`, schema)
+        }
+
+        const arrayFieldKey = createFieldKey(schema.name)
+
+        const previousLocation = locations.get(arrayFieldKey)
+
+        if (previousLocation) {
+          throw new CompileError(
+            `[schemx] Duplicate field name "${schema.name}" at ${previousLocation} and ${itemPath}.`,
+            schema
+          )
+        }
+
+        locations.set(arrayFieldKey, itemPath)
+
+        if (!Array.isArray(schema.item)) {
+          throw new CompileError(`[schemx] ${itemPath}.item 必须是数组`, schema)
+        }
+
+        const itemSchemas = normalize(
+          schema.item,
+          `${itemPath}.item`,
+          new Map<string, string>(),
+          true
+        )
+
+        if (itemSchemas !== schema.item) {
+          normalized = { ...schema, item: itemSchemas } as SchemxField<TValues>
         }
       } else {
         if (

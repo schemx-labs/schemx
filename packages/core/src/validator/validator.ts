@@ -18,7 +18,6 @@ import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 import { createRequiredValidationRule } from "./built-in.rules"
 import { createStandardSchemaAdapter } from "./standardSchema.adapter"
 
-import type { FieldArrayChange } from "../fieldArray"
 import type { PresetRuleRegistry } from "../registry"
 import type { Store } from "../store"
 import type {
@@ -34,8 +33,14 @@ import type {
   ValidationRuleIssue,
   Validator,
 } from "./types"
-import type { NamePath, Values } from "../types/form"
-import type { DefinedFieldValue, FieldRule, FieldRules } from "../types/rule"
+import type {
+  DefinedFieldValue,
+  FieldArrayChange,
+  FieldRule,
+  FieldRules,
+  NamePath,
+  Values,
+} from "../types"
 
 /**
  * 创建 Core 内部 Validator 的配置。
@@ -249,6 +254,12 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     if (this.destroyed) return
 
     for (const [key, config] of this.fieldConfigs) {
+      if (createFieldKey(config.name) === createFieldKey(path)) {
+        this.abortRun(key)
+
+        continue
+      }
+
       if (isFieldArrayDescendantOutOfRange(config.name, path, change.nextLength)) {
         this.fieldConfigs.delete(key)
         this.abortRun(key)
@@ -262,6 +273,12 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     }
 
     for (const [key, record] of this.fieldRules) {
+      if (createFieldKey(record.name) === createFieldKey(path)) {
+        this.abortRun(key)
+
+        continue
+      }
+
       if (isFieldArrayDescendantOutOfRange(record.name, path, change.nextLength)) {
         this.fieldRules.delete(key)
         this.abortRun(key)

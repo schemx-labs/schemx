@@ -11,19 +11,19 @@ import { createPresentationDependenciesEffect } from "./dependenciesEffect"
 
 import type { SchemxContainerDependencies, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { DependencyNode, GroupNode } from "../node"
+import type { DependencyNode, DynamicNode, GroupNode } from "../node"
 
 /**
  * 需要维护容器状态的运行时节点类型。
  */
 type StatefulPresentationNode<TValues extends Values> =
-  GroupNode<TValues> | DependencyNode<TValues>
+  GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * 挂载容器状态和动态属性 effect。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param node - Group 或 Dependency 运行时节点。
+ * @param node - Group、Dependency 或 Dynamic 运行时节点。
  * @param context - 表单运行时上下文。
  */
 export function mountPresentationResources<TValues extends Values>(
@@ -36,7 +36,7 @@ export function mountPresentationResources<TValues extends Values>(
 /**
  * 更新容器静态状态，并仅在 dependencies 配置变化时重建状态 effect。
  *
- * @param node - Group 或 Dependency 运行时节点。
+ * @param node - Group、Dependency 或 Dynamic 运行时节点。
  * @param previousNode - 更新前的容器运行时节点快照。
  * @param context - 表单运行时上下文。
  *
@@ -73,7 +73,7 @@ export function updatePresentationResources<TValues extends Values>(
  * 释放容器状态 effect 并清理节点引用。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param node - Group 或 Dependency 运行时节点。
+ * @param node - Group、Dependency 或 Dynamic 运行时节点。
  */
 export function unmountPresentationResources<TValues extends Values>(
   node: StatefulPresentationNode<TValues>
@@ -112,7 +112,7 @@ function recreatePresentationEffect<TValues extends Values>(
     context,
     taskId: `presentation:${node.id}:dependencies`,
     node,
-    schemaLabel: `${isGroupNode(node) ? "Group" : "Dependency"} Schema "${node.key}"`,
+    schemaLabel: `${getPresentationNodeType(node)} Schema "${node.key}"`,
     scope: presentationEffectScope,
   })
 
@@ -125,11 +125,28 @@ function recreatePresentationEffect<TValues extends Values>(
 }
 
 /**
- * 判断两版容器 descriptor 是否可以复用现有动态 effect。
+ * 获取容器呈现节点的日志类型。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param node - 要识别的 Group、Dependency 或 Dynamic 节点。
+ * @returns 用于日志的节点类型名称。
+ */
+function getPresentationNodeType<TValues extends Values>(
+  node: StatefulPresentationNode<TValues>
+): "Group" | "Dependency" | "Dynamic" {
+  if (isGroupNode(node)) {
+    return "Group"
+  }
+
+  return node.type === "dynamic" ? "Dynamic" : "Dependency"
+}
+
+/**
+ * 判断两份容器 dependencies 配置是否可以复用现有动态 effect。
  *
  * @typeParam TValues - 当前表单值类型。
- * @param previousDescriptor - 上一轮容器 descriptor。
- * @param nextDescriptor - 最新容器 descriptor。
+ * @param previous - 上一轮容器 dependencies 配置。
+ * @param next - 最新容器 dependencies 配置。
  * @returns dependencies 与触发字段均未变化时返回 `true`。
  */
 function hasSameDynamicConfig<TValues extends Values>(

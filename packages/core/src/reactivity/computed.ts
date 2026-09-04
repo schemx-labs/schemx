@@ -32,6 +32,12 @@ export type ComputedSignal<TValue> = ReadonlySignal<TValue>
  * @param compute - 计算函数，内部读取的 signal 自动成为依赖
  * @param options - signals-core 原生 signal 配置
  * @returns 只读 computed signal
+ *
+ * @example
+ * ```ts
+ * const count = createSignal(1)
+ * const doubled = createComputed(() => count.value * 2)
+ * ```
  */
 export function createComputed<TValue>(
   compute: () => TValue,

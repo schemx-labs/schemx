@@ -5,11 +5,9 @@ import {
   setFieldDynamicOverrides,
 } from "../../node/__tests__/signalsTestUtils"
 
-import type { SchemxResolvedBaseField } from "../../../types"
+import type { SchemxBaseField } from "../../../types"
 
-function createTestSchema(
-  overrides: Partial<SchemxResolvedBaseField> = {}
-): SchemxResolvedBaseField {
+function createTestSchema(overrides: Partial<SchemxBaseField> = {}): SchemxBaseField {
   return {
     componentType: "input",
     label: "测试字段",
@@ -22,7 +20,7 @@ function createTestSchema(
     rules: [],
     validationTrigger: "onChange",
     ...overrides,
-  } as SchemxResolvedBaseField
+  } as SchemxBaseField
 }
 
 function readDiagnostics<T>(state: { diagnostics?: { value: T } }): T {

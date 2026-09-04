@@ -10,14 +10,13 @@ import { describe, expect, it } from "vitest"
 import {
   findSchema,
   getSchemaKind,
-  isBaseResolvedSchema,
   isBaseSchema,
   isDependencySchema,
-  isGroupResolvedSchema,
+  isDynamicSchema,
   isGroupSchema,
 } from "../schema"
 
-import type { SchemxField, SchemxResolvedField } from "../../types"
+import type { SchemxField } from "../../types"
 
 const baseField: SchemxField = {
   name: "username",
@@ -35,11 +34,18 @@ const dependencyField: SchemxField = {
   renderer: () => [],
 }
 
+const dynamicField: SchemxField = {
+  key: "users-schema",
+  name: "users",
+  item: [],
+}
+
 describe("getSchemaKind", () => {
-  it("按结构识别普通字段、Group 和 Dependency", () => {
+  it("按结构识别普通字段、Group、Dependency 和 Dynamic", () => {
     expect(getSchemaKind(baseField)).toBe("field")
     expect(getSchemaKind(groupField)).toBe("group")
     expect(getSchemaKind(dependencyField)).toBe("dependency")
+    expect(getSchemaKind(dynamicField)).toBe("dynamic")
   })
 
   it("children 优先于其他结构属性识别为 Group", () => {
@@ -60,23 +66,19 @@ describe("getSchemaKind", () => {
 })
 
 describe("Raw Schema 类型守卫", () => {
-  it("分别收窄普通字段、Group 和 Dependency", () => {
+  it("分别收窄普通字段、Group、Dependency 和 Dynamic", () => {
     expect(isBaseSchema(baseField)).toBe(true)
     expect(isGroupSchema(groupField)).toBe(true)
     expect(isDependencySchema(dependencyField)).toBe(true)
-  })
-})
+    expect(isDynamicSchema(dynamicField)).toBe(true)
 
-describe("Resolved Schema 类型守卫", () => {
-  const resolvedBase = baseField as SchemxResolvedField
-
-  const resolvedGroup = groupField as SchemxResolvedField
-
-  it("通过 children 区分 Group 与普通字段", () => {
-    expect(isBaseResolvedSchema(resolvedBase)).toBe(true)
-    expect(isBaseResolvedSchema(resolvedGroup)).toBe(false)
-    expect(isGroupResolvedSchema(resolvedGroup)).toBe(true)
-    expect(isGroupResolvedSchema(resolvedBase)).toBe(false)
+    expect(
+      isDynamicSchema({
+        key: "legacy-users-schema",
+        name: "users",
+        children: [],
+      } as never)
+    ).toBe(false)
   })
 })
 

@@ -17,14 +17,18 @@ import { createStore } from "../store"
 
 import type { ValidationRuleIssue } from "../../validator/types"
 
-/** 覆盖基础标量字段读写的 Store 测试值类型。 */
+/**
+ * 覆盖基础标量字段读写的 Store 测试值类型。
+ */
 interface TestForm {
   name: string
   age: number
   email: string
 }
 
-/** 包含嵌套对象和数组的 Store 测试值类型。 */
+/**
+ * 包含嵌套对象和数组的 Store 测试值类型。
+ */
 interface NestedForm {
   user: {
     name: string
@@ -55,22 +59,74 @@ describe("Store", () => {
     store.registerFieldPath("profile")
     store.setFieldValue("profile.city", "Shanghai" as never)
 
-    const handle = store.getFieldArrayHandle("users")
+    const handle = store.getArrayStructureHandle("users")
 
     handle.register()
-    const initialKey = handle.getStructure()[0]
+    const initialKey = handle.getKeys()[0]
 
     store.setFieldValue("users", [{ name: "Bob" }])
-    const replacedKey = handle.getStructure()[0]
+    const replacedKey = handle.getKeys()[0]
 
     expect(store.getFieldValue("name")).toBe("Jane")
     expect(store.getFieldValue("profile.city" as never)).toBe("Shanghai")
     expect(replacedKey).not.toBe(initialKey)
 
     store.resetField("users")
-    expect(handle.getStructure()[0]).not.toBe(replacedKey)
+    expect(handle.getKeys()[0]).not.toBe(replacedKey)
     expect(store.getFieldSnapshot("users")).toEqual([{ name: "Alice" }])
 
+    store.destroy()
+  })
+
+  it("updater 只执行一次，支持 undefined，返回相同引用时 no-op", () => {
+    const store = createStore<{
+      name?: string
+      users: Array<{ name: string }>
+    }>({
+      initialValues: { users: [{ name: "Alice" }] },
+    })
+
+    const structure = store.getArrayStructureHandle("users")
+
+    structure.register()
+
+    let updaterRuns = 0
+
+    let formRuns = 0
+
+    const dispose = createSignalEffect(() => {
+      formRuns += 1
+      store.getFieldsValue()
+    })
+
+    store.setFieldValue("name", (previous) => {
+      updaterRuns += 1
+
+      return previous ?? "Ada"
+    })
+
+    expect(updaterRuns).toBe(1)
+    expect(store.getFieldValue("name")).toBe("Ada")
+
+    const users = store.getFieldValue("users")
+
+    const snapshot = store.getFieldsSnapshot()
+
+    store.setFieldValue("users", (previous) => {
+      updaterRuns += 1
+
+      return previous
+    })
+
+    expect(updaterRuns).toBe(2)
+    expect(formRuns).toBe(2)
+    expect(store.getFieldsSnapshot()).toBe(snapshot)
+    expect(store.getFieldValue("users")).toBe(users)
+
+    store.setFieldValue("name", undefined)
+    expect(store.getFieldValue("name")).toBeUndefined()
+
+    dispose()
     store.destroy()
   })
 
@@ -101,33 +157,25 @@ describe("Store", () => {
       initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
     })
 
-    const handle = store.getFieldArrayHandle("users")
+    const handle = store.getArrayStructureHandle("users")
 
     handle.register()
-    expect(handle.getStructure()).toHaveLength(2)
+    expect(handle.getKeys()).toHaveLength(2)
 
     store.removeFieldValue("users")
 
     expect(Object.hasOwn(store.getFieldsValue(), "users")).toBe(false)
-    expect(handle.getStructure()).toEqual([])
+    expect(handle.getKeys()).toEqual([])
   })
 
-  it("FieldArray 订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
+  it("数组结构订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
     const store = createStore<{ users: Array<{ name: string }> }>({
       initialValues: { users: [] },
     })
 
-    const handle = store.getFieldArrayHandle("users")
+    const handle = store.getArrayStructureHandle("users")
 
     handle.register()
-
-    const firstKeys = handle.createKeys(1)
-
-    handle.commit([{ name: "Alice" }], firstKeys, {
-      previousLength: 0,
-      nextLength: 1,
-      ranges: [{ start: 0, end: 0 }],
-    })
 
     const changes: unknown[] = []
 
@@ -137,62 +185,40 @@ describe("Store", () => {
 
     expect(changes).toEqual([])
 
-    const secondKeys = [...firstKeys, ...handle.createKeys(1)]
-
-    const secondChange = {
-      previousLength: 1,
-      nextLength: 2,
-      ranges: [{ start: 1, end: 1 }],
-    }
-
-    const thirdKeys = [...secondKeys, ...handle.createKeys(1)]
-
-    const thirdChange = {
-      previousLength: 2,
-      nextLength: 3,
-      ranges: [{ start: 2, end: 2 }],
-    }
-
     batchUpdates(() => {
-      handle.commit([{ name: "Alice" }, { name: "Bob" }], secondKeys, secondChange)
-      handle.commit(
-        [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }],
-        thirdKeys,
-        thirdChange
-      )
+      store.setFieldValue("users", [{ name: "Alice" }, { name: "Bob" }])
+      store.setFieldValue("users", [
+        { name: "Alice" },
+        { name: "Bob" },
+        { name: "Carol" },
+      ])
     })
 
-    expect(changes).toEqual([thirdChange])
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({
+      previousLength: 2,
+      nextLength: 3,
+      ranges: [{ start: 0, end: 2 }],
+    })
 
-    handle.commit(
-      [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }, { name: "Dora" }],
-      [...thirdKeys, ...handle.createKeys(1)],
-      {
-        previousLength: 3,
-        nextLength: 4,
-        ranges: [{ start: 3, end: 3 }],
-      }
-    )
+    store.setFieldValue("users", [
+      { name: "Alice" },
+      { name: "Bob" },
+      { name: "Carol" },
+      { name: "Dora" },
+    ])
 
     expect(changes).toHaveLength(2)
 
     unsubscribe()
 
-    handle.commit(
-      [
-        { name: "Alice" },
-        { name: "Bob" },
-        { name: "Carol" },
-        { name: "Dora" },
-        { name: "Eve" },
-      ],
-      [...handle.getStructure(), ...handle.createKeys(1)],
-      {
-        previousLength: 4,
-        nextLength: 5,
-        ranges: [{ start: 4, end: 4 }],
-      }
-    )
+    store.setFieldValue("users", [
+      { name: "Alice" },
+      { name: "Bob" },
+      { name: "Carol" },
+      { name: "Dora" },
+      { name: "Eve" },
+    ])
 
     expect(changes).toHaveLength(2)
 
@@ -431,6 +457,27 @@ describe("Store", () => {
       expect(store.getFieldValue("age")).toBe(30)
       expect(store.getFieldValue("email")).toBe("j@t.com")
     })
+
+    it("批量 updater 只执行一次并读取当前值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setFieldsValue((previousValues) => {
+        updaterRuns += 1
+
+        return { name: `${previousValues.name} Doe`, age: previousValues.age + 1 }
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getFieldsValue()).toEqual({
+        name: "John Doe",
+        age: 26,
+        email: "j@t.com",
+      })
+    })
   })
 
   // 验证全量快照的深拷贝、版本缓存和无响应式依赖特性。
@@ -547,6 +594,25 @@ describe("Store", () => {
       expect(store.isFieldTouched("name")).toBe(true)
     })
 
+    it("setInitialValue updater 读取初始值而非当前值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setFieldValue("name", "Jane")
+      store.setInitialValue("name", (previousValue) => {
+        updaterRuns += 1
+
+        return `${previousValue} Doe`
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getFieldValue("name")).toBe("Jane")
+      expect(store.getInitialValue("name")).toBe("John Doe")
+    })
+
     it("setInitialValues 批量更新初始值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
@@ -557,6 +623,27 @@ describe("Store", () => {
       expect(store.getInitialValues().age).toBe(99)
       // 未更新的字段保持原值
       expect(store.getInitialValues().email).toBe("j@t.com")
+    })
+
+    it("setInitialValues updater 只执行一次并读取初始值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setInitialValues((previousValues) => {
+        updaterRuns += 1
+
+        return { name: `${previousValues.name} Doe`, age: previousValues.age + 1 }
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getInitialValues()).toEqual({
+        name: "John Doe",
+        age: 26,
+        email: "j@t.com",
+      })
     })
 
     it("setInitialValues 空对象不报错", () => {

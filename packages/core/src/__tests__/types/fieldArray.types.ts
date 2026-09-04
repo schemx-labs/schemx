@@ -1,40 +1,73 @@
-import { createForm, type FieldArrayPath } from "../../index"
+import {
+  createForm,
+  type FieldArrayItemValue,
+  type FieldArrayPath,
+  type SetValueAction,
+  type SetValuesAction,
+} from "../../index"
 
 interface Values {
+  name: string
+  profile: {
+    city: string
+  }
   users: Array<{ name: string }>
   tags: string[]
   tuple: [string, string]
-  mixed: string[] | string
-  sections: Array<{ items: string[] }>
-  profile: { name: string }
 }
 
 const form = createForm<Values>()
 
-const users = form.getOrCreateFieldArray("users")
+form.setFieldValue("name", (previous) => {
+  const value: string | undefined = previous
 
-users.append({ name: "Alice" })
-users.appendMany([{ name: "Bob" }])
-users.insertMany(0, [{ name: "Carol" }])
-users.update(0, { name: "Carol" })
+  return value ?? ""
+})
+
+form.setFieldValue("profile.city", (previous) => {
+  const value: string | undefined = previous
+
+  return value ?? ""
+})
+
+form.setFieldValue("users", (previous) => {
+  const users: Values["users"] | undefined = previous
+
+  return [...(users ?? []), { name: "Ada" }]
+})
 
 const usersPath: FieldArrayPath<Values> = "users"
 
-const tags = form.getOrCreateFieldArray("tags")
+const tagsPath: FieldArrayPath<Values> = "tags"
 
-tags.append("tag")
+const user: FieldArrayItemValue<Values["users"]> = { name: "Grace" }
 
-// @ts-expect-error tuple 不是可动态增删的 FieldArray。
-form.getOrCreateFieldArray("tuple")
+const updater: SetValueAction<Values, "users"> = (previous) => previous ?? []
 
-// @ts-expect-error 数组与标量联合值不能创建 FieldArray。
-form.getOrCreateFieldArray("mixed")
+const valuesUpdater: SetValuesAction<Values> = (previousValues) => ({
+  name: previousValues.name,
+})
 
-// @ts-expect-error 当前 FieldArray 不支持嵌套数组路径。
-form.getOrCreateFieldArray("sections.0.items")
+form.setInitialValue("name", (previous) => previous ?? "")
+form.setFieldsValue((previousValues) => ({ name: previousValues.name }))
+form.setInitialValues((previousValues) => ({ name: previousValues.name }))
 
-// @ts-expect-error 只有数组字段路径可以创建 FieldArray。
-form.getOrCreateFieldArray("profile.name")
+// @ts-expect-error updater 必须返回 users 数组值。
+form.setFieldValue("users", () => "invalid")
+
+// @ts-expect-error 批量 updater 必须返回部分表单值。
+form.setFieldsValue(() => ({ name: 1 }))
+
+// @ts-expect-error tuple 不是可动态重排的数组路径。
+const tuplePath: FieldArrayPath<Values> = "tuple"
+
+// @ts-expect-error 旧 FieldArray API 不再存在。
+form.getOrCreateFieldArray("users")
 
 void usersPath
+void tagsPath
+void user
+void updater
+void valuesUpdater
+void tuplePath
 form.destroy()

@@ -1,3 +1,12 @@
+/**
+ * SchemaRuntime 的创建与生命周期管理。
+ *
+ * 将 Schema source、Node tree、资源生命周期、视图投影和 Scheduler 组合为一个
+ * 可挂载、更新、订阅和销毁的运行时实例。
+ *
+ * @module core/runtime/createSchemaRuntime
+ */
+
 import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
 import { normalizeSchemas } from "../utils"
 
@@ -40,7 +49,9 @@ import type {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface CreateSchemaRuntimeOptions<TValues extends Values> {
-  /** Runtime 订阅并协调的根 Schema source。 */
+  /**
+   * Runtime 订阅并协调的根 Schema source。
+   */
   schemas: SchemxSchemas<TValues>
   /**
    * Runtime 访问字段状态和初始值的最小 Store Port。
@@ -66,7 +77,9 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    * 按字段路径配置的表单级校验规则。
    */
   fieldRules?: SchemxFieldRulesMap<TValues>
-  /** 按 Renderer 类型配置的静态默认 Props。 */
+  /**
+   * 按 Renderer 类型配置的静态默认 Props。
+   */
   rendererProps?: SchemxRendererPropsMap<TValues>
   /**
    * 未注册 renderer 的 fallback 类型。
@@ -76,9 +89,13 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    * Runtime 生命周期钩子。
    */
   lifecycleHooks?: NodeLifecycleHooks<ContainerNode<TValues>>
-  /** 是否启用 Runtime diagnostics。 */
+  /**
+   * 是否启用 Runtime diagnostics。
+   */
   debug?: boolean
-  /** Scheduler 时间片与 idle 任务配置。 */
+  /**
+   * Scheduler 时间片与 idle 任务配置。
+   */
   schedulerOptions?: SchedulerOptions
 }
 
@@ -128,7 +145,7 @@ export interface SchemaRuntime<TValues extends Values> {
     callback: (schemas: readonly SchemxViewSchema<TValues>[]) => void
   ): () => void
   /**
-   * 等待 dependency effect 进入空闲状态。
+   * 等待 Runtime 当前所有调度任务进入空闲状态，包括 dependency effect 和 idle 任务。
    *
    * @param timeout - 最大等待时间（毫秒），默认 `10000`。
    * @returns 在超时前进入空闲状态时返回 `true`。
@@ -136,6 +153,9 @@ export interface SchemaRuntime<TValues extends Values> {
   waitForIdle(timeout?: number): Promise<boolean>
   /**
    * 仅等待 normal/post 任务及其异步工作完成，不等待 idle 后台任务。
+   *
+   * @param timeout - 最大等待时间（毫秒），默认 `10000`。
+   * @returns 在超时前进入关键空闲状态时返回 `true`。
    */
   waitForCriticalIdle(timeout?: number): Promise<boolean>
   /**
@@ -153,6 +173,19 @@ export interface SchemaRuntime<TValues extends Values> {
  *
  * @remarks
  * Runtime 直接依赖 Store 与 Validator 的最小能力集合。
+ *
+ * @example
+ * ```ts
+ * const runtime = createSchemaRuntime({
+ *   schemas,
+ *   store,
+ *   validation,
+ *   instance,
+ *   formApi,
+ *   schemaConfig,
+ * })
+ * runtime.mount()
+ * ```
  */
 export function createSchemaRuntime<TValues extends Values>(
   options: CreateSchemaRuntimeOptions<TValues>
@@ -228,6 +261,8 @@ export function createSchemaRuntime<TValues extends Values>(
 
   /**
    * 将最新 Schema 提交给根节点协调。
+   *
+   * @param nextSchemas - 最新的根 Schema 列表。
    */
   const applySchemas = (nextSchemas: readonly SchemxField<TValues>[]): void => {
     if (disposed) {
@@ -299,6 +334,9 @@ export function createSchemaRuntime<TValues extends Values>(
 
   /**
    * 订阅根节点视图 Schema 的变化。
+   *
+   * @param callback - 视图 Schema 更新时调用的回调。
+   * @returns 取消订阅函数。
    */
   const subscribeRuntimeViewSchemas = (
     callback: (schemas: readonly SchemxViewSchema<TValues>[]) => void
@@ -308,6 +346,9 @@ export function createSchemaRuntime<TValues extends Values>(
 
   /**
    * 等待调度器及 dependency effect 完成当前批次。
+   *
+   * @param timeout - 最大等待时间（毫秒）。
+   * @returns 在超时前进入空闲状态时返回 `true`。
    */
   const waitForIdle = (timeout = 10000): Promise<boolean> => {
     return scheduler.whenIdle(timeout)
@@ -315,6 +356,9 @@ export function createSchemaRuntime<TValues extends Values>(
 
   /**
    * 提交与校验使用的关键空闲边界，不被后台 idle 任务阻塞。
+   *
+   * @param timeout - 最大等待时间（毫秒）。
+   * @returns 在超时前进入关键空闲状态时返回 `true`。
    */
   const waitForCriticalIdle = (timeout = 10000): Promise<boolean> => {
     return scheduler.whenIdle({ timeout, includeIdle: false })

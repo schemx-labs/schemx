@@ -27,7 +27,9 @@ interface TestForm {
   email: string
 }
 
-/** 覆盖 FieldArray 配置失效的测试表单。 */
+/**
+ * 覆盖 FieldArray 配置失效的测试表单。
+ */
 interface ArrayForm {
   users: Array<{
     name: string
@@ -39,20 +41,30 @@ interface ArrayForm {
  */
 const baseValues: TestForm = { name: "John", age: 25, email: "j@t.com" }
 
-/** Validator 测试工厂的可选覆盖配置。 */
+/**
+ * Validator 测试工厂的可选覆盖配置。
+ */
 interface TestValidatorOptions<TValues extends Values> extends Pick<
   CreateValidatorOptions<TValues>,
   "onRuleError" | "validationConcurrency"
 > {
-  /** 测试用的字段状态 Store。 */
+  /**
+   * 测试用的字段状态 Store。
+   */
   readonly fieldStore?: Store<TValues>
-  /** 测试用的命名规则 Registry。 */
+  /**
+   * 测试用的命名规则 Registry。
+   */
   readonly presetRuleRegistry?: PresetRuleRegistry
-  /** 测试用的 adapter 列表。 */
+  /**
+   * 测试用的 adapter 列表。
+   */
   readonly validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
-/** 创建带有必传 Registry 和 Store 的 Validator。 */
+/**
+ * 创建带有必传 Registry 和 Store 的 Validator。
+ */
 function createTestValidator<TValues extends Values>(
   options: TestValidatorOptions<TValues> = {}
 ): Validator<TValues> {
@@ -65,7 +77,9 @@ function createTestValidator<TValues extends Values>(
   })
 }
 
-/** 为测试字段写入统一的原始规则配置。 */
+/**
+ * 为测试字段写入统一的原始规则配置。
+ */
 function setTestRules<TValues extends Values, TName extends NamePath<TValues>>(
   validator: Validator<TValues>,
   name: TName,

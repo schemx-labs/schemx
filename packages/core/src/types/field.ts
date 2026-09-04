@@ -324,9 +324,13 @@ export interface SchemxBase<
    * 普通字段不能在顶层声明这些属性；Renderer 配置应放入 `componentProps`。
    */
   children?: never
-  /** 普通字段不使用结构化依赖目标字段。 */
+  /**
+   * 普通字段不使用结构化依赖目标字段。
+   */
   to?: never
-  /** 普通字段不使用动态 Schema renderer。 */
+  /**
+   * 普通字段不使用动态 Schema renderer。
+   */
   renderer?: never
 }
 
@@ -372,19 +376,3 @@ export type SchemxBaseField<TValues extends Values = Values> = SchemxBase<
   NamePath<TValues>,
   SchemxRendererKey<TValues>
 >
-
-/**
- * 从字段联合类型中移除动态依赖配置，保留编译后的静态字段。
- */
-type SchemxResolvedBaseFieldItem<TField> = TField extends unknown
-  ? Omit<TField, "dependencies">
-  : never
-
-/**
- * 编译后的字段静态 schema。
- *
- * 校验和动态依赖由 FieldDescriptor 顶层字段承载，避免静态默认值、
- * 校验规则和运行时动态派生规则混在同一个对象里。
- */
-export type SchemxResolvedBaseField<TValues extends Values = Values> =
-  SchemxResolvedBaseFieldItem<SchemxBaseField<TValues>>

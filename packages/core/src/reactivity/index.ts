@@ -9,7 +9,6 @@
 
 export {
   createSignal,
-  type DeepReadonlySignal,
   type ReadonlySignal,
   type Signal,
   type SignalOptions,

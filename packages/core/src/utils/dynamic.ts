@@ -126,6 +126,21 @@ export async function resolveDynamicProp<TValue, TValues extends Values = Values
  *
  * 保持输入映射表的键名和结果类型；只负责解析，不做 debounce、
  * 生命周期判断或过期结果丢弃。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TProps - 属性名到解析后值类型的映射。
+ * @param entries - 待解析的属性条目映射。
+ * @param formValues - 当前表单值，作为动态函数的入参。
+ * @returns 保持属性键名的解析结果。
+ *
+ * @example
+ * ```ts
+ * const values = await resolveDynamicProps(
+ *   { visible: { value: (form) => form.enabled, defaultValue: false } },
+ *   { enabled: true }
+ * )
+ * // values.visible === true
+ * ```
  */
 export async function resolveDynamicProps<
   TValues extends Values,

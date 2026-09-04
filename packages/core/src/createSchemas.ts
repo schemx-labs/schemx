@@ -180,7 +180,9 @@ export function createSchemas<TValues extends Values = Values>(
   schemas: readonly SchemxField<TValues>[]
 ): SchemxSchemas<TValues>
 
-/** 创建并返回可响应式更新的 schema source 实现。 */
+/**
+ * 创建并返回可响应式更新的 schema source 实现。
+ */
 export function createSchemas<TValues extends Values = Values>(
   schemas: readonly SchemxField<TValues>[] = []
 ): SchemxSchemas<TValues> {

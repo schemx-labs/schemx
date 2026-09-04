@@ -5,11 +5,10 @@
  */
 
 export {
-  isBaseResolvedSchema,
-  isGroupResolvedSchema,
   isBaseSchema,
   isGroupSchema,
   isDependencySchema,
+  isDynamicSchema,
   findSchema,
 } from "./schema"
 

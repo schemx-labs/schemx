@@ -13,6 +13,11 @@ import {
   updateDependencyResources,
 } from "../dependency"
 import {
+  mountDynamicResources,
+  unmountDynamicResources,
+  updateDynamicResources,
+} from "../dynamic/resources"
+import {
   mountFieldResources,
   unmountFieldResources,
   updateFieldResources,
@@ -29,6 +34,7 @@ import {
 
 import {
   isDependencyNode,
+  isDynamicNode,
   isFieldNode,
   isGroupNode,
   isRootNode,
@@ -85,9 +91,15 @@ export interface NodeLifecycle<TValues extends Values = Values> {
   discard(node: SchemaNode<TValues>): void
 }
 
-/** Node 卸载时的值清理选项。 */
+/**
+ * Node 卸载时的值清理选项。
+ */
 export interface NodeUnmountOptions {
-  /** 是否删除字段当前值。 */
+  /**
+   * 是否删除字段当前值。
+   *
+   * 仅对 FieldNode 生效；省略或为 `false` 时保留当前值。
+   */
   readonly isRemoveFieldValue?: boolean
 }
 
@@ -220,6 +232,16 @@ export function updateNodeResources<TValues extends Values>(
       dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
       effectiveState: createComputed(() => effectiveState),
     }
+  } else if (isDynamicNode(node)) {
+    const effectiveState = node.effectiveState.peek()
+
+    previousNode = {
+      ...node,
+      staticSchema: createSignal(node.staticSchema.peek()),
+      dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
+      effectiveState: createComputed(() => effectiveState),
+      dynamicRows: createSignal(node.dynamicRows.peek()),
+    }
   } else {
     const effectiveState = node.effectiveState.peek()
 
@@ -242,6 +264,7 @@ export function updateNodeResources<TValues extends Values>(
  * @typeParam TValues - 表单值类型。
  * @param node - 需要释放资源的节点。
  * @param context - 表单运行时上下文。
+ * @param options - 是否在卸载字段节点时删除其当前值。
  *
  * @example
  * ```ts
@@ -291,6 +314,13 @@ function updateDomainResources<TValues extends Values>(
     return
   }
 
+  if (isDynamicNode(node) && isDynamicNode(previousNode)) {
+    updatePresentationResources(node, previousNode, context)
+    updateDynamicResources(node, context)
+
+    return
+  }
+
   if (isDependencyNode(node) && isDependencyNode(previousNode)) {
     updateDependencyResources(node, previousNode, context)
 
@@ -324,6 +354,13 @@ function mountDomainResources<TValues extends Values>(
     return
   }
 
+  if (isDynamicNode(node)) {
+    mountPresentationResources(node, context)
+    mountDynamicResources(node, context)
+
+    return
+  }
+
   mountDependencyResources(node, context)
 }
 
@@ -344,6 +381,13 @@ function unmountDomainResources<TValues extends Values>(
   }
 
   if (isGroupNode(node)) {
+    unmountPresentationResources(node)
+
+    return
+  }
+
+  if (isDynamicNode(node)) {
+    unmountDynamicResources(node)
     unmountPresentationResources(node)
 
     return
@@ -387,6 +431,13 @@ function applyNode<TValues extends Values>(
   }
 
   if (isDependencyNode(node) && isDependencyNode(desired)) {
+    node.configToken = desired.configToken
+    node.staticSchema.value = desired.staticSchema.peek()
+
+    return
+  }
+
+  if (isDynamicNode(node) && isDynamicNode(desired)) {
     node.configToken = desired.configToken
     node.staticSchema.value = desired.staticSchema.peek()
 

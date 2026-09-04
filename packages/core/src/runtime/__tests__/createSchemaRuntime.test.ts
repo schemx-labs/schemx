@@ -91,10 +91,26 @@ function createTestStorePort<TValues extends Values>(): RuntimeStorePort<TValues
   return {
     registerFieldPath() {},
     unregisterFieldPath() {},
+    getArrayStructureHandle() {
+      return {
+        register() {},
+        getKeys() {
+          return []
+        },
+        subscribe() {
+          return () => {}
+        },
+      }
+    },
     getFieldValue(name) {
       return values.get(String(name)) as never
     },
-    setFieldValue(name, value) {
+    setFieldValue(name, action) {
+      const value =
+        typeof action === "function"
+          ? (action as (previousValue: unknown) => unknown)(values.get(String(name)))
+          : action
+
       values.set(String(name), value)
     },
     removeFieldValue() {},
@@ -116,5 +132,6 @@ function createTestValidationPort<
     setFieldConfig() {},
     setFieldRules() {},
     removeField() {},
+    invalidateFieldArray() {},
   }
 }

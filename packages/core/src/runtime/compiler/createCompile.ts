@@ -10,7 +10,7 @@
 
 import { mergeAndResolveSchemxConfig } from "../../config"
 import { createComputed, createSignal } from "../../reactivity"
-import { isDependencySchema, isGroupSchema } from "../../utils"
+import { isDependencySchema, isDynamicSchema, isGroupSchema } from "../../utils"
 import { isSchemaNode } from "../node/helper"
 import { createScope } from "../node/scope"
 
@@ -28,6 +28,7 @@ import type { Compile, CompileOptions } from "./types"
 import type {
   SchemxBaseField,
   SchemxDependencyField,
+  SchemxDynamicField,
   SchemxField,
   SchemxGroupField,
   SchemxInstance,
@@ -36,6 +37,7 @@ import type {
 } from "../../types"
 import type {
   DependencyNode,
+  DynamicNode,
   FieldDynamicOverrides,
   FieldNode,
   FieldValidationSchema,
@@ -121,6 +123,64 @@ export function createCompile<TValues extends Values = Values>(
     const configToken = getConfigToken(schema, key, compileCache)
 
     const id = nextId++
+
+    // Dynamic 节点只保存数组容器状态；其 item 模板由数组结构 effect 展开。
+    if (isDynamicSchema(schema)) {
+      const runtimeStaticSchema: SchemxDynamicField<TValues> = {
+        ...schema,
+        key,
+        visible: schema.visible ?? compileOptions.schemaConfig.visible,
+        readonly: schema.readonly ?? compileOptions.schemaConfig.readonly,
+        disabled: schema.disabled ?? compileOptions.schemaConfig.disabled,
+      }
+
+      const staticSchema = createSignal(runtimeStaticSchema, {
+        name: `dynamic:${id}:staticSchema`,
+      })
+
+      const dynamicOverrides = createSignal<PresentationDynamicOverrides>(
+        {},
+        {
+          name: `presentation:${id}:dynamicOverrides`,
+        }
+      )
+
+      const inheritedState = createComputed(() => {
+        const parent = node.parent
+
+        return parent && isSchemaNode(parent)
+          ? parent.effectiveState.value
+          : DEFAULT_PRESENTATION_STATE
+      })
+
+      const effectiveState = createComputed(() =>
+        resolvePresentationState(
+          staticSchema.value,
+          dynamicOverrides.value,
+          inheritedState.value
+        )
+      )
+
+      const node: DynamicNode<TValues> = {
+        id,
+        key,
+        type: "dynamic",
+        parent: null,
+        scope: scope ?? createScope(),
+        disposed: createSignal(false),
+        configToken,
+        staticSchema,
+        dynamicOverrides,
+        effectiveState,
+        presentationEffectScope: null,
+        dynamicEffectScope: null,
+        dynamicRows: createSignal([]),
+        viewSchemas: null,
+        childNodes: createSignal([]),
+      }
+
+      return node
+    }
 
     // Group 节点只保存静态配置和呈现状态，children 由 reconciler 继续编译。
     if (isGroupSchema(schema)) {

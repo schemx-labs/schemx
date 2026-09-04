@@ -1,7 +1,7 @@
 /**
  * Node 子系统类型定义。
  *
- * 定义所有 Node 类型（root / field / group / dependency）、
+ * 定义所有 Node 类型（root / field / group / dependency / dynamic）、
  * 生命周期接口（Scope）、
  * 以及创建选项（Create*Options）。
  *
@@ -14,8 +14,8 @@ import type {
   SchemxBaseField,
   SchemxComponentProps,
   SchemxDependencyField,
+  SchemxDynamicField,
   SchemxGroupField,
-  SchemxResolvedBaseField,
   Values,
 } from "../../types"
 import type { FieldRules } from "../../types/rule"
@@ -88,7 +88,7 @@ export interface CleanupRecord {
 /**
  * Runtime node 支持的节点类型。
  */
-export type NodeType = "root" | "field" | "group" | "dependency"
+export type NodeType = "root" | "field" | "group" | "dependency" | "dynamic"
 
 /**
  * Node 内部稳定 id。
@@ -96,7 +96,7 @@ export type NodeType = "root" | "field" | "group" | "dependency"
 export type NodeId = number
 
 /**
- * Group、Dependency 和 Field 共享的有效呈现状态。
+ * Group、Dependency、Dynamic 和 Field 共享的有效呈现状态。
  */
 export interface PresentationStaticState {
   /**
@@ -138,7 +138,7 @@ export type FieldDynamicOverrideKey =
  * @typeParam TValues - 表单值类型。
  */
 export type FieldDynamicOverrides<TValues extends Values = Values> = Partial<
-  Pick<SchemxResolvedBaseField<TValues>, FieldDynamicOverrideKey>
+  Pick<SchemxBaseField<TValues>, FieldDynamicOverrideKey>
 >
 
 /**
@@ -186,27 +186,27 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
   /**
    * Renderer 类型。
    */
-  readonly componentType: SchemxResolvedBaseField<TValues>["componentType"]
+  readonly componentType: SchemxBaseField<TValues>["componentType"]
   /**
    * 字段标签。
    */
   readonly label: string
   /**
-   * 字段及其后代是否可见。
+   * 字段是否可见。
    */
   readonly visible: boolean
   /**
-   * 字段及其后代是否禁用。
+   * 字段是否禁用。
    */
   readonly disabled: boolean
   /**
-   * 字段及其后代是否只读。
+   * 字段是否只读。
    */
   readonly readonly: boolean
   /**
    * 字段的最终必填配置。
    */
-  readonly required: SchemxResolvedBaseField<TValues>["required"]
+  readonly required: SchemxBaseField<TValues>["required"]
   /**
    * 是否显示必填标记。
    */
@@ -230,7 +230,7 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
   /**
    * 字段校验触发时机。
    */
-  readonly validationTrigger: SchemxResolvedBaseField<TValues>["validationTrigger"]
+  readonly validationTrigger: SchemxBaseField<TValues>["validationTrigger"]
 }
 
 /**
@@ -242,15 +242,15 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
  */
 export interface FieldValidationSchema<TValues extends Values = Values> {
   /**
-   * 字段及其后代是否可见。
+   * 字段是否可见。
    */
   readonly visible: boolean
   /**
-   * 字段及其后代是否只读。
+   * 字段是否只读。
    */
   readonly readonly: boolean
   /**
-   * 字段及其后代是否禁用。
+   * 字段是否禁用。
    */
   readonly disabled: boolean
   /**
@@ -260,31 +260,11 @@ export interface FieldValidationSchema<TValues extends Values = Values> {
   /**
    * 字段的最终必填配置。
    */
-  readonly required: SchemxResolvedBaseField<TValues>["required"]
+  readonly required: SchemxBaseField<TValues>["required"]
   /**
    * 字段的最终规则声明。
    */
   readonly rules: FieldRules<TValues, NamePath<TValues>>
-}
-
-/**
- * 字段动态覆盖更新的诊断元数据。
- *
- * @typeParam TValues - 表单值类型。
- */
-export interface DynamicOverrideMeta<TValues extends Values = Values> {
-  /**
-   * 动态覆盖的来源。
-   */
-  readonly source: "dependencies"
-  /**
-   * 触发本次覆盖解析的字段路径。
-   */
-  readonly triggerFields: readonly NamePath<TValues>[]
-  /**
-   * 解析或执行覆盖时产生的错误。
-   */
-  readonly error?: Error | null
 }
 
 /**
@@ -526,33 +506,111 @@ export interface DependencyNode<
 }
 
 /**
+ * DynamicNode - 动态数组节点。
+ *
+ * Dynamic 节点根据 FieldArray 的行结构展开 item 模板；节点本身只保存数组
+ * 容器配置，展开后的 Field/Group 节点仍由同一棵 Node 树管理。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface DynamicNode<TValues extends Values = Values> extends BaseNode<TValues> {
+  /**
+   * 动态数组节点类型标记。
+   */
+  readonly type: "dynamic"
+
+  /**
+   * 动态数组节点的父容器；根 Dynamic 的 parent 为 `null`。
+   */
+  parent: ParentNode<TValues> | null
+
+  /**
+   * 当前 Dynamic 配置的身份令牌。
+   */
+  configToken: symbol
+
+  /**
+   * 编译后的 Dynamic 静态配置。
+   */
+  readonly staticSchema: Signal<SchemxDynamicField<TValues>>
+
+  /**
+   * Dynamic dependencies 产生的动态呈现覆盖。
+   */
+  readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
+
+  /**
+   * Dynamic 继承祖先状态并合并自身配置后的呈现状态。
+   */
+  readonly effectiveState: ComputedSignal<PresentationStaticState>
+
+  /**
+   * Dynamic 呈现 dependencies effect 使用的资源作用域。
+   */
+  presentationEffectScope: Scope | null
+
+  /**
+   * Dynamic 数组结构同步 effect 使用的资源作用域。
+   */
+  dynamicEffectScope: Scope | null
+
+  /**
+   * 当前数组行的稳定 key 与索引快照。
+   */
+  readonly dynamicRows: Signal<readonly DynamicRowState[]>
+
+  /**
+   * 展开后的数组项 Field/Group 节点。
+   */
+  readonly childNodes: Signal<readonly SchemaNode<TValues>[]>
+}
+
+/**
+ * Dynamic Node 向 ViewSchema 投影的数组行结构。
+ */
+export interface DynamicRowState {
+  /**
+   * FieldArray 分配的稳定行 key。
+   */
+  readonly key: string
+  /**
+   * 当前数组索引。
+   */
+  readonly index: number
+}
+
+/**
  * 所有 Node 的联合类型。
  *
  * @typeParam TValues - 表单值类型。
  */
 export type ContainerNode<TValues extends Values = Values> =
-  RootNode<TValues> | FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
+  | RootNode<TValues>
+  | FieldNode<TValues>
+  | GroupNode<TValues>
+  | DependencyNode<TValues>
+  | DynamicNode<TValues>
 
 /**
  * 除 root 外，所有由 schema 创建的 Node。
  *
- * 即 FieldNode | GroupNode | DependencyNode。
+ * 即 FieldNode | GroupNode | DependencyNode | DynamicNode。
  *
  * @typeParam TValues - 表单值类型。
  */
 export type SchemaNode<TValues extends Values = Values> =
-  FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
+  FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * 可以承载子节点的 Node。
  *
- * 即 RootNode | GroupNode | DependencyNode。
+ * 即 RootNode | GroupNode | DependencyNode | DynamicNode。
  * field 节点没有子节点。
  *
  * @typeParam TValues - 表单值类型。
  */
 export type ParentNode<TValues extends Values = Values> =
-  RootNode<TValues> | GroupNode<TValues> | DependencyNode<TValues>
+  RootNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * RootNode 创建选项。

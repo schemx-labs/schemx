@@ -132,28 +132,3 @@ export const excludeSchemxConfigKeys = [
  * 需要排除的 Schema 配置字段名称。
  */
 export type ExcludeSchemxConfigKeys = (typeof excludeSchemxConfigKeys)[number]
-
-/**
- * @deprecated 请使用 `defaultSchemxConfig`。
- */
-export const schemaConfig = defaultSchemxConfig
-
-/**
- * @deprecated 请使用 `SchemxConfigKey`。
- */
-export type SchemaConfigKey = SchemxConfigKey
-
-/**
- * @deprecated 请使用 `defaultSchemxConfigKeys`。
- */
-export const schemaConfigKeys = defaultSchemxConfigKeys
-
-/**
- * @deprecated 请使用 `excludeSchemxConfigKeys`。
- */
-export const excludeSchemaConfigKeys = excludeSchemxConfigKeys
-
-/**
- * @deprecated 请使用 `ExcludeSchemxConfigKeys`。
- */
-export type ExcludeSchemaConfigKeys = ExcludeSchemxConfigKeys

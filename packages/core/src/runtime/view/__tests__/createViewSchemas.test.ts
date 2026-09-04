@@ -24,11 +24,7 @@ import {
 } from "../createViewSchemas"
 import { isSchemxViewFieldSchema } from "../helper"
 
-import type {
-  SchemxBaseField,
-  SchemxDependencyField,
-  SchemxResolvedBaseField,
-} from "../../../types"
+import type { SchemxBaseField, SchemxDependencyField } from "../../../types"
 // 验证 createViewSchemas 对各类 Node 的 ViewSchema 创建、更新与清理。
 describe("createViewSchemas", () => {
   it("为 root 创建并注册 root viewSchemas", () => {
@@ -191,7 +187,7 @@ describe("createViewSchemas", () => {
   })
 })
 
-function createFieldNodeOptions(overrides: Partial<SchemxResolvedBaseField> = {}) {
+function createFieldNodeOptions(overrides: Partial<SchemxBaseField> = {}) {
   const staticSchema = {
     name: "name",
     componentType: "input",

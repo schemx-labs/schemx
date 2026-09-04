@@ -6,7 +6,7 @@
  * @module core/runtime/node
  */
 
-export { findFieldNode, isRootNode, isSchemaNode } from "./helper"
+export { findFieldNode, isDynamicNode, isRootNode, isSchemaNode } from "./helper"
 
 export type {
   FieldDynamicOverrideKey,
@@ -22,6 +22,8 @@ export type {
   CreateGroupNodeOptions,
   CreateRootNodeOptions,
   DependencyNode,
+  DynamicNode,
+  DynamicRowState,
   FieldNode,
   GroupNode,
   RootNode,

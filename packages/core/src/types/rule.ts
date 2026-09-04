@@ -23,9 +23,13 @@ import type { ValidationRule } from "../validator/types"
  * ```
  */
 export interface RequiredOptions<TValue = unknown> {
-  /** 必填校验失败时显示的提示文案。 */
+  /**
+   * 必填校验失败时显示的提示文案。
+   */
   message?: string
-  /** 自定义空值判断函数。 */
+  /**
+   * 自定义空值判断函数。
+   */
   isEmpty?: (value: TValue | null | undefined) => boolean
 }
 
@@ -75,7 +79,9 @@ export type DefinedFieldValue<
  */
 export interface PresetRuleDefinition {}
 
-/** 从声明合并的规则定义中提取规则名称。 */
+/**
+ * 从声明合并的规则定义中提取规则名称。
+ */
 type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
 
 /**

@@ -51,8 +51,6 @@ export {
   defaultSchemxConfig,
   defaultSchemxConfigKeys,
   excludeSchemxConfigKeys,
-  schemaConfigKeys,
-  excludeSchemaConfigKeys,
   type SchemxConfig,
   type SchemxConfigKey,
   type ExcludeSchemxConfigKeys,
@@ -68,21 +66,20 @@ export {
 
 export type {
   SchemxViewDebugMeta,
+  SchemxViewDynamicItem,
+  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
 } from "./runtime/view"
 
-export { isSchemxViewFieldSchema, isViewGroupSchema } from "./runtime/view"
+export {
+  isSchemxViewFieldSchema,
+  isViewDynamicSchema,
+  isViewGroupSchema,
+} from "./runtime/view"
 
 export { createField, type SchemxFieldInstance } from "./createField"
-
-export {
-  type FieldArrayField,
-  type FieldArrayInstance,
-  type FieldArrayItemValue,
-  type FieldArrayPath,
-} from "./fieldArray"
 
 export {
   createWatch,
@@ -112,8 +109,7 @@ export {
   isBaseSchema,
   isGroupSchema,
   isDependencySchema,
-  isBaseResolvedSchema,
-  isGroupResolvedSchema,
+  isDynamicSchema,
   getByPath,
   setByPath,
   collectObjectPathsByLeaf,
@@ -131,6 +127,8 @@ export type {
   Dynamic,
   NamePath,
   FieldValue,
+  SetValueAction,
+  SetValuesAction,
   DeepReadonly,
   CSSProperties,
   ValidationTrigger,
@@ -139,7 +137,6 @@ export type {
   SchemxFormApi,
   SchemxFieldRulesMap,
   SchemxSchemaConfig,
-  SchemxGlobalContext,
   SchemxRendererKey,
   SchemxRendererDefinition,
   SchemxFieldDefinition,
@@ -152,17 +149,27 @@ export type {
   SchemxGroupField,
   SchemxBaseField,
   SchemxExactBaseField,
-  SchemxResolvedField,
   SchemxDependencyField,
+  SchemxDynamicDefinition,
+  SchemxDynamicField,
+  SchemxDynamicArrayPath,
+  SchemxDynamicNamePath,
+  SchemxDynamicItemGroup,
+  SchemxDynamicItemSchema,
+  SchemxDynamicItemDependency,
+  SchemxDynamicItemDependencyRendererContext,
   SchemxField,
   SchemxFormItemProps,
   SchemxFieldDependencies,
   SchemxGroupDependencies,
   SchemxDependencyDependencies,
-  SchemxDependencies,
+  SchemxDynamicDependencies,
   SchemxContainerDependencies,
   SchemxConditionFn,
-  SchemxDependenciesStaticProps,
+  FieldArrayItemValue,
+  FieldArrayChange,
+  FieldArrayPath,
+  ValidationAdapterV1,
 } from "./types"
 
 export type {
@@ -173,7 +180,6 @@ export type {
   AdapterRule,
   ValidationAdapterRule,
   ValidationAdapterID,
-  ValidationAdapterV1,
   ValidationAdapter,
   ValidationAdapterRegistration,
   ValidationAdapterOption,

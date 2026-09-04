@@ -2,17 +2,9 @@ export {
   defaultSchemxConfig,
   defaultSchemxConfigKeys,
   excludeSchemxConfigKeys,
-  schemaConfig,
-  schemaConfigKeys,
-  excludeSchemaConfigKeys,
 } from "./defaultSchemxConfig"
 
-export type {
-  ExcludeSchemxConfigKeys,
-  SchemxConfigKey,
-  SchemaConfigKey,
-  ExcludeSchemaConfigKeys,
-} from "./defaultSchemxConfig"
+export type { ExcludeSchemxConfigKeys, SchemxConfigKey } from "./defaultSchemxConfig"
 
 export {
   mergeAndResolveSchemxConfig,

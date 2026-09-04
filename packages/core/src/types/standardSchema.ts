@@ -19,13 +19,21 @@ export declare namespace StandardSchemaV1 {
    * @typeParam TOutput - 输出值类型
    */
   interface Props<TInput = unknown, TOutput = TInput> {
-    /** Standard Schema 协议版本号，当前固定为 1。 */
+    /**
+     * Standard Schema 协议版本号，当前固定为 1。
+     */
     readonly version: 1
-    /** 实现该协议的供应商标识。 */
+    /**
+     * 实现该协议的供应商标识。
+     */
     readonly vendor: string
-    /** 执行同步或异步校验并返回结果。 */
+    /**
+     * 执行同步或异步校验并返回结果。
+     */
     readonly validate: (value: unknown) => Result<TOutput> | Promise<Result<TOutput>>
-    /** 可选的输入与输出类型信息，仅供类型推导使用。 */
+    /**
+     * 可选的输入与输出类型信息，仅供类型推导使用。
+     */
     readonly types?: Types<TInput, TOutput>
   }
 
@@ -63,7 +71,9 @@ export declare namespace StandardSchemaV1 {
    * 用于描述嵌套对象中的路径节点。
    */
   interface PathSegment {
-    /** 当前路径段的 key。 */
+    /**
+     * 当前路径段的 key。
+     */
     readonly key: PropertyKey
   }
 
@@ -76,9 +86,13 @@ export declare namespace StandardSchemaV1 {
    * @typeParam TOutput - 输出值类型
    */
   interface Types<TInput = unknown, TOutput = TInput> {
-    /** Schema 接收的输入类型标记。 */
+    /**
+     * Schema 接收的输入类型标记。
+     */
     readonly input?: TInput
-    /** Schema 产出的输出类型标记。 */
+    /**
+     * Schema 产出的输出类型标记。
+     */
     readonly output?: TOutput
   }
 
@@ -111,6 +125,8 @@ export declare namespace StandardSchemaV1 {
  * @typeParam TOutput - 输出值类型，默认与 TInput 相同
  */
 export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
-  /** Standard Schema v1 的协议属性集合。 */
+  /**
+   * Standard Schema v1 的协议属性集合。
+   */
   readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>
 }

@@ -13,6 +13,7 @@ import { createFieldKey } from "../../utils/path"
 import {
   ContainerNode,
   DependencyNode,
+  DynamicNode,
   FieldNode,
   FieldRuntimeDiagnostics,
   GroupNode,
@@ -114,9 +115,22 @@ export function isDependencyNode<TValues extends Values>(
 }
 
 /**
+ * 判断 Node 是否为 Dynamic 数组节点。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param node - 要判断的 Node。
+ * @returns 是否为 DynamicNode。
+ */
+export function isDynamicNode<TValues extends Values>(
+  node: ContainerNode<TValues> | null | undefined
+): node is DynamicNode<TValues> {
+  return node?.type === "dynamic"
+}
+
+/**
  * 判断 Node 是否由 schema 创建。
  *
- * 所有非 root 节点（field、group、dependency）都由 schema 创建，
+ * 所有非 root 节点（field、group、dependency、dynamic）都由 schema 创建，
  * 并直接持有已解析的运行时配置。
  *
  * @typeParam TValues - 表单值类型。
@@ -132,7 +146,7 @@ export function isSchemaNode<TValues extends Values>(
 /**
  * 判断 Node 是否可承载子节点。
  *
- * Root、Group、Dependency 节点可以承载子节点。
+ * Root、Group、Dependency、Dynamic 节点可以承载子节点。
  * field 节点没有子节点。
  *
  * @typeParam TValues - 表单值类型。
@@ -142,7 +156,12 @@ export function isSchemaNode<TValues extends Values>(
 export function isParentNode<TValues extends Values>(
   node: ContainerNode<TValues> | null | undefined
 ): node is ParentNode<TValues> {
-  return node?.type === "root" || node?.type === "group" || node?.type === "dependency"
+  return (
+    node?.type === "root" ||
+    node?.type === "group" ||
+    node?.type === "dependency" ||
+    node?.type === "dynamic"
+  )
 }
 
 /**

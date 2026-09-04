@@ -23,10 +23,11 @@
 
 import { get, set, toPath } from "es-toolkit/compat"
 
-import type { FieldArrayChange } from "../fieldArray"
-import type { FieldValue, NamePath, Values } from "../types"
+import type { FieldArrayChange, FieldValue, NamePath, Values } from "../types"
 
-/** es-toolkit 路径函数接受的运行时路径形态。 */
+/**
+ * es-toolkit 路径函数接受的运行时路径形态。
+ */
 type RuntimePath = string | number | readonly (string | number)[]
 
 /**
@@ -42,6 +43,11 @@ export type FieldKey = string & { readonly __fieldKey: unique symbol }
  * @param previous - 上一组字段路径。
  * @param next - 下一组字段路径。
  * @returns 路径数量、顺序和每段内容都一致时返回 true。
+ *
+ * @example
+ * ```ts
+ * areNamePathListsEqual(["user.name"], ["user.name"]) // => true
+ * ```
  */
 export function areNamePathListsEqual<TValues extends Values>(
   previous: readonly NamePath<TValues>[],
@@ -214,6 +220,11 @@ export function normalizeNamePath<
  *
  * @param path - 要解析的字段路径。
  * @returns 只读的规范化路径段数组。
+ *
+ * @example
+ * ```ts
+ * toNamePathSegments("user[0].name") // => ["user", "0", "name"]
+ * ```
  */
 export function toNamePathSegments<TValues extends Values = Values>(
   path: NamePath<TValues>
@@ -229,6 +240,11 @@ export function toNamePathSegments<TValues extends Values = Values>(
  * @param first - 第一个字段路径。
  * @param second - 第二个字段路径。
  * @returns 两个路径相同或存在父子关系时返回 `true`。
+ *
+ * @example
+ * ```ts
+ * areSameOrOverlappingFieldPaths("user", "user.name") // => true
+ * ```
  */
 export function areSameOrOverlappingFieldPaths<TValues extends Values>(
   first: NamePath<TValues>,
@@ -245,6 +261,11 @@ export function areSameOrOverlappingFieldPaths<TValues extends Values>(
  *
  * @param path - 待转换的字段路径。
  * @returns 结构共享写入使用的路径段。
+ *
+ * @example
+ * ```ts
+ * toStructuralPathSegments("users[0].name") // => ["users", "0", "name"]
+ * ```
  */
 export function toStructuralPathSegments<TValues extends Values>(
   path: NamePath<TValues>
@@ -274,6 +295,12 @@ export function toStructuralPathSegments<TValues extends Values>(
  * @param value - 要写入的值。
  * @param index - 当前递归处理的路径段索引。
  * @returns 写入后的值树或子树。
+ *
+ * @example
+ * ```ts
+ * setInWithStructuralSharing({ user: { name: "Ada" } }, ["user", "name"], "Lin")
+ * // => { user: { name: "Lin" } }
+ * ```
  */
 export function setInWithStructuralSharing(
   source: unknown,
@@ -364,6 +391,11 @@ export function deleteInWithStructuralSharing(
  * @param candidate - 待判断的字段路径。
  * @param ancestor - 作为祖先路径的字段路径。
  * @returns candidate 是否是 ancestor 的严格后代。
+ *
+ * @example
+ * ```ts
+ * isDescendantFieldPath("user.name", "user") // => true
+ * ```
  */
 export function isDescendantFieldPath<TValues extends Values>(
   candidate: NamePath<TValues>,
@@ -379,7 +411,27 @@ export function isDescendantFieldPath<TValues extends Values>(
   )
 }
 
-/** 判断数组项后代路径是否落在结构变更影响的索引范围内。 */
+/**
+ * 判断数组项后代路径是否落在结构变更影响的索引范围内。
+ */
+/**
+ * 判断数组字段的后代路径是否落在本次数组结构变更的影响范围内。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param fieldPath - 要检查的字段路径。
+ * @param arrayPath - 发生结构变化的数组根路径。
+ * @param change - 数组结构变更及受影响的行范围。
+ * @returns 字段路径对应的数组索引受本次变更影响时返回 `true`。
+ *
+ * @example
+ * ```ts
+ * isFieldArrayDescendantAffected("users.1.name", "users", {
+ *   previousLength: 2,
+ *   nextLength: 1,
+ *   ranges: [{ start: 1, end: 1 }],
+ * }) // => true
+ * ```
+ */
 export function isFieldArrayDescendantAffected<TValues extends Values>(
   fieldPath: NamePath<TValues>,
   arrayPath: NamePath<TValues>,
@@ -398,7 +450,23 @@ export function isFieldArrayDescendantAffected<TValues extends Values>(
   return change.ranges.some((range) => index >= range.start && index <= range.end)
 }
 
-/** 判断数组项后代路径是否已经超出新的数组长度。 */
+/**
+ * 判断数组项后代路径是否已经超出新的数组长度。
+ */
+/**
+ * 判断数组字段的后代路径是否超出新的数组长度。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param fieldPath - 要检查的字段路径。
+ * @param arrayPath - 数组根路径。
+ * @param nextLength - 结构变更后的数组长度。
+ * @returns 字段路径对应的数组索引超出新长度时返回 `true`。
+ *
+ * @example
+ * ```ts
+ * isFieldArrayDescendantOutOfRange("users.2.name", "users", 2) // => true
+ * ```
+ */
 export function isFieldArrayDescendantOutOfRange<TValues extends Values>(
   fieldPath: NamePath<TValues>,
   arrayPath: NamePath<TValues>,
@@ -421,6 +489,11 @@ export function isFieldArrayDescendantOutOfRange<TValues extends Values>(
  * @param first - 第一个字段路径。
  * @param second - 第二个字段路径。
  * @returns 两个路径是否互为父路径和严格后代路径。
+ *
+ * @example
+ * ```ts
+ * areOverlappingFieldPaths("users", "users.0.name") // => true
+ * ```
  */
 export function areOverlappingFieldPaths<TValues extends Values>(
   first: NamePath<TValues>,
@@ -434,6 +507,11 @@ export function areOverlappingFieldPaths<TValues extends Values>(
  *
  * @param path - 要标识的字段路径。
  * @returns 可安全用于 Map key、Set key 和 Scheduler task id 的稳定 key。
+ *
+ * @example
+ * ```ts
+ * createFieldKey(["users", 0, "name"]) // => '["users","0","name"]'
+ * ```
  */
 export function createFieldKey<TValues extends Values = Values>(
   path: NamePath<TValues>
@@ -441,7 +519,12 @@ export function createFieldKey<TValues extends Values = Values>(
   return JSON.stringify(toNamePathSegments(path)) as FieldKey
 }
 
-/** 将类型安全的 NamePath 转换为路径库可消费的运行时路径。 */
+/**
+ * 将类型安全的 NamePath 转换为路径库可消费的运行时路径。
+ *
+ * @param path - 要转换的字段路径。
+ * @returns 路径库可消费的字符串、数字或路径数组。
+ */
 const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   if (Array.isArray(path)) {
     return path.map((part) => (typeof part === "number" ? part : String(part)))
@@ -450,7 +533,14 @@ const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   return path as string | number
 }
 
-/** 比较两个字段路径的段数、顺序和每一段内容。 */
+/**
+ * 比较两个字段路径的段数、顺序和每一段内容。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param previous - 上一字段路径。
+ * @param next - 下一字段路径。
+ * @returns 两个路径表示同一字段时返回 `true`。
+ */
 function isNamePathEqual<TValues extends Values>(
   previous: NamePath<TValues>,
   next: NamePath<TValues> | undefined

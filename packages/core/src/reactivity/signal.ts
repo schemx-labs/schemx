@@ -18,34 +18,7 @@
 
 import { signal } from "@preact/signals-core"
 
-import type { DeepReadonly } from "../types/utils"
 import type { ReadonlySignal, Signal, SignalOptions } from "@preact/signals-core"
-
-/**
- * 深层只读响应式 signal 类型。
- *
- * `DeepSignalReadonly<TValue>` 表示一个整体上仍然是 readonly signal 的值，
- * 且 `.value` 会通过 `DeepReadonly<TValue>` 暴露为深层只读数据；同时在对象、
- * 数组或 tuple 的子节点上暴露递归的只读 signal 视图。它是纯类型工具，
- * 不创建运行时代理，也不改变 `createSignal` 的行为。
- *
- * @example
- * ```typescript
- * type UserSignal = DeepSignalReadonly<{
- *   name: string
- *   profile: { age: number }
- * }>
- *
- * declare const user: UserSignal
- *
- * user.value              // DeepReadonly<{ name: string; profile: { age: number } }>
- * user.name.value         // string
- * user.profile.age.value  // number
- * ```
- *
- * @typeParam TValue - 原始值类型
- */
-export type DeepReadonlySignal<TValue> = ReadonlySignal<DeepReadonly<TValue>>
 
 /**
  * 创建 reactive signal。
@@ -54,6 +27,12 @@ export type DeepReadonlySignal<TValue> = ReadonlySignal<DeepReadonly<TValue>>
  * @param value - 初始值
  * @param options - signals-core 原生 signal 配置
  * @returns 可写 reactive signal
+ *
+ * @example
+ * ```ts
+ * const count = createSignal(0)
+ * count.value = 1
+ * ```
  */
 export function createSignal<TValue>(
   value: TValue,
@@ -67,6 +46,12 @@ export function createSignal<TValue>(
  * @param value - 可选初始值
  * @param options - signals-core 原生 signal 配置
  * @returns 可写 reactive signal
+ *
+ * @example
+ * ```ts
+ * const optionalCount = createSignal<number>()
+ * optionalCount.value = 1
+ * ```
  */
 export function createSignal<TValue = undefined>(
   value?: TValue,

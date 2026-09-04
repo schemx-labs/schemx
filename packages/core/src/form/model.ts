@@ -1,7 +1,5 @@
-import { createFieldArrayController } from "../fieldArray"
 import { batchUpdates, createSignalEffect } from "../reactivity"
 import { createStore, type Store } from "../store"
-import { createFieldKey } from "../utils"
 import {
   createValidator,
   type CreateValidatorOptions,
@@ -9,7 +7,6 @@ import {
   type Validator,
 } from "../validator"
 
-import type { FieldArrayInstance, FieldArrayPath } from "../fieldArray"
 import type { PresetRuleRegistry } from "../registry"
 import type { Values } from "../types"
 
@@ -35,7 +32,9 @@ export interface CreateFormModelOptions<TValues extends Values> {
    * 无法解析规则时调用的错误回调。
    */
   onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
-  /** 整表校验的字段并发数，默认 `8`。 */
+  /**
+   * 整表校验的字段并发数，默认 `8`。
+   */
   validationConcurrency?: number
 }
 
@@ -53,12 +52,6 @@ export interface FormModel<TValues extends Values> {
    * 管理字段规则编译、执行、错误状态和生命周期的校验域。
    */
   readonly validation: Validator<TValues>
-  /**
-   * 获取并缓存指定数组字段的结构控制器。
-   */
-  getOrCreateFieldArray<TPath extends FieldArrayPath<TValues>>(
-    name: TPath
-  ): FieldArrayInstance<TValues, TPath>
   /**
    * 重置字段值并清空校验错误。
    */
@@ -83,6 +76,18 @@ export interface FormModel<TValues extends Values> {
  * @typeParam TValues - 表单值对象类型。
  * @param options - Model 初始化和校验配置。
  * @returns 可供 Instance、Controller 和 Runtime 协作的 FormModel。
+ *
+ * @example
+ * ```ts
+ * const model = createFormModel({
+ *   initialValues: {},
+ *   presetRuleRegistry: createPresetRuleRegistry(),
+ *   validatorAdapters: [],
+ * })
+ *
+ * model.reset()
+ * model.dispose()
+ * ```
  */
 export function createFormModel<TValues extends Values>(
   options: CreateFormModelOptions<TValues>
@@ -97,13 +102,6 @@ export function createFormModel<TValues extends Values>(
     onRuleError: options.onRuleError,
     validationConcurrency: options.validationConcurrency,
   })
-
-  const invalidateFieldArray = validation.invalidateFieldArray.bind(validation)
-
-  // 同一个 Form 中同一路径始终复用同一个 FieldArray，确保行 key 稳定。
-  const fieldArrays = new Map<string, FieldArrayInstance<TValues, never>>()
-
-  const fieldArrayDisposers = new Map<string, () => void>()
 
   // 防止销毁后重复注册或释放响应式副作用。
   let disposed = false
@@ -152,44 +150,6 @@ export function createFormModel<TValues extends Values>(
   }
 
   /**
-   * 获取并缓存指定路径的 FieldArray 控制器。
-   *
-   * Controller 负责数组结构操作；Model 负责将结构变化转发给校验层，
-   * 并在销毁时释放对应订阅。
-   *
-   * @param name - 动态数组字段路径。
-   * @returns 当前 Form 中与该路径共享的 FieldArray 控制器。
-   */
-  const getOrCreateFieldArray = <TPath extends FieldArrayPath<TValues>>(
-    name: TPath
-  ): FieldArrayInstance<TValues, TPath> => {
-    const key = createFieldKey(name)
-
-    const cached = fieldArrays.get(key)
-
-    if (cached) return cached as FieldArrayInstance<TValues, TPath>
-
-    const fieldArrayHandle = store.getFieldArrayHandle(name)
-
-    const array = createFieldArrayController<TValues, TPath>(
-      fieldArrayHandle,
-      name,
-      batch
-    )
-
-    fieldArrays.set(key, array as FieldArrayInstance<TValues, never>)
-
-    fieldArrayDisposers.set(
-      key,
-      fieldArrayHandle.subscribe((change) => {
-        invalidateFieldArray(name, change)
-      })
-    )
-
-    return array
-  }
-
-  /**
    * 仅执行一次并释放 Model 持有的全部资源。
    */
   const dispose: FormModel<TValues>["dispose"] = () => {
@@ -198,12 +158,6 @@ export function createFormModel<TValues extends Values>(
     }
 
     disposed = true
-    fieldArrays.clear()
-    for (const disposeFieldArray of fieldArrayDisposers.values()) {
-      disposeFieldArray()
-    }
-
-    fieldArrayDisposers.clear()
     for (const disposeEffect of [...effectDisposers].reverse()) {
       disposeEffect()
     }
@@ -216,7 +170,6 @@ export function createFormModel<TValues extends Values>(
   return {
     store,
     validation,
-    getOrCreateFieldArray,
     reset,
     effect,
     batch,

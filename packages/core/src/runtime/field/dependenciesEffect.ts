@@ -5,7 +5,7 @@
  * FieldNode.dynamicOverrides。
  * 该模块不修改 descriptor/schema。
  *
- * @module core/runtime/field/dependencies
+ * @module core/runtime/field/dependenciesEffect
  */
 
 import {
@@ -57,7 +57,9 @@ export interface CreateFieldDependenciesEffectOptions<TValues extends Values = V
    */
   taskId: string
 
-  /** 字段 Node，提供静态 schema 和动态覆盖 Signal。 */
+  /**
+   * 字段 Node，提供静态 schema 和动态覆盖 Signal。
+   */
   node: FieldNode<TValues>
   /**
    * 当前 effect 所属的资源作用域。
@@ -69,6 +71,11 @@ export interface CreateFieldDependenciesEffectOptions<TValues extends Values = V
  * 创建字段级 dependencies effect。
  *
  * @param options - dependencies effect 所需的 Node 和运行时上下文。
+ *
+ * @example
+ * ```ts
+ * createFieldDependenciesEffect({ context, taskId, node, scope })
+ * ```
  */
 export function createFieldDependenciesEffect<TValues extends Values = Values>(
   options: CreateFieldDependenciesEffectOptions<TValues>
