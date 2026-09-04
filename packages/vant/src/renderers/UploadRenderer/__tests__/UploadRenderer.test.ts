@@ -164,14 +164,12 @@ describe("UploadRenderer", () => {
     })
 
     expect(wrapper.findAll(".schemx-upload-list__item")).toHaveLength(2)
-    expect(wrapper.findAll(".schemx-upload-list__name").map((item) => item.text())).toEqual([
-      "照片",
-      "报告",
-    ])
-    expect(wrapper.findAll(".schemx-upload-list__extension").map((item) => item.text())).toEqual([
-      "PNG",
-      "PDF",
-    ])
+    expect(
+      wrapper.findAll(".schemx-upload-list__name").map((item) => item.text())
+    ).toEqual(["照片", "报告"])
+    expect(
+      wrapper.findAll(".schemx-upload-list__extension").map((item) => item.text())
+    ).toEqual(["PNG", "PDF"])
 
     const imagePreview = wrapper.findComponent({ name: "ImagePreview" })
 

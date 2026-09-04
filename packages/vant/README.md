@@ -1049,8 +1049,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Context    | `createFormContext`       | 提供表单实例。                                          |
 | Context    | `useFormContext`          | 读取表单实例。                                          |
 | Hook       | `useField`                | 创建 Vue 字段控制器。                                   |
-| Hook       | `useFieldArray`           | 创建 Vue 数组字段控制器。                               |
-| Hook       | `createFieldArrayHook`    | 创建绑定值类型的 FieldArray Hook 工厂。                 |
 | Context    | `createFieldContext`      | 提供字段控制器。                                        |
 | Context    | `useFieldContext`         | 读取字段控制器。                                        |
 | Context    | `createFormConfigContext` | 提供表单展示配置。                                      |
@@ -1076,7 +1074,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Dictionary 类型 | `UseDictionaryReturn`  | `useDictionary()` 的响应式状态与控制方法。                    |
 | 表单类型        | `SchemxFormProps`      | Vue 表单组件 Props 类型。                                     |
 | 字段类型        | `FieldInstance`        | Vue Ref / Computed 桥接后的字段控制器类型。                   |
-| 字段数组类型    | `UseFieldArrayReturn`  | Vue FieldArray Hook 返回值。                                 |
 | Selector 类型   | `UseFormSelectorOptions` | `useFormSelector` 的比较和刷新配置。                       |
 
 这些 Vue API 的完整契约与边界见 [Vue README](../vue)。
@@ -1101,8 +1098,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 配置          | `defaultSchemxConfig`          | Core 内置字段默认值。                        |
 | 配置          | `defaultSchemxConfigKeys`      | 当前默认配置 key 集合。                      |
 | 配置          | `excludeSchemxConfigKeys`      | 不参与字段默认配置的 key。                   |
-| 配置          | `schemaConfigKeys`             | 兼容旧命名的默认配置 key。                   |
-| 配置          | `excludeSchemaConfigKeys`      | 兼容旧命名的排除 key。                       |
 | Watch         | `createWatch`                  | 分发 Core Watch。                            |
 | Watch         | `createWatchField`             | 单字段 Core Watch。                          |
 | Watch         | `createWatchFields`            | 多字段 Core Watch。                          |
@@ -1112,8 +1107,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema 守卫   | `isBaseSchema`                 | 判断原始普通字段。                           |
 | Schema 守卫   | `isGroupSchema`                | 判断原始 Group。                             |
 | Schema 守卫   | `isDependencySchema`           | 判断原始 Dependency。                        |
-| Schema 守卫   | `isBaseResolvedSchema`         | 判断解析后普通字段。                         |
-| Schema 守卫   | `isGroupResolvedSchema`        | 判断解析后 Group。                           |
 | 路径          | `getByPath`                    | 读取嵌套路径。                               |
 | 路径          | `setByPath`                    | 写入嵌套路径。                               |
 | 路径          | `collectObjectPathsByLeaf`     | 收集叶子路径。                               |
@@ -1139,7 +1132,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 表单               | `FormLifecycleOptions`           | Runtime 生命周期钩子。                    |
 | 表单               | `ResolvedCreateFormOptions`      | 已归一化的 Form 创建配置。                |
 | 表单               | `SchemxInstance`                 | Core 表单实例接口。                       |
-| 表单               | `SchemxGlobalContext`            | Core 全局字段默认配置。                   |
 | 基础               | `Values`                         | 表单值基础约束。                          |
 | 基础               | `Dynamic`                        | 静态值或同步 / 异步值函数。               |
 | 路径               | `NamePath`                       | 类型安全字段路径。                        |
@@ -1150,8 +1142,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema source      | `SchemxSchemasInput`             | Schema 数组或 source 联合。               |
 | Schema source      | `SchemxSchemasListener`          | Schema source listener。                  |
 | 字段               | `SchemxFieldInstance`            | Core 字段控制器。                         |
-| 字段数组           | `FieldArrayField`                | 数组字段行的公开结构类型。                 |
-| 字段数组           | `FieldArrayInstance`             | 数组字段控制器接口。                       |
 | 字段数组           | `FieldArrayItemValue`            | 数组字段行值类型。                         |
 | 字段数组           | `FieldArrayPath`                 | 数组字段路径类型。                         |
 | 表单               | `SchemxFormApi`                  | 传递给动态 Schema 回调的表单 API。          |
@@ -1162,19 +1152,16 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema             | `SchemxGroupField`               | 原始 Group Schema。                       |
 | Schema             | `SchemxDependencyField`          | 原始 Dependency Schema。                  |
 | Schema             | `SchemxField`                    | 全部原始 Schema 联合。                    |
-| Schema             | `SchemxResolvedField`            | 解析后字段 / Group 联合。                 |
 | Schema             | `SchemxBaseComponentProps`       | Renderer 公共 Props。                     |
 | Schema             | `SchemxComponentProps`           | Renderer 专属与公共 Props。               |
 | Schema             | `SchemxFormItemProps`            | Core 保留的字段展示 Props 类型（schema 属性名仍为 `formItemProps`）。 |
 | 扩展               | `SchemxFieldDefinition`          | 普通字段声明合并接口。                    |
 | 扩展               | `SchemxGroupFieldDefinition`     | Group 声明合并接口。                      |
-| 依赖               | `SchemxDependencies`             | 字段动态依赖配置。                        |
 | 依赖               | `SchemxFieldDependencies`        | 普通字段的动态属性与触发字段配置。        |
 | 依赖               | `SchemxGroupDependencies`        | Group 容器的动态状态配置。                |
 | 依赖               | `SchemxDependencyDependencies`   | Dependency 容器的动态状态配置。           |
 | 依赖               | `SchemxContainerDependencies`    | Group/Dependency 容器动态状态配置。       |
 | 依赖               | `SchemxConditionFn`              | 动态属性条件函数。                        |
-| 依赖               | `SchemxDependenciesStaticProps`  | 依赖函数静态返回值映射。                  |
 | ViewSchema         | `SchemxViewDebugMeta`            | ViewSchema 诊断元数据。                   |
 | ViewSchema         | `SchemxViewFieldSchema`          | 字段渲染投影。                            |
 | ViewSchema         | `SchemxViewGroupSchema`          | Group 渲染投影。                          |
