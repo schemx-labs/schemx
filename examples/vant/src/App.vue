@@ -10,7 +10,7 @@
           @click="currentExample = example.id"
         >
           {{ example.name }}
-        </Button>
+        </button>
       </nav>
     </header>
 
@@ -23,12 +23,8 @@
 <script setup lang="ts">
   import { computed, markRaw, ref } from "vue"
 
-  import BasicForm from "./basic/BasicForm.vue"
-  import DependencyForm from "./dependency/DependencyForm.vue"
-  import DynamicForm from "./dynamic/DynamicForm.vue"
+  import FormGroupsForm from "./form/FormGroupsForm.vue"
   import SlotsForm from "./slots/SlotsForm.vue"
-  import SlotsFormJsx from "./slots/SlotsFormJsx.jsx"
-  import ValidationForm from "./validation/ValidationForm.vue"
 
   /**
    * 示例模块列表。
@@ -37,22 +33,22 @@
    * 减少不必要的性能开销。
    */
   const examples = [
-    { id: "basic", name: "基础表单", component: markRaw(BasicForm) },
-    { id: "validation", name: "表单验证", component: markRaw(ValidationForm) },
-    { id: "dynamic", name: "动态表单", component: markRaw(DynamicForm) },
-    { id: "dependency", name: "字段联动", component: markRaw(DependencyForm) },
+    {
+      id: "form-groups",
+      name: "基础 / 动态 / 联动 / 动态数组",
+      component: markRaw(FormGroupsForm),
+    },
     { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
-    { id: "slots-jsx", name: "插槽系统（JSX）", component: markRaw(SlotsFormJsx) },
   ]
 
   /** 当前激活的 tab id */
-  const currentExample = ref("basic")
+  const currentExample = ref("form-groups")
 
-  /** 根据当前 tab id 查找对应的示例组件，默认回退到 BasicForm */
+  /** 根据当前 tab id 查找对应的示例组件，默认回退到合并表单示例。 */
   const currentComponent = computed(() => {
     const example = examples.find((e) => e.id === currentExample.value)
 
-    return example?.component || BasicForm
+    return example?.component || FormGroupsForm
   })
 </script>
 
@@ -74,7 +70,9 @@
   }
 
   .header {
-    background: white;
+    background: rgba(255, 255, 255, 0.82);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: sticky;
@@ -103,6 +101,15 @@
     font-size: 14px;
     color: #666;
     transition: all 0.2s;
+  }
+
+  .nav button:active {
+    transform: scale(0.97);
+  }
+
+  .nav button:focus-visible {
+    outline: 3px solid rgba(25, 137, 250, 0.32);
+    outline-offset: 2px;
   }
 
   .nav button:hover {
@@ -148,5 +155,19 @@
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav button {
+      transition: none;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .header {
+      background: white;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
   }
 </style>

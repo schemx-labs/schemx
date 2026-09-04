@@ -40,7 +40,8 @@
             />
           </div>
           <p class="slot-demo__note">
-            整体插槽替换 Field wrapper 内的默认内容，label / error / content 均由插槽自行处理
+            整体插槽替换 Field wrapper 内的默认内容，label / error / content
+            均由插槽自行处理
           </p>
         </div>
       </template>
@@ -178,13 +179,17 @@
           <div class="slot-reference__title">整体插槽</div>
           <code class="slot-reference__code">#{ name }</code>
           <div class="slot-reference__desc">替换 Field 内部内容</div>
-          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
+          <div class="slot-reference__params">
+            参数: schema / componentProps / value / field / form
+          </div>
         </div>
         <div class="slot-reference__card slot-reference__card--green">
           <div class="slot-reference__title">Label 插槽</div>
           <code class="slot-reference__code">#{ name }Label</code>
           <div class="slot-reference__desc">替换标签区域</div>
-          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
+          <div class="slot-reference__params">
+            参数: schema / componentProps / value / field / form
+          </div>
         </div>
         <div class="slot-reference__card slot-reference__card--red">
           <div class="slot-reference__title">Error 插槽</div>
@@ -202,7 +207,9 @@
           <div class="slot-reference__title">Before / After 插槽</div>
           <code class="slot-reference__code">#{ name }Before / After</code>
           <div class="slot-reference__desc">渲染器前后扩展内容</div>
-          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
+          <div class="slot-reference__params">
+            参数: schema / componentProps / value / field / form
+          </div>
         </div>
         <div class="slot-reference__card slot-reference__card--blue">
           <div class="slot-reference__title">Group Header 插槽</div>
@@ -226,7 +233,9 @@
           <div class="slot-reference__title">kebab-case 插槽</div>
           <code class="slot-reference__code">#user-levelLabel</code>
           <div class="slot-reference__desc">连字符字段名插槽</div>
-          <div class="slot-reference__params">参数: schema / componentProps / value / field / form</div>
+          <div class="slot-reference__params">
+            参数: schema / componentProps / value / field / form
+          </div>
         </div>
         <div class="slot-reference__card slot-reference__card--pink">
           <div class="slot-reference__title">子渲染器插槽</div>

@@ -1,7 +1,7 @@
 /**
  * 插槽示例共享样式
  *
- * SlotsForm.vue 和 SlotsFormJsx.tsx 共用
+ * SlotsForm.vue 使用
  */
 .slot-container {
   padding: 10px 14px;
