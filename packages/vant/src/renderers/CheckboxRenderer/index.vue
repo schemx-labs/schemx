@@ -1,23 +1,15 @@
 <template>
-  <div
-    :class="[
-      'schemx-renderer',
-      'schemx-checkbox-renderer',
-      className,
-      { 'schemx-renderer-readonly': props.readonly },
-    ]"
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-checkbox-renderer', className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
   >
-    <SchemxCell
-      v-if="props.readonly"
-      :value="fieldValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
-
+    <template #readonly>
+      <span :style="`text-align: ${contentAlign}`">
+        {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+      </span>
+    </template>
     <CheckboxGroup
-      v-else
       v-bind="checkProps"
       :disabled="disabled"
       :model-value="modelValue"
@@ -33,7 +25,7 @@
         {{ option[labelName] }}
       </Checkbox>
     </CheckboxGroup>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -48,8 +40,9 @@
 
   import { Checkbox, CheckboxGroup } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { getFieldProps } from "@/utils"
+  import { Wrapper } from "@schemx/vue"
+
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { CheckboxRendererProps, CheckboxValue } from "./types"
 
@@ -80,8 +73,6 @@
   const valueName = computed(() => props.fieldNames?.value || "value")
 
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
-
-  const placeholder = computed(() => props.placeholder || "请选择")
 
   const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
 

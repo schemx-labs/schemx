@@ -1,15 +1,13 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-textarea-renderer', props.className]">
-    <SchemxCell
-      v-if="props.readonly"
-      :value="textAreaValue"
-      :placeholder="props.placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-textarea-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(textAreaValue, props.readonlyPlaceholder) }}
+    </template>
     <SchemxInput
-      v-else
       ref="inputRef"
       v-model:value="textAreaValue"
       v-bind="inputProps"
@@ -30,7 +28,7 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -43,8 +41,10 @@
    */
   import { computed, ref, useSlots } from "vue"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { Wrapper } from "@schemx/vue"
+
   import SchemxInput from "@/components/Input"
+  import { getReadonlyDisplayValue } from "@/utils"
 
   import type { TextAreaAutosize, TextAreaRendererProps } from "./types"
 

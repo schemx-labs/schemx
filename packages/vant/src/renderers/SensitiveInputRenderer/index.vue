@@ -1,5 +1,38 @@
 <template>
-  <div :class="['schemx-sensitive-input', props.className]">
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-sensitive-input', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ displayValue }}
+      <button
+        v-if="canReveal"
+        type="button"
+        class="schemx-sensitive-input__toggle"
+        data-testid="sensitive-toggle"
+        :aria-label="props.revealText"
+        @click.stop="toggleReveal"
+      >
+        <Icon v-if="props.revealIcon" :name="props.revealIcon" />
+        <span>{{ props.revealText }}</span>
+      </button>
+    </template>
+
+    <template v-if="!showInput">
+      {{ displayValue }}
+      <button
+        v-if="canReveal"
+        type="button"
+        class="schemx-sensitive-input__toggle"
+        data-testid="sensitive-toggle"
+        :aria-label="props.revealText"
+        @click.stop="toggleReveal"
+      >
+        <Icon v-if="props.revealIcon" :name="props.revealIcon" />
+        <span>{{ props.revealText }}</span>
+      </button>
+    </template>
     <SchemxInput
       v-if="showInput"
       ref="inputRef"
@@ -22,32 +55,7 @@
         </button>
       </template>
     </SchemxInput>
-
-    <SchemxCell
-      v-else
-      :value="displayValue"
-      :placeholder="props.placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-      :is-link="false"
-      :align="props.align"
-    >
-      <template #suffix>
-        <button
-          v-if="canReveal"
-          type="button"
-          class="schemx-sensitive-input__toggle"
-          data-testid="sensitive-toggle"
-          :aria-label="props.revealText"
-          @click.stop="toggleReveal"
-        >
-          <Icon v-if="props.revealIcon" :name="props.revealIcon" />
-          <span>{{ props.revealText }}</span>
-        </button>
-      </template>
-    </SchemxCell>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -55,7 +63,8 @@
 
   import { Icon } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { Wrapper } from "@schemx/vue"
+
   import SchemxInput from "@/components/Input"
   import { isEmptyDisplayValue } from "@/utils"
 

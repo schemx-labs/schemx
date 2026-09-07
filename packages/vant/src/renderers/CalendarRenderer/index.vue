@@ -1,14 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-calendar-renderer', props.className]">
-    <SchemxCell
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="isReadonly"
-      :disabled="props.disabled"
-      :value="modelValue"
-      :align="align"
-      @click="handleClick"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-calendar-renderer', props.className]"
+    :readonly="isReadonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(modelValue, props.readonlyPlaceholder) }}
+    </template>
+
+    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+      <template #value>
+        <span :style="`text-align: ${align}`">
+          {{ getReadonlyDisplayValue(modelValue, placeholder) }}
+        </span>
+      </template>
+    </Cell>
 
     <Calendar
       v-if="!isReadonly && !props.disabled"
@@ -17,7 +23,7 @@
       @confirm="handleConfirm"
       @close="handleClose"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -30,14 +36,14 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Calendar } from "vant"
+  import { Calendar, Cell } from "vant"
   import type { FieldTextAlign } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { getFieldProps } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { CalendarRendererProps, CalendarValue } from "./types"
 

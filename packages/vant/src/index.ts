@@ -8,6 +8,9 @@
  */
 import "./styles/index.scss"
 
+/** side-effect：将 Vant Col 注册到 @schemx/vue 的全局布局组件。 */
+import "./layout/defaultCol"
+
 /** 声明合并 side-effect：注册 Vant 渲染器类型到 SchemxRendererDefinition */
 import "./types/schemx"
 
@@ -16,8 +19,6 @@ import "./renderers/defaultRenderers"
 
 /** 渲染器组件 */
 export * from "./renderers"
-
-export { default as Cell } from "./components/Cell/index.vue"
 
 /** 工具函数 */
 export * from "./utils"

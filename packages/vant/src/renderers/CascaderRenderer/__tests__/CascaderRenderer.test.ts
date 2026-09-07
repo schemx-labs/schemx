@@ -18,7 +18,7 @@ vi.mock("vant", () => {
             {
               onClick: (event: MouseEvent) => emit("click", event),
             },
-            slots.default?.() ?? String((props as any).value ?? "")
+            slots.value?.() ?? slots.default?.() ?? String((props as any).value ?? "")
           )
       },
     })
@@ -27,7 +27,7 @@ vi.mock("vant", () => {
     Cascader: component("Cascader", ["modelValue", "options", "fieldNames"]),
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
+      ["value", "placeholder", "isLink", "clickable", "valueClass"],
       ["click"]
     ),
     Popup: component("Popup", ["show"], ["update:show"]),
@@ -53,14 +53,9 @@ describe("CascaderRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
 
-    expect(cell.get(".schemx-cell__value").text()).toBe("广东 - 广州")
-    expect(cell.props("align")).toBe("center")
-    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
-
-    await cell.vm.$emit("click")
-
+    expect(cell.text()).toContain("广东 - 广州")
     expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()

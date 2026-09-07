@@ -11,10 +11,9 @@
 
   import { ImagePreview, Uploader } from "vant"
 
-  import { useFieldContext } from "@schemx/vue"
+  import { useFieldContext, Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxCell from "@/components/Cell/index.vue"
   import { getFileName } from "@/utils"
 
   import UploadCardList from "./UploadCardList.vue"
@@ -604,42 +603,20 @@
 </script>
 
 <template>
-  <div :class="rootClass">
-    <SchemxCell
-      v-if="props.readonly && innerFileList.length === 0"
-      :value="''"
-      :readonly="true"
-      :disabled="props.disabled"
-      :readonly-placeholder="props.readonlyPlaceholder"
-    />
-    <template v-else>
+  <Wrapper :class="rootClass" :readonly="props.readonly" :disabled="props.disabled">
+    <template #readonly>
+      <span v-if="innerFileList.length === 0">{{ props.readonlyPlaceholder }}</span>
       <component
         :is="listComponent"
+        v-else
         :files="displayFiles"
-        :deletable="deletableComputed"
+        :deletable="false"
         :image-fit="props.imageFit"
         :lazy-load="props.lazyLoad"
         :preview-size="props.previewSize"
         @delete="handleFileDelete"
         @preview="handleFilePreview"
-      >
-        <Uploader
-          v-bind="uploadProps"
-          ref="uploadRef"
-          result-type="file"
-          :multiple="multiple"
-          :model-value="innerFileList"
-          :show-upload="showUploadComputed"
-          :deletable="deletableComputed"
-          :disabled="disabledComputed"
-          :readonly="uploaderReadonlyComputed"
-          :before-read="handleBeforeRead"
-          :after-read="afterRead"
-          :accept="accept"
-          :preview-image="false"
-          @delete="onDelete"
-        />
-      </component>
+      />
 
       <ImagePreview
         v-bind="imagePreviewOptions"
@@ -649,5 +626,41 @@
         @close="handlePreviewClose"
       />
     </template>
-  </div>
+
+    <component
+      :is="listComponent"
+      :files="displayFiles"
+      :deletable="deletableComputed"
+      :image-fit="props.imageFit"
+      :lazy-load="props.lazyLoad"
+      :preview-size="props.previewSize"
+      @delete="handleFileDelete"
+      @preview="handleFilePreview"
+    >
+      <Uploader
+        v-bind="uploadProps"
+        ref="uploadRef"
+        result-type="file"
+        :multiple="multiple"
+        :model-value="innerFileList"
+        :show-upload="showUploadComputed"
+        :deletable="deletableComputed"
+        :disabled="disabledComputed"
+        :readonly="uploaderReadonlyComputed"
+        :before-read="handleBeforeRead"
+        :after-read="afterRead"
+        :accept="accept"
+        :preview-image="false"
+        @delete="onDelete"
+      />
+    </component>
+
+    <ImagePreview
+      v-bind="imagePreviewOptions"
+      v-model:show="imagePreviewVisible"
+      :images="previewImages"
+      :start-position="imagePreviewStartPosition"
+      @close="handlePreviewClose"
+    />
+  </Wrapper>
 </template>

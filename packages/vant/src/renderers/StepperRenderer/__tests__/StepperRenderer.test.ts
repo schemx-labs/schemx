@@ -34,7 +34,7 @@ vi.mock("vant", () => ({
 import StepperRenderer from "../index.vue"
 
 describe("StepperRenderer", () => {
-  it("readonly 状态使用 Cell 展示当前值且不渲染 Stepper", () => {
+  it("readonly 状态使用 Wrapper 展示当前值且不渲染 Stepper", () => {
     const wrapper = mount(StepperRenderer, {
       props: {
         readonly: true,
@@ -42,7 +42,7 @@ describe("StepperRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
 
     expect(cell.exists()).toBe(true)
     expect(wrapper.findComponent({ name: "Stepper" }).exists()).toBe(false)

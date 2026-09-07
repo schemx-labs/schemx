@@ -7,6 +7,18 @@ import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@schemx/vue", () => ({
+  Wrapper: defineComponent({
+    name: "SchemxWrapper",
+    props: ["readonly", "disabled"],
+    setup(props, { attrs, slots }) {
+      return () =>
+        h(
+          "div",
+          { ...attrs, class: ["schemx-wrapper", attrs.class] },
+          props.readonly ? slots.readonly?.() : slots.default?.()
+        )
+    },
+  }),
   useFieldContext: () => ({ setPending: vi.fn() }),
 }))
 
@@ -124,7 +136,7 @@ describe("UploadRenderer", () => {
       },
     })
 
-    expect(readonlyWrapper.get(".schemx-cell__value").text()).toBe("暂无附件")
+    expect(readonlyWrapper.get(".schemx-wrapper").text()).toContain("暂无附件")
     expect(readonlyWrapper.findComponent({ name: "Uploader" }).exists()).toBe(false)
 
     readonlyWrapper.unmount()

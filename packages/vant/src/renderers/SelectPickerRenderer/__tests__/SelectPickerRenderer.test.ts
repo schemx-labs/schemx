@@ -24,7 +24,7 @@ vi.mock("vant", () => {
           if (name === "Popup") popupAttrs = attrs
           if (name === "Radio") radioAttrs = attrs
 
-          return h("div", slots.default?.())
+          return h("div", attrs, slots.value?.() || slots.default?.())
         }
       },
     })
@@ -33,7 +33,7 @@ vi.mock("vant", () => {
     Button: component("Button", ["type", "size"], ["click"]),
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
+      ["value", "placeholder", "isLink", "clickable", "valueClass"],
       ["click"]
     ),
     Checkbox: component("Checkbox", ["name", "disabled"]),
@@ -47,15 +47,15 @@ vi.mock("vant", () => {
 import SelectPickerRenderer from "../index.vue"
 
 describe("SelectPickerRenderer", () => {
-  it("默认使用多选模式并将 contentAlign 下发给 Cell", () => {
+  it("默认使用多选模式并将 contentAlign 应用到 Vant Cell 值区域", () => {
     const wrapper = mount(SelectPickerRenderer, {
       props: { contentAlign: "center" },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "Cell" })
 
     expect(cell.exists()).toBe(true)
-    expect(cell.props("align")).toBe("center")
+    expect(cell.get("span").attributes("style")).toContain("text-align: center")
     expect(wrapper.findComponent({ name: "CheckboxGroup" }).exists()).toBe(false)
 
     wrapper.unmount()
@@ -68,7 +68,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
 
     expect(wrapper.findComponent({ name: "Popup" }).props("show")).toBe(true)
     expect(wrapper.findComponent({ name: "CheckboxGroup" }).exists()).toBe(true)
@@ -83,7 +83,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
 
     const options = wrapper.get(".schemx-select-picker-options")
 
@@ -114,7 +114,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
     await wrapper
       .findComponent({ name: "CheckboxGroup" })
       .vm.$emit("update:modelValue", ["a"])
@@ -142,9 +142,9 @@ describe("SelectPickerRenderer", () => {
       } as any,
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "Cell" })
 
-    expect(cell.get(".schemx-cell__value").text()).toBe("选项 A")
+    expect(cell.text()).toContain("选项 A")
     expect(wrapper.findComponent({ name: "Popup" }).props("show")).toBe(false)
 
     await cell.vm.$emit("click")
@@ -175,7 +175,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
 
     expect(popupAttrs).not.toHaveProperty("show")
     expect(popupAttrs).not.toHaveProperty("formItemProps")
@@ -205,7 +205,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
 
     expect(radioAttrs).not.toHaveProperty("label")
     expect(radioAttrs).not.toHaveProperty("value")

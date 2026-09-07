@@ -34,7 +34,7 @@ vi.mock("vant", () => ({
 import SliderRenderer from "../index.vue"
 
 describe("SliderRenderer", () => {
-  it("readonly 状态使用 Cell 展示当前值且不渲染 Slider", () => {
+  it("readonly 状态使用 Wrapper 展示当前值且不渲染 Slider", () => {
     const wrapper = mount(SliderRenderer, {
       props: {
         readonly: true,
@@ -42,7 +42,7 @@ describe("SliderRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
 
     expect(cell.exists()).toBe(true)
     expect(wrapper.findComponent({ name: "Slider" }).exists()).toBe(false)

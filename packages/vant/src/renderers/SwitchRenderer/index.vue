@@ -1,18 +1,14 @@
 <template>
-  <div
+  <Wrapper
     :class="['schemx-renderer', 'schemx-switch-renderer', props.className]"
     :style="{ justifyContent: contentAlign }"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
   >
-    <SchemxCell
-      v-if="props.readonly"
-      :value="fieldValue"
-      :placeholder="props.placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
+    <template #readonly>
+      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+    </template>
     <Switch
-      v-else
       v-bind="switchProps"
       size="22px"
       :model-value="switchValue"
@@ -20,7 +16,7 @@
       :disabled="disabled"
       @update:model-value="handleChange"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -36,8 +32,9 @@
 
   import { Switch } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { getFieldProps } from "@/utils"
+  import { Wrapper } from "@schemx/vue"
+
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { SwitchRendererProps, SwitchValue } from "./types"
 

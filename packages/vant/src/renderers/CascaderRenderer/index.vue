@@ -1,14 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-cascader-renderer', props.className]">
-    <SchemxCell
-      :value="fieldValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-      :align="props.contentAlign"
-      @click="handleClick"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-cascader-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+    </template>
+
+    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+      <template #value>
+        <span :style="`text-align: ${props.contentAlign}`">
+          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
+        </span>
+      </template>
+    </Cell>
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -24,7 +30,7 @@
         @close="handleClose"
       />
     </Popup>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -38,14 +44,14 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Cascader, Popup } from "vant"
+  import { Cascader, Cell, Popup } from "vant"
   import type { PopupProps } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import { omitBy } from "es-toolkit"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { findTreeItem } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
 
   import type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"
 

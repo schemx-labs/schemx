@@ -48,12 +48,12 @@
     "**/index.ts"
   ],
   "peerDependencies": {
-    "@schemx/core": "workspace:*",
-    "@schemx/vue": "workspace:*",
     "vant": "^4.0.0",
     "vue": "^3.0.0"
   },
   "dependencies": {
+    "@schemx/core": "workspace:*",
+    "@schemx/vue": "workspace:*",
     "classnames": "^2.5.1",
     "dayjs": "^1.11.19",
     "es-toolkit": "catalog:"
@@ -73,8 +73,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@schemx/core": "workspace:*",
-    "@schemx/vue": "workspace:*",
     "@vue/test-utils": "^2.4.6",
     "vant": "^4.9.0",
     "vue": "catalog:"

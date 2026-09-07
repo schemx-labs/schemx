@@ -1,14 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-select-picker-renderer', props.className]">
-    <SchemxCell
-      :value="fieldValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="isReadonly"
-      :disabled="props.disabled"
-      :align="props.contentAlign"
-      @click="handleClick"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-select-picker-renderer', props.className]"
+    :readonly="isReadonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+    </template>
+
+    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+      <template #value>
+        <span :style="`text-align: ${props.contentAlign}`">
+          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
+        </span>
+      </template>
+    </Cell>
 
     <Popup
       v-if="!isReadonly && !props.disabled"
@@ -69,7 +75,7 @@
         </div>
       </div>
     </Popup>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -82,11 +88,12 @@
    */
   import { computed, ref } from "vue"
 
-  import { Button, Checkbox, CheckboxGroup, Popup, Radio, RadioGroup } from "vant"
+  import { Button, Cell, Checkbox, CheckboxGroup, Popup, Radio, RadioGroup } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { getReadonlyDisplayValue } from "@/utils"
 
   import type {
     SelectPickerConfirmEventParams,
