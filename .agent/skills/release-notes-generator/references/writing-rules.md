@@ -1,0 +1,103 @@
+# 发布说明写作规则
+
+以使用者的升级决策为中心写作。读者应能迅速判断：本版本带来了什么、是否需要修改、受哪些包影响、以及如何验证升级。
+
+## 分类与章节
+
+按下列顺序渲染有内容的章节。固定章节名和分类名使用英文；叙述性文字使用简体中文：
+
+1. `Release Notes`、版本信息和概览。
+2. `Important Notices`。
+3. `Breaking Changes`。
+4. `Security`。
+5. `Deprecations`、`Features`、`Fixes`、`Improvements`、`Documentation`（均按包分组）。
+6. `TypeScript Changes`。
+7. `Dependencies and Compatibility`。
+8. `Validation`、`Known Issues`、`Full Changelog`。
+9. `Affected Packages`。
+
+仅输出有内容的章节。不要为了模板完整保留空标题；不要把完整 Commit 列表当作正文，除非仓库规范或用户明确要求。
+
+## 条目写法
+
+遵循以下原则：
+
+- 说明用户得到的能力或已解决的问题，不罗列文件名或内部重构步骤。
+- 使用具体的 API、包名、场景和结果；保留它们的原文。
+- 避免“优化代码”“修复问题”“更新依赖”等无信息表达。
+- 合并同一事项的多个 Commit、PR 或文件修改。
+- 保持事实边界。没有证据时写“需要维护者补充”或不输出，不使用推断性承诺。
+- 不在任何面向用户的字段中写入 `（证据：<SHA>）`、Commit SHA、文件路径或 Diff 标记。审计信息仅写入 Release Data 的 `evidence` 字段；渲染前校验会拒绝内嵌的“证据：”标记。
+
+推荐：
+
+```md
+- 新增 `validateField(name)`，支持在分步表单中单独校验指定字段。
+- 修复异步校验连续触发时，旧结果可能覆盖最新结果的问题。
+```
+
+不推荐：
+
+```md
+- feat: add validateField
+- refactor validator.ts
+- fix form
+```
+
+## 不兼容变更与迁移
+
+将不兼容变更置于新增和修复之前。每项尽量回答：
+
+- 什么变了？
+- 谁会受影响？
+- 为什么需要调整？
+- 使用者应怎样迁移？
+
+推荐结构：
+
+```md
+### `submit()` 返回值调整
+
+`submit()` 现在返回提交结果对象，而非直接返回表单数据。
+
+影响范围：直接读取 `submit()` 返回值的项目。
+
+迁移：改为在 `result.ok` 为 `true` 时读取 `result.values`。
+```
+
+只有已有 Diff、代码或文档能证实迁移方式时，才提供迁移示例。证据不足时明确写“迁移方式需要维护者补充”。
+
+Deprecation 必须说明替代方案；已删除 API 应归入 Breaking Change，而非 Deprecation。
+
+## API 与 TypeScript 交叉视图
+
+一个变更只在其主分类中给出完整描述。
+
+- API 章节列出新增、调整、废弃和删除的公开符号，并简短指向主变更。
+- TypeScript 章节仅列出跨包或需要额外关注的类型变化，例如可选改必填、泛型约束收紧、返回类型变化。
+- 已经在不兼容变更中完整说明的内容，在 API 或 TypeScript 章节只做简短索引，避免重复。
+
+## 包、依赖与安全信息
+
+- Monorepo 按可发布包分组；不要将基础包修改自动归因到所有依赖包。
+- 仅在确认用户受影响时才列出间接影响包。
+- 批量包级发布时，每个受影响包独立生成自己的 `release-notes.md`；不要生成一份混合多个包条目的包级说明。
+- 在每份包级说明的版本信息中写明该包名、比较范围和版本。间接影响包应说明影响来自哪个内部依赖，但不复制上游包的完整条目。
+- 依赖升级只有影响安装、构建、运行、安全或兼容性时才显示。
+- 安全修复单列，避免披露尚未公开漏洞的攻击路径或利用细节。
+
+## 版本规模
+
+- Patch：通常保持精简，重点写修复、少量优化和必要提示。
+- Minor：突出新增能力、主要优化、修复和 API 变化。
+- Major：先写版本定位、不兼容变更和迁移，再写新增、优化与修复。
+
+当发布说明变成数百行 Commit 汇总时，将细节移动到完整变更链接或 Changelog；Release Note 应保持面向使用者的决策价值。
+
+## 语言与格式
+
+- 默认使用简体中文叙述；保留 API、包名、命令、代码、依赖和版本号原文。
+- 固定章节名必须使用英文：`Release Notes`、`Important Notices`、`Breaking Changes`、`Security`、`Deprecations`、`Features`、`Fixes`、`Improvements`、`Documentation`、`TypeScript Changes`、`Dependencies and Compatibility`、`Validation`、`Known Issues`、`Full Changelog`、`Affected Packages`。不要翻译这些专业名称或添加 Emoji。
+- 使用 Markdown 正确层级、列表和代码围栏。
+- 版本标题使用实际发布版本，例如 `# v1.4.0`。
+- 没有迁移、已知问题或验证结果时，不生成对应章节。

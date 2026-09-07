@@ -59,16 +59,18 @@
  * // result3 => { results: [], remaining: 0 }
  * ```
  */
-export async function waitAll<T>(
-  promises: Promise<T>[],
+export async function waitAll<TResult>(
+  promises: Promise<TResult>[],
   timeout: number = 10000
-): Promise<{ results: T[]; remaining: number }> {
+): Promise<{ results: TResult[]; remaining: number }> {
   if (promises.length === 0) {
     return { results: [], remaining: 0 }
   }
 
-  const results: T[] = []
+  const results: TResult[] = []
+
   let completed = 0
+
   const total = promises.length
 
   await Promise.race([
@@ -76,8 +78,8 @@ export async function waitAll<T>(
       promises.map(async (p, i) => {
         try {
           results[i] = await p
-        } catch {
-          // 不在这里处理错误，让调用方自行处理
+        } catch (error) {
+          console.error("[schemx] 等待并行任务时发生错误", error)
         }
 
         completed++
@@ -118,7 +120,9 @@ export async function waitAll<T>(
  * lockedSubmit() // 复用上一次的 Promise
  * ```
  */
-export function withLock<T extends (...args: any[]) => Promise<any>>(fn: T): T {
+export function withLock<TFunction extends (...args: any[]) => Promise<any>>(
+  fn: TFunction
+): TFunction {
   let pending: Promise<any> | null = null
 
   return ((...args: any[]) => {
@@ -129,5 +133,5 @@ export function withLock<T extends (...args: any[]) => Promise<any>>(fn: T): T {
     })
 
     return pending
-  }) as T
+  }) as TFunction
 }

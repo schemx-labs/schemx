@@ -21,8 +21,9 @@ vi.mock("vant", () => ({
 import SwitchRenderer from "../index.vue"
 
 describe("SwitchRenderer", () => {
-  it("readonly 状态使用 Cell 展示开关文本且不渲染 Switch", async () => {
+  it("readonly 状态使用 Wrapper 展示开关文本且不渲染 Switch", async () => {
     const onChange = vi.fn()
+
     const wrapper = mount(SwitchRenderer, {
       props: {
         readonly: true,
@@ -33,7 +34,7 @@ describe("SwitchRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
 
     expect(cell.exists()).toBe(true)
     expect(wrapper.findComponent({ name: "Switch" }).exists()).toBe(false)

@@ -5,6 +5,7 @@
  */
 
 import { WithRemoteOptions } from "@schemx/vue"
+
 import CascaderRendererComponent from "./index.vue"
 
 export default WithRemoteOptions(CascaderRendererComponent)

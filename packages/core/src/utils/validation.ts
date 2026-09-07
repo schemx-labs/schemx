@@ -6,7 +6,7 @@
  * @module utils/validation
  */
 
-import { defaultConfig } from "../defaultConfig"
+import { defaultSchemxConfig } from "../config"
 
 import type { ValidationTrigger } from "../types"
 
@@ -28,15 +28,6 @@ export type NormalizedTrigger = "blur" | "change" | "submit"
  * undefined 和空数组视为无效，其余值（包括单个字符串、非空数组）视为有效。
  *
  * @param v - 触发时机配置
- *
- * @returns 配置有效时返回 true
- */
-/**
- * 判断触发时机配置是否有效。
- *
- * undefined 和空数组视为无效，其余值（包括单个字符串、非空数组）视为有效。
- *
- * @param v - 触发时机配置
  * @returns 配置有效时返回 true
  */
 function isValidTrigger(v: TriggerConfig | undefined): v is TriggerConfig {
@@ -50,11 +41,11 @@ function isValidTrigger(v: TriggerConfig | undefined): v is TriggerConfig {
 /**
  * 合并校验触发时机配置。
  *
- * 按优先级从高到低取值：列级配置 > 表单上下文配置 > 默认值。
+ * 按优先级从高到低取值：字段级配置 > 当前 Form 的 schemaConfig > 默认值。
  * 跳过 undefined 和空数组，确保空数组不会意外覆盖后续配置。
  *
  * @param columnTrigger - 列级配置的触发时机
- * @param contextTrigger - 表单上下文配置的触发时机
+ * @param contextTrigger - 当前 Form 默认配置的触发时机
  * @param defaultTrigger - 兜底默认值
  *
  * @returns 最终生效的触发时机
@@ -84,16 +75,6 @@ export function mergeTrigger(
  *
  * 将带 `on` 前缀的格式统一为短格式：
  * `"onBlur"` → `"blur"`、`"onChange"` → `"change"`、`"onSubmit"` → `"submit"`。
- *
- * @param t - 原始触发类型
- *
- * @returns 归一化后的触发类型
- */
-/**
- * 归一化触发类型字符串。
- *
- * 将带 `on` 前缀的格式统一为短格式：
- * `"onBlur"` → `"blur"`、`"onChange"` → `"change"`、`"onSubmit"` → `"submit"`。
  * 不认识的值回退到默认配置的触发时机。
  *
  * @param t - 原始触发类型
@@ -109,7 +90,7 @@ function normalizeTrigger(t: ValidationTrigger): NormalizedTrigger {
     submit: "submit",
   }
 
-  return map[t] || defaultConfig.validationTrigger
+  return map[t] || defaultSchemxConfig.validationTrigger
 }
 
 /**

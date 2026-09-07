@@ -1,16 +1,15 @@
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig } from "vite"
 import { resolve } from "path"
 import { createVitePlugins } from "./vite.plugins"
 
-const externalPackages = ["es-toolkit", "@preact/signals-core"]
+const externalPackages = ["es-toolkit", "@preact/signals-core", "async-validator"]
 
 function isExternal(id: string) {
   return externalPackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
 }
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, "")
-  const analyze = env.VITE_ANALYZE === "true"
+  const analyze = mode === "analyze"
 
   return {
     resolve: {
@@ -21,12 +20,15 @@ export default defineConfig(({ mode }) => {
     plugins: createVitePlugins({ analyze }),
     build: {
       lib: {
-        entry: resolve(__dirname, "src/index.ts"),
+        entry: {
+          index: resolve(__dirname, "src/index.ts"),
+          adapter: resolve(__dirname, "src/adapter/index.ts"),
+        },
         name: "schemxCore",
         formats: ["es", "cjs"],
-        fileName: (format) => {
-          if (format === "es") return "index.mjs"
-          return "index.cjs"
+        fileName: (format, entryName) => {
+          if (format === "es") return `${entryName}.mjs`
+          return `${entryName}.cjs`
         },
       },
       rollupOptions: {

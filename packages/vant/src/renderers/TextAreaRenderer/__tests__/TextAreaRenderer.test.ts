@@ -30,7 +30,7 @@ describe("TextAreaRenderer", () => {
     })
 
     expect(wrapper.findComponent({ name: "SchemxInput" }).exists()).toBe(false)
-    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: "SchemxWrapper" }).exists()).toBe(true)
     expect(wrapper.find("textarea").exists()).toBe(false)
 
     wrapper.unmount()

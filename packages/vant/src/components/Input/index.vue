@@ -159,6 +159,7 @@
   const computedInputmode = computed(() => {
     if (props.inputmode) return props.inputmode
     const { type } = props
+
     if (type === "number") return "decimal"
     if (type === "digit") return "numeric"
 
@@ -174,6 +175,7 @@
 
     // Convert minRows/maxRows to minHeight/maxHeight (estimated 22px per row)
     const { minRows, maxRows, minHeight, maxHeight } = props.autosize as TextAreaAutosize
+
     const result: { minHeight?: number; maxHeight?: number } = {}
 
     if (minHeight !== undefined) {
@@ -230,6 +232,7 @@
       internalValue.value !== ""
     ) {
       const { min, max } = props
+
       const numValue = parseFloat(internalValue.value)
 
       if (!isNaN(numValue)) {
@@ -240,6 +243,7 @@
 
         if (numValue !== clampedValue) {
           const stringValue = String(clampedValue)
+
           internalValue.value = stringValue
           props.onChange?.(stringValue)
           emit("update:value", stringValue)
@@ -313,6 +317,7 @@
   const focus = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
       HTMLInputElement | HTMLTextAreaElement | null
+
     input?.focus?.()
   }
 
@@ -320,6 +325,7 @@
   const blur = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
       HTMLInputElement | HTMLTextAreaElement | null
+
     input?.blur?.()
   }
 
@@ -337,6 +343,7 @@
     () => props.value,
     (newVal) => {
       const stringVal = String(newVal ?? "")
+
       if (stringVal !== internalValue.value) {
         internalValue.value = stringVal
       }
@@ -352,6 +359,10 @@
 
     .van-field {
       padding: 0px;
+
+      .van-field__right-icon {
+        padding: 0;
+      }
     }
   }
 </style>

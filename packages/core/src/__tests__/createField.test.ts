@@ -33,7 +33,9 @@ describe("createField", () => {
     })
 
     const nameField = createField(form, "name")
+
     const ageField = createField(form, "age")
+
     const cityField = createField(form, "user.city")
 
     expectTypeOf(nameField.getValue()).toEqualTypeOf<string | undefined>()
@@ -56,5 +58,60 @@ describe("createField", () => {
     }
 
     void assertTypeOnly
+  })
+
+  it("暴露字段错误 API", () => {
+    const form = createForm<TypedForm>({
+      initialValues: {
+        name: "",
+        age: 20,
+        user: { city: "Beijing" },
+      },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const field = createField(form, "name")
+
+    field.setErrors(["错误"])
+    expect(field.getErrors()).toEqual(["错误"])
+    field.clearErrors()
+    expect(field.getErrors()).toEqual([])
+
+    form.destroy()
+  })
+
+  it("未设置运行时覆盖时 removeRules 保留 Schema 规则", async () => {
+    const form = createForm<TypedForm>({
+      initialValues: {
+        name: "",
+        age: 20,
+        user: { city: "Beijing" },
+      },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          required: true,
+        },
+      ],
+    })
+
+    const field = createField(form, "name")
+
+    field.removeRules()
+
+    await expect(field.validate()).resolves.toEqual({
+      valid: false,
+      values: { name: "", age: 20, user: { city: "Beijing" } },
+      errors: [
+        {
+          scope: "field",
+          name: "name",
+          issues: [{ type: "validation", message: "姓名为必填项", code: "required" }],
+        },
+      ],
+    })
+    form.destroy()
   })
 })

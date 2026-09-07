@@ -1,20 +1,22 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-stepper-renderer', props.className]">
-    <SchemxCell
-      v-if="props.readonly"
-      :value="stepperValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-stepper-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      <span class="schemx-stepper-renderer__readonly">
+        {{
+          getReadonlyDisplayValue(stepperValue ?? props.value, props.readonlyPlaceholder)
+        }}
+      </span>
+    </template>
     <Stepper
-      v-else
       v-bind="stepperProps"
       :model-value="stepperValue"
       @update:model-value="handleChange"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -29,7 +31,9 @@
 
   import { Stepper } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { Wrapper } from "@schemx/vue"
+
+  import { getReadonlyDisplayValue } from "@/utils"
 
   import type { StepperRendererProps, StepperValue } from "./types"
 
@@ -59,10 +63,9 @@
 
   const stepperValue = defineModel<StepperValue>("value")
 
-  const placeholder = computed(() => props.placeholder || "请选择")
-
   const stepperProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -74,6 +77,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

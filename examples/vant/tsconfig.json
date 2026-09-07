@@ -11,15 +11,15 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vite/client"],
-    "paths": {
-      "@schemx/core": ["../../packages/core/src/index.ts"],
-      "@schemx/core/*": ["../../packages/core/src/*"],
-      "@schemx/vue": ["../../packages/vue/src/index.ts"],
-      "@schemx/vue/*": ["../../packages/vue/src/*"],
-      "@schemx/vant": ["../../packages/vant/src/index.ts"],
-      "@schemx/vant/*": ["../../packages/vant/src/*"]
-    }
+    "types": ["vite/client"]
+    // "paths": {
+    //   "@schemx/core": ["../../packages/core/src/index.ts"],
+    //   "@schemx/core/*": ["../../packages/core/src/*"],
+    //   "@schemx/vue": ["../../packages/vue/src/index.ts"],
+    //   "@schemx/vue/*": ["../../packages/vue/src/*"],
+    //   "@schemx/vant": ["../../packages/vant/src/index.ts"],
+    //   "@schemx/vant/*": ["../../packages/vant/src/*"]
+    // }
   },
   "include": [
     "src/**/*.ts",

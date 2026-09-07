@@ -22,6 +22,7 @@ describe("SensitiveInputRenderer", () => {
 
   it("展开后输入新值触发 onChange", async () => {
     const onChange = vi.fn()
+
     const wrapper = mount(SensitiveInputRenderer, {
       props: {
         value: "13812348899",

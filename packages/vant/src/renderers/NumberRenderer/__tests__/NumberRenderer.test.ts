@@ -29,7 +29,7 @@ describe("NumberRenderer", () => {
     })
 
     expect(wrapper.findComponent({ name: "SchemxInput" }).exists()).toBe(false)
-    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: "SchemxWrapper" }).exists()).toBe(true)
     expect(wrapper.find("input").exists()).toBe(false)
 
     wrapper.unmount()

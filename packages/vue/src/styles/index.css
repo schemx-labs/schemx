@@ -3,12 +3,13 @@
  */
 
 @import "./variables.css";
+@import "./layout.css";
 
 /**
  * 组件样式
  */
-@import "../components/FormItem/index.css";
-@import "../components/FormGroup/index.css";
+@import "../components/Field/index.css";
+@import "../components/Group/index.css";
 
 /**
  * schemx 容器
@@ -16,6 +17,15 @@
 .schemx {
   box-sizing: border-box;
   padding-bottom: var(--schemx-form-padding-bottom);
+}
+
+/** 表单内置操作区保持框架无关的原生 button 外观。 */
+.schemx-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--schemx-padding-sm);
+  padding: var(--schemx-padding-md) 0;
 }
 
 .schemx-schemas {
@@ -43,4 +53,13 @@
 .schemx-renderer-readonly {
   color: var(--schemx-readonly-color);
   cursor: default;
+}
+
+.is-disabled {
+  opacity: 0.6;
+}
+
+.is-readonly,
+.is-disabled .is-disabled {
+  opacity: 1;
 }

@@ -21,7 +21,7 @@ import type { Values } from "../types"
  *
  * 支持静态值或函数形式，函数接收当前表单值并返回属性值（支持异步）。
  *
- * @typeParam T - 属性值类型
+ * @typeParam TValue - 属性值类型
  *
  * @example
  * ```ts
@@ -32,20 +32,23 @@ import type { Values } from "../types"
  * const prop: DynamicProp<boolean> = (values) => values.age > 18
  * ```
  */
-export type DynamicProp<T, V extends Values = Values> =
-  | ((values: V) => T | Promise<T>)
-  | T
+export type DynamicProp<TValue, TValues extends Values = Values> =
+  ((values: TValues) => TValue | Promise<TValue>) | TValue
 
 /**
  * 批量解析的单个属性条目
  *
- * @typeParam T - 属性值类型
+ * @typeParam TValue - 属性值类型
  */
-export interface DynamicPropEntry<T, TValues extends Values = Values> {
-  /** 动态属性值（函数、静态值、null 或 undefined） */
-  value: DynamicProp<T, TValues> | undefined | null
-  /** 默认值，当 value 为空或函数返回 nullish 时使用 */
-  defaultValue: T
+export interface DynamicPropEntry<TValue, TValues extends Values = Values> {
+  /**
+   * 动态属性值（函数、静态值、null 或 undefined）。
+   */
+  value: DynamicProp<TValue, TValues> | undefined | null
+  /**
+   * 默认值，当 value 为空或函数返回 nullish 时使用。
+   */
+  defaultValue: TValue
 }
 
 /**
@@ -53,29 +56,29 @@ export interface DynamicPropEntry<T, TValues extends Values = Values> {
  *
  * 将属性名映射到对应的 {@link DynamicPropEntry}。
  *
- * @typeParam M - 属性名到值类型的映射
+ * @typeParam TProps - 属性名到值类型的映射
  */
 export type DynamicPropEntries<
-  M extends Record<string, unknown>,
+  TProps extends Record<string, unknown>,
   TValues extends Values = Values,
 > = {
-  [K in keyof M]: DynamicPropEntry<M[K], TValues>
+  [TKey in keyof TProps]: DynamicPropEntry<TProps[TKey], TValues>
 }
 
 /**
  * 解析泛型动态属性
  *
- * 将 `DynamicProp<T>`（函数或静态值）统一解析为 `T`。
+ * 将 `DynamicProp<TValue>`（函数或静态值）统一解析为 `TValue`。
  * 当 value 为函数时调用并传入表单值，捕获错误返回默认值；
  * 当 value 为 null/undefined 时返回默认值。
  *
- * @typeParam T - 解析后的属性值类型
+ * @typeParam TValue - 解析后的属性值类型
  *
  * @param value - 动态属性值（函数、静态值、null 或 undefined）
  * @param formValues - 当前表单值，作为函数形式的入参
  * @param defaultValue - 默认值，当 value 为空或函数返回 nullish 时使用
  *
- * @returns 解析后的属性值，类型始终为 T
+ * @returns 解析后的属性值，类型始终为 TValue
  *
  * @example
  * ```typescript
@@ -92,22 +95,24 @@ export type DynamicPropEntries<
  * // => 'default'
  * ```
  */
-export async function resolveDynamicProp<T, TValues extends Values = Values>(
-  value: DynamicProp<T, TValues> | undefined | null,
+export async function resolveDynamicProp<TValue, TValues extends Values = Values>(
+  value: DynamicProp<TValue, TValues> | undefined | null,
   formValues: TValues,
-  defaultValue: T
-): Promise<T> {
+  defaultValue: TValue
+): Promise<TValue> {
   if (value == null) {
     return defaultValue
   }
 
   if (typeof value === "function") {
     try {
-      const result = await (value as (values: TValues) => T | Promise<T>)(formValues)
+      const result = await (value as (values: TValues) => TValue | Promise<TValue>)(
+        formValues
+      )
 
       return result ?? defaultValue
     } catch (error) {
-      console.error("[schemx] 解析动态属性时发生错误:", error)
+      console.error("[schemx] 解析动态属性时发生错误", error)
 
       return defaultValue
     }
@@ -121,12 +126,27 @@ export async function resolveDynamicProp<T, TValues extends Values = Values>(
  *
  * 保持输入映射表的键名和结果类型；只负责解析，不做 debounce、
  * 生命周期判断或过期结果丢弃。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TProps - 属性名到解析后值类型的映射。
+ * @param entries - 待解析的属性条目映射。
+ * @param formValues - 当前表单值，作为动态函数的入参。
+ * @returns 保持属性键名的解析结果。
+ *
+ * @example
+ * ```ts
+ * const values = await resolveDynamicProps(
+ *   { visible: { value: (form) => form.enabled, defaultValue: false } },
+ *   { enabled: true }
+ * )
+ * // values.visible === true
+ * ```
  */
 export async function resolveDynamicProps<
   TValues extends Values,
-  M extends Record<string, unknown>,
->(entries: DynamicPropEntries<M, TValues>, formValues: TValues): Promise<M> {
-  const keys = Object.keys(entries) as (keyof M)[]
+  TProps extends Record<string, unknown>,
+>(entries: DynamicPropEntries<TProps, TValues>, formValues: TValues): Promise<TProps> {
+  const keys = Object.keys(entries) as (keyof TProps)[]
 
   const values = await Promise.all(
     keys.map((key) => {
@@ -137,10 +157,10 @@ export async function resolveDynamicProps<
   )
 
   return keys.reduce((results, key, index) => {
-    results[key] = values[index] as M[typeof key]
+    results[key] = values[index] as TProps[typeof key]
 
     return results
-  }, {} as M)
+  }, {} as TProps)
 }
 
 /**
@@ -150,7 +170,7 @@ export async function resolveDynamicProps<
  * 高频调用时只保留最后一次的参数，debounce 窗口结束后一次性
  * 通过 `Promise.all` 并行解析所有属性，将结果通过回调分发。
  *
- * @typeParam M - 属性名到值类型的映射
+ * @typeParam TProps - 属性名到值类型的映射
  *
  * @param wait - debounce 等待时间（毫秒），默认 16ms（约一帧）
  *
@@ -186,27 +206,30 @@ export async function resolveDynamicProps<
  * 避免多个字段同时变化时重复解析。
  */
 export function resolveDynamicPropBatch<
-  M extends Record<string, unknown>,
+  TProps extends Record<string, unknown>,
   TValues extends Values = Values,
 >(
   wait = 16
 ): (
-  entries: DynamicPropEntries<M, TValues>,
+  entries: DynamicPropEntries<TProps, TValues>,
   formValues: TValues,
-  callback: (results: M) => void
+  callback: (results: TProps) => void
 ) => void {
   let pending: {
-    entries: DynamicPropEntries<M, TValues>
+    entries: DynamicPropEntries<TProps, TValues>
     formValues: TValues
-    callback: (results: M) => void
+    callback: (results: TProps) => void
   } | null = null
+
   let version = 0
 
   const flush = debounce(async () => {
     if (!pending) return
 
     const currentVersion = version
+
     const { entries, formValues, callback } = pending
+
     pending = null
 
     const results = await resolveDynamicProps(entries, formValues)

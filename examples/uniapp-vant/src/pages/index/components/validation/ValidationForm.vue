@@ -2,7 +2,7 @@
   <div class="example-container">
     <h2>表单验证示例</h2>
     <p class="description">
-      演示 Zod 规则校验、rules: "required" 快捷方式、rules 数组形式、
+      演示 Zod 规则校验、required 必填声明、rules 数组形式、
       validationTrigger（onChange）、跨字段校验、validateField 单字段校验、 Zod email
       邮箱格式校验
     </p>
@@ -21,7 +21,7 @@
       <button class="btn" @click="handleValidateAll">全量校验</button>
       <button class="btn" @click="handleValidateUsername">校验用户名</button>
       <button class="btn" @click="handleValidatePhone">校验手机号</button>
-      <button class="btn" @click="handleRegisterMailRules">注册邮箱rules</button>
+      <button class="btn" @click="handleSetMailRules">设置/替换邮箱 rules</button>
       <button class="btn" @click="formRef?.reset()">重置</button>
     </div>
 
@@ -41,7 +41,7 @@
   import type { ValidationFormValues } from "../../../../../../wot-demo/src/types"
   import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
-  /** 表单实例引用，提供 submit、validate、validateField、setFieldError 等方法 */
+  /** 表单实例引用，提供 submit、validate、validateField、setFieldErrors 等方法 */
   const formRef = ref<SchemxInstance>()
 
   /** 表单数据，通过 v-model 双向绑定实时同步 */
@@ -50,7 +50,7 @@
   /**
    * 表单 Schema 配置
    *
-   * 覆盖多种校验方式：Zod schema rules、"required" 快捷方式、rules 数组形式、
+   * 覆盖多种校验方式：Zod schema rules、required 必填声明、rules 数组形式、
    * validationTrigger onChange 触发、z.number() 类型校验、z.string().regex() 正则校验、
    * z.string().email() 邮箱格式校验。
    */
@@ -75,21 +75,18 @@
         clearable: true,
       },
     },
-    // rules: "required" 快捷方式
+    // required 负责必填语义，rules 负责格式校验
     {
       name: "email",
       label: "邮箱",
       componentType: "text",
-      // 数组形式：
-      rules: [
-        "required",
-        z
-          .string()
-          .regex(
-            /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-            "请输入正确的邮箱地址"
-          ),
-      ],
+      required: true,
+      rules: z
+        .string()
+        .regex(
+          /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
+          "请输入正确的邮箱地址"
+        ),
       componentProps: {
         placeholder: "请输入邮箱地址",
       },
@@ -98,12 +95,13 @@
       name: "phone",
       label: "手机号",
       componentType: "input",
+      required: true,
       componentProps: {
         type: "text",
         placeholder: "请输入手机号",
         maxlength: 11,
       },
-      rules: ["required", z.string().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号")],
+      rules: z.string().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
     },
     // Zod string min + regex 密码复杂度校验
     {
@@ -123,7 +121,7 @@
         .regex(/[a-z]/, "密码必须包含小写字母")
         .regex(/[A-Z]/, "密码必须包含大写字母"),
     },
-    // 确认密码字段，跨字段校验在 @finish 回调中通过 setFieldError 实现
+    // 确认密码字段，跨字段校验在 @finish 回调中通过 setFieldErrors 实现
     {
       name: "confirmPassword",
       label: "确认密码",
@@ -192,13 +190,13 @@
    * 表单提交回调（含跨字段校验）
    *
    * 校验通过后检查密码与确认密码是否一致，
-   * 不一致时调用 setFieldError 设置错误信息。
+   * 不一致时调用 setFieldErrors 设置错误信息。
    *
    * @param values - 校验通过的表单数据
    */
   const handleSubmit = (values: ValidationFormValues) => {
     if (values.password !== values.confirmPassword) {
-      formRef.value?.setFieldError("confirmPassword", ["两次输入的密码不一致"])
+      formRef.value?.setFieldErrors("confirmPassword", ["两次输入的密码不一致"])
 
       return
     }
@@ -245,11 +243,14 @@
    */
   const handleValidateAll = async () => {
     const result = await formRef.value?.validate()
+    if (result && !result.valid) {
+      console.error("全量校验错误:", result.errors)
+    }
     console.log("全量校验结果:", result)
   }
 
-  const handleRegisterMailRules = () => {
-    formRef.value?.registerRules("email", "required")
+  const handleSetMailRules = () => {
+    formRef.value?.setFieldRules("email", z.string().email("请输入正确的邮箱地址"))
     // do something
   }
 </script>

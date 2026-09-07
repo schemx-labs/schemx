@@ -7,6 +7,9 @@
 /** useForm - 表单状态管理 */
 export { useForm } from "./useForm"
 
+/** Vue Form Instance - 在 Vue effect 中可追踪的 Form 实例。 */
+export type { VueSchemxInstance } from "../bridge"
+
 /** createFormContext - 表单上下文注入与消费 */
 export { createFormContext, useFormContext } from "./provideFormContext"
 
@@ -19,21 +22,13 @@ export { createFieldContext, useFieldContext } from "./provideFieldContext"
 /** useWatch - 字段变化监听 */
 export { useWatch, useWatchField, useWatchFields, useWatchAll } from "./useWatch"
 
-/** useEffect - 通用 Signal effect */
-export { useEffect } from "./useEffect"
-
 /** useDictionary - 字典选项加载 */
-export {
-  useDictionary,
-  type UseDictionaryReturn,
-} from "./useDictionary"
+export { useDictionary, type UseDictionaryReturn } from "./useDictionary"
 
 /** useFormConfigContext - 表单上下文注入与消费 */
 export {
   createFormConfigContext,
   useFormConfigContext,
-  formConfigContextOmitKey,
-  type FormConfigContextOmitKey,
   type FormContextProps,
 } from "./provideFormConfigContext"
 
@@ -42,3 +37,6 @@ export { useStableRef } from "./useStableRef"
 
 /** useViewSchemas - ViewSchemas Vue 桥接 */
 export { useViewSchemas } from "./useViewSchemas"
+
+/** useFormSelector - 表单值 Selector Vue 桥接 */
+export { useFormSelector, type UseFormSelectorOptions } from "./useFormSelector"

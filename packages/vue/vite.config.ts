@@ -16,11 +16,25 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     resolve: {
-      alias: {
-        "@": resolve(__dirname, "src"),
+      alias: [
+        { find: "@", replacement: resolve(__dirname, "src") },
         ...(useSource
-          ? { "@schemx/core": resolve(__dirname, "../core/src/index.ts") }
-          : {}),
+          ? [
+              {
+                find: /^@schemx\/core\/(.+)$/,
+                replacement: `${resolve(__dirname, "../core/src")}/$1`,
+              },
+              {
+                find: /^@schemx\/core$/,
+                replacement: resolve(__dirname, "../core/src/index.ts"),
+              },
+            ]
+          : []),
+      ],
+    },
+    css: {
+      preprocessorOptions: {
+        scss: { api: "modern-compiler" },
       },
     },
     plugins: createVitePlugins({ analyze }),

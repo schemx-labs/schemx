@@ -1,92 +1,192 @@
 /**
  * schema 列配置工具单元测试
  *
- * 覆盖 isBaseResolvedSchema、isGroupResolvedSchema、isDependencyResolvedSchema 类型守卫
- * 和 findSchema 递归查找。
+ * 覆盖 Raw/Resolved Schema 结构分类和 findSchema 递归查找。
  *
  * @module utils/__tests__/schema
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   findSchema,
-  isBaseResolvedSchema,
-  isDependencyResolvedSchema,
-  isGroupResolvedSchema,
+  getSchemaKind,
+  isDependencySchema,
+  isDynamicSchema,
+  isFieldSchema,
+  isGroupSchema,
+  isValidSchema,
 } from "../schema"
 
 import type { SchemxField } from "../../types"
 
 const baseField: SchemxField = {
   name: "username",
-  componentType: "text" as any,
-} as any
+  label: "用户名",
+  componentType: "text",
+}
 
 const groupField: SchemxField = {
-  componentType: "group",
   label: "基本信息",
   children: [baseField],
-} as any
+}
 
 const dependencyField: SchemxField = {
-  componentType: "dependency",
-  dependencies: ["username"],
-  children: () => [],
-} as any
+  to: ["username"],
+  renderer: () => [],
+}
 
-// 验证 isBaseResolvedSchema 类型守卫：基础字段返回 true，group/dependency 返回 false
-describe("isBaseResolvedSchema", () => {
-  it("基础字段配置返回 true", () => {
-    expect(isBaseResolvedSchema(baseField)).toBe(true)
+const dynamicField: SchemxField = {
+  key: "users-schema",
+  name: "users",
+  item: [],
+}
+
+describe("getSchemaKind", () => {
+  it("按结构识别普通字段、Group、Dependency 和 Dynamic", () => {
+    expect(getSchemaKind(baseField)).toBe("field")
+    expect(getSchemaKind(groupField)).toBe("group")
+    expect(getSchemaKind(dependencyField)).toBe("dependency")
+    expect(getSchemaKind(dynamicField)).toBe("dynamic")
   })
 
-  it("group 类型返回 false", () => {
-    expect(isBaseResolvedSchema(groupField)).toBe(false)
+  it("children 优先于其他结构属性识别为 Group", () => {
+    expect(getSchemaKind({ ...baseField, children: [] })).toBe("group")
+    expect(getSchemaKind({ ...dependencyField, label: "依赖分组", children: [] })).toBe(
+      "group"
+    )
   })
 
-  it("dependency 类型返回 false", () => {
-    expect(isBaseResolvedSchema(dependencyField)).toBe(false)
-  })
-})
-
-// 验证 isGroupResolvedSchema 类型守卫：group 返回 true，其他类型返回 false
-describe("isGroupResolvedSchema", () => {
-  it("group 类型返回 true", () => {
-    expect(isGroupResolvedSchema(groupField)).toBe(true)
+  it("无容器结构属性时识别为普通字段", () => {
+    expect(getSchemaKind({ label: "未知" } as never)).toBe("field")
   })
 
-  it("非 group 类型返回 false", () => {
-    expect(isGroupResolvedSchema(baseField)).toBe(false)
-    expect(isGroupResolvedSchema(dependencyField)).toBe(false)
-  })
-})
-
-// 验证 isDependencyResolvedSchema 类型守卫：dependency 返回 true，其他类型返回 false
-describe("isDependencyResolvedSchema", () => {
-  it("dependency 类型返回 true", () => {
-    expect(isDependencyResolvedSchema(dependencyField)).toBe(true)
-  })
-
-  it("非 dependency 类型返回 false", () => {
-    expect(isDependencyResolvedSchema(baseField)).toBe(false)
-    expect(isDependencyResolvedSchema(groupField)).toBe(false)
+  it("to 或 renderer 任一存在时识别为 Dependency", () => {
+    expect(getSchemaKind({ to: ["username"] } as never)).toBe("dependency")
+    expect(getSchemaKind({ renderer: () => [] } as never)).toBe("dependency")
   })
 })
 
-// 验证 findSchema 在平铺和 group 嵌套 schemas 中按名称递归查找
+describe("Raw Schema 类型守卫", () => {
+  it("分别收窄普通字段、Group、Dependency 和 Dynamic", () => {
+    expect(isFieldSchema(baseField)).toBe(true)
+    expect(isGroupSchema(groupField)).toBe(true)
+    expect(isDependencySchema(dependencyField)).toBe(true)
+    expect(isDynamicSchema(dynamicField)).toBe(true)
+
+    expect(
+      isDynamicSchema({
+        key: "legacy-users-schema",
+        name: "users",
+        children: [],
+      } as never)
+    ).toBe(false)
+  })
+})
+
 describe("findSchema", () => {
   it("平铺 schemas 中按名称查找", () => {
     const schemas: SchemxField[] = [baseField]
+
     expect(findSchema(schemas, "username")).toBe(baseField)
   })
 
   it("group 嵌套中递归查找", () => {
     const schemas: SchemxField[] = [groupField]
+
     expect(findSchema(schemas, "username")).toBe(baseField)
   })
 
   it("不存在的字段名返回 undefined", () => {
     const schemas: SchemxField[] = [baseField, groupField]
+
     expect(findSchema(schemas, "nonexistent")).toBeUndefined()
+  })
+})
+
+describe("isValidSchema", () => {
+  it("接受合规的 Field、Group、Dynamic 和 Dependency Schema", () => {
+    expect(isValidSchema({ name: "name", label: "姓名", componentType: "input" })).toBe(
+      true
+    )
+    expect(
+      isValidSchema({
+        label: "资料",
+        children: [{ name: "email", label: "邮箱", componentType: "input" }],
+      })
+    ).toBe(true)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [{ name: "name", label: "姓名", componentType: "input" }],
+      })
+    ).toBe(true)
+    expect(
+      isValidSchema({
+        to: ["type"],
+        renderer: () => [],
+      })
+    ).toBe(true)
+  })
+
+  it("拒绝字段结构、重复路径和不允许的 Dynamic 嵌套", () => {
+    expect(isValidSchema({ name: "name", label: "姓名", componentType: "" })).toBe(false)
+    expect(
+      isValidSchema({
+        label: "资料",
+        children: [
+          { name: "email", label: "邮箱", componentType: "input" },
+          { name: "email", label: "重复邮箱", componentType: "input" },
+        ],
+      })
+    ).toBe(false)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [
+          { name: "email", label: "邮箱", componentType: "input" },
+          { name: "email", label: "重复邮箱", componentType: "input" },
+        ],
+      })
+    ).toBe(false)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [
+          {
+            key: "nested-users",
+            name: "users",
+            item: [],
+          },
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it("拒绝不完整的 Group、Dynamic 和 Dependency Schema", () => {
+    expect(isValidSchema({ label: "资料", children: "invalid" })).toBe(false)
+    expect(isValidSchema({ key: "", name: "users", item: [] })).toBe(false)
+    expect(isValidSchema({ to: [], renderer: () => [] })).toBe(false)
+    expect(isValidSchema({ to: ["type"], renderer: "invalid" })).toBe(false)
+  })
+
+  it("检查失败时输出带 Schema 路径的错误日志", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    try {
+      expect(
+        isValidSchema({
+          label: "资料",
+          children: [{ label: "缺少名称", componentType: "input" }],
+        })
+      ).toBe(false)
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[schemx] schema.children[0].name 必须是非空字符串"
+      )
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })

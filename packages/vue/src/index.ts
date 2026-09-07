@@ -14,8 +14,11 @@ export type { SchemxInstallOptions } from "./form"
 /** 全局渲染器注册实例 */
 export { rendererRegistry } from "./utils/rendererProvider"
 
-/** 全局校验规则注册实例 */
-export { validatorRegistry } from "./utils/rulesProvider"
+/** 全局 Col 组件注册函数 */
+export { registerCol } from "./utils/colProvider"
+
+/** 全局预设规则注册实例 */
+export { presetRuleRegistry } from "./utils/presetRuleProvider"
 
 /** Hooks */
 export * from "./hooks"
@@ -24,8 +27,14 @@ export * from "./hooks"
 export { WithRemoteOptions } from "./hocs"
 
 /** 组件 */
-export { default as FormItem } from "./components/FormItem"
-export { default as FormGroup } from "./components/FormGroup"
+export { default as Field } from "./components/Field"
+export { default as Group } from "./components/Group"
+export { default as Col } from "./components/Col"
+export { default as Wrapper } from "./components/Wrapper/index.vue"
+export {
+  default as ConfigProvider,
+  type ConfigProviderProps,
+} from "./components/ConfigProvider"
 
 /** schemx/core 导出 */
 export * from "@schemx/core"

@@ -9,19 +9,26 @@
  * @module core/store/__tests__/store
  */
 
-import { isReactive } from "vue"
-
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
+import { batchUpdates, createSignalEffect } from "../../reactivity"
 import { createStore } from "../store"
 
+import type { ValidationRuleIssue } from "../../validator/types"
+
+/**
+ * 覆盖基础标量字段读写的 Store 测试值类型。
+ */
 interface TestForm {
   name: string
   age: number
   email: string
 }
 
+/**
+ * 包含嵌套对象和数组的 Store 测试值类型。
+ */
 interface NestedForm {
   user: {
     name: string
@@ -33,12 +40,312 @@ interface NestedForm {
   tags: string[]
 }
 
-// 单元测试：验证 Store 的构造、字段读写、嵌套字段、快照、touched/pending 状态、reset/destroy 等完整 API
+// 单元测试：覆盖 Store 构造、字段读写、快照、交互状态、重置和销毁等公开 API。
 describe("Store", () => {
-  // 验证 Store 无参/有参构造、initialValues 深拷贝
+  it("Store 保留普通字段和数组根行为", () => {
+    const store = createStore<{
+      name: string
+      profile: { city?: string }
+      users: Array<{ name: string }>
+    }>({
+      initialValues: {
+        name: "John",
+        profile: {},
+        users: [{ name: "Alice" }],
+      },
+    })
+
+    store.setFieldValue("name", "Jane")
+    store.registerFieldPath("profile")
+    store.setFieldValue("profile.city", "Shanghai" as never)
+
+    const handle = store.getArrayStructureHandle("users")
+
+    handle.register()
+    const initialKey = handle.getKeys()[0]
+
+    store.setFieldValue("users", [{ name: "Bob" }])
+    const replacedKey = handle.getKeys()[0]
+
+    expect(store.getFieldValue("name")).toBe("Jane")
+    expect(store.getFieldValue("profile.city" as never)).toBe("Shanghai")
+    expect(replacedKey).not.toBe(initialKey)
+
+    store.resetField("users")
+    expect(handle.getKeys()[0]).not.toBe(replacedKey)
+    expect(store.getFieldSnapshot("users")).toEqual([{ name: "Alice" }])
+
+    store.destroy()
+  })
+
+  it("updater 只执行一次，支持 undefined，返回相同引用时 no-op", () => {
+    const store = createStore<{
+      name?: string
+      users: Array<{ name: string }>
+    }>({
+      initialValues: { users: [{ name: "Alice" }] },
+    })
+
+    const structure = store.getArrayStructureHandle("users")
+
+    structure.register()
+
+    let updaterRuns = 0
+
+    let formRuns = 0
+
+    const dispose = createSignalEffect(() => {
+      formRuns += 1
+      store.getFieldsValue()
+    })
+
+    store.setFieldValue("name", (previous) => {
+      updaterRuns += 1
+
+      return previous ?? "Ada"
+    })
+
+    expect(updaterRuns).toBe(1)
+    expect(store.getFieldValue("name")).toBe("Ada")
+
+    const users = store.getFieldValue("users")
+
+    const snapshot = store.getFieldsSnapshot()
+
+    store.setFieldValue("users", (previous) => {
+      updaterRuns += 1
+
+      return previous
+    })
+
+    expect(updaterRuns).toBe(2)
+    expect(formRuns).toBe(2)
+    expect(store.getFieldsSnapshot()).toBe(snapshot)
+    expect(store.getFieldValue("users")).toBe(users)
+
+    store.setFieldValue("name", undefined)
+    expect(store.getFieldValue("name")).toBeUndefined()
+
+    dispose()
+    store.destroy()
+  })
+
+  it("删除字段当前值并保留初始值", () => {
+    const store = createStore<NestedForm>({
+      initialValues: {
+        user: {
+          name: "Ada",
+          address: { city: "Beijing", zip: "100000" },
+        },
+        tags: ["form"],
+      },
+    })
+
+    store.setFieldTouched("user.name", true)
+    store.setFieldPending("user.name", true, "保存中")
+    store.removeFieldValue("user.name")
+
+    expect(store.getFieldValue("user.name")).toBeUndefined()
+    expect(store.getInitialValue("user.name")).toBe("Ada")
+    expect(store.isFieldTouched("user.name")).toBe(false)
+    expect(store.isFieldPending("user.name")).toBe(false)
+    expect(store.getFieldValue("user.address.city")).toBe("Beijing")
+  })
+
+  it("删除 FieldArray 根时清空值和行 key", () => {
+    const store = createStore<{ users: Array<{ name: string }> }>({
+      initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
+    })
+
+    const handle = store.getArrayStructureHandle("users")
+
+    handle.register()
+    expect(handle.getKeys()).toHaveLength(2)
+
+    store.removeFieldValue("users")
+
+    expect(Object.hasOwn(store.getFieldsValue(), "users")).toBe(false)
+    expect(handle.getKeys()).toEqual([])
+  })
+
+  it("数组结构订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
+    const store = createStore<{ users: Array<{ name: string }> }>({
+      initialValues: { users: [] },
+    })
+
+    const handle = store.getArrayStructureHandle("users")
+
+    handle.register()
+
+    const changes: unknown[] = []
+
+    const unsubscribe = handle.subscribe((change) => {
+      changes.push(change)
+    })
+
+    expect(changes).toEqual([])
+
+    batchUpdates(() => {
+      store.setFieldValue("users", [{ name: "Alice" }, { name: "Bob" }])
+      store.setFieldValue("users", [
+        { name: "Alice" },
+        { name: "Bob" },
+        { name: "Carol" },
+      ])
+    })
+
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({
+      previousLength: 2,
+      nextLength: 3,
+      ranges: [{ start: 0, end: 2 }],
+    })
+
+    store.setFieldValue("users", [
+      { name: "Alice" },
+      { name: "Bob" },
+      { name: "Carol" },
+      { name: "Dora" },
+    ])
+
+    expect(changes).toHaveLength(2)
+
+    unsubscribe()
+
+    store.setFieldValue("users", [
+      { name: "Alice" },
+      { name: "Bob" },
+      { name: "Carol" },
+      { name: "Dora" },
+      { name: "Eve" },
+    ])
+
+    expect(changes).toHaveLength(2)
+
+    store.destroy()
+  })
+
+  describe("字段注册", () => {
+    it("支持单个和批量注册字段路径", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "" } },
+      })
+
+      store.registerFieldPath("profile.name")
+      store.registerFieldPaths(["profile.email"])
+
+      store.setFieldsValue({ profile: { name: "Jane", email: "jane@example.com" } })
+
+      expect(store.getFieldValue("profile.name")).toBe("Jane")
+      expect(store.getFieldValue("profile.email")).toBe("jane@example.com")
+    })
+
+    it("普通复合字段的子路径使用细粒度响应式", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "john@example.com" } },
+      })
+
+      store.registerFieldPath("profile")
+
+      let nameRuns = 0
+
+      let emailRuns = 0
+
+      const disposeName = createSignalEffect(() => {
+        nameRuns += 1
+        store.getFieldValue("profile.name" as any)
+      })
+
+      const disposeEmail = createSignalEffect(() => {
+        emailRuns += 1
+        store.getFieldValue("profile.email" as any)
+      })
+
+      store.setFieldValue("profile.email" as any, "jane@example.com")
+
+      expect(nameRuns).toBe(1)
+      expect(emailRuns).toBe(2)
+      expect(store.getFieldsSnapshot()).toEqual({
+        profile: { name: "John", email: "jane@example.com" },
+      })
+
+      store.setFieldValue("profile.name" as any, "Jane")
+
+      expect(nameRuns).toBe(2)
+      expect(emailRuns).toBe(2)
+
+      disposeName()
+      disposeEmail()
+      store.destroy()
+    })
+
+    it("普通复合字段的初始值、reset 和交互状态保持一致", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "John", email: "john@example.com" } },
+      })
+
+      store.registerFieldPath("profile")
+      store.setInitialValue("profile.name" as any, "Default")
+      store.setFieldValue("profile.name" as any, "Changed")
+      store.setFieldValue("profile.email" as any, "changed@example.com")
+      store.setFieldTouched("profile.name" as any, true)
+      store.setFieldPending("profile.email" as any, true, "保存中")
+
+      store.resetField("profile.name" as any)
+
+      expect(store.getFieldValue("profile.name" as any)).toBe("Default")
+      expect(store.getFieldValue("profile.email" as any)).toBe("changed@example.com")
+      expect(store.isFieldTouched("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(true)
+      expect(store.getInitialValue("profile.name" as any)).toBe("Default")
+
+      store.reset({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+
+      expect(store.getFieldsSnapshot()).toEqual({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+      expect(store.getInitialValues()).toEqual({
+        profile: { name: "Reset Name", email: "reset@example.com" },
+      })
+      expect(store.isFieldTouched("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(false)
+
+      store.destroy()
+    })
+
+    it("不同子路径即使值相同也保持独立状态", () => {
+      const store = createStore<{
+        profile: { name: string; email: string }
+      }>({
+        initialValues: { profile: { name: "same", email: "same" } },
+      })
+
+      store.registerFieldPath("profile")
+      store.setFieldTouched("profile.name" as any, true)
+      store.setFieldPending("profile.email" as any, true)
+
+      expect(store.isFieldTouched("profile.name" as any)).toBe(true)
+      expect(store.isFieldTouched("profile.email" as any)).toBe(false)
+      expect(store.isFieldPending("profile.name" as any)).toBe(false)
+      expect(store.isFieldPending("profile.email" as any)).toBe(true)
+
+      store.destroy()
+    })
+  })
+
+  // 验证 Store 无参/有参构造以及 initialValues 深拷贝。
   describe("构造", () => {
     it("无参构造创建空 store", () => {
       const store = createStore()
+
       expect(store.getFieldsSnapshot()).toEqual({})
     })
 
@@ -46,13 +353,16 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getFieldValue("name")).toBe("John")
       expect(store.getFieldValue("age")).toBe(25)
     })
 
     it("initialValues 深拷贝，外部修改不影响 store", () => {
       const init = { name: "John", age: 25, email: "j@t.com" }
+
       const store = createStore<TestForm>({ initialValues: init })
+
       init.name = "Modified"
       expect(store.getFieldValue("name")).toBe("John")
     })
@@ -61,6 +371,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "A", age: 1, email: "a@b.com" },
       })
+
       expect(store.getFieldValue("name")).toBe("A")
     })
   })
@@ -75,18 +386,20 @@ describe("Store", () => {
       })
 
       const values = store.getInitialValues(["user" as any]) as NestedForm
+
       values.user.address.city = "Shanghai"
 
       expect(store.getInitialValue("user.address.city" as any)).toBe("Beijing")
     })
   })
 
-  // 验证 getFieldValue/setFieldValue 对基本字段和嵌套字段的读写、不存在的字段返回 undefined
+  // 验证基本字段、嵌套字段的读写，以及不存在路径返回 undefined。
   describe("getFieldValue / setFieldValue", () => {
     it("获取和设置基本字段", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       expect(store.getFieldValue("name")).toBe("Jane")
     })
@@ -98,6 +411,7 @@ describe("Store", () => {
           tags: ["a"],
         },
       })
+
       store.setFieldValue("user.address.city" as any, "Shanghai")
       expect(store.getFieldValue("user.address.city" as any)).toBe("Shanghai")
     })
@@ -106,17 +420,20 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getFieldValue("nonexistent" as any)).toBeUndefined()
     })
   })
 
-  // 验证 getFieldsValue 无参/路径数组、setFieldsValue 批量设置
+  // 验证全量/局部读取和 setFieldsValue 批量写入。
   describe("getFieldsValue / setFieldsValue", () => {
     it("无参返回全量值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const values = store.getFieldsValue()
+
       expect(values).toEqual({ name: "John", age: 25, email: "j@t.com" })
     })
 
@@ -124,7 +441,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const partial = store.getFieldsValue(["name", "age"])
+
       expect(partial).toEqual({ name: "John", age: 25 })
     })
 
@@ -132,57 +451,109 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsValue({ name: "Jane", age: 30 })
       expect(store.getFieldValue("name")).toBe("Jane")
       expect(store.getFieldValue("age")).toBe(30)
       expect(store.getFieldValue("email")).toBe("j@t.com")
     })
+
+    it("批量 updater 只执行一次并读取当前值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setFieldsValue((previousValues) => {
+        updaterRuns += 1
+
+        return { name: `${previousValues.name} Doe`, age: previousValues.age + 1 }
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getFieldsValue()).toEqual({
+        name: "John Doe",
+        age: 26,
+        email: "j@t.com",
+      })
+    })
   })
 
-  // 验证 getFieldsSnapshot 返回深拷贝快照、不受后续修改影响、非 reactive 对象
+  // 验证全量快照的深拷贝、版本缓存和无响应式依赖特性。
   describe("getFieldsSnapshot", () => {
+    it("同一 revision 复用完整快照，值变更后创建新快照", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      const firstSnapshot = store.getFieldsSnapshot()
+
+      const secondSnapshot = store.getFieldsSnapshot()
+
+      expect(secondSnapshot).toBe(firstSnapshot)
+
+      store.setFieldValue("name", "Jane")
+
+      expect(store.getFieldsSnapshot()).not.toBe(firstSnapshot)
+    })
+
     it("返回指定字段快照", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       expect(store.getFieldSnapshot("name")).toBe("Jane")
     })
 
-    it("返回原始对象的深拷贝", () => {
+    it("指定路径快照不会泄露内部嵌套引用", () => {
+      const store = createStore<{ profile: { name: string } }>({
+        initialValues: { profile: { name: "John" } },
+      })
+
+      const snapshot = store.getFieldsSnapshot(["profile"])
+
+      if (!snapshot.profile) {
+        throw new Error("profile 快照不应为空")
+      }
+
+      snapshot.profile.name = "Changed"
+      expect(store.getFieldValue("profile.name")).toBe("John")
+    })
+
+    it("同一 revision 返回稳定的完整快照", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const snap1 = store.getFieldsSnapshot()
+
       const snap2 = store.getFieldsSnapshot()
+
       expect(snap1).toEqual(snap2)
-      expect(snap1).not.toBe(snap2)
+      expect(snap1).toBe(snap2)
     })
 
     it("快照不受后续修改影响", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const snap = store.getFieldsSnapshot()
+
       store.setFieldValue("name", "Changed")
       expect(snap.name).toBe("John")
     })
-
-    it("快照不是 reactive 对象", () => {
-      const store = createStore<TestForm>({
-        initialValues: { name: "John", age: 25, email: "j@t.com" },
-      })
-      const snap = store.getFieldsSnapshot()
-      expect(isReactive(snap)).toBe(false)
-    })
   })
 
-  // 验证 getInitialValue/getInitialValues/setInitialValue/setInitialValues 的读写行为
+  // 验证初始值读取、单个写入和批量写入行为。
   describe("getInitialValue / getInitialValues / setInitialValue / setInitialValues", () => {
     it("获取指定字段初始值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.getInitialValue("name")).toBe("John")
       expect(store.getInitialValue("missing" as any)).toBeUndefined()
     })
@@ -191,7 +562,9 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const init = store.getInitialValues()
+
       expect(init).toEqual({ name: "John", age: 25, email: "j@t.com" })
       // 修改返回值不影响 store
       init.name = "Modified"
@@ -202,25 +575,49 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       const partial = store.getInitialValues(["name", "email"])
+
       expect(partial).toEqual({ name: "John", email: "j@t.com" })
     })
 
-    it("setInitialValue 只更新初始值并重新计算 touched", () => {
+    it("setInitialValue 只更新初始值，不改变 touched 交互状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
+      store.setFieldTouched("name", true)
       store.setInitialValue("name", "Jane")
       expect(store.getFieldValue("name")).toBe("Jane")
       expect(store.getInitialValue("name")).toBe("Jane")
-      expect(store.isFieldTouched("name")).toBe(false)
+      expect(store.isFieldTouched("name")).toBe(true)
+    })
+
+    it("setInitialValue updater 读取初始值而非当前值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setFieldValue("name", "Jane")
+      store.setInitialValue("name", (previousValue) => {
+        updaterRuns += 1
+
+        return `${previousValue} Doe`
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getFieldValue("name")).toBe("Jane")
+      expect(store.getInitialValue("name")).toBe("John Doe")
     })
 
     it("setInitialValues 批量更新初始值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setInitialValues({ name: "NewDefault", age: 99 })
       expect(store.getInitialValues().name).toBe("NewDefault")
       expect(store.getInitialValues().age).toBe(99)
@@ -228,10 +625,32 @@ describe("Store", () => {
       expect(store.getInitialValues().email).toBe("j@t.com")
     })
 
+    it("setInitialValues updater 只执行一次并读取初始值", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      let updaterRuns = 0
+
+      store.setInitialValues((previousValues) => {
+        updaterRuns += 1
+
+        return { name: `${previousValues.name} Doe`, age: previousValues.age + 1 }
+      })
+
+      expect(updaterRuns).toBe(1)
+      expect(store.getInitialValues()).toEqual({
+        name: "John Doe",
+        age: 26,
+        email: "j@t.com",
+      })
+    })
+
     it("setInitialValues 空对象不报错", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setInitialValues({})
       expect(store.getInitialValues()).toEqual({
         name: "John",
@@ -241,38 +660,48 @@ describe("Store", () => {
     })
   })
 
-  // 验证 isFieldTouched/isFieldsTouched/getTouchedFields/setFieldTouched/setFieldsTouched 的 touched 状态管理
+  // 验证 touched 状态的读取、聚合和批量更新。
   describe("isFieldTouched / isFieldsTouched / getTouchedFields", () => {
     it("未修改字段返回 false", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       expect(store.isFieldTouched("name")).toBe(false)
     })
 
-    it("修改后返回 true", () => {
+    it("设置字段值不会隐式标记 touched", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
+      expect(store.isFieldTouched("name")).toBe(false)
+    })
+
+    it("字段值恢复初始值不会改变 touched", () => {
+      const store = createStore<TestForm>({
+        initialValues: { name: "John", age: 25, email: "j@t.com" },
+      })
+
+      store.setFieldTouched("name", true)
+      store.setFieldValue("name", "Jane")
+      store.setFieldValue("name", "John")
       expect(store.isFieldTouched("name")).toBe(true)
     })
 
-    it("设回初始值后返回 false", () => {
+    it("isFieldsTouched 无参检查是否存在未 touched 字段", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
-      store.setFieldValue("name", "Jane")
-      store.setFieldValue("name", "John")
-      expect(store.isFieldTouched("name")).toBe(false)
-    })
 
-    it("isFieldsTouched 无参检查任一字段", () => {
-      const store = createStore<TestForm>({
-        initialValues: { name: "John", age: 25, email: "j@t.com" },
-      })
       expect(store.isFieldsTouched()).toBe(false)
       store.setFieldValue("age", 30)
+      expect(store.isFieldsTouched()).toBe(false)
+      store.setFieldTouched("age", true)
+      expect(store.isFieldsTouched()).toBe(false)
+
+      store.isFieldTouched("name")
       expect(store.isFieldsTouched()).toBe(true)
     })
 
@@ -280,20 +709,24 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       // 只修改了 name，age 未修改
       expect(store.isFieldsTouched(["name", "age"])).toBe(false)
-      store.setFieldValue("age", 30)
+      store.setFieldsTouched(["name", "age"])
       expect(store.isFieldsTouched(["name", "age"])).toBe(true)
     })
 
-    it("getTouchedFields 返回所有被修改的路径", () => {
+    it("getTouchedFields 返回所有显式标记的路径", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Jane")
       store.setFieldValue("email", "new@t.com")
+      store.setFieldsTouched(["name", "email"])
       const touched = store.getTouchedFields()
+
       expect(touched).toContain("name")
       expect(touched).toContain("email")
       expect(touched).not.toContain("age")
@@ -303,6 +736,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldTouched("name", true)
       store.setFieldsTouched(["age", "email"], true)
       expect(store.getTouchedFields()).toEqual(["name", "age", "email"])
@@ -314,12 +748,13 @@ describe("Store", () => {
     })
   })
 
-  // 验证 setFieldPending/setFieldsPending/isFieldPending/isFieldsPending/getPendingFields 的 pending 状态管理
+  // 验证 pending 状态、提示消息和批量更新。
   describe("pending 状态", () => {
     it("支持设置和获取单字段 pending 状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldPending("email", true)
       expect(store.isFieldPending("email")).toBe(true)
       expect(store.getPendingFields()).toEqual([{ field: "email", message: [] }])
@@ -329,25 +764,128 @@ describe("Store", () => {
       expect(store.getPendingFields()).toEqual([])
     })
 
-    it("isFieldsPending 对传入路径和全量字段使用全字段 pending 判断", () => {
+    it("isFieldsPending 对传入路径使用 all 语义，无参检查是否存在非 pending 字段", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsPending(["name", "age"], true)
       expect(store.isFieldsPending(["name", "age"])).toBe(true)
       expect(store.isFieldsPending()).toBe(false)
 
+      store.setFieldPending("age", false)
+      expect(store.isFieldsPending(["name", "age"])).toBe(false)
+      expect(store.isFieldsPending()).toBe(true)
+
       store.setFieldPending("email", true)
       expect(store.isFieldsPending()).toBe(true)
+
+      store.setFieldsPending(["name", "email"], false)
+      expect(store.isFieldsPending()).toBe(true)
+    })
+
+    it("空 store 没有 pending 字段", () => {
+      expect(createStore().isFieldsPending()).toBe(false)
     })
   })
 
-  // 验证 reset/resetField/resetFields/destroy 的恢复初始值、清理 touched/pending、清空字段 signal 等行为
+  describe("errors 状态", () => {
+    it("支持单字段和批量错误的读写与清除", () => {
+      const store = createStore<TestForm>()
+
+      const nameErrors: ValidationRuleIssue[] = [
+        { type: "validation", message: "姓名错误" },
+      ]
+
+      store.setFieldsErrors([
+        { field: "name", errors: nameErrors },
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+
+      nameErrors.push({ type: "external", message: "不应写入" })
+
+      expect(store.getFieldsErrors()).toEqual([
+        {
+          field: "name",
+          errors: [{ type: "validation", message: "姓名错误" }],
+        },
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+      expect(store.getFieldsErrors(["email", "age"])).toEqual([
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+        { field: "age", errors: [] },
+      ])
+      expect(store.peekFieldsErrors(["name"])).toEqual([
+        {
+          field: "name",
+          errors: [{ type: "validation", message: "姓名错误" }],
+        },
+      ])
+
+      store.clearFieldsErrors(["name"])
+
+      expect(store.getFieldsErrors()).toEqual([
+        {
+          field: "email",
+          errors: [{ type: "external", message: "邮箱已占用", code: "external" }],
+        },
+      ])
+
+      store.clearFieldsErrors()
+
+      expect(store.peekFieldsErrors()).toEqual([])
+    })
+
+    it("getFieldsErrors 建立依赖，peekFieldsErrors 不建立依赖", () => {
+      const store = createStore<TestForm>()
+
+      store.registerFieldPath("name")
+
+      let trackedRuns = 0
+
+      let untrackedRuns = 0
+
+      const disposeTracked = createSignalEffect(() => {
+        trackedRuns += 1
+        store.getFieldsErrors()
+      })
+
+      const disposeUntracked = createSignalEffect(() => {
+        untrackedRuns += 1
+        store.peekFieldsErrors()
+      })
+
+      store.setFieldErrors("name", [{ type: "external", message: "服务端错误" }])
+
+      expect(trackedRuns).toBe(2)
+      expect(untrackedRuns).toBe(1)
+
+      store.clearFieldsErrors(["name"])
+
+      expect(trackedRuns).toBe(3)
+      expect(untrackedRuns).toBe(1)
+
+      disposeTracked()
+      disposeUntracked()
+    })
+  })
+
+  // 验证 reset/resetField/resetFields/destroy 的值恢复和状态清理行为。
   describe("reset / resetField / resetFields / destroy", () => {
     it("reset 恢复到初始值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Changed")
       store.setFieldValue("age", 99)
       store.reset()
@@ -362,6 +900,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.reset({ name: "New", age: 0, email: "new@t.com" })
       expect(store.getFieldsSnapshot()).toEqual({
         name: "New",
@@ -375,14 +914,21 @@ describe("Store", () => {
       })
     })
 
-    it("reset 传入新值时删除新值中不存在的字段 signal", () => {
+    it("reset 传入新值时删除新值中不存在的路径状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.reset({ name: "Only" })
       expect(store.getFieldValue("name")).toBe("Only")
       expect(store.getFieldValue("age")).toBeUndefined()
       expect(store.getFieldValue("email")).toBeUndefined()
+      expect(store.getFieldsSnapshot()).toEqual({ name: "Only" })
+      expect(store.getInitialValues()).toEqual({ name: "Only" })
+
+      store.setFieldValue("name", "Changed")
+      store.reset()
+
       expect(store.getFieldsSnapshot()).toEqual({ name: "Only" })
     })
 
@@ -390,6 +936,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldValue("name", "Changed")
       store.setFieldValue("age", 99)
       store.resetField("name")
@@ -401,6 +948,7 @@ describe("Store", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldsValue({ name: "Changed", age: 99 })
       store.setFieldPending("name", true)
 
@@ -412,10 +960,11 @@ describe("Store", () => {
       expect(store.isFieldPending("name")).toBe(false)
     })
 
-    it("destroy 清空所有字段 signal", () => {
+    it("destroy 清空所有路径状态", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },
       })
+
       store.setFieldTouched("name", true)
       store.setFieldPending("email", true)
 
@@ -430,8 +979,8 @@ describe("Store", () => {
 
 // 属性测试：通过 fast-check 验证 Store setFieldValue 往返一致性和 reset 状态正确性
 describe("Store 属性测试", () => {
-  // Feature: pure-signal-core-refactor, Property 2: Store setFieldValue/setFieldsValue 往返一致性
-  // **Validates: Requirements 3.1, 3.4**
+  // 功能：pure-signal-core-refactor；属性 2：Store setFieldValue/setFieldsValue 往返一致性
+  // **验证：需求 3.1、3.4**
   it("Property 2: 对任意字段路径和值，setFieldValue 后 getFieldValue 应返回相同的值；setFieldsValue 同理", () => {
     // 使用原始类型值，避免 collectObjectPathsByLeaf 将对象展开为嵌套路径
     const primitiveArb = fc.oneof(
@@ -456,13 +1005,16 @@ describe("Store 属性测试", () => {
         (path, value) => {
           // 测试 setFieldValue 往返一致性
           const store = createStore()
+
           store.setFieldValue(path as any, value)
           expect(store.getFieldValue(path as any)).toEqual(value)
           store.destroy()
 
           // 测试 setFieldsValue 往返一致性
           const store2 = createStore()
+
           const obj: Record<string, unknown> = {}
+
           obj[path] = value
           store2.setFieldsValue(obj)
           expect(store2.getFieldValue(path as any)).toEqual(value)
@@ -473,8 +1025,8 @@ describe("Store 属性测试", () => {
     )
   })
 
-  // Feature: pure-signal-core-refactor, Property 5: reset 产生正确的 store 状态（diff 式更新）
-  // **Validates: Requirements 4.1, 4.3, 4.4**
+  // 功能：pure-signal-core-refactor；属性 5：reset 产生正确的 store 状态（diff 式更新）
+  // **验证：需求 4.1、4.3、4.4**
   it("Property 5: reset 后已有路径中在目标值内的返回正确值，不在目标值内的被删除", () => {
     const primitiveArb = fc.oneof(
       fc.string(),

@@ -7,54 +7,111 @@
  * @module types/dependencies
  */
 
-import type { NamePath, SchemxFormApi, Values } from "./form"
-import type { SchemxBase } from "./schema"
+import type { SchemxBase } from "./field"
+import type { NamePath, Values } from "./form"
+import type { SchemxFormApi } from "./instance"
+import type { SchemxRendererKey } from "./renderer"
+import type { DefinedFieldValue, FieldRules, RequiredConfig } from "./rule"
 
 /**
  * 条件函数类型
  *
  * 接收当前表单值，返回属性的计算结果（支持同步和异步）。
  *
- * @typeParam T - 表单值类型
- * @typeParam R - 返回值类型
+ * @typeParam TValues - 表单值类型
+ * @typeParam TResult - 返回值类型
+ * @param values - 条件执行时的当前表单值快照。
+ * @param form - 可读取或更新当前表单的公开 API。
+ * @returns 属性计算结果或异步结果。
  */
-export type SchemxConditionFn<T extends Values = Values, R = unknown> = (
-  values: T,
-  form: SchemxFormApi<T>
-) => R | Promise<R>
+export type SchemxConditionFn<TValues extends Values = Values, TResult = unknown> = (
+  values: TValues,
+  form: SchemxFormApi<TValues>
+) => TResult | Promise<TResult>
 
 /**
- * 结构化依赖配置对象
+ * 三类 Schema 共用的结构化依赖配置。
  *
- * 所有条件函数共享同一个 `triggerFields`，当任一触发字段变化时，
- * 执行所有已配置的条件函数并更新对应属性值。
+ * Field、Group 和 Dependency 都通过该配置共享触发字段与动态状态。
+ * 具体 Schema 类型会重新声明状态属性，以提供准确的静态默认值文档。
  *
- * @typeParam T - 表单值类型
- * @typeParam K - 渲染器组件类型键，用于收窄 componentProps 的类型
- *
- * @example
- * ```ts
- * const deps: SchemxDependencies<MyForm> = {
- *   triggerFields: ['province', 'country'],
- *   visible: (values) => !!values.province,
- *   disabled: (values) => values.country === 'overseas',
- *   placeholder: (values) => `请选择${values.province}的城市`,
- *   trigger: (values) => {
- *     // 副作用逻辑
- *   },
- *   rules: () => ["required"],
- * }
- * ```
+ * @typeParam TValues - 表单值类型。
  */
-export interface SchemxDependencies<T extends Values = Values> {
+export interface SchemxContainerDependencies<TValues extends Values = Values> {
   /**
    * 触发所有条件函数重新执行的字段路径数组
    *
    * 当数组中任一字段的值发生变化时，所有已配置的条件函数将被重新执行。
    * 支持嵌套路径语法，如 `'user.address.city'`。
    */
-  triggerFields: NamePath<T>[]
+  triggerFields: NamePath<TValues>[]
 
+  /**
+   * 是否只读
+   *
+   * 条件函数返回 `boolean` 类型，只读状态下字段可见但不可编辑。
+   * 未配置时使用所在 {@link SchemxField.readonly} 的静态默认值。
+   */
+  readonly?: SchemxConditionFn<TValues, boolean>
+  /**
+   * 是否禁用
+   *
+   * 条件函数返回 `boolean` 类型，禁用状态下字段不可交互。
+   * 未配置时使用所在 {@link SchemxField.disabled} 的静态默认值。
+   */
+  disabled?: SchemxConditionFn<TValues, boolean>
+
+  /**
+   * 是否可见
+   *
+   * 条件函数返回 `boolean` 类型，不可见时字段不渲染，
+   * 同时会清除校验规则和错误信息。
+   * 未配置时使用所在 {@link SchemxField.visible} 的静态默认值。
+   */
+  visible?: SchemxConditionFn<TValues, boolean>
+
+  /**
+   * 副作用触发器
+   *
+   * 当任一 {@link triggerFields} 的值变化时执行。
+   * 条件函数返回 `void` 类型，仅用于执行副作用逻辑（如联动清空、远程请求）。
+   * 与其他条件函数并行执行，异常独立捕获不影响属性解析。
+   */
+  trigger?: SchemxConditionFn<TValues, void>
+}
+
+/**
+ * 字段节点的结构化依赖配置。
+ *
+ * 所有条件函数共享同一个 `triggerFields`，当任一触发字段变化时，
+ * 执行所有已配置的条件函数并更新对应属性值。
+ *
+ * @typeParam TValues - 表单值类型
+ * @typeParam TName - 当前字段路径，用于推导必填判断与校验规则的字段值类型。
+ * @typeParam TKey - 当前 Renderer 类型，用于收窄动态 `componentProps`。
+ *
+ * @example
+ * ```ts
+ * const deps: SchemxFieldDependencies<MyForm, "city"> = {
+ *   triggerFields: ['province', 'country'],
+ *   visible: (values) => !!values.province,
+ *   disabled: (values) => values.country === 'overseas',
+ *   placeholder: (values) => `请选择${values.province}的城市`,
+ *   required: (values) => ({
+ *     message: `${values.province}的城市不能为空`,
+ *     isEmpty: (city) => !city?.trim(),
+ *   }),
+ *   trigger: (values) => {
+ *     // 副作用逻辑
+ *   },
+ * }
+ * ```
+ */
+export interface SchemxFieldDependencies<
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+  TKey extends string = SchemxRendererKey<TValues>,
+> extends SchemxContainerDependencies<TValues> {
   /**
    * 传递给渲染组件的属性
    *
@@ -62,7 +119,10 @@ export interface SchemxDependencies<T extends Values = Values> {
    * 根据 `componentType` 自动收窄为对应组件的 Props 类型。
    * 未配置时使用 {@link SchemxBase.componentProps} 的静态默认值。
    */
-  componentProps?: SchemxConditionFn<T, NonNullable<SchemxBase<T>["componentProps"]>>
+  componentProps?: SchemxConditionFn<
+    TValues,
+    NonNullable<SchemxBase<TValues, TName, TKey>["componentProps"]>
+  >
 
   /**
    * 占位提示文本
@@ -70,23 +130,27 @@ export interface SchemxDependencies<T extends Values = Values> {
    * 条件函数返回 `string` 类型，用于动态计算输入框的占位文本。
    * 未配置时使用 {@link SchemxBase.placeholder} 的静态默认值。
    */
-  placeholder?: SchemxConditionFn<T, NonNullable<SchemxBase<T>["placeholder"]>>
+  placeholder?: SchemxConditionFn<
+    TValues,
+    NonNullable<SchemxBase<TValues, TName>["placeholder"]>
+  >
 
   /**
    * 是否必填
    *
-   * 条件函数返回 `boolean` 类型，控制必填标记（红色星号）的显示。
+   * 条件函数返回字段对应的 {@link RequiredConfig}，控制必填校验；必填视觉标记由
+   * `showRequiredMark` 独立控制。对象形式的 `isEmpty` 参数按当前字段路径推导。
    * 未配置时使用 {@link SchemxBase.required} 的静态默认值。
    */
-  required?: SchemxConditionFn<T, NonNullable<SchemxBase["required"]>>
+  required?: SchemxConditionFn<TValues, RequiredConfig<DefinedFieldValue<TValues, TName>>>
 
   /**
-   * 是否只读
+   * 是否显示必填视觉标记。
    *
-   * 条件函数返回 `boolean` 类型，只读状态下字段可见但不可编辑。
-   * 未配置时使用 {@link SchemxBase.readonly} 的静态默认值。
+   * 条件函数返回 `boolean`，只覆盖渲染层的必填标记，不改变动态或静态
+   * `required` 校验。未配置静态标记时，标记默认跟随当前有效 `required`。
    */
-  readonly?: SchemxConditionFn<T, NonNullable<SchemxBase<T>["readonly"]>>
+  showRequiredMark?: SchemxConditionFn<TValues, boolean>
 
   /**
    * 占位提示文本 - 只读状态
@@ -95,80 +159,98 @@ export interface SchemxDependencies<T extends Values = Values> {
    * 未配置时使用 {@link SchemxBase.readonlyPlaceholder} 的静态默认值。
    */
   readonlyPlaceholder?: SchemxConditionFn<
-    T,
-    NonNullable<SchemxBase<T>["readonlyPlaceholder"]>
+    TValues,
+    NonNullable<SchemxBase<TValues, TName>["readonlyPlaceholder"]>
   >
-
-  /**
-   * 是否禁用
-   *
-   * 条件函数返回 `boolean` 类型，禁用状态下字段不可交互。
-   * 未配置时使用 {@link SchemxBase.disabled} 的静态默认值。
-   */
-  disabled?: SchemxConditionFn<T, NonNullable<SchemxBase<T>["disabled"]>>
-
-  /**
-   * 是否可见
-   *
-   * 条件函数返回 `boolean` 类型，不可见时字段不渲染，
-   * 同时会清除校验规则和错误信息。
-   * 未配置时使用 {@link SchemxBase.visible} 的静态默认值。
-   */
-  visible?: SchemxConditionFn<T, NonNullable<SchemxBase<T>["visible"]>>
 
   /**
    * 校验规则
    *
-   * 条件函数返回 `SchemxRules | SchemxRules[]` 类型，用于动态计算字段的校验规则。
+   * 条件函数返回字段 `rules` 类型，用于动态计算字段的校验规则。
    * 未配置时使用 {@link SchemxBase.rules} 的静态默认值。
    */
-  rules?: SchemxConditionFn<T, SchemxBase<T>["rules"]>
-
-  /**
-   * 副作用触发器
-   *
-   * 条件函数返回 `void` 类型，仅用于执行副作用逻辑（如联动清空、远程请求）。
-   * 与其他条件函数并行执行，异常独立捕获不影响属性解析。
-   */
-  trigger?: SchemxConditionFn<T, void>
+  rules?: SchemxConditionFn<TValues, FieldRules<TValues, TName> | undefined>
 }
+
+/**
+ * Group 容器的结构化依赖配置。
+ *
+ * 用于动态控制整棵 Group 子树的呈现状态；后续 Group 专属动态属性也应在此扩展。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface SchemxGroupDependencies<
+  TValues extends Values = Values,
+> extends SchemxContainerDependencies<TValues> {}
+
+/**
+ * Dependency 容器的结构化依赖配置。
+ *
+ * 用于动态控制由 renderer 生成的子树呈现状态；后续 Dependency 专属动态属性
+ * 应在此扩展。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface SchemxDependencyDependencies<
+  TValues extends Values = Values,
+> extends SchemxContainerDependencies<TValues> {}
+
+/**
+ * Dynamic 容器的结构化依赖配置。
+ *
+ * 用于动态控制由 renderer 生成的子树呈现状态；后续 dynamicArray 专属动态属性
+ * 应在此扩展。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface SchemxDynamicDependencies<
+  TValues extends Values = Values,
+> extends SchemxContainerDependencies<TValues> {}
 
 /**
  * 可解析的属性键（不含 triggerFields 和 trigger）
  *
  * 用于约束 defaults 对象的键值范围。
  */
-export type SchemxDependenciesConditionKey = Exclude<
-  keyof SchemxDependencies,
+export type SchemxFieldDependenciesConditionKey = Exclude<
+  keyof SchemxFieldDependencies,
   "triggerFields" | "trigger"
 >
 
 /**
- * 从 SchemxDependencies 中提取各属性的静态返回类型
+ * 从 SchemxFieldDependencies 中提取各属性的静态返回类型
  *
  * 排除 `triggerFields`（配置字段）和 `trigger`（void 无静态值意义），
- * 将每个 `SchemxConditionFn<T, R>` 映射为 `R`。
+ * 将每个 `SchemxConditionFn<TValues, TResult>` 映射为 `TResult`。
  *
- * @typeParam T - 表单值类型
- * @typeParam K - 渲染器组件类型键
+ * @typeParam TValues - 表单值类型
+ * @typeParam TName - 当前字段路径，用于推导字段专属的动态属性类型。
+ * @typeParam TKey - 当前 Renderer 类型，用于收窄动态 `componentProps`。
  *
  * @example
  * ```ts
  * // 等价于：
  * // {
- * //   componentProps: SchemxComponentProps<T, K>
+ * //   componentProps: SchemxComponentProps<TValues, TKey>
  * //   placeholder: string
- * //   required: boolean
+ * //   required: RequiredConfig<string>
  * //   readonly: boolean
  * //   disabled: boolean
  * //   visible: boolean
  * // }
- * type Defaults = SchemxDependenciesStaticProps<MyForm>
+ * type Defaults = SchemxFieldDependenciesStaticProps<MyForm>
  * ```
  */
-export type SchemxDependenciesStaticProps<T extends Values = Values> = {
-  [P in SchemxDependenciesConditionKey]-?: SchemxDependencies<T>[P] extends
-    SchemxConditionFn<T, infer R> | undefined
-    ? R
+export type SchemxFieldDependenciesStaticProps<
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+  TKey extends string = SchemxRendererKey<TValues>,
+> = {
+  [TProperty in SchemxFieldDependenciesConditionKey]-?: SchemxFieldDependencies<
+    TValues,
+    TName,
+    TKey
+  >[TProperty] extends SchemxConditionFn<TValues, infer TResult> | undefined
+    ? TResult
     : never
 }

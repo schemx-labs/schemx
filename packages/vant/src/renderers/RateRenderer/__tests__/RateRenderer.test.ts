@@ -18,7 +18,11 @@ vi.mock("vant", () => ({
     emits: ["update:modelValue"],
     setup(props, { emit }) {
       return () =>
-        h("button", { onClick: () => emit("update:modelValue", 3) }, String(props.modelValue))
+        h(
+          "button",
+          { onClick: () => emit("update:modelValue", 3) },
+          String(props.modelValue)
+        )
     },
   }),
 }))
@@ -28,6 +32,7 @@ import RateRenderer from "../index.vue"
 describe("RateRenderer", () => {
   it("readonly 状态渲染 Rate 且 handleChange 不触发 onChange", async () => {
     const onChange = vi.fn()
+
     const wrapper = mount(RateRenderer, {
       props: {
         readonly: true,

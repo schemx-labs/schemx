@@ -1,16 +1,15 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-selector-renderer', className]">
-    <SchemxCell
-      v-if="props.readonly"
-      :value="fieldValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
-
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-selector-renderer', className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      <span :style="`text-align: ${contentAlign}`">
+        {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+      </span>
+    </template>
     <Selector
-      v-else
       v-bind="selectorProps"
       :options="options"
       :field-names="fieldNames"
@@ -22,7 +21,7 @@
       }"
       @update:model-value="handleChange"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -35,8 +34,9 @@
    */
   import { computed, useAttrs } from "vue"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { getFieldProps } from "@/utils"
+  import { Wrapper } from "@schemx/vue"
+
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import Selector from "./Selector.vue"
 
@@ -65,6 +65,7 @@
   const selectorValue = defineModel<SelectValue>("value")
 
   const labelName = computed(() => props.fieldNames?.label || "label")
+
   const valueName = computed(() => props.fieldNames?.value || "value")
 
   const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
@@ -75,6 +76,7 @@
 
   const selectorProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -88,6 +90,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       style: _attrsStyle,
       value: _attrsValue,

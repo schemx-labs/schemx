@@ -1,22 +1,13 @@
 <template>
-  <div
-    :class="
-      classNames('schemx-renderer', 'schemx-text-renderer', props.className, {
-        'schemx-renderer-readonly': readonly,
-        'schemx-renderer-disabled': disabled,
-      })
-    "
+  <Wrapper
+    :class="classNames('schemx-renderer', 'schemx-text-renderer', props.className)"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
   >
-    <SchemxCell
-      v-if="props.readonly"
-      :value="textValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
+    <template #readonly>
+      {{ getReadonlyDisplayValue(textValue, props.readonlyPlaceholder) }}
+    </template>
     <SchemxInput
-      v-else
       ref="inputRef"
       v-model:value="textValue"
       v-bind="inputProps"
@@ -45,7 +36,7 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -60,10 +51,11 @@
 
   import { Icon } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxCell from "@/components/Cell/index.vue"
   import SchemxInput from "@/components/Input"
+  import { getReadonlyDisplayValue } from "@/utils"
 
   import type { TextRendererProps } from "./types"
 
@@ -95,6 +87,7 @@
   const slots = useSlots()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
+
   const passwordVisible = ref(false)
 
   /** 判断是否为密码模式 */
@@ -116,6 +109,7 @@
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,

@@ -15,6 +15,16 @@ describe("InputRenderer 容器聚焦", () => {
       },
     })
 
+    const rendererWrapper = wrapper.findComponent({ name: "SchemxWrapper" })
+
+    expect(rendererWrapper.exists()).toBe(true)
+    expect(rendererWrapper.classes()).toEqual(
+      expect.arrayContaining([
+        "schemx-wrapper",
+        "schemx-renderer",
+        "schemx-input-renderer",
+      ])
+    )
     expect(wrapper.findComponent({ name: "SchemxInput" }).exists()).toBe(true)
     expect(wrapper.find("input").exists()).toBe(true)
 
@@ -36,7 +46,7 @@ describe("InputRenderer 容器聚焦", () => {
 
     expect(wrapper.find("input").exists()).toBe(false)
     expect(wrapper.find("textarea").exists()).toBe(false)
-    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: "SchemxWrapper" }).exists()).toBe(true)
     expect(wrapper.find(".van-field__clear").exists()).toBe(false)
     expect(wrapper.find(".van-field__word-limit").exists()).toBe(false)
 

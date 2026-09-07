@@ -1,0 +1,356 @@
+import { createForm, createPresetRuleRegistry } from "../../index"
+
+import type {
+  AdapterRule,
+  FieldRules,
+  FormSchemaOptions,
+  PresetRuleEntry,
+  PresetRuleFactory,
+  RequiredConfig,
+  RequiredOptions,
+  SchemxDependencyDependencies,
+  SchemxExactBaseField,
+  SchemxField,
+  SchemxFieldDependencies,
+  SchemxGroupDependencies,
+  SchemxViewFieldSchema,
+  StandardSchemaV1,
+  ValidationAdapter,
+  ValidationAdapterRule,
+  ValidationAdapterV1,
+  ValidationError,
+  ValidationResult,
+  AsyncValidatorDescriptor,
+  AsyncValidatorRule,
+} from "../../index"
+
+type CoreExports = typeof import("../../index")
+
+const asyncRule: AsyncValidatorRule = {
+  type: "email",
+  message: "邮箱格式错误",
+}
+const asyncDescriptor: AsyncValidatorDescriptor = [asyncRule]
+
+void asyncDescriptor
+
+// @ts-expect-error 旧必填工厂已从 Core 公共入口删除。
+type _RemovedCreateRequiredConfig = CoreExports["createRequiredConfig"]
+// @ts-expect-error 旧 Registry 工厂已从 Core 公共入口删除。
+type _RemovedCreateValidatorsRegistry = CoreExports["createValidatorsRegistry"]
+// @ts-expect-error 品牌规则工厂不得从 Core 公共入口导出。
+type _RemovedCreateAdapterRule = CoreExports["createAdapterRule"]
+// @ts-expect-error Validator 工厂仅供 Core 内部使用，不从公共入口导出。
+type _RemovedCreateValidator = CoreExports["createValidator"]
+// @ts-expect-error 中间层 Controller 工厂不再作为 Core 公共入口。
+type _RemovedCreateValidationController = CoreExports["createValidationController"]
+
+// @ts-expect-error 旧迁移别名不得从 Core 公共入口导出。
+type _RemovedSchemxRuleDefinition = CoreExports["SchemxRuleDefinition"]
+// @ts-expect-error 旧迁移别名不得从 Core 公共入口导出。
+type _RemovedSchemxRules = CoreExports["SchemxRules"]
+
+interface FormValues {
+  email: string
+  age: number
+  files: File[]
+}
+
+const configuredForm = createForm<FormValues>({
+  schemaConfig: {
+    readonly: true,
+  },
+})
+
+const schemaOptions: FormSchemaOptions<FormValues> = {
+  schemas: [],
+  initialValues: {
+    email: "",
+    age: 0,
+    files: [],
+  },
+  schemaConfig: {
+    readonly: true,
+  },
+}
+
+// @ts-expect-error createForm 不再接受平铺的 Schema 配置。
+createForm<FormValues>({ readonly: true })
+// @ts-expect-error 实例只提供 updateSchemaConfig，不再提供旧方法。
+configuredForm.updateDefaultProps({ disabled: true })
+// @ts-expect-error 旧 Schema 配置类型已从 Core 公共入口删除。
+type _RemovedSchemxDefaultProps = CoreExports["SchemxDefaultProps"]
+
+const externalAdapter: ValidationAdapter<{ readonly message: string }> = {
+  id: "external",
+  rule(input): AdapterRule {
+    return { adapterId: "external", payload: input }
+  },
+  isRule: () => false,
+  resolve(input) {
+    const rule: ValidationAdapterRule<{ readonly message: string }> = input
+
+    void rule
+
+    return [{ validate: () => ({ valid: true as const }) }]
+  },
+}
+
+const versionedExternalAdapter: ValidationAdapterV1<{ readonly message: string }> = {
+  id: "external-v1",
+  rule(input) {
+    return { adapterId: "external-v1", payload: input }
+  },
+  isRule: () => false,
+  resolve() {
+    return [{ validate: () => ({ valid: true as const }) }]
+  },
+}
+
+const versionedAdapterId: ValidationAdapterV1.ID = "external-v1"
+
+const versionedRuleInput: ValidationAdapterV1.RuleInput<{ readonly message: string }> = {
+  adapterId: versionedAdapterId,
+  payload: { message: "校验失败" },
+}
+
+// @ts-expect-error Form 不再支持废弃的 adapters 配置，请使用 validatorAdapters。
+createForm({ adapters: [externalAdapter] })
+
+declare const stringSchema: StandardSchemaV1<string, string>
+declare const numberSchema: StandardSchemaV1<number, number>
+declare const filesSchema: StandardSchemaV1<File[], File[]>
+declare const viewField: SchemxViewFieldSchema<FormValues>
+const resolvedRequiredMark: boolean = viewField.showRequiredMark
+
+const fields: SchemxExactBaseField<FormValues>[] = [
+  {
+    name: "email",
+    label: "邮箱",
+    componentType: "input",
+    required: { isEmpty: (value) => value?.trim() === "" },
+    rules: [stringSchema],
+  },
+  {
+    name: "age",
+    label: "年龄",
+    componentType: "input",
+    required: {
+      isEmpty: (value) => {
+        // @ts-expect-error 数值字段值不支持字符串专属的 trim 操作。
+        return value?.trim() === ""
+      },
+    },
+    rules: [numberSchema],
+  },
+  // @ts-expect-error age 字段不能使用 string Schema。
+  {
+    name: "age",
+    label: "年龄",
+    componentType: "input",
+    rules: [stringSchema],
+  },
+  {
+    name: "files",
+    label: "附件",
+    componentType: "input",
+    showRequiredMark: false,
+    dependencies: {
+      triggerFields: ["email"],
+      required: () => ({ isEmpty: (files) => !files?.length }),
+      showRequiredMark: (values) => values.email.length > 0,
+      rules: () => [filesSchema],
+    },
+  },
+]
+
+const schemas: SchemxField<FormValues>[] = [
+  {
+    name: "email",
+    label: "邮箱",
+    componentType: "input",
+    dependencies: {
+      triggerFields: ["age"],
+      visible: (values) => {
+        const email: string = values.email
+
+        // @ts-expect-error Schema 依赖回调必须保留 FormValues，不能退化为 any。
+        values.missing
+
+        return email.length > 0
+      },
+    },
+  },
+  {
+    to: ["age"],
+    renderer: (values) => {
+      const age: number = values.age
+
+      // @ts-expect-error 动态 Schema renderer 必须保留 FormValues。
+      values.missing
+      void age
+
+      return []
+    },
+  },
+]
+
+declare module "../../types/rule" {
+  interface PresetRuleDefinition {
+    email: string
+    emailRule: string
+    positive: number
+  }
+}
+
+declare module "../../types/rule" {
+  interface PresetRuleDefinition {
+    registryEmail: string
+    registryPositive: number
+  }
+}
+
+const emailRules: FieldRules<FormValues, "email"> = ["emailRule"]
+
+// @ts-expect-error email 字段不能使用 number 规则名。
+const invalidEmailRules: FieldRules<FormValues, "email"> = ["positive"]
+
+const adapterObjectRules: FieldRules<FormValues, "email"> = [{ required: true }]
+
+const registry = createPresetRuleRegistry()
+
+const registryEmailEntry: PresetRuleEntry<string> = stringSchema
+
+const registryPositiveEntry: PresetRuleEntry<number> = numberSchema
+
+registry.register("registryEmail", registryEmailEntry)
+registry.register("registryPositive", registryPositiveEntry)
+// @ts-expect-error 注册表不接受未声明的规则名称。
+registry.register("missingRegistryRule", registryEmailEntry)
+// @ts-expect-error string 规则不能注册 number 条目。
+registry.register("registryEmail", registryPositiveEntry)
+registry.registerAll({
+  emailRule: registryEmailEntry,
+  email: registryEmailEntry,
+  positive: registryPositiveEntry,
+  registryEmail: registryEmailEntry,
+  registryPositive: registryPositiveEntry,
+})
+registry.registerAll({
+  // @ts-expect-error registerAll 的已声明规则值必须与名称匹配。
+  registryEmail: registryPositiveEntry,
+  registryPositive: registryPositiveEntry,
+})
+
+const stableContextFactory: PresetRuleFactory<string> = (context) => {
+  const label: string = context.label
+
+  const required: boolean = context.required
+
+  void label
+  void required
+
+  return stringSchema
+}
+
+const required: RequiredConfig<File[]> = {
+  isEmpty: (files) => !files?.length,
+}
+
+const dynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
+  triggerFields: ["email"],
+  trigger: (values) => {
+    const email: string = values.email
+
+    void email
+  },
+  required: (values): RequiredOptions<File[]> => ({
+    message: values.email.trim().length > 0 ? "请上传文件" : "文件不能为空",
+    isEmpty: (files) => {
+      const count: number = files?.length ?? 0
+
+      // @ts-expect-error File[] 字段值不支持字符串专属的 trim 操作。
+      files?.trim()
+
+      return count === 0
+    },
+  }),
+  rules: () => [filesSchema],
+}
+
+const invalidDynamicRequired: SchemxFieldDependencies<FormValues, "files"> = {
+  triggerFields: ["email"],
+  // @ts-expect-error files 字段的动态 required 不能使用 string 值判断器。
+  required: () => ({ isEmpty: (value: string | null | undefined) => !value?.trim() }),
+}
+
+const invalidDynamicRules: SchemxFieldDependencies<FormValues, "files"> = {
+  triggerFields: ["email"],
+  // @ts-expect-error files 字段的动态 rules 不能使用 number Schema。
+  rules: () => [numberSchema],
+}
+
+const invalidDynamicRequiredMark: SchemxFieldDependencies<FormValues, "files"> = {
+  triggerFields: ["email"],
+  // @ts-expect-error 动态 showRequiredMark 只能返回 boolean。
+  showRequiredMark: () => "显示",
+}
+
+const groupDependencies: SchemxGroupDependencies<FormValues> = {
+  triggerFields: ["email"],
+  trigger: (values) => {
+    const email: string = values.email
+
+    void email
+  },
+  readonly: (values) => values.email.length > 0,
+}
+
+const dependencyDependencies: SchemxDependencyDependencies<FormValues> = {
+  triggerFields: ["age"],
+  trigger: (values) => {
+    const age: number = values.age
+
+    void age
+  },
+  disabled: (values) => values.age < 18,
+}
+
+declare const result: ValidationResult<FormValues, "email">
+const typedForm = createForm<FormValues>()
+
+const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
+  typedForm.validateField("email")
+
+declare const fieldErrors: ReturnType<typeof typedForm.getFieldErrors>
+// @ts-expect-error 字段错误快照是只读数组。
+fieldErrors.push("外部修改")
+if (!result.valid) {
+  const error: ValidationError<"email"> = result.errors[0]
+
+  if (error.scope === "field") {
+    const name: "email" = error.name
+
+    void name
+  }
+}
+
+void fields
+void schemas
+void schemaOptions
+void emailRules
+void invalidEmailRules
+void adapterObjectRules
+void stableContextFactory
+void required
+void resolvedRequiredMark
+void invalidDynamicRules
+void invalidDynamicRequiredMark
+void dynamicRequired
+void groupDependencies
+void dependencyDependencies
+void invalidDynamicRequired
+void inferredFieldResult
+void externalAdapter
+void versionedExternalAdapter
+void versionedRuleInput

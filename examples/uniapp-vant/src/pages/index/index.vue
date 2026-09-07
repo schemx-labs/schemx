@@ -26,8 +26,8 @@
   import BasicForm from "./components/basic/BasicForm.vue"
   import DependencyForm from "./components/dependency/DependencyForm.vue"
   import DynamicForm from "./components/dynamic/DynamicForm.vue"
-  // import SlotsForm from "./components/slots/SlotsForm.vue"
-  // import SlotsFormJsx from "./components/slots/SlotsFormJsx"
+  import SlotsForm from "./components/slots/SlotsForm.vue"
+  import SlotsFormJsx from "./components/slots/SlotsFormJsx"
   import ValidationForm from "./components/validation/ValidationForm.vue"
 
   /**
@@ -41,8 +41,8 @@
     { id: "validation", name: "表单验证", component: markRaw(ValidationForm) },
     { id: "dynamic", name: "动态表单", component: markRaw(DynamicForm) },
     { id: "dependency", name: "字段联动", component: markRaw(DependencyForm) },
-    // { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
-    // { id: "slots-jsx", name: "插槽系统（JSX）", component: markRaw(SlotsFormJsx) },
+    { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
+    { id: "slots-jsx", name: "插槽系统（JSX）", component: markRaw(SlotsFormJsx) },
   ]
 
   /** 当前激活的 tab id */

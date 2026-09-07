@@ -4,11 +4,15 @@
  * @module renderers/UploadRenderer/types
  */
 
-import type { UploaderFileListItem, UploaderProps } from "vant"
+import type { ImagePreviewOptions, UploaderFileListItem, UploaderProps } from "vant"
 
 import type { SchemxBaseComponentProps } from "@schemx/core"
 
+/** UploadRenderer 对外读写的文件列表值。 */
 export type UploadValue = UploadFile[]
+
+/** 上传文件列表展示方式 */
+export type UploadListType = "card" | "list"
 
 /**
  * 上传文件对象
@@ -37,13 +41,35 @@ export interface UploadFile {
 }
 
 /**
+ * 文件列表的内部展示数据。
+ *
+ * 由 UploadRenderer 统一解析，避免不同展示组件对文件名和图片类型产生差异。
+ */
+export interface UploadDisplayFile {
+  /** 原始文件 */
+  file: UploadFile
+  /** 原始列表索引 */
+  index: number
+  /** 可展示或预览的文件地址 */
+  source: string
+  /** 包含后缀的文件名 */
+  fileName: string
+  /** 不含后缀的文件名 */
+  baseName: string
+  /** 大写文件后缀，无后缀时为 FILE */
+  extension: string
+  /** 是否按图片处理 */
+  isImage: boolean
+}
+
+/**
  * 上传渲染器 Props
  *
  * 定义上传组件的所有可配置属性。
  */
 export interface UploadRendererProps
+  /* @vue-ignore */
   extends
-    /* @vue-ignore */
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<UploaderProps, "modelValue" | "onUpdate:modelValue" | "imageFit">> {
@@ -57,6 +83,14 @@ export interface UploadRendererProps
   className?: string
   /** 是否显示上传按钮 */
   showUpload?: UploaderProps["showUpload"]
+  /** 图片缩略图填充方式 */
+  imageFit?: UploaderProps["imageFit"]
+  /** 是否允许点击图片打开全屏预览 */
+  previewFullImage?: UploaderProps["previewFullImage"]
+  /** 图片预览配置 */
+  previewOptions?: Partial<ImagePreviewOptions>
+  /** 文件列表展示方式 */
+  listType?: UploadListType
   /** 是否禁用上传 */
   disableUpload?: boolean
   /** 是否可删除 */

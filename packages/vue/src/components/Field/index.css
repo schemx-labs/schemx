@@ -1,0 +1,136 @@
+/**
+ * Field 组件样式
+ */
+
+.schemx-field-wrapper {
+  position: relative;
+
+  background-color: var(--schemx-background-color);
+}
+
+.schemx-field-wrapper--first {
+  border-top-left-radius: var(--schemx-border-radius-md);
+  border-top-right-radius: var(--schemx-border-radius-md);
+}
+
+.schemx-field-wrapper--last {
+  border-bottom-left-radius: var(--schemx-border-radius-md);
+  border-bottom-right-radius: var(--schemx-border-radius-md);
+  margin-bottom: var(--schemx-padding-sm);
+}
+
+.schemx > .schemx-field-wrapper--last:last-child,
+.schemx > .schemx-field-wrapper--last:has(+ .schemx-actions) {
+  margin-bottom: 0;
+}
+
+.schemx-field {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-inline: var(--schemx-padding-md);
+  padding-block: var(--schemx-padding-md);
+  line-height: var(--schemx-field-line-height);
+  gap: var(--schemx-field-gap);
+}
+
+.schemx-field:after {
+  position: absolute;
+  box-sizing: border-box;
+  content: " ";
+  pointer-events: none;
+  right: var(--schemx-padding-md);
+  bottom: 0;
+  left: var(--schemx-padding-md);
+  border-bottom: 1px solid var(--schemx-border-color);
+  transform: scaleY(0.5);
+}
+
+.schemx-field-wrapper--last .schemx-field:after {
+  display: none;
+}
+
+/**
+ * label 位置：左侧（默认）
+ */
+.schemx-field--label-left {
+  flex-direction: row;
+}
+
+/**
+ * label 位置：右侧
+ */
+.schemx-field--label-right {
+  flex-direction: row-reverse;
+}
+
+.schemx-field--label-right .schemx-field__label {
+  margin-right: 0;
+  margin-left: var(--schemx-padding-xs);
+}
+
+/**
+ * label 位置：顶部
+ */
+.schemx-field--label-top {
+  flex-direction: column;
+}
+
+.schemx-field--label-top .schemx-field__label {
+  margin-right: 0;
+  margin-bottom: var(--schemx-field-label-top-gap);
+  width: auto;
+}
+
+/**
+ * Label 样式
+ */
+.schemx-field__label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--schemx-field-label-color);
+  font-size: var(--schemx-font-size-md);
+  margin-right: var(--schemx-padding-xs);
+  line-height: var(--schemx-field-line-height);
+}
+
+.schemx-field__required {
+  color: var(--schemx-danger-color);
+  margin-right: var(--schemx-field-required-gap);
+  position: absolute;
+  top: 2px;
+  left: -8px;
+}
+
+/**
+ * 内容区域
+ */
+.schemx-field__content {
+  flex: 1;
+  min-width: 0;
+  max-width: 70%;
+}
+
+.schemx-field__control {
+  text-align: var(--schemx-content-align);
+}
+
+.schemx-field__control .schemx-renderer {
+  width: 100%;
+}
+
+.schemx-field__error {
+  color: var(--schemx-danger-color);
+  font-size: var(--schemx-font-size-sm);
+  text-align: var(--schemx-error-align, right);
+  line-height: var(--schemx-field-error-line-height);
+  margin-top: var(--schemx-field-error-gap);
+}
+
+.schemx-field--label-top > .schemx-field__content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+}

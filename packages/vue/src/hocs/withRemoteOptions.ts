@@ -12,20 +12,32 @@ import { Component, computed, defineComponent, h, PropType, SetupContext } from 
 
 import type { SchemxDictionary } from "@/types/dictionary"
 
-import { useDictionary } from "../hooks/useDictionary"
 import { useFieldContext } from "../hooks/provideFieldContext"
-
-import type { NamePath } from "@schemx/core"
-
+import { useDictionary } from "../hooks/useDictionary"
 
 /**
  * WithRemoteOptions 注入给被包装组件的额外 Props
  */
 export interface RemoteOptionsInjectedProps {
   /** 加载的选项列表 */
-  options: any[]
+  options: unknown[]
   /** 加载状态 */
   loading: boolean
+}
+
+type SchemxDictionaryInput = SchemxDictionary | SchemxDictionary["api"]
+
+/**
+ * 将 api 简写规范化为完整的字典配置。
+ */
+function normalizeDictionary(
+  dictionary: SchemxDictionaryInput | undefined
+): SchemxDictionary | undefined {
+  if (typeof dictionary === "function") {
+    return { api: dictionary }
+  }
+
+  return dictionary
 }
 
 /**
@@ -63,33 +75,33 @@ export interface RemoteOptionsInjectedProps {
  * }
  * ```
  */
-export function WithRemoteOptions(WrappedComponent: Component) {
+export function WithRemoteOptions(WrappedComponent: Component): Component {
   return defineComponent({
     name: `WithRemoteOptions(${WrappedComponent.name || "Anonymous"})`,
     inheritAttrs: false,
     props: {
       dict: {
-        type: Object as PropType<SchemxDictionary>,
-        default: undefined,
-      },
-      fieldName: {
-        type: [String, Array] as PropType<NamePath>,
+        type: [Object, Function] as PropType<SchemxDictionaryInput>,
         default: undefined,
       },
     },
     setup(props, { attrs, slots }: SetupContext) {
-      // 内嵌于 FormItem 时自动从字段 Context 获取目标字段；显式 fieldName
-      // 保留给脱离 FormItem 的独立使用场景。
-      const fieldName =
-        props.fieldName ?? (props.dict ? useFieldContext().name : undefined)
-      const dictResult = props.dict ? useDictionary(props.dict, fieldName) : null
+      const dictionary = normalizeDictionary(props.dict)
+
+      // 内嵌于 Field 时自动从字段 Context 获取目标字段；显式 fieldName
+      // 保留给脱离 Field 的独立使用场景。
+      const fieldName = dictionary
+        ? ((attrs.fieldName as string | undefined) ?? useFieldContext().name)
+        : undefined
+
+      const dictResult = dictionary ? useDictionary(dictionary, fieldName) : null
 
       const childrenProps = computed(() => {
         return {
           ...attrs,
-          dict: props.dict,
-          options: props.dict ? dictResult?.list.value : attrs.options,
-          loading: props.dict ? dictResult?.loading.value : attrs.loading,
+          dict: dictionary,
+          options: dictionary ? dictResult?.list.value : attrs.options,
+          loading: dictionary ? dictResult?.loading.value : attrs.loading,
         }
       })
 

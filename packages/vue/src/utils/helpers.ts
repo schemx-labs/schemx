@@ -1,25 +1,25 @@
-import { SchemxViewSchema } from "@schemx/core"
+import { isViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
 /**
- * 判断当前项是否为顶层可见普通字段中的第一个或最后一个。
+ * 判断当前项是否为顶层可见普通字段所在区段的第一个或最后一个。
  *
- * `group` 和不可见字段不参与顶层卡片圆角判断。
+ * 可见 Group 是区段边界；不可见字段和不可见 Group 不参与计算。
  *
  * 使用示例：
  *
  * const list = [
- *   { key: 'group-1', type: 'group' },
+ *   { key: 'group-1', children: [] },
  *   { key: 'a' },
  *   { key: 'b' },
- *   { key: 'group-2', type: 'group' },
+ *   { key: 'group-2', children: [] },
  *   { key: 'c' },
  * ]
  *
  * getSectionPosition(list, 'a')
  * // => { found: true, isFirst: true, isLast: false }
  */
-export function getSectionPosition<T extends SchemxViewSchema>(
-  list: T[],
+export function getSectionPosition<TItem extends SchemxViewSchema>(
+  list: TItem[],
   currentKey: string
 ) {
   const currentIndex = list.findIndex((item) => item.key === currentKey)
@@ -42,37 +42,51 @@ export function getSectionPosition<T extends SchemxViewSchema>(
     }
   }
 
-  const prevItem = findPositionItem(list, currentIndex, -1)
-  const nextItem = findPositionItem(list, currentIndex, 1)
-
   return {
     found: true,
-    isFirst: !prevItem,
-    isLast: !nextItem,
+    isFirst: !hasPositionItemInSection(list, currentIndex, -1),
+    isLast: !hasPositionItemInSection(list, currentIndex, 1),
   }
 }
 
-/**
- * 判断当前项是否参与顶层首尾样式计算。
- */
-function isPositionItem<T extends SchemxViewSchema>(item?: T) {
-  return (
-    !!item &&
-    item.componentType !== "group" &&
-    (!("visible" in item) || item.visible !== false)
-  )
+/** 将 NamePath 转换为整体字段与 Renderer 子插槽使用的键。 */
+export function normalizeNameKey(name: unknown): string {
+  if (Array.isArray(name)) {
+    return name.map((part) => String(part)).join(".")
+  }
+
+  return String(name)
 }
 
-function findPositionItem<T extends SchemxViewSchema>(
-  list: T[],
+/** 将分组 key 转换为可用于 DOM ID 的安全字符串。 */
+export function normalizeId(key: string): string {
+  return String(key).replace(/[^a-zA-Z0-9_-]/g, "-")
+}
+
+function isPositionItem<TItem extends SchemxViewSchema>(item?: TItem) {
+  return !!item && !isViewGroupSchema(item) && item.visible !== false
+}
+
+function hasPositionItemInSection<TItem extends SchemxViewSchema>(
+  list: TItem[],
   startIndex: number,
   step: 1 | -1
-) {
+): boolean {
   for (let index = startIndex + step; index >= 0 && index < list.length; index += step) {
-    if (isPositionItem(list[index])) {
-      return list[index]
+    const item = list[index]
+
+    if (item.visible === false) {
+      continue
+    }
+
+    if (isViewGroupSchema(item)) {
+      return false
+    }
+
+    if (isPositionItem(item)) {
+      return true
     }
   }
 
-  return undefined
+  return false
 }

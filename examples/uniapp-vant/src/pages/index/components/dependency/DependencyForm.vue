@@ -2,7 +2,7 @@
   <div class="example-container">
     <h2>字段联动示例</h2>
     <p class="description">
-      演示 componentType: "dependency" 实现复杂字段联动：
+      演示 Dependency Schema 实现复杂字段联动：
       根据字段值动态生成不同的表单结构，多个 dependency 组合使用
     </p>
 
@@ -109,7 +109,7 @@
   /**
    * 表单 Schema 配置
    *
-   * 通过 componentType: "dependency" 覆盖几类复杂场景：
+   * 通过 Dependency Schema 覆盖几类复杂场景：
    * - 多层嵌套 dependency：orderType -> deliveryMode/customCategory -> 子字段
    * - 异步 dependency 竞态：expressLevel 快速切换时旧结果应被丢弃
    * - 动态 group children：dependency renderer 返回 group + children
@@ -134,7 +134,6 @@
 
     /** 主 dependency：根据 orderType 动态生成不同订单结构 */
     {
-      componentType: "dependency",
       to: ["orderType"],
       renderer: async (values) => {
         console.log("values.orderType", values.orderType)
@@ -145,7 +144,6 @@
           return [
             {
               label: "标准订单配置",
-              componentType: "group",
               children: [
                 {
                   name: "quantity",
@@ -160,7 +158,6 @@
                   label: "预计日期",
                   componentType: "date",
                   required: true,
-                  rules: "required",
                 },
                 {
                   name: "deliveryMode",
@@ -175,7 +172,6 @@
                   },
                 },
                 {
-                  componentType: "dependency",
                   to: ["deliveryMode"],
                   renderer: (deliveryValues) => {
                     if (deliveryValues.deliveryMode === "pickup") {
@@ -194,7 +190,6 @@
                               { label: "未来科技城店", value: "future" },
                             ],
                           },
-                          rules: "required",
                         },
                         {
                           name: "pickupCode",
@@ -230,13 +225,11 @@
                         componentProps: {
                           options: cascaderOptions,
                         },
-                        rules: "required",
                       },
                     ]
                   },
                 },
                 {
-                  componentType: "dependency",
                   to: ["quantity"],
                   renderer: (quantityValues) => {
                     if ((quantityValues.quantity || 0) < 100) return []
@@ -268,7 +261,6 @@
           return [
             {
               label: "加急订单配置",
-              componentType: "group",
               children: [
                 {
                   name: "expressLevel",
@@ -283,10 +275,8 @@
                       { label: "专人跟进", value: "concierge" },
                     ],
                   },
-                  rules: "required",
                 },
                 {
-                  componentType: "dependency",
                   to: ["expressLevel"],
                   renderer: async (expressValues) => {
                     const level = expressValues.expressLevel
@@ -308,14 +298,12 @@
                               { text: "22:00 前", value: "before_22" },
                             ],
                           },
-                          rules: "required",
                         },
                         {
                           name: "sameDayContact",
                           label: "紧急联系人",
                           componentType: "input",
                           required: true,
-                          rules: "required",
                         },
                       ]
                     }
@@ -370,7 +358,6 @@
         return [
           {
             label: "定制订单配置",
-            componentType: "group",
             children: [
               {
                 name: "customCategory",
@@ -385,10 +372,8 @@
                     { label: "企业采购", value: "enterprise" },
                   ],
                 },
-                rules: "required",
               },
               {
-                componentType: "dependency",
                 to: ["customCategory"],
                 renderer: (customValues) => {
                   if (customValues.customCategory === "event") {
@@ -399,7 +384,6 @@
                         componentType: "calendar",
                         required: true,
                         componentProps: { type: "range" },
-                        rules: "required",
                       },
                       {
                         name: "attendeeCount",
@@ -434,7 +418,6 @@
                         },
                       },
                       {
-                        componentType: "dependency",
                         to: ["approvalLevel"],
                         renderer: (approvalValues) => {
                           if (approvalValues.approvalLevel !== "legal") return []
@@ -449,7 +432,6 @@
                                 accept: "file",
                                 extension: [".pdf", ".doc", ".docx"],
                               },
-                              rules: "required",
                             },
                           ]
                         },
@@ -466,7 +448,6 @@
                       componentProps: {
                         options: cascaderOptions,
                       },
-                      rules: "required",
                     },
                     {
                       name: "giftMessage",
@@ -503,7 +484,6 @@
 
     /** 全局 dependency：根据 additionalServices 动态生成多个可卸载子树 */
     {
-      componentType: "dependency",
       to: ["additionalServices"],
       renderer: (values) => {
         const services = values.additionalServices || []
@@ -513,7 +493,6 @@
         if (services.includes("invoice")) {
           dynamicServices.push({
             label: "发票信息",
-            componentType: "group",
             children: [
               {
                 name: "invoiceAttachment",
@@ -524,7 +503,6 @@
                   accept: "all",
                   extension: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"],
                 },
-                rules: "required",
               },
               {
                 name: "invoiceAmount",
@@ -543,7 +521,6 @@
         if (services.includes("gift_wrap")) {
           dynamicServices.push({
             label: "礼品包装",
-            componentType: "group",
             children: [
               {
                 name: "giftWrapStyle",
@@ -557,10 +534,8 @@
                     { label: "儿童趣味", value: "kids" },
                   ],
                 },
-                rules: "required",
               },
               {
-                componentType: "dependency",
                 to: ["giftWrapStyle"],
                 renderer: (giftValues) => {
                   if (giftValues.giftWrapStyle !== "festival") return []
@@ -578,7 +553,6 @@
                           { text: "圣诞", value: "christmas" },
                         ],
                       },
-                      rules: "required",
                     },
                   ]
                 },
@@ -590,7 +564,6 @@
         if (services.includes("warranty")) {
           dynamicServices.push({
             label: "延保服务",
-            componentType: "group",
             children: [
               {
                 name: "warrantyYears",
@@ -605,7 +578,6 @@
                 label: "售后联系人",
                 componentType: "input",
                 required: true,
-                rules: "required",
               },
             ],
           })

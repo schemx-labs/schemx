@@ -15,14 +15,26 @@ export declare namespace StandardSchemaV1 {
    *
    * 包含版本号、供应商标识、校验方法和可选的类型信息。
    *
-   * @typeParam Input - 输入值类型
-   * @typeParam Output - 输出值类型
+   * @typeParam TInput - 输入值类型
+   * @typeParam TOutput - 输出值类型
    */
-  interface Props<Input = unknown, Output = Input> {
+  interface Props<TInput = unknown, TOutput = TInput> {
+    /**
+     * Standard Schema 协议版本号，当前固定为 1。
+     */
     readonly version: 1
+    /**
+     * 实现该协议的供应商标识。
+     */
     readonly vendor: string
-    readonly validate: (value: unknown) => Result<Output> | Promise<Result<Output>>
-    readonly types?: Types<Input, Output>
+    /**
+     * 执行同步或异步校验并返回结果。
+     */
+    readonly validate: (value: unknown) => Result<TOutput> | Promise<Result<TOutput>>
+    /**
+     * 可选的输入与输出类型信息，仅供类型推导使用。
+     */
+    readonly types?: Types<TInput, TOutput>
   }
 
   /**
@@ -31,10 +43,10 @@ export declare namespace StandardSchemaV1 {
    * 成功时包含 `value` 字段，失败时包含 `issues` 数组。
    * 两种形态互斥，通过可辨识联合类型区分。
    *
-   * @typeParam Output - 输出值类型
+   * @typeParam TOutput - 输出值类型
    */
-  type Result<Output = unknown> =
-    | { readonly value: Output; readonly issues?: undefined }
+  type Result<TOutput = unknown> =
+    | { readonly value: TOutput; readonly issues?: undefined }
     | { readonly issues: ReadonlyArray<Issue>; readonly value?: undefined }
 
   /**
@@ -43,9 +55,13 @@ export declare namespace StandardSchemaV1 {
    * 描述单个校验失败的详细信息。
    */
   interface Issue {
-    /** 错误提示信息 */
+    /**
+     * 错误提示信息。
+     */
     readonly message: string
-    /** 可选的字段路径，标识问题发生的位置 */
+    /**
+     * 可选的字段路径，标识问题发生的位置。
+     */
     readonly path?: ReadonlyArray<PropertyKey | PathSegment>
   }
 
@@ -55,6 +71,9 @@ export declare namespace StandardSchemaV1 {
    * 用于描述嵌套对象中的路径节点。
    */
   interface PathSegment {
+    /**
+     * 当前路径段的 key。
+     */
     readonly key: PropertyKey
   }
 
@@ -63,30 +82,36 @@ export declare namespace StandardSchemaV1 {
    *
    * 用于在类型层面携带输入/输出类型信息，运行时不使用。
    *
-   * @typeParam Input - 输入值类型
-   * @typeParam Output - 输出值类型
+   * @typeParam TInput - 输入值类型
+   * @typeParam TOutput - 输出值类型
    */
-  interface Types<Input = unknown, Output = Input> {
-    readonly input?: Input
-    readonly output?: Output
+  interface Types<TInput = unknown, TOutput = TInput> {
+    /**
+     * Schema 接收的输入类型标记。
+     */
+    readonly input?: TInput
+    /**
+     * Schema 产出的输出类型标记。
+     */
+    readonly output?: TOutput
   }
 
   /**
    * 从 StandardSchemaV1 实例中提取输入类型。
    *
-   * @typeParam T - StandardSchemaV1 实例类型
+   * @typeParam TSchema - StandardSchemaV1 实例类型
    */
-  type InferInput<T extends StandardSchemaV1> = NonNullable<
-    T["~standard"]["types"]
+  type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"]
 
   /**
    * 从 StandardSchemaV1 实例中提取输出类型。
    *
-   * @typeParam T - StandardSchemaV1 实例类型
+   * @typeParam TSchema - StandardSchemaV1 实例类型
    */
-  type InferOutput<T extends StandardSchemaV1> = NonNullable<
-    T["~standard"]["types"]
+  type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"]
 }
 
@@ -96,9 +121,12 @@ export declare namespace StandardSchemaV1 {
  * 定义了验证库互操作的统一协议。
  * 校验库只需实现 `~standard` 属性即可与表单系统集成。
  *
- * @typeParam Input - 输入值类型
- * @typeParam Output - 输出值类型，默认与 Input 相同
+ * @typeParam TInput - 输入值类型
+ * @typeParam TOutput - 输出值类型，默认与 TInput 相同
  */
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardSchemaV1.Props<Input, Output>
+export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
+  /**
+   * Standard Schema v1 的协议属性集合。
+   */
+  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>
 }

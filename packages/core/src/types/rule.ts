@@ -1,75 +1,147 @@
 /**
  * 校验规则类型体系。
  *
- * 定义表单字段的校验规则类型，支持 Standard Schema、内置快捷方式和用户自定义扩展。
- * 用户可通过声明合并扩展 {@link SchemxRuleDefinition} 来注册自定义规则类型。
- *
  * @module types/rule
  */
 
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-
+import type { FieldValue, NamePath, Values } from "./form"
 import type { StandardSchemaV1 } from "./standardSchema"
+import type { AsyncValidatorRule } from "./asyncValidator"
+import type { ValidationAdapterV1 } from "./validationAdapter"
+import type { ValidationRule } from "../validator/types"
 
 /**
- * 内置校验规则快捷方式。
+ * 必填校验的可选配置。
  *
- * `"required"` 会被 FormItem 自动转换为 `createRequiredRule` 生成的 StandardSchemaV1 实例。
- */
-export type SchemxRuleBuiltinKey = "required" | "selectRequired" | "uploadRequired"
-
-/**
- * 自定义规则扩展接口。
- *
- * 用户通过声明合并（declaration merging）扩展此接口，
- * 将自定义规则名称映射到其对应的 StandardSchemaV1 实例类型。
- * 注册后，规则名称字符串可直接用于 `rules` 字段，运行时通过名称查找对应的 schema 执行校验。
+ * @typeParam TValue - 字段值类型。
  *
  * @example
  * ```ts
- * // 在项目中创建 schemx.d.ts
- * declare module '@schemx/core' {
- *   interface SchemxRuleDefinition {
- *     'phone': StandardSchemaV1<string>
- *     'email': StandardSchemaV1<string>
+ * const required: RequiredOptions<string> = {
+ *   message: "请输入姓名",
+ *   isEmpty: (value) => !value?.trim(),
+ * }
+ * ```
+ */
+export interface RequiredOptions<TValue = unknown> {
+  /**
+   * 必填校验失败时显示的提示文案。
+   */
+  message?: string
+  /**
+   * 自定义空值判断函数。
+   */
+  isEmpty?: (value: TValue | null | undefined) => boolean
+}
+
+/**
+ * 字段的必填声明。
+ *
+ * `true` 使用默认空值判断；对象形式可自定义提示文案或空值判断。
+ *
+ * @typeParam TValue - 字段值类型。
+ *
+ * @example
+ * ```ts
+ * const schema = {
+ *   name: "email",
+ *   label: "邮箱",
+ *   componentType: "input",
+ *   required: { message: "请填写邮箱" },
+ * }
+ * ```
+ */
+export type RequiredConfig<TValue = unknown> = boolean | RequiredOptions<TValue>
+
+/**
+ * 去除 `undefined` 后的字段值类型，供校验规则声明其可校验的值。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 字段路径。
+ */
+export type DefinedFieldValue<
+  TValues extends Values,
+  TName extends NamePath<TValues>,
+> = Exclude<FieldValue<TValues, TName>, undefined>
+
+/**
+ * 命名校验规则的声明合并扩展点。
+ *
+ * 在模块声明中添加属性后，`rules` 只接受与字段值类型匹配的规则名称。
+ *
+ * @example
+ * ```ts
+ * declare module "@schemx/core" {
+ *   interface PresetRuleDefinition {
+ *     email: string
  *   }
  * }
  * ```
- *
- * @remarks
- * 扩展后，`SchemxRuleDefinitionKey` 会自动推导出所有已注册的规则名称字符串，
- * `SchemxRules` 类型也会随之包含这些名称。
  */
-export interface SchemxRuleDefinition {}
+export interface PresetRuleDefinition {}
 
 /**
- * 自定义规则名称类型。
- *
- * 由 {@link SchemxRuleDefinition} 的键自动推导，
- * 代表所有已注册的自定义规则名称字符串。
- * 当 SchemxRuleDefinition 为空时自动降级为 never，不影响 SchemxRules 联合类型。
+ * 从声明合并的规则定义中提取规则名称。
  */
-export type SchemxRuleDefinitionKey = [keyof SchemxRuleDefinition] extends [never]
+type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
+
+/**
+ * 与字段值类型兼容的已声明命名规则。
+ *
+ * 未声明任何规则时回退为 `string`，以支持运行时注册。
+ *
+ * @typeParam TValue - 字段值类型。
+ */
+export type PresetRuleName<TValue> = [DeclaredRuleName] extends [never]
   ? string
-  : keyof SchemxRuleDefinition
+  : {
+      [TKey in DeclaredRuleName]: TValue extends PresetRuleDefinition[TKey] ? TKey : never
+    }[DeclaredRuleName]
 
 /**
- * 校验规则类型。
+ * 单条字段校验规则，可以是命名规则、原生规则、Standard Schema 或 adapter 专属对象。
  *
- * 支持三种形式：
- * - `StandardSchemaV1` — 任何实现了 Standard Schema 接口的验证库实例
- * - `SchemxRuleBuiltinKey` — 内置快捷方式（如 `"required"`）
- * - `SchemxRuleDefinitionKey` — 用户通过声明合并注册的自定义规则名称
+ * adapter 在 Form 创建时注册，因此无法在 Schema 类型中静态推导其专属输入；对象规则
+ * 会在运行时路由到唯一匹配的 adapter，无法识别时会作为字段配置错误记录。
  *
- * 当 SchemxRuleDefinition 未注册任何规则时，自动降级为 `StandardSchemaV1 | SchemxRuleBuiltinKey`。
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 字段路径。
+ * @typeParam TValue - 字段值类型。
+ *
+ * @example
+ * ```ts
+ * const rules: FieldRule<LoginForm, "email"> = "email"
+ * ```
  */
-export type SchemxRules = [keyof SchemxRuleDefinition] extends [never]
-  ? StandardSchemaV1 | SchemxRuleBuiltinKey
-  : StandardSchemaV1 | SchemxRuleBuiltinKey | SchemxRuleDefinitionKey
+export type FieldRule<
+  TValues extends Values,
+  TName extends NamePath<TValues>,
+  TValue = DefinedFieldValue<TValues, TName>,
+> =
+  | PresetRuleName<TValue>
+  | ValidationAdapterV1.Rule
+  | ValidationRule<TValue, TValues, TName>
+  | StandardSchemaV1<TValue, unknown>
+  | AsyncValidatorRule
+  | ValidationAdapterObjectRule
 
 /**
- * Rule registry 内部使用的规则名称约束。
+ * 可由 adapter 自行识别的对象规则。
  *
- * 未声明自定义规则时会退化为任意字符串，声明后收窄为内置规则与声明规则的并集。
+ * `object` 会同时匹配规则数组，使 `FieldRules` 的数组分支跳过逐项类型检查；
+ * 这里显式排除带 `length` 的数组/类数组值，保留普通 descriptor 对象的扩展能力。
  */
-export type SchemxRuleKey = SchemxRuleBuiltinKey | SchemxRuleDefinitionKey
+export type ValidationAdapterObjectRule = Record<string, unknown> & {
+  readonly [Symbol.iterator]?: never
+}
+
+/**
+ * 字段的校验规则集合，允许单条规则或只读规则数组。
+ *
+ * @example
+ * ```ts
+ * const rules: FieldRules<LoginForm, "email"> = ["email", emailSchema]
+ * ```
+ */
+export type FieldRules<TValues extends Values, TName extends NamePath<TValues>> =
+  FieldRule<TValues, TName> | readonly FieldRule<TValues, TName>[]

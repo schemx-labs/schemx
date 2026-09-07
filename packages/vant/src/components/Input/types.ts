@@ -110,6 +110,11 @@ export type InputRendererProps = SchemxInputProps
  * @param allowDot - 是否允许小数点
  * @param allowMinus - 是否允许负号
  * @returns 格式化后的值
+ *
+ * @example
+ * ```ts
+ * formatNumber("-12a.3", true, true) // => "-12.3"
+ * ```
  */
 export function formatNumber(value: string, allowDot = true, allowMinus = true): string {
   if (allowDot) {
@@ -145,6 +150,11 @@ export function formatNumber(value: string, allowDot = true, allowMinus = true):
  *
  * @param str - 字符串
  * @returns 字符串长度
+ *
+ * @example
+ * ```ts
+ * getStringLength("A😀") // => 2
+ * ```
  */
 export function getStringLength(str: string): number {
   return [...String(str)].length
@@ -156,6 +166,11 @@ export function getStringLength(str: string): number {
  * @param str - 字符串
  * @param maxLength - 最大长度
  * @returns 截取后的字符串
+ *
+ * @example
+ * ```ts
+ * cutString("A😀B", 2) // => "A😀"
+ * ```
  */
 export function cutString(str: string, maxLength: number): string {
   return [...String(str)].slice(0, maxLength).join("")

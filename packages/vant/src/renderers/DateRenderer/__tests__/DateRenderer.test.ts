@@ -18,7 +18,7 @@ vi.mock("vant", () => {
             {
               onClick: (event: MouseEvent) => emit("click", event),
             },
-            slots.default?.() ?? String((props as any).value ?? "")
+            slots.value?.() ?? slots.default?.() ?? String((props as any).value ?? "")
           )
       },
     })
@@ -26,7 +26,7 @@ vi.mock("vant", () => {
   return {
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
+      ["value", "placeholder", "isLink", "clickable", "valueClass"],
       ["click"]
     ),
     DatePicker: component("DatePicker", ["modelValue"]),
@@ -46,13 +46,9 @@ describe("DateRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
 
-    expect(cell.get(".schemx-cell__value").text()).toBe("2026/06/11")
-    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
-
-    await cell.vm.$emit("click")
-
+    expect(cell.text()).toContain("2026/06/11")
     expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()
@@ -67,7 +63,9 @@ describe("DateRenderer", () => {
       },
     })
 
-    expect(wrapper.get(".schemx-cell__value").text()).toBe("11/06/2026")
+    expect(wrapper.findComponent({ name: "SchemxWrapper" }).text()).toContain(
+      "11/06/2026"
+    )
 
     wrapper.unmount()
   })

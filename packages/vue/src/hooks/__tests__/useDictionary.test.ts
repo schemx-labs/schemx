@@ -23,17 +23,20 @@ import { normalizeError, useDictionary, type UseDictionaryReturn } from "../useD
 describe("normalizeError", () => {
   it("传入 Error 实例时返回同一实例", () => {
     const err = new Error("test error")
+
     expect(normalizeError(err)).toBe(err)
   })
 
   it("将字符串包装为 Error", () => {
     const result = normalizeError("something went wrong")
+
     expect(result).toBeInstanceOf(Error)
     expect(result.message).toBe("something went wrong")
   })
 
   it("将数字包装为 Error", () => {
     const result = normalizeError(404)
+
     expect(result).toBeInstanceOf(Error)
     expect(result.message).toBe("404")
   })
@@ -54,14 +57,22 @@ const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0
 /**
  * 挂载包装组件，提供 inject 上下文，在 setup 中调用 useDictionary。
  */
-function mountUseDictionary(options: SchemxDictionary) {
+interface DictionaryValues {
+  country?: string
+  city?: string
+}
+
+function mountUseDictionary(
+  options: SchemxDictionary<DictionaryValues>,
+  fieldName?: keyof DictionaryValues
+) {
   let hookReturn: UseDictionaryReturn
 
-  const form = createForm({ initialValues: {} })
+  const form = createForm<DictionaryValues>({ initialValues: {} })
 
   const Comp = defineComponent({
     setup() {
-      hookReturn = useDictionary(options)
+      hookReturn = useDictionary(options, fieldName)
 
       return () => h("div")
     },
@@ -88,6 +99,7 @@ describe("useDictionary 集成测试", () => {
 
   it("依赖字段变化时将最新表单快照传给 onDepsChange", async () => {
     const onDepsChange = vi.fn()
+
     const { wrapper, form } = mountUseDictionary({
       api: vi.fn().mockResolvedValue([]),
       dependsOn: ["country"],
@@ -102,11 +114,38 @@ describe("useDictionary 集成测试", () => {
     wrapper.unmount()
   })
 
+  it("非依赖字段变化不会重新加载或重置当前字段", async () => {
+    const api = vi.fn().mockResolvedValue([])
+
+    const { wrapper, form } = mountUseDictionary(
+      {
+        api,
+        dependsOn: ["country"],
+        immediate: false,
+        resetOnDepsChange: true,
+      },
+      "city"
+    )
+
+    form.setFieldValue("country", "CN")
+    await flushPromises()
+    api.mockClear()
+
+    form.setFieldValue("city", "Shenzhen")
+    await flushPromises()
+
+    expect(api).not.toHaveBeenCalled()
+    expect(form.getFieldValue("city")).toBe("Shenzhen")
+
+    wrapper.unmount()
+  })
+
   // --- Loading 状态 ---
 
   describe("Loading 状态", () => {
     it("api 执行期间 loading 为 true，完成后为 false", async () => {
       let resolveApi: (value: any) => void
+
       const mockApi = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -180,6 +219,7 @@ describe("useDictionary 集成测试", () => {
 
     it("后续成功后 error 重置为 undefined", async () => {
       let callCount = 0
+
       const mockApi = vi.fn(() => {
         callCount++
         if (callCount === 1) return Promise.reject(new Error("first fail"))
@@ -210,6 +250,7 @@ describe("useDictionary 集成测试", () => {
   describe("竞态控制", () => {
     it("并发调用时仅保留最后一个响应", async () => {
       const resolvers: Array<(value: any) => void> = []
+
       const mockApi = vi.fn(
         () =>
           new Promise((resolve) => {
@@ -251,7 +292,9 @@ describe("useDictionary 集成测试", () => {
   describe("重试", () => {
     it("重试 retryCount 次后报告最终错误", async () => {
       const errors = [new Error("fail 1"), new Error("fail 2"), new Error("fail 3")]
+
       let idx = 0
+
       const mockApi = vi.fn(() => Promise.reject(errors[idx++]))
 
       const { wrapper, hookReturn } = mountUseDictionary({
@@ -289,11 +332,14 @@ describe("useDictionary 集成测试", () => {
 
       const { wrapper, hookReturn } = mountUseDictionary({
         api: mockApi,
-        formatter: (res) =>
-          res.data.map((item: any) => ({
+        formatter: (res) => {
+          const response = res as { data: Array<{ name: string; id: number }> }
+
+          return response.data.map((item) => ({
             label: item.name,
             value: item.id,
-          })),
+          }))
+        },
       })
 
       await nextTick()
@@ -416,6 +462,7 @@ describe("useDictionary 集成测试", () => {
   describe("回调", () => {
     it("api 成功后调用 onSuccess", async () => {
       const onSuccess = vi.fn()
+
       const mockApi = vi.fn().mockResolvedValue([{ label: "A", value: 1 }])
 
       const { wrapper } = mountUseDictionary({
@@ -438,6 +485,7 @@ describe("useDictionary 集成测试", () => {
 
     it("api 失败后调用 onError", async () => {
       const onError = vi.fn()
+
       const mockApi = vi.fn().mockRejectedValue(new Error("callback test"))
 
       const { wrapper } = mountUseDictionary({

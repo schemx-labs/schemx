@@ -15,12 +15,12 @@ import type { ReadonlySignal, SignalOptions } from "@preact/signals-core"
 /**
  * 只读 computed signal 类型。
  *
- * 与 `ReadonlySignal<T>` 语义一致，仅用于在类型层面标记该 signal
+ * 与 `ReadonlySignal<TValue>` 语义一致，仅用于在类型层面标记该 signal
  * 由 computed 派生，不可外部写入。
  *
- * @typeParam T - computed 值类型
+ * @typeParam TValue - computed 值类型
  */
-export type ComputedSignal<T> = ReadonlySignal<T>
+export type ComputedSignal<TValue> = ReadonlySignal<TValue>
 
 /**
  * 创建 computed signal。
@@ -28,14 +28,20 @@ export type ComputedSignal<T> = ReadonlySignal<T>
  * `compute` 函数中读取的 signal 会自动成为依赖；当依赖变化时 computed
  * 值会懒计算失效，下次读取时重新求值。
  *
- * @typeParam T - computed 值类型
+ * @typeParam TValue - computed 值类型
  * @param compute - 计算函数，内部读取的 signal 自动成为依赖
  * @param options - signals-core 原生 signal 配置
  * @returns 只读 computed signal
+ *
+ * @example
+ * ```ts
+ * const count = createSignal(1)
+ * const doubled = createComputed(() => count.value * 2)
+ * ```
  */
-export function createComputed<T>(
-  compute: () => T,
-  options?: SignalOptions<T>
-): ComputedSignal<T> {
+export function createComputed<TValue>(
+  compute: () => TValue,
+  options?: SignalOptions<TValue>
+): ComputedSignal<TValue> {
   return computed(compute, options)
 }

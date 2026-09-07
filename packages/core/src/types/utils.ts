@@ -9,29 +9,6 @@
 import type * as CSS from "csstype"
 
 /**
- * 精确类型约束，禁止对象字面量中出现目标类型未定义的属性。
- *
- * TypeScript 的多余属性检查在展开运算符场景下可能失效，
- * 此工具类型通过将未知 key 映射为 never 来强制报错。
- *
- * @typeParam T - 目标类型
- * @typeParam U - 实际传入的类型，必须是 T 的子类型
- *
- * @example
- * ```ts
- * interface Props { name: string; age: number }
- *
- * function create<T extends Props>(props: Exact<Props, T>): Props {
- *   return props
- * }
- *
- * create({ name: "test", age: 18 })          // 正常
- * create({ name: "test", age: 18, x: true }) // 报错：x 不能赋值给 never
- * ```
- */
-export type Exact<T, U extends T> = T & Record<Exclude<keyof U, keyof T>, never>
-
-/**
  * 原始类型联合。
  */
 type Primitive = string | number | boolean | bigint | symbol | null | undefined
@@ -59,7 +36,7 @@ type Builtin = Primitive | CallableFunction | NewableFunction | Date | Error | R
  * 注意：这是 TypeScript 类型层面的只读约束，不会在运行时调用
  * `Object.freeze()`，也不会阻止通过类型断言或原始引用修改对象。
  *
- * @typeParam T - 需要转换为深层只读的目标类型
+ * @typeParam TValue - 需要转换为深层只读的目标类型
  *
  * @example
  * ```ts
@@ -81,25 +58,25 @@ type Builtin = Primitive | CallableFunction | NewableFunction | Date | Error | R
  * // }
  * ```
  */
-export type DeepReadonly<T> = T extends Builtin
-  ? T
-  : T extends ReadonlyMap<infer K, infer V>
-    ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
-    : T extends ReadonlySet<infer U>
-      ? ReadonlySet<DeepReadonly<U>>
-      : T extends Promise<infer U>
-        ? Promise<DeepReadonly<U>>
-        : T extends readonly unknown[]
-          ? number extends T["length"]
-            ? readonly DeepReadonly<T[number]>[]
+export type DeepReadonly<TValue> = TValue extends Builtin
+  ? TValue
+  : TValue extends ReadonlyMap<infer TKey, infer TMapValue>
+    ? ReadonlyMap<DeepReadonly<TKey>, DeepReadonly<TMapValue>>
+    : TValue extends ReadonlySet<infer TItem>
+      ? ReadonlySet<DeepReadonly<TItem>>
+      : TValue extends Promise<infer TResult>
+        ? Promise<DeepReadonly<TResult>>
+        : TValue extends readonly unknown[]
+          ? number extends TValue["length"]
+            ? readonly DeepReadonly<TValue[number]>[]
             : {
-                readonly [K in keyof T]: DeepReadonly<T[K]>
+                readonly [TKey in keyof TValue]: DeepReadonly<TValue[TKey]>
               }
-          : T extends object
+          : TValue extends object
             ? {
-                readonly [K in keyof T]: DeepReadonly<T[K]>
+                readonly [TKey in keyof TValue]: DeepReadonly<TValue[TKey]>
               }
-            : T
+            : TValue
 
 /**
  * CSS 样式属性类型

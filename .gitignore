@@ -69,9 +69,10 @@ dist/
 build/
 out/
 docs/*
-!docs/
-!docs/runtime-refactor-execution-plan.md
-!docs/runtime-refactor-migration-guide.md
+!docs/core-major-refactor-plan.md
+!docs/group-state-extension-design.md
+!docs/release-version-selection-design.md
+!docs/store-refactor-plan.md
 unpackage/
 .packs
 
@@ -82,6 +83,7 @@ build/Release
 *.tgz
 
 **/tsconfig.tsbuildinfo
+*.timestamp*.mjs
 
 # ===================================
 # 环境和配置
@@ -181,3 +183,8 @@ bower_components
 
 # Typescript v1 declaration files
 # typings/
+
+.turbo
+
+.release
+*/release-notes.md

@@ -1,14 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-picker-renderer', props.className]">
-    <SchemxCell
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-      :align="props.contentAlign"
-      :value="fieldValue"
-      @click="handleClick"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-picker-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+    </template>
+
+    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+      <template #value>
+        <span :style="`text-align: ${props.contentAlign}`">
+          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
+        </span>
+      </template>
+    </Cell>
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -31,7 +37,7 @@
         </template>
       </Picker>
     </Popup>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -44,13 +50,13 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Picker, Popup } from "vant"
-  import type { PickerConfirmEventParams } from "vant"
+  import { Cell, Picker, Popup } from "vant"
+  import type { PickerConfirmEventParams, PickerOption } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { findTreeItem } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
 
   import type { PickerFieldNames, PickerRendererProps, PickerValue } from "./types"
 
@@ -90,6 +96,7 @@
 
   const pickerProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -115,6 +122,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,
@@ -152,7 +160,7 @@
   }))
 
   /** 数据源 */
-  const columns = computed(() => {
+  const columns = computed<PickerOption[]>(() => {
     if (Array.isArray(props.options) && props.options?.length > 0) {
       return props.options
     }

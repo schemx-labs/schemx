@@ -101,19 +101,35 @@ export type SchemxSchemasListener<TValues extends Values = Values> = (
  * ```
  */
 export interface SchemxSchemas<TValues extends Values = Values> {
-  /** 当前 schema 列表的只读 signal。 */
+  /**
+   * 当前 schema 列表的只读 signal。
+   */
   readonly signal: ReadonlySignal<readonly SchemxField<TValues>[]>
-  /** 当前 schema 列表。 */
+  /**
+   * 当前 schema 列表。
+   */
   readonly value: readonly SchemxField<TValues>[]
-  /** 无依赖追踪地读取当前 schema 列表。 */
+  /**
+   * 无依赖追踪地读取当前 schema 列表。
+   */
   peek: () => readonly SchemxField<TValues>[]
-  /** 替换当前 schema 列表。 */
+  /**
+   * 替换当前 schema 列表。
+   *
+   * 已修改的配置必须使用新的 Schema 对象引用；原地修改已提交对象不会触发重新编译。
+   */
   set: (schemas: readonly SchemxField<TValues>[]) => void
-  /** 基于当前 schema 列表派生下一版。 */
+  /**
+   * 基于当前 schema 列表派生下一版。
+   *
+   * Updater 应为发生变化的条目返回新对象，并复用未变化条目的引用。
+   */
   update: (
     updater: (schemas: readonly SchemxField<TValues>[]) => readonly SchemxField<TValues>[]
   ) => void
-  /** 订阅 schema 列表变化。 */
+  /**
+   * 订阅 schema 列表变化。
+   */
   subscribe: (listener: SchemxSchemasListener<TValues>) => () => void
 }
 
@@ -123,8 +139,7 @@ export interface SchemxSchemas<TValues extends Values = Values> {
  * @typeParam TValues - 表单值类型。
  */
 export type SchemxSchemasInput<TValues extends Values = Values> =
-  | readonly SchemxField<TValues>[]
-  | SchemxSchemas<TValues>
+  SchemxField<TValues>[] | SchemxSchemas<TValues>
 
 /**
  * 创建空 schema source。
@@ -165,6 +180,9 @@ export function createSchemas<TValues extends Values = Values>(
   schemas: readonly SchemxField<TValues>[]
 ): SchemxSchemas<TValues>
 
+/**
+ * 创建并返回可响应式更新的 schema source 实现。
+ */
 export function createSchemas<TValues extends Values = Values>(
   schemas: readonly SchemxField<TValues>[] = []
 ): SchemxSchemas<TValues> {
@@ -205,6 +223,7 @@ export function createSchemas<TValues extends Values = Values>(
    */
   const subscribe = (listener: SchemxSchemasListener<TValues>): (() => void) => {
     let isInitialNotify = true
+
     const unsubscribe = source.subscribe((value) => {
       if (isInitialNotify) {
         isInitialNotify = false

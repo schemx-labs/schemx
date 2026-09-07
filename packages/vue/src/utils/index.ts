@@ -22,4 +22,7 @@ export {
 /** 插槽工具 */
 export { resolveSlot, extractChildSlots } from "./slot"
 
+/** 通用渲染辅助 */
+export { getSectionPosition, normalizeId, normalizeNameKey } from "./helpers"
+
 export { diff } from "./diff"

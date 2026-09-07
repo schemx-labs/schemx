@@ -1,29 +1,60 @@
 /**
  * core 模块统一导出
  *
- * 聚合 Validator、RendererRegistryType、ValidatorsRegistryType 等核心模块的公开 API。
+ * 聚合表单运行时、Registry 和校验相关的核心公开 API。
+ * Validator 实现仅供 Core 内部 FormModel 使用，不从根入口导出。
  *
  * @module core
  */
 
 export {
-  createValidator,
-  type Validator,
-  type ValidateResult,
-  type ValidateError,
-  type FieldError,
-} from "./validator"
-
-export {
+  createPresetRuleRegistry,
   createRendererRegistry,
-  type RendererRegistryType,
+  PresetRuleRegistry,
+  RendererRegistry,
+  type PresetRuleFactoryContext,
+  type PresetRuleFactory,
+  type PresetRuleEntry,
+  type PresetRuleMap,
+  type PresetRuleRegistryChange,
+  type PresetRuleRegistryListener,
   type RegistryOptions,
   type RendererMap,
 } from "./registry"
 
-export { createForm, type CreateFormOptions } from "./createForm"
+export {
+  createForm,
+  type CreateFormOptions,
+  type FormCallbackOptions,
+  type FormLifecycleOptions,
+  type FormPerformanceOptions,
+  type FormRegistryOptions,
+  type FormSchemaOptions,
+  type ResolvedCreateFormOptions,
+} from "./createForm"
 
-export { type SchemxContext } from "./schemxContext"
+export type {
+  SchedulerDiagnostics,
+  SchedulerIdleOptions,
+  SchedulerOptions,
+  SchedulerTaskPriority,
+  SchedulerTrackOptions,
+} from "./runtime/scheduler"
+
+export {
+  configureSchemx,
+  getGlobalSchemxConfig,
+  mergeAndResolveSchemxConfig,
+  mergeSchemxConfig,
+  resolveSchemxConfig,
+  type MergedSchemxConfig,
+  defaultSchemxConfig,
+  defaultSchemxConfigKeys,
+  excludeSchemxConfigKeys,
+  type SchemxConfig,
+  type SchemxConfigKey,
+  type ExcludeSchemxConfigKeys,
+} from "./config"
 
 export {
   createSchemas,
@@ -35,19 +66,20 @@ export {
 
 export type {
   SchemxViewDebugMeta,
+  SchemxViewDynamicItem,
+  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./view"
-
-export { createField, type SchemxFieldInstance } from "./createField"
+} from "./runtime/view"
 
 export {
-  createEffect,
-  type CleanupFn,
-  type EffectCallback,
-  type CreateEffectReturn,
-} from "./createEffect"
+  isSchemxViewFieldSchema,
+  isViewDynamicSchema,
+  isViewGroupSchema,
+} from "./runtime/view"
+
+export { createField, type SchemxFieldInstance } from "./createField"
 
 export {
   createWatch,
@@ -62,55 +94,103 @@ export {
 } from "./createWatch"
 
 export {
-  createValidatorsRegistry,
-  type ValidatorsRegistryType,
-  type ValidatorsRegistryOptions,
-  type ValidatorsFactory,
-  type ValidatorsEntry,
-  type ValidatorsEntryMap,
-} from "./registry"
+  createSignalEffect,
+  runSignalUntracked,
+  createSignalWatch,
+  createDebouncedSignalWatch,
+  type SignalEffectOptions,
+  type SignalEffectDispose,
+  type SignalWatchOptions,
+  type DebouncedSignalWatchOptions,
+  type DebouncedSignalWatchControls,
+} from "./reactivity"
 
 export {
-  isBaseSchema,
+  isFieldSchema,
   isGroupSchema,
   isDependencySchema,
-  isBaseResolvedSchema,
-  isGroupResolvedSchema,
+  isDynamicSchema,
   getByPath,
   setByPath,
   collectObjectPathsByLeaf,
 } from "./utils"
 
 export type {
+  RequiredOptions,
+  RequiredConfig,
+  DefinedFieldValue,
+  PresetRuleDefinition,
+  PresetRuleName,
+  FieldRule,
+  FieldRules,
   Values,
   Dynamic,
   NamePath,
   FieldValue,
+  SetValueAction,
+  SetValuesAction,
   DeepReadonly,
   CSSProperties,
   ValidationTrigger,
   StandardSchemaV1,
+  AsyncValidatorRule,
+  AsyncValidatorDescriptor,
   SchemxInstance,
-  SchemxProps,
-  SchemxGlobalContext,
-  SchemxRuleDefinition,
-  SchemxRuleDefinitionKey,
-  SchemxRuleBuiltinKey,
-  SchemxRules,
+  SchemxFormApi,
+  SchemxFieldRulesMap,
+  SchemxSchemaConfig,
   SchemxRendererKey,
   SchemxRendererDefinition,
+  SchemxLayout,
   SchemxFieldDefinition,
   SchemxGroupFieldDefinition,
   SchemxBaseComponentProps,
   SchemxComponentProps,
+  SchemxRuntimeInjectedProp,
+  SchemxRendererPropsMap,
   SchemxBase,
   SchemxGroupField,
   SchemxBaseField,
-  SchemxResolvedField,
+  SchemxExactBaseField,
   SchemxDependencyField,
+  SchemxDynamicDefinition,
+  SchemxDynamicField,
+  SchemxDynamicArrayPath,
+  SchemxDynamicNamePath,
+  SchemxDynamicItemGroup,
+  SchemxDynamicItemSchema,
+  SchemxDynamicItemDependency,
+  SchemxDynamicItemDependencyRendererContext,
   SchemxField,
   SchemxFormItemProps,
-  SchemxDependencies,
+  SchemxFieldDependencies,
+  SchemxGroupDependencies,
+  SchemxDependencyDependencies,
+  SchemxDynamicDependencies,
+  SchemxContainerDependencies,
   SchemxConditionFn,
-  SchemxDependenciesStaticProps,
+  FieldArrayItemValue,
+  FieldArrayChange,
+  FieldArrayPath,
+  ValidationAdapterV1,
 } from "./types"
+
+export type {
+  ValidationRuleContext,
+  ValidationRuleIssue,
+  ValidationRuleResult,
+  ValidationRule,
+  AdapterRule,
+  ValidationAdapterRule,
+  ValidationAdapterID,
+  ValidationAdapter,
+  ValidationAdapterRegistration,
+  ValidationAdapterOption,
+  FieldValidationError,
+  FormValidationError,
+  ValidationError,
+  ValidationSuccess,
+  ValidationFailure,
+  ValidationCancelled,
+  ValidationResult,
+} from "./validator/types"

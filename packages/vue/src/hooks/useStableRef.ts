@@ -29,7 +29,7 @@ import { isShallowEqual } from "../utils/equal"
  * 在 watchEffect 中执行工厂函数，自动追踪响应式依赖。
  * 仅当新旧值浅比较不相等时才替换 `.value`，保持引用稳定。
  *
- * @typeParam T - 对象类型
+ * @typeParam TValue - 需要保持引用稳定的对象类型
  *
  * @param factory - 返回目标对象的工厂函数，在 watchEffect 内执行
  *
@@ -46,10 +46,10 @@ import { isShallowEqual } from "../utils/equal"
  * h(Component, props.value)
  * ```
  */
-export function useStableRef<T extends Record<string, any>>(
-  factory: () => T
-): Readonly<ShallowRef<T>> {
-  const stableRef = shallowRef({} as T) as ShallowRef<T>
+export function useStableRef<TValue extends Record<string, any>>(
+  factory: () => TValue
+): Readonly<ShallowRef<TValue>> {
+  const stableRef = shallowRef({} as TValue) as ShallowRef<TValue>
 
   watchEffect(() => {
     const next = factory()

@@ -13,10 +13,11 @@ import { NamePath, SchemxInstance, Values } from "@schemx/core"
  * 字典选项配置
  *
  * 通过 api 函数获取数据，支持完整泛型推导。
- * api 的返回值类型 R 会自动传递给 formatter 和 onSuccess。
+ * api 的返回值类型 TResponse 会自动传递给 formatter 和 onSuccess。
  *
- * @typeParam T - 表单值类型
- * @typeParam R - api 函数的返回值类型
+ * @typeParam TValues - 表单值类型
+ * @typeParam TResponse - api 函数的返回值类型
+ * @typeParam TOption - 格式化后的字典选项类型
  *
  * @example
  * ```ts
@@ -43,12 +44,16 @@ import { NamePath, SchemxInstance, Values } from "@schemx/core"
  * }
  * ```
  */
-export interface SchemxDictionary<T extends Values = Values, R = any> {
+export interface SchemxDictionary<
+  TValues extends Values = Values,
+  TResponse = unknown,
+  TOption = unknown,
+> {
   /**
    * 数据获取函数
    *
    * 接收当前表单值和表单实例，返回数据（支持异步）。
-   * 返回值类型 R 会自动传递给 formatter 的第一个参数。
+   * 返回值类型 TResponse 会自动传递给 formatter 的第一个参数。
    *
    * @param values - 当前表单值。
    * @param form - 当前表单实例。
@@ -66,7 +71,11 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * }
    * ```
    */
-  api: (values: T, form: SchemxInstance<T>) => R | Promise<R>
+  api: (
+    values: TValues,
+    form: SchemxInstance<TValues>,
+    signal?: AbortSignal
+  ) => TResponse | Promise<TResponse>
 
   /**
    * 响应数据格式化函数
@@ -77,7 +86,10 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * @param form - 当前表单实例。
    * @returns 标准化后的选项数组，支持同步或异步返回。
    */
-  formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => any[] | Promise<any[]>
+  formatter?: (
+    res: Awaited<TResponse>,
+    form: SchemxInstance<TValues>
+  ) => TOption[] | Promise<TOption[]>
 
   /**
    * 依赖的表单字段路径
@@ -85,7 +97,7 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * 当这些字段的值变化时，自动重新执行 api 函数。
    * 不配置则仅在 onMounted 时执行一次。
    */
-  dependsOn?: NamePath<T>[]
+  dependsOn?: NamePath<TValues>[]
 
   /**
    * 是否应该执行 api
@@ -98,7 +110,7 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * @param values - 当前表单值。
    * @returns 是否执行 api。
    */
-  shouldFetch?: (values: T) => boolean
+  shouldFetch?: (values: TValues) => boolean
 
   /**
    * 是否在组件挂载时立即执行
@@ -124,14 +136,14 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
   retryInterval?: number
 
   /** 请求失败回调 */
-  onError?: (error: Error, form: SchemxInstance<T>) => void
+  onError?: (error: Error, form: SchemxInstance<TValues>) => void
 
   /**
    * 请求成功回调
    *
    * 在 formatter 之后、写入 list 之后调用。
    */
-  onSuccess?: (data: any[], form: SchemxInstance<T>) => void
+  onSuccess?: (data: TOption[], form: SchemxInstance<TValues>) => void
 
   /**
    * 依赖字段变化回调
@@ -139,17 +151,18 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
    * 在 shouldFetch 判断之前调用，无论是否执行 api 都会触发。
    * 可用于依赖变化时的额外清理逻辑（如清空下级字段）。
    */
-  onDepsChange?: (values: T, form: SchemxInstance<T>) => void
+  onDepsChange?: (values: TValues, form: SchemxInstance<TValues>) => void
 }
 
 /**
  * 为 Props 类型注入可选的 dict 字段
  *
- * 将任意组件 Props 类型 A 扩展为包含 `dict?: SchemxDictionary<T>` 的新类型。
+ * 将任意组件 Props 类型 TProps 扩展为包含可选 `dict` 的新类型。
+ * `dict` 可以是完整的字典配置，也可以直接传入其 `api` 函数。
  * 用于为渲染器组件的 Props 添加字典选项支持。
  *
- * @typeParam A - 原始组件 Props 类型
- * @typeParam T - 表单值类型
+ * @typeParam TProps - 原始组件 Props 类型
+ * @typeParam TValues - 表单值类型
  *
  * @example
  * ```ts
@@ -160,9 +173,11 @@ export interface SchemxDictionary<T extends Values = Values, R = any> {
  *
  * // 扩展后的类型包含 dict 字段
  * type MySelectWithDict = SchemxWithDictionary<MySelectProps, MyFormValues>
- * // 等价于 MySelectProps & { dict?: SchemxDictionary<MyFormValues> }
+ * // 等价于 MySelectProps & {
+ * //   dict?: SchemxDictionary<MyFormValues> | SchemxDictionary<MyFormValues>["api"]
+ * // }
  * ```
  */
-export type SchemxWithDictionary<A, T extends Values = Values> = A & {
-  dict?: SchemxDictionary<T>
+export type SchemxWithDictionary<TProps, TValues extends Values = Values> = TProps & {
+  dict?: SchemxDictionary<TValues> | SchemxDictionary<TValues>["api"]
 }

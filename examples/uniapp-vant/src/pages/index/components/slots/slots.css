@@ -143,6 +143,43 @@
   font-size: 12px;
 }
 
+.slot-demo__inline {
+  display: inline-block;
+  margin: 2px 0;
+  font-size: 12px;
+  color: #606266;
+}
+
+.slot-demo__inline--before {
+  color: #67c23a;
+}
+
+.slot-demo__inline--after {
+  color: #e6a23c;
+}
+
+.slot-demo__group-header,
+.slot-demo__group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-demo__group-header button {
+  border: 1px solid #409eff;
+  border-radius: 4px;
+  padding: 2px 8px;
+  background: white;
+  color: #409eff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.slot-demo__group-label {
+  color: #7232dd;
+  font-weight: 600;
+}
+
 .slot-demo__renderer-wrap {
   margin: 6px 0;
   padding: 8px;

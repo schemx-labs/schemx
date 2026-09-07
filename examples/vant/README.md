@@ -1,15 +1,11 @@
 # @schemx/vant 示例
 
-本目录是 `@schemx/vant` 的 Vue 3 + Vant 4 示例项目，用于验证内置 renderer、字段联动、校验、插槽和运行时 schema 更新能力。
+本目录是 `@schemx/vant` 的 Vue 3 + Vant 4 示例项目，用于验证内置 Renderer、字段联动、容器状态、校验、插槽和运行时 Schema 更新能力。
 
 ## 示例列表
 
-1. **basic**：基础表单示例，覆盖内置 Vant renderer、`initialValues`、实例方法和实时数据预览。
-2. **validation**：表单校验示例，覆盖必填、正则、Zod 规则和提交失败处理。
-3. **dynamic**：动态表单示例，覆盖字段联动、条件显示、动态属性和运行时 schema 更新。
-4. **dependency**：`componentType: "dependency"` 示例，覆盖复杂条件子树和嵌套 dependency。
-5. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
-6. **slots-jsx**：JSX 插槽示例，展示通过 TSX 编写插槽内容。
+1. **form-groups**：合并表单示例，通过 Group 区分基础表单、动态表单、字段联动和动态数组。
+2. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
 
 ## 运行示例
 
@@ -22,6 +18,10 @@ pnpm --filter vant-demo dev
 ```
 
 然后在浏览器中访问 <http://localhost:5173> 查看示例。
+
+“动态表单”中，关闭“显示配送详情”可隐藏整个 Group；选择“自提”可查看只读继承，选择“其他”可查看禁用继承。“字段联动”中，“显示订单配置”和“订单配置权限”会控制 Dependency 动态生成的全部后代字段。
+
+“动态数组”已合并到“form-groups”示例中，`SchemxDynamicField.item` 使用数组项相对路径；通过“末项移到首位”可观察数组索引变化时字段值与行身份仍保持对应。切换“显示团队成员”和“成员编辑权限”可观察 `SchemxDynamicField.dependencies` 对数组容器及行内字段的状态控制。
 
 ## 快速开始
 
@@ -44,7 +44,7 @@ pnpm --filter vant-demo dev
       name: "username",
       label: "用户名",
       componentType: "input",
-      rules: "required",
+      required: true,
       placeholder: "请输入用户名",
     },
     {

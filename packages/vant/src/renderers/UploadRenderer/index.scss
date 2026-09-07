@@ -1,7 +1,10 @@
 // UploadRenderer 样式
 .schemx-upload-renderer {
-  // 自定义样式可以在这里添加
   .van-uploader__wrapper {
     justify-content: var(--schemx-content-align);
+
+    .van-uploader__upload-icon {
+      margin: auto;
+    }
   }
 }

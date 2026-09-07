@@ -1,23 +1,24 @@
 <template>
-  <div
-    :class="[
-      'schemx-renderer',
-      'schemx-rate-renderer',
-      className,
-      {
-        'schemx-rate-renderer__readonly': props.readonly,
-        'schemx-rate-renderer__disabled': props.disabled,
-      },
-    ]"
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-rate-renderer', className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
   >
-    <SchemxCell
-      v-if="props.readonly && !hasValue"
-      :value="''"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-    />
+    <template #readonly>
+      <Rate
+        v-if="hasValue"
+        v-bind="rateProps"
+        :model-value="rateValue"
+        :count="count"
+        :allow-half="allowHalf"
+        :disabled="props.disabled"
+        :readonly="true"
+      />
+      <span v-else class="schemx-rate-renderer__readonly">
+        {{ props.readonlyPlaceholder }}
+      </span>
+    </template>
     <Rate
-      v-else
       v-bind="rateProps"
       :model-value="rateValue"
       :count="count"
@@ -26,7 +27,7 @@
       :readonly="props.readonly"
       @update:model-value="handleChange"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -41,7 +42,7 @@
 
   import { Rate } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { Wrapper } from "@schemx/vue"
 
   import type { RateRendererProps, RateValue } from "./types"
 
@@ -76,6 +77,7 @@
 
   const rateProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -87,6 +89,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

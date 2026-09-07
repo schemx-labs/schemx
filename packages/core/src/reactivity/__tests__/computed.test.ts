@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest"
+
 import { createComputed } from "../computed"
 import { createSignal } from "../signal"
 
@@ -22,7 +23,9 @@ describe("createComputed", () => {
 
   it("应该自动追踪依赖 signal", () => {
     const a = createSignal(1)
+
     const b = createSignal(2)
+
     const sum = createComputed(() => a.value + b.value)
 
     expect(sum.value).toBe(3)
@@ -36,9 +39,12 @@ describe("createComputed", () => {
 
   it("应该懒计算：依赖未变化时不重新求值", () => {
     let computeCount = 0
+
     const a = createSignal(1)
+
     const c = createComputed(() => {
       computeCount++
+
       return a.value * 2
     })
 
@@ -58,7 +64,9 @@ describe("createComputed", () => {
 
   it("应该支持链式 computed", () => {
     const a = createSignal(1)
+
     const double = createComputed(() => a.value * 2)
+
     const quadruple = createComputed(() => double.value * 2)
 
     expect(quadruple.value).toBe(4)
@@ -69,7 +77,9 @@ describe("createComputed", () => {
 
   it("应该支持复杂对象类型", () => {
     const first = createSignal("Hello")
+
     const last = createSignal("World")
+
     const full = createComputed(() => ({
       first: first.value,
       last: last.value,
@@ -92,6 +102,7 @@ describe("createComputed", () => {
 
   it("应该支持数组类型", () => {
     const items = createSignal([1, 2, 3])
+
     const count = createComputed(() => items.value.length)
 
     expect(count.value).toBe(3)

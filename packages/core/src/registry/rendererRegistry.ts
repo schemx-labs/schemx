@@ -29,19 +29,22 @@
  * }
  * registry.registerAll(renderers)
  *
- * // 获取渲染器
- * const inputRenderer = registry.getRenderer('input')
- * const fallback = registry.getRenderer('unknown') // 返回默认的 'text'
+ * // 获取渲染器（纯查询，未注册返回 undefined）
+ * const exact = registry.get('input')
+ * const missing = registry.get('unknown') // => undefined
+ *
+ * // 解析渲染器（未注册时回退到默认类型）
+ * const fallback = registry.resolve('unknown') // => 默认的 'text'
  *
  * // 检查是否存在
- * registry.hasRenderer('input') // => true
+ * registry.has('input') // => true
  *
  * // 获取所有类型
- * registry.getTypes() // => ['input', 'select', 'text', 'number', 'date']
+ * registry.keys() // => ['input', 'select', 'text', 'number', 'date']
  *
- * // 设置默认渲染器
- * registry.setDefault('input')
- * registry.getDefault() // => 'input'
+ * // 设置回退渲染器
+ * registry.setFallback('input')
+ * registry.getFallback() // => 'input'
  *
  * // 取消注册
  * registry.unregister('date')
@@ -64,59 +67,55 @@
  */
 
 import type { SchemxRendererKey } from "../types"
-
-/**
- * 渲染器注册选项。
- */
-export interface RegistryOptions {
-  /** 是否覆盖已存在的渲染器 */
-  override?: boolean
-}
+import type { RegistryOptions } from "./types"
 
 /**
  * 渲染器组件映射类型。
  *
  * key 为渲染器类型字符串，value 为对应的框架组件。
+ *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
  */
-export type RendererMap<T extends SchemxRendererKey, R = unknown> = Record<T, R>
+export type RendererMap<TKey extends SchemxRendererKey, TRenderer = unknown> = Record<
+  TKey,
+  TRenderer
+>
 
 /**
  * 渲染器注册中心。
  *
  * 纯粹的 Map 存储。
  *
- * @example
- * ```typescript
- * const renderer = new RendererRegistryType()
- *
- * // 注册组件
- * renderer.register('input', InputRenderer)
- *
- * // 批量注册
- * renderer.registerAll({ text: TextRenderer, number: NumberRenderer })
- * ```
- *
  * @remarks
- * 当 getRenderer 找不到指定类型时，会自动回退到默认渲染器类型（默认为 'text'）。
+ * 当 {@link RendererRegistry.resolve} 找不到指定类型时，会回退到构造函数或
+ * {@link RendererRegistry.setFallback} 设置的回退类型；未设置时不会回退。
+ *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
  */
 export class RendererRegistry<
-  T extends SchemxRendererKey = SchemxRendererKey,
-  R = unknown,
+  TKey extends SchemxRendererKey = SchemxRendererKey,
+  TRenderer = unknown,
 > {
-  /** 渲染器存储 */
-  private renderers: Map<T, R>
+  /**
+   * 渲染器存储。
+   */
+  private renderers: Map<TKey, TRenderer>
 
-  /** 默认渲染器类型 */
-  private defaultType?: T
+  /**
+   * 未找到匹配渲染器时使用的回退类型。
+   */
+  private fallbackType?: TKey
 
   /**
    * 创建 Registry 实例。
    *
-   * @param defaultType - 默认渲染器类型，未找到指定类型时回退使用
+   * @param fallbackType - 回退渲染器类型，未找到指定类型时回退使用
    */
-  constructor(defaultType?: T) {
+  constructor(fallbackType?: TKey) {
     this.renderers = new Map()
-    this.defaultType = defaultType
+    this.fallbackType = fallbackType
   }
 
   /**
@@ -134,11 +133,9 @@ export class RendererRegistry<
    * renderer.register('text', NewTextRenderer, { override: true })
    * ```
    */
-  register(type: T, renderer: R, options?: RegistryOptions): void {
+  register(type: TKey, renderer: TRenderer, options?: RegistryOptions): void {
     if (this.renderers.has(type) && options?.override === false) {
-      console.warn(
-        `[RendererRegistryType] RendererRegistry "${type}" already exists, skipping registration`
-      )
+      console.warn(`[schemx] 渲染器 "${type}" 已存在，跳过注册`)
 
       return
     }
@@ -162,35 +159,51 @@ export class RendererRegistry<
    * })
    * ```
    */
-  registerAll(renderers: RendererMap<T, R>): void {
+  registerAll(renderers: RendererMap<TKey, TRenderer>): void {
     Object.entries(renderers).forEach(([type, renderer]) => {
-      this.renderers.set(type as T, renderer as R)
+      this.renderers.set(type as TKey, renderer as TRenderer)
     })
   }
 
   /**
-   * 获取指定类型的渲染器组件。
+   * 纯查询：获取指定类型的渲染器组件。
    *
-   * 未找到时自动回退到默认类型，默认类型也不存在则返回 undefined。
+   * 未找到时返回 `undefined`，不触发回退、不发出警告。
    *
    * @param type - 渲染器类型标识
-   * @returns 对应的组件，未找到且无默认时返回 undefined
+   * @returns 对应的组件，未找到时返回 undefined
    *
    * @example
    * ```typescript
-   * const renderer = renderer.getRenderer('text')
-   * const fallback = renderer.getRenderer('unknown') // => 默认渲染器
+   * const renderer = renderer.get('text')
+   * const missing = renderer.get('unknown') // => undefined
    * ```
    */
-  getRenderer(type: T): R | undefined {
+  get(type: TKey): TRenderer | undefined {
+    return this.renderers.get(type)
+  }
+
+  /**
+   * 解析渲染器：获取指定类型的渲染器组件，未找到时回退到回退类型。
+   *
+   * 回退类型也不存在则返回 `undefined`，并在未命中时发出警告。
+   *
+   * @param type - 渲染器类型标识
+   * @returns 对应的组件，未找到且无回退时返回 undefined
+   *
+   * @example
+   * ```typescript
+   * const renderer = renderer.resolve('text')
+   * const fallback = renderer.resolve('unknown') // => 回退渲染器
+   * ```
+   */
+  resolve(type: TKey): TRenderer | undefined {
     let renderer = this.renderers.get(type)
 
     if (!renderer) {
-      console.warn(
-        `[RendererRegistryType] RendererRegistry "${type}" not found, falling back to default "${this.defaultType}"`
-      )
+      console.warn(`[schemx] 未找到渲染器 "${type}"，回退到 "${this.fallbackType}"`)
 
-      if (this.defaultType) renderer = this.renderers.get(this.defaultType)
+      if (this.fallbackType) renderer = this.renderers.get(this.fallbackType)
     }
 
     return renderer
@@ -204,19 +217,19 @@ export class RendererRegistry<
    *
    * @example
    * ```typescript
-   * renderer.hasRenderer('text')   // => true
-   * renderer.hasRenderer('custom') // => false
+   * renderer.has('text')   // => true
+   * renderer.has('custom') // => false
    * ```
    */
-  hasRenderer(type: T): boolean {
+  has(type: TKey): boolean {
     return this.renderers.has(type)
   }
 
   /**
    * 移除渲染器
    *
-   * 如果移除的是当前默认类型，会从剩余渲染器中智能选取新默认类型。
-   * 若无剩余渲染器则默认类型设为空字符串。
+   * 如果移除的是当前回退类型，会从剩余渲染器中智能选取新回退类型。
+   * 若无剩余渲染器，回退类型保持原值，但无法解析出组件。
    *
    * @param type - 渲染器类型标识
    * @returns 是否成功移除
@@ -227,19 +240,18 @@ export class RendererRegistry<
    * renderer.unregister('nonexistent') // => false
    * ```
    */
-  unregister(type: T): boolean {
-    const isDefault = type === this.defaultType
+  unregister(type: TKey): boolean {
+    const isFallback = type === this.fallbackType
+
     const deleted = this.renderers.delete(type)
 
-    if (isDefault && deleted) {
+    if (isFallback && deleted) {
       const firstKey = this.renderers.keys().next().value
 
       if (firstKey) {
-        console.warn(
-          `[RendererRegistryType] Default renderer was removed, Please reset the default renderer.`
-        )
+        console.warn(`[schemx] 回退渲染器已移除，已自动重置为 "${String(firstKey)}"`)
 
-        this.defaultType = firstKey
+        this.fallbackType = firstKey
       }
     }
 
@@ -253,55 +265,53 @@ export class RendererRegistry<
    *
    * @example
    * ```typescript
-   * renderer.getTypes() // => ['text', 'number', 'date']
+   * renderer.keys() // => ['text', 'number', 'date']
    * ```
    */
-  getTypes(): T[] {
+  keys(): TKey[] {
     return Array.from(this.renderers.keys())
   }
 
   /**
-   * 设置默认渲染器类型
+   * 设置回退渲染器类型
    *
-   * 当 getRenderer 找不到指定类型时，会回退到默认类型。
+   * 当 {@link RendererRegistry.resolve} 找不到指定类型时，会回退到该类型。
    * 设置的类型必须已注册，否则操作无效。
    *
    * @param type - 渲染器类型标识
    *
    * @example
    * ```typescript
-   * renderer.setDefault('number')
-   * renderer.getDefault() // => 'number'
+   * renderer.setFallback('number')
+   * renderer.getFallback() // => 'number'
    * ```
    */
-  setDefault(type: T): void {
+  setFallback(type: TKey): void {
     if (!this.renderers.has(type)) {
-      console.warn(
-        `[RendererRegistryType] Cannot set default to "${type}": renderer not registered`
-      )
+      console.warn(`[schemx] 无法将未注册的渲染器 "${type}" 设为回退渲染器`)
 
       return
     }
 
-    this.defaultType = type
+    this.fallbackType = type
   }
 
   /**
-   * 获取当前默认渲染器类型
+   * 获取当前回退渲染器类型
    *
-   * @returns 默认类型标识
+   * @returns 回退类型标识
    *
    * @example
    * ```typescript
-   * renderer.getDefault() // => 'text'
+   * renderer.getFallback() // => 'text'
    * ```
    */
-  getDefault(): T | undefined {
-    return this.defaultType
+  getFallback(): TKey | undefined {
+    return this.fallbackType
   }
 
   /**
-   * 清除所有已注册的渲染器和默认类型。
+   * 清除所有已注册的渲染器和回退类型。
    *
    * @example
    * ```typescript
@@ -311,7 +321,7 @@ export class RendererRegistry<
    */
   clear(): void {
     this.renderers.clear()
-    this.defaultType = undefined
+    this.fallbackType = undefined
   }
 
   /**
@@ -330,25 +340,26 @@ export class RendererRegistry<
 }
 
 /**
- * RendererRegistryType 的实例类型
- */
-export type RendererRegistryType<
-  T extends SchemxRendererKey = SchemxRendererKey,
-  R = unknown,
-> = RendererRegistry<T, R>
-
-/**
- * 创建局部渲染器注册中心实例（仅内部使用）。
+ * 创建独立的渲染器注册中心实例。
  *
- * @param defaultType - 默认渲染器类型
+ * @param fallbackType - 回退渲染器类型
  * @returns 新的 Registry 实例
  *
  * @remarks
- * 用于组件内部创建独立的注册中心实例，
- * 不建议外部直接使用，除非有特殊需求。
+ * 调用方可以通过 `fallbackType` 配置未命中时使用的回退类型。
+ *
+ * @typeParam TKey - 渲染器类型标识。
+ * @typeParam TRenderer - 与渲染器类型关联的组件类型。
+ *
+ * @example
+ * ```ts
+ * const registry = createRendererRegistry("input")
+ * registry.register("input", InputRenderer)
+ * ```
  */
-export function createRendererRegistry<T extends SchemxRendererKey, R = unknown>(
-  defaultType?: T
-): RendererRegistryType<T, R> {
-  return new RendererRegistry<T, R>(defaultType)
+export function createRendererRegistry<
+  TKey extends SchemxRendererKey,
+  TRenderer = unknown,
+>(fallbackType?: TKey): RendererRegistry<TKey, TRenderer> {
+  return new RendererRegistry<TKey, TRenderer>(fallbackType)
 }

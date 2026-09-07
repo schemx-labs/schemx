@@ -5,18 +5,29 @@
  */
 
 export {
-  isBaseResolvedSchema,
-  isGroupResolvedSchema,
-  isDependencyResolvedSchema,
-  isBaseSchema,
+  isFieldSchema,
   isGroupSchema,
   isDependencySchema,
+  isDynamicSchema,
   findSchema,
+  isValidSchema,
 } from "./schema"
 
-export { normalizeSchemas } from "./normalize"
-
-export { getByPath, setByPath, collectObjectPathsByLeaf, normalizeNamePath } from "./path"
+export {
+  getByPath,
+  setByPath,
+  collectObjectPathsByLeaf,
+  normalizeNamePath,
+  toNamePathSegments,
+  toStructuralPathSegments,
+  setInWithStructuralSharing,
+  deleteInWithStructuralSharing,
+  isDescendantFieldPath,
+  areSameOrOverlappingFieldPaths,
+  areOverlappingFieldPaths,
+  createFieldKey,
+  type FieldKey,
+} from "./path"
 
 export { withLock, waitAll } from "./async"
 
@@ -39,3 +50,10 @@ export {
   shouldValidateOn,
   mergeTrigger,
 } from "./validation"
+
+export {
+  type DebounceEdge,
+  type DebouncedFnOptions,
+  type DebouncedFnControls,
+  createDebouncedFn,
+} from "./createDebouncedFn"

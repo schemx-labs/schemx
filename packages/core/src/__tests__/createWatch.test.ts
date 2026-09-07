@@ -28,6 +28,7 @@ const safeValueArb = fc.oneof(fc.integer(), fc.string(), fc.boolean(), fc.consta
 describe("createWatch 属性测试", () => {
   it("createWatchAll 应持续监听任意字段变化", () => {
     const form = createForm({ initialValues: { name: "Alice", age: 18 } })
+
     const changes: string[][] = []
 
     const dispose = createWatchAll(
@@ -42,6 +43,51 @@ describe("createWatch 属性测试", () => {
     form.setFieldValue("age", 20)
 
     expect(changes).toEqual([["name"], ["age"]])
+    dispose()
+    form.destroy()
+  })
+
+  it("createWatchAll 回调接收本轮完整值快照", () => {
+    const form = createForm({ initialValues: { name: "Alice", age: 18 } })
+
+    let snapshot: { name: string; age: number } | undefined
+
+    const dispose = createWatchAll(
+      form,
+      (values) => {
+        snapshot = values
+      },
+      {}
+    )
+
+    form.setFieldValue("name", "Bob")
+
+    expect(snapshot).toEqual({ name: "Bob", age: 18 })
+    dispose()
+    form.destroy()
+  })
+
+  it("watch 回调读取全表值不会扩大字段监听范围", () => {
+    const form = createForm<{ province?: string; city?: string }>({
+      initialValues: { province: undefined, city: undefined },
+    })
+
+    let callCount = 0
+
+    const dispose = createWatchFields(
+      form,
+      ["province"],
+      () => {
+        callCount++
+        form.getFieldsValue()
+      },
+      {}
+    )
+
+    form.setFieldValue("province", "guangdong")
+    form.setFieldValue("city", "shenzhen")
+
+    expect(callCount).toBe(1)
     dispose()
     form.destroy()
   })
@@ -63,6 +109,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let receivedPayload: any = undefined
+
           let callCount = 0
 
           createWatchField(
@@ -101,6 +148,7 @@ describe("createWatch 属性测试", () => {
               : newValueRaw
 
           const initialValues: Record<string, any> = {}
+
           for (const name of fieldNames) {
             initialValues[name] = initialValue
           }
@@ -110,7 +158,9 @@ describe("createWatch 属性测试", () => {
           })
 
           let receivedPayload: any = undefined
+
           let receivedSnapshot: any = undefined
+
           let callCount = 0
 
           createWatchFields(
@@ -125,6 +175,7 @@ describe("createWatch 属性测试", () => {
           )
 
           const targetField = fieldNames[0]
+
           form.setFieldValue(targetField, newValue)
 
           expect(callCount).toBe(1)
@@ -149,6 +200,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let callCount = 0
+
           let receivedPayload: any = undefined
 
           createWatchField(
@@ -178,6 +230,7 @@ describe("createWatch 属性测试", () => {
           safeValueArb,
           (fieldNames, initialValue) => {
             const initialValues: Record<string, any> = {}
+
             for (const name of fieldNames) {
               initialValues[name] = initialValue
             }
@@ -187,6 +240,7 @@ describe("createWatch 属性测试", () => {
             })
 
             let callCount = 0
+
             let receivedPayload: any = undefined
 
             createWatchFields(
@@ -220,6 +274,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let callCount = 0
+
           let receivedSnapshot: any = undefined
 
           createWatchAll(
@@ -252,6 +307,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let callCount = 0
+
           createWatchField(
             form,
             fieldName,
@@ -278,6 +334,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let callCount = 0
+
           createWatchFields(
             form,
             [fieldName],
@@ -304,6 +361,7 @@ describe("createWatch 属性测试", () => {
           })
 
           let callCount = 0
+
           createWatchAll(
             form,
             () => {
@@ -338,7 +396,9 @@ describe("createWatch 属性测试", () => {
             const form = createForm({
               initialValues: { [fieldName]: initialValue } as any,
             })
+
             let callCount = 0
+
             const dispose = createWatchField(
               form,
               fieldName,
@@ -374,7 +434,9 @@ describe("createWatch 属性测试", () => {
             const form = createForm({
               initialValues: { [fieldName]: initialValue } as any,
             })
+
             let callCount = 0
+
             const dispose = createWatchFields(
               form,
               [fieldName],
@@ -410,7 +472,9 @@ describe("createWatch 属性测试", () => {
             const form = createForm({
               initialValues: { [fieldName]: initialValue } as any,
             })
+
             let callCount = 0
+
             const dispose = createWatchAll(
               form,
               () => {

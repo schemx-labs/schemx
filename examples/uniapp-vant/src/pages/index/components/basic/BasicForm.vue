@@ -89,7 +89,6 @@ const handleSetUsernameDisibled = () => {
 const schemas = computed<SchemxField<BasicFormValues>[]>(() => [
   {
     label: "基本信息",
-    componentType: "group",
     children: [
       {
         name: "username",
@@ -252,7 +251,6 @@ const schemas = computed<SchemxField<BasicFormValues>[]>(() => [
   },
   {
     label: "头像分组",
-    componentType: "group",
     children: [
       {
         name: "avatar",

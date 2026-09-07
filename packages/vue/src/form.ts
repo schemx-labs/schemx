@@ -1,60 +1,65 @@
 /**
  * schemx 组件导出
  *
- * 为 SchemxForm 组件挂载静态方法（install、FormItem、registerRequest 等），
+ * 为 SchemxForm 组件挂载静态方法（install、Field、registerRequest 等），
  * 并作为默认导出。
  *
  * @module formExport
  */
 
-import type { App, DefineComponent } from "vue"
+import type { App } from "vue"
 
-import FormItem from "./components/FormItem"
+import Field from "./components/Field"
+import { provideSchemxAppConfig } from "./config"
 import SchemxForm from "./formRuntime.js"
 
-import type { SchemxFormProps } from "./types"
+import type { SchemxVueConfig } from "./types/layout"
 
 /**
  * SchemxForm 插件安装选项
  *
- * 在 `app.use(SchemxForm, options)` 时传入，用于配置全局默认行为。
+ * 在 `app.use(SchemxForm, options)` 时传入，用于配置当前 Vue App 的默认行为。
+ * 安装配置不会写入 Core 的模块级全局配置，因此多个 Vue App 可以彼此隔离。
  *
  * @example
  * ```ts
  * import SchemxForm from '@schemx/vue'
  *
  * app.use(SchemxForm, {
- *   request: (url) => fetch(url).then(r => r.json()),
+ *   schemaConfig: { readonly: true },
  * })
  * ```
  */
-export interface SchemxInstallOptions {}
+export interface SchemxInstallOptions extends SchemxVueConfig {}
 
 /**
  * 为组件挂载静态属性并保留原始类型
  *
  * @param comp - 原始组件
  * @param extra - 要挂载的静态属性
+ * @typeParam TComponent - 原始组件类型。
+ * @typeParam TExtras - 待挂载的静态属性类型。
  */
-export function withInstall<T extends object, E extends Record<string, unknown>>(
-  comp: T,
-  extra: E
-) {
-  return Object.assign(comp, extra) as T & E
+export function withInstall<
+  TComponent extends object,
+  TExtras extends Record<string, unknown>,
+>(comp: TComponent, extra: TExtras) {
+  return Object.assign(comp, extra) as TComponent & TExtras
 }
 
-export type SchemxFormPlugin = DefineComponent<SchemxFormProps> & {
+export type SchemxFormPlugin = typeof SchemxForm & {
   install: (app: App, options?: SchemxInstallOptions) => void
-  FormItem: typeof FormItem
+  Field: typeof Field
 }
 
 const SchemxFormExport = withInstall(SchemxForm, {
   /** Vue 插件安装方法 */
-  install(app: App, _options?: SchemxInstallOptions) {
+  install(app: App, options: SchemxInstallOptions = {}) {
+    provideSchemxAppConfig(app, options)
     app.component("SchemxForm", SchemxForm)
   },
-  /** FormItem 子组件引用 */
-  FormItem,
+  /** Field 子组件引用 */
+  Field,
 }) as unknown as SchemxFormPlugin
 
 export default SchemxFormExport

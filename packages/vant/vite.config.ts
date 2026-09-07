@@ -26,19 +26,31 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     resolve: {
-      alias: {
-        ...(useSource
-          ? {
-              "@schemx/core": resolve(__dirname, "../core/src/index.ts"),
-              "@schemx/vue": resolve(__dirname, "../vue/src/index.ts"),
-            }
-          : {}),
-      },
+      alias: useSource
+        ? [
+            {
+              find: /^@schemx\/core\/(.+)$/,
+              replacement: `${resolve(__dirname, "../core/src")}/$1`,
+            },
+            {
+              find: /^@schemx\/core$/,
+              replacement: resolve(__dirname, "../core/src/index.ts"),
+            },
+            {
+              find: /^@schemx\/vue\/(.+)$/,
+              replacement: `${resolve(__dirname, "../vue/src")}/$1`,
+            },
+            {
+              find: /^@schemx\/vue$/,
+              replacement: resolve(__dirname, "../vue/src/index.ts"),
+            },
+          ]
+        : [],
     },
     css: {
       preprocessorOptions: {
-        // 使用 modern API，避免 Dart Sass legacy-js-api 弃用警告刷屏
-        scss: { api: "modern-compiler" },
+        // Vite 5 使用 Sass legacy API；静默其已知弃用提示。
+        scss: { silenceDeprecations: ["legacy-js-api"] },
       },
     },
     plugins: createVitePlugins({ analyze }),

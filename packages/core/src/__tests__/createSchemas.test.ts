@@ -20,6 +20,7 @@ describe("createSchemas", () => {
     const schemas = createSchemas<TestValues>([
       { name: "name", label: "姓名", componentType: "input" },
     ])
+
     const onChange = vi.fn()
 
     const unsubscribe = schemas.subscribe(onChange)

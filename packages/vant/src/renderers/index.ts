@@ -38,7 +38,12 @@ export type { RateRendererProps, RateValue } from "./RateRenderer"
 export type { SliderRendererProps, SliderValue } from "./SliderRenderer"
 export type { StepperRendererProps, StepperValue } from "./StepperRenderer"
 export type { SwitchRendererProps, SwitchValue } from "./SwitchRenderer"
-export type { UploadRendererProps, UploadFile, UploadValue } from "./UploadRenderer"
+export type {
+  UploadRendererProps,
+  UploadFile,
+  UploadListType,
+  UploadValue,
+} from "./UploadRenderer"
 export type {
   CascaderRendererProps,
   CascaderFieldNames,

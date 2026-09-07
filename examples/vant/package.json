@@ -7,9 +7,7 @@
     "dev": "npx vite --config vite.config.ts"
   },
   "dependencies": {
-    "@schemx/core": "file:/Users/j/Project/SchemaForm/.packs/schemx-core-0.2.0-dev.20260714155733.tgz",
-    "@schemx/vant": "file:/Users/j/Project/SchemaForm/.packs/schemx-vant-0.2.1-dev.20260714155733.tgz",
-    "@schemx/vue": "file:/Users/j/Project/SchemaForm/.packs/schemx-vue-0.2.0-dev.20260714155733.tgz",
+    "@schemx/vant": "1.0.0-next.5",
     "vant": "^4.9.24",
     "vue": "^3.5.38",
     "zod": "^3.24.0"

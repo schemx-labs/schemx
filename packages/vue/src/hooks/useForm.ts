@@ -9,18 +9,18 @@
  */
 import { onScopeDispose } from "vue"
 
-import { createForm } from "@schemx/core"
+import { createForm, type SchemxConfig } from "@schemx/core"
 
-import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
-import { validatorRegistry as globalRulesRegistry } from "../utils/rulesProvider"
+import { acquireVueFormRuntime, type VueSchemxInstance } from "../bridge"
+import { mergeVueSchemxConfig } from "../config"
 
-import type { CreateFormOptions, NamePath, SchemxInstance, Values } from "@schemx/core"
+import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
 
 /**
  * useForm 配置选项。
  *
  * 当前与 core 层 CreateFormOptions 保持一致，并在 Vue 层自动补充默认的
- * rendererRegistry 和 validatorRegistry。保留独立类型用于后续扩展
+ * rendererRegistry 和 presetRuleRegistry。保留独立类型用于后续扩展
  * Vue 专属配置，而不污染 core 层接口。
  *
  * @typeParam TValues - 表单值类型
@@ -34,7 +34,7 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  * 创建由当前 Vue effect scope 持有的表单实例。
  *
  * useForm 只负责以下职责：
- * 1. 合并 Vue 层默认注册表；
+ * 1. 合并表单显式、组件树 Provider、App 安装和 Vue 层默认配置；
  * 2. 同步创建 SchemxInstance；
  * 3. 在当前 effect scope 销毁时调用 instance.destroy()。
  *
@@ -74,20 +74,56 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  */
 export function useForm<TValues extends Values = Values>(
   options: UseFormOptions<TValues> = {}
-): SchemxInstance<TValues> {
+): VueSchemxInstance<TValues> {
+  // 按表单、App、Vue 包默认值的优先级解析可继承配置。
+  const configuredOptions = mergeVueSchemxConfig<TValues>(getUseFormSchemxConfig(options))
+
+  // 将已合并配置写入 Form 创建选项，避免 Core 再按较低优先级覆盖 Vue 结果。
   const mergedOptions: CreateFormOptions<TValues> = {
     ...options,
-    rendererRegistry: options.rendererRegistry ?? globalRendererRegistry,
-    validatorRegistry: options.validatorRegistry ?? globalRulesRegistry,
+    ...configuredOptions,
   }
 
   // 表单实例是当前 scope 内的一次性资源，不需要使用 computed 包装。
   const instance = createForm<TValues>(mergedOptions)
 
+  const acquired = acquireVueFormRuntime(instance)
+
+  const form = acquired.runtime.instance
+
   // useForm 创建的实例归当前 effect scope 所有，因此由当前 scope 负责销毁。
   onScopeDispose(() => {
-    instance.destroy()
+    acquired.release()
+    form.destroy()
   })
 
-  return instance
+  return form
+}
+
+/**
+ * 从 useForm 选项中提取需要参与 Vue 优先级计算的可继承配置。
+ *
+ * @param options - useForm 的完整创建选项。
+ * @returns 仅包含调用方实际提供字段的 SchemxConfig。
+ */
+function getUseFormSchemxConfig<TValues extends Values>(
+  options: UseFormOptions<TValues>
+): SchemxConfig<TValues> {
+  const {
+    schemaConfig = {},
+    rendererProps = undefined,
+    validatorAdapters = [],
+    defaultRendererType = undefined,
+    rendererRegistry = undefined,
+    presetRuleRegistry = undefined,
+  } = options
+
+  return {
+    schemaConfig,
+    rendererProps,
+    defaultRendererType,
+    rendererRegistry,
+    presetRuleRegistry,
+    validatorAdapters,
+  }
 }

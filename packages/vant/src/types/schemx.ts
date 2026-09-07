@@ -28,19 +28,19 @@ import type { Values } from "@schemx/core"
 import type { SchemxWithDictionary } from "@schemx/vue"
 
 declare module "@schemx/core" {
-  interface SchemxRendererDefinition<T extends Values> {
+  interface SchemxRendererDefinition<TValues extends Values> {
     input: InputRendererProps
     text: TextRendererProps
     textarea: TextAreaRendererProps
     number: NumberRendererProps
     switch: SwitchRendererProps
-    radio: SchemxWithDictionary<RadioRendererProps, T>
-    checkbox: SchemxWithDictionary<CheckboxRendererProps, T>
+    radio: SchemxWithDictionary<RadioRendererProps, TValues>
+    checkbox: SchemxWithDictionary<CheckboxRendererProps, TValues>
     date: DateRendererProps
     calendar: CalendarRendererProps
-    picker: SchemxWithDictionary<PickerRendererProps, T>
-    selectPicker: SchemxWithDictionary<SelectPickerRendererProps, T>
-    selector: SchemxWithDictionary<SelectorRendererProps, T>
+    picker: SchemxWithDictionary<PickerRendererProps, TValues>
+    selectPicker: SchemxWithDictionary<SelectPickerRendererProps, TValues>
+    selector: SchemxWithDictionary<SelectorRendererProps, TValues>
     sensitiveInput: SensitiveInputRendererProps
     rate: RateRendererProps
     slider: SliderRendererProps

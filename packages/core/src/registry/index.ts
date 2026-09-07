@@ -7,18 +7,21 @@
  * @module core/registry
  */
 
+export { type RegistryOptions } from "./types"
+
 export {
   createRendererRegistry,
-  type RendererRegistryType,
-  type RegistryOptions,
+  RendererRegistry,
   type RendererMap,
 } from "./rendererRegistry"
 
 export {
-  createValidatorsRegistry,
-  type ValidatorsRegistryType,
-  type ValidatorsRegistryOptions,
-  type ValidatorsFactory,
-  type ValidatorsEntry,
-  type ValidatorsEntryMap,
-} from "./validatorRegistry"
+  createPresetRuleRegistry,
+  PresetRuleRegistry,
+  type PresetRuleFactoryContext,
+  type PresetRuleFactory,
+  type PresetRuleEntry,
+  type PresetRuleMap,
+  type PresetRuleRegistryChange,
+  type PresetRuleRegistryListener,
+} from "./presetRuleRegistry"

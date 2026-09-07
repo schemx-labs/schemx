@@ -5,6 +5,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@schemx/core": ["../core/src/index.ts"],
+      "@schemx/core/adapter": ["../core/src/adapter/index.ts"],
       "@schemx/core/*": ["../core/src/*"]
     },
     "rootDir": "./src",
@@ -17,5 +18,5 @@
   },
   "references": [{ "path": "../core/tsconfig.json" }],
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "build"]
 }

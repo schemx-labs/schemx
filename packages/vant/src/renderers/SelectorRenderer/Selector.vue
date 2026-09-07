@@ -45,7 +45,9 @@
   }>()
 
   const labelKey = computed(() => props.fieldNames?.label || "label")
+
   const valueKey = computed(() => props.fieldNames?.value || "value")
+
   const disabledKey = computed(() => props.fieldNames?.disabled || "disabled")
 
   const selectedValues = computed(() => {

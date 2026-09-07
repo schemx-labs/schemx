@@ -11,7 +11,7 @@ const SCHEMX_FORM_FIELD_KEY: InjectionKey<FieldInstance> = Symbol(
 /**
  * 向后代组件提供当前字段实例。
  *
- * 应在创建字段实例的组件 setup() 同步阶段调用，通常由 FormItem
+ * 应在创建字段实例的组件 setup() 同步阶段调用，通常由 Field
  * 在调用 useField() 后使用，使字段插槽或自定义子组件能够读取同一实例。
  *
  * @param field - useField() 返回的字段实例
@@ -21,7 +21,7 @@ const SCHEMX_FORM_FIELD_KEY: InjectionKey<FieldInstance> = Symbol(
  *
  * @example
  * ```typescript
- * // FormItem 中
+ * // Field 中
  * const field = useField('date')
  * createFieldContext(field)
  *
@@ -45,7 +45,7 @@ export function createFieldContext<TValues extends Values = Values>(
  * @example
  * ```ts
  * const field = useFieldContext()
- * field.error.value // string[] | undefined
+ * field.errors.value // readonly string[]
  * field.getValue() // 当前字段值
  * ```
  */

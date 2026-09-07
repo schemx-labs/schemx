@@ -21,7 +21,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "type-check": "tsc --noEmit",
-    "pack:local": "bash ../../scripts/plugins/pack-vite-plugin.sh vite-plugin-workspace-source"
+    "pack:local": "bash ../../scripts/workflow/commands/packages/pack-vite-plugin.sh vite-plugin-workspace-source"
   },
   "dependencies": {
     "@vitejs/plugin-vue-jsx": "^4.2.0"

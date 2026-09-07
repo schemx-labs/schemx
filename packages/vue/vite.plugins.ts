@@ -16,7 +16,7 @@ export function createVitePlugins({ analyze }: PackagePluginOptions): PluginOpti
     vueJsx(),
     injectStyleCss(),
     dts({
-      include: ["src/**/*.ts", "src/**/*.tsx"],
+      include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
       outDir: "dist",
       tsconfigPath: "tsconfig.build.json",
     }),

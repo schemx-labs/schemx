@@ -1,20 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-slider-renderer', props.className]">
-    <SchemxCell
-      v-if="props.readonly"
-      :value="displayValue"
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-slider-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      <span class="schemx-slider-renderer__readonly">
+        {{ getReadonlyDisplayValue(displayValue, props.readonlyPlaceholder) }}
+      </span>
+    </template>
     <Slider
-      v-else
       v-bind="sliderProps"
       :model-value="sliderValue"
       @update:model-value="handleChange"
     />
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -29,7 +29,9 @@
 
   import { Slider } from "vant"
 
-  import SchemxCell from "@/components/Cell/index.vue"
+  import { Wrapper } from "@schemx/vue"
+
+  import { getReadonlyDisplayValue } from "@/utils"
 
   import type { SliderRendererProps, SliderValue } from "./types"
 
@@ -57,8 +59,6 @@
 
   const sliderValue = defineModel<SliderValue>("value")
 
-  const placeholder = computed(() => props.placeholder || "请选择")
-
   const displayValue = computed(() => {
     return Array.isArray(sliderValue.value)
       ? sliderValue.value.join(" - ")
@@ -67,6 +67,7 @@
 
   const sliderProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -78,6 +79,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,

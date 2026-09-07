@@ -17,11 +17,15 @@ vi.mock("vant", () => ({
   }),
   Cell: defineComponent({
     name: "Cell",
-    props: ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
+    props: ["value", "placeholder", "isLink", "clickable", "valueClass"],
     emits: ["click"],
-    setup(props, { emit }) {
+    setup(props, { emit, slots }) {
       return () =>
-        h("div", { onClick: (event: MouseEvent) => emit("click", event) }, props.value)
+        h(
+          "div",
+          { onClick: (event: MouseEvent) => emit("click", event) },
+          slots.value?.() ?? slots.default?.() ?? props.value
+        )
     },
   }),
 }))
@@ -38,9 +42,9 @@ describe("CalendarRenderer", () => {
       } as any,
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxCell" })
+    const cell = wrapper.findComponent({ name: "Cell" })
 
-    expect(cell.get(".schemx-cell__value").text()).toBe("2026/06/12")
+    expect(cell.text()).toContain("2026/06/12")
     expect(wrapper.findComponent({ name: "Calendar" }).exists()).toBe(true)
 
     await cell.vm.$emit("click")
@@ -53,7 +57,7 @@ describe("CalendarRenderer", () => {
   it("默认启用底部弹层安全区并挂载到 body", async () => {
     const wrapper = mount(CalendarRenderer)
 
-    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
 
     const calendar = wrapper.findComponent({ name: "Calendar" })
 

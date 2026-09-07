@@ -8,32 +8,27 @@
  */
 
 export {
-  Signal,
   createSignal,
-  type DeepReadonlySignal,
   type ReadonlySignal,
+  type Signal,
   type SignalOptions,
 } from "./signal"
 
-export { createFieldSignal, type FieldSignal } from "./fieldSignal"
-
-export {
-  createFieldSignalMap,
-  type FieldSignalMap,
-  type FieldSignalMapOptions,
-} from "./fieldSignalMap"
-
 export {
   createSignalEffect,
-  createOnceSignalEffect,
-  createDebouncedSignalEffect,
+  runSignalUntracked,
   type SignalEffectOptions,
-  type DebouncedSignalEffectOptions,
   type SignalEffectDispose,
 } from "./effect"
 
-export { batchUpdates } from "./batch"
+export {
+  type SignalWatchOptions,
+  type DebouncedSignalWatchOptions,
+  type DebouncedSignalWatchControls,
+  createSignalWatch,
+  createDebouncedSignalWatch,
+} from "./watch"
 
-export { createSignalMap, type SignalMap } from "./signalMap"
+export { batchUpdates, onBatchComplete } from "./batch"
 
 export { createComputed, type ComputedSignal } from "./computed"

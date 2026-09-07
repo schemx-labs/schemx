@@ -19,7 +19,7 @@
  *
  * const dispose = field.effect(() => {
  *   console.log('value:', field.getValue())
- *   console.log('errors:', field.getError())
+ *   console.log('errors:', field.getErrors())
  * })
  *
  * dispose() // 取消订阅
@@ -28,8 +28,9 @@
 
 import { setByPath } from "./utils"
 
-import type { FieldValue, NamePath, SchemxInstance, SchemxRules, Values } from "./types"
-import type { ValidateResult } from "./validator"
+import type { FieldValue, NamePath, SchemxInstance, Values } from "./types"
+import type { FieldRules } from "./types/rule"
+import type { ValidationResult } from "./validator"
 
 /**
  * 单字段控制器接口
@@ -73,57 +74,74 @@ export interface SchemxFieldInstance<
   setInitialValue: (value: FieldValue<TValues, TName>) => void
 
   /**
-   * 获取表单全量响应式值。
+   * 获取表单当前值。
    *
-   * @returns 当前表单值。
+   * 在 effect 中调用时，读取过程会自动追踪字段变化。
+   *
+   * @returns 当前表单值对象。
    */
   getValues: () => Readonly<TValues>
+
+  /**
+   * 获取表单字段快照。
+   *
+   * @returns 当前表单值快照。
+   */
+  getSnapshot: () => FieldValue<TValues, TName> | undefined
 
   /**
    * 获取表单全量快照。
    *
    * @returns 当前表单值快照。
    */
-  getSnapshot: () => TValues
-
-  /**
-   * 校验当前字段。
-   *
-   * @returns 当前字段校验结果。
-   */
-  validate: () => Promise<ValidateResult<TValues>>
+  getSnapshots: () => TValues
 
   /**
    * 获取当前字段错误信息。
    *
-   * @returns 错误信息数组；没有错误时返回 undefined。
+   * @returns 错误信息的只读快照；没有错误时返回空数组。
    */
-  getError: () => string[] | undefined
+  getErrors: () => readonly string[]
 
   /**
    * 设置当前字段错误信息。
    *
-   * @param errors - 错误信息数组。
+   * @param errors - 用于替换当前错误状态的消息数组。
    */
-  setError: (errors: string[]) => void
+  setErrors: (errors: readonly string[]) => void
 
   /**
    * 清除当前字段错误信息。
    */
-  clearError: () => void
+  clearErrors: () => void
 
   /**
-   * 注册当前字段校验规则。
+   * 替换当前字段的全部校验规则。
    *
    * @param rules - 校验规则或规则数组。
-   * @param defaultMessage - 可选的默认错误信息。
+   *
+   * @example
+   * ```ts
+   * field.setRules({
+   *   validate: (value) => value
+   *     ? { valid: true }
+   *     : { valid: false, issues: [{ message: "不能为空" }] },
+   * })
+   * ```
    */
-  registerRules: (rules: SchemxRules | SchemxRules[], defaultMessage?: string) => void
+  setRules: (rules: FieldRules<TValues, TName>) => void
 
   /**
    * 注销当前字段校验规则。
    */
-  unregisterRules: () => void
+  removeRules: () => void
+
+  /**
+   * 设置字段交互状态。
+   *
+   * 传入路径设置字段修改状态。
+   */
+  setTouched(value: boolean): void
 
   /**
    * 检查当前字段是否已被触摸。
@@ -131,11 +149,6 @@ export interface SchemxFieldInstance<
    * @returns 是否已被触摸。
    */
   isTouched: () => boolean
-
-  /**
-   * 重置当前字段到初始值。
-   */
-  reset: () => void
 
   /**
    * 设置当前字段操作中状态。
@@ -153,9 +166,21 @@ export interface SchemxFieldInstance<
   isPending: () => boolean
 
   /**
+   * 重置当前字段到初始值。
+   */
+  reset: () => void
+
+  /**
+   * 校验当前字段。
+   *
+   * @returns 当前字段校验结果。
+   */
+  validate: () => Promise<ValidationResult<TValues, TName>>
+
+  /**
    * 创建 reactive effect
    *
-   * 直接透传 form.effect，在回调中访问 getValue / getError / isPending 时
+   * 直接透传 form.effect，在回调中访问 getValue / getErrors / isPending 时
    * 自动追踪对应 reactive 依赖，依赖变化时 effect 自动重新执行。
    *
    * @param fn - effect 回调函数
@@ -179,6 +204,7 @@ export interface SchemxFieldInstance<
  * 返回包含读写、校验、状态订阅等能力的控制器对象。
  *
  * @typeParam TValues - 表单值类型
+ * @typeParam TName - 当前字段路径类型
  *
  * @param form - 表单实例
  * @param name - 字段路径
@@ -224,67 +250,76 @@ export function createField<
    */
   const setInitialValue = (value: FieldValue<TValues, TName>): void => {
     const result = {} as Partial<TValues>
+
     setByPath<TValues, TName, FieldValue<TValues, TName>>(result, name, value)
     form.setInitialValues(result)
   }
 
   /**
-   * 读取表单当前响应式值。
+   * 读取表单当前值；调用处在 effect 中时会自动建立字段依赖。
    */
   const getValues = (): Readonly<TValues> => form.getFieldsValue()
 
   /**
+   * 读取 name 当前无追踪快照。
+   */
+  const getSnapshot = (): FieldValue<TValues, TName> | undefined =>
+    form.getFieldSnapshot(name)
+
+  /**
    * 读取表单当前无追踪快照。
    */
-  const getSnapshot = (): TValues => form.getFieldsSnapshot()
+  const getSnapshots = (): TValues => form.getFieldsSnapshot()
 
   /**
    * 触发当前字段校验。
    */
-  const validate = (): Promise<ValidateResult<TValues>> => {
+  const validate = (): Promise<ValidationResult<TValues, TName>> => {
     return form.validateField(name)
   }
 
   /**
    * 读取当前字段错误信息。
    */
-  const getError = (): string[] | undefined => form.getFieldError(name)
+  const getErrors = (): readonly string[] => form.getFieldErrors(name)
 
   /**
    * 写入当前字段错误信息。
    */
-  const setError = (errors: string[]): void => {
-    form.setFieldError(name, errors)
+  const setErrors = (errors: readonly string[]): void => {
+    form.setFieldErrors(name, errors)
   }
 
   /**
    * 清空当前字段错误信息。
    */
-  const clearError = (): void => {
-    form.setFieldError(name, [])
+  const clearErrors = (): void => {
+    form.clearFieldErrors(name)
   }
 
   /**
    * 为当前字段注册校验规则。
    */
-  const registerRules = (
-    rules: SchemxRules | SchemxRules[],
-    defaultMessage?: string
-  ): void => {
-    form.registerRules(name, rules, defaultMessage)
+  const setRules = (rules: FieldRules<TValues, TName>): void => {
+    form.setFieldRules(name, rules)
   }
 
   /**
    * 注销当前字段的校验规则。
    */
-  const unregisterRules = (): void => {
-    form.unregisterRules(name)
+  const removeRules = (): void => {
+    form.removeFieldRules(name)
   }
 
   /**
    * 判断当前字段是否被触碰或修改。
    */
-  const isTouched = (): boolean => form.isFieldTouched(name) ?? false
+  const isTouched = (): boolean => form.isFieldTouched(name)
+
+  /**
+   * 设置字段交互状态。
+   */
+  const setTouched = (value: boolean): void => form.setFieldTouched(name, value)
 
   /**
    * 将当前字段重置到初始值。
@@ -303,7 +338,7 @@ export function createField<
   /**
    * 判断当前字段是否处于 pending 状态。
    */
-  const isPending = (): boolean => form.isFieldPending(name) ?? false
+  const isPending = (): boolean => form.isFieldPending(name)
 
   /**
    * 创建依赖当前字段读取的响应式副作用。
@@ -319,12 +354,14 @@ export function createField<
     setInitialValue,
     getValues,
     getSnapshot,
+    getSnapshots,
     validate,
-    getError,
-    setError,
-    clearError,
-    registerRules,
-    unregisterRules,
+    getErrors,
+    setErrors,
+    clearErrors,
+    setRules,
+    removeRules,
+    setTouched,
     isTouched,
     reset,
     setPending,

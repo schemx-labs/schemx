@@ -9,46 +9,23 @@
 
 import { inject, type InjectionKey, provide } from "vue"
 
-import type { SchemxFormProps } from "../types"
-import type { Values } from "@schemx/core"
+import type { SchemxSchemaConfig } from "@schemx/core"
 
 /** 表单级展示配置在 Vue provide/inject 中使用的注入 key。 */
-export const SCHEMX_FORM_CONFIG_KEY = Symbol("schemx:form-config") as InjectionKey<
-  FormContextProps<Values>
->
-
-/**
- * formContextProps 类型排除值
- */
-export const formConfigContextOmitKey = [
-  "form",
-  "modelValue",
-  "rendererRegistry",
-  "validatorRegistry",
-  "defaultRendererType",
-  "onFinish",
-  "onFinishFailed",
-  "onValuesChange",
-  "onFieldsChange",
-] as const
-
-/**
- * formContextProps 类型排除值 - 类型
- */
-export type FormConfigContextOmitKey = (typeof formConfigContextOmitKey)[number]
+export const SCHEMX_FORM_CONFIG_KEY = Symbol(
+  "schemx:form-config"
+) as InjectionKey<FormContextProps>
 
 /**
  * 表单级默认配置。
  *
- * 该类型描述由 SchemxForm 提供给字段组件的配置上下文，排除表单实例、
- * 表单数据和回调等运行时处理属性，供字段组件读取默认展示行为。
+ * 该类型只描述 Schema 通用配置，不包含表单实例、表单数据、回调、样式或 Registry。
  *
  * @typeParam TValues - 表单值类型
  */
-export interface FormContextProps<TValues extends Values = Values> extends Omit<
-  SchemxFormProps<TValues>,
-  FormConfigContextOmitKey
-> {}
+export interface FormContextProps {
+  schemaConfig: Partial<SchemxSchemaConfig>
+}
 
 /**
  * 创建并注入表单级配置上下文。
@@ -56,22 +33,29 @@ export interface FormContextProps<TValues extends Values = Values> extends Omit<
  * 应在 `SchemxForm` 或自定义 Provider 的 setup() 同步阶段调用，
  * 使后代字段组件能够读取 readonly、disabled、labelAlign 等默认配置。
  *
- * @typeParam TValues - 表单值类型
- * @param props - 要提供给后代组件的表单级默认配置
+ * @param props - 要提供给后代组件的 Schema 配置
  *
  * @remarks
  * 该函数只注册上下文，不创建或销毁表单实例，也不改变传入配置的所有权。
+ *
+ * @example
+ * ```ts
+ * createFormConfigContext({ schemaConfig: { readonly: true, labelAlign: "right" } })
+ * ```
  */
-export const createFormConfigContext = <TValues extends Values = Values>(
-  props: FormContextProps<TValues>
-): void => {
-  provide<FormContextProps<TValues>>(SCHEMX_FORM_CONFIG_KEY, props)
+export const createFormConfigContext = (props: FormContextProps): void => {
+  provide<FormContextProps>(SCHEMX_FORM_CONFIG_KEY, props)
 }
 
 /**
  * `createFormConfigContext` 的兼容别名。
  *
  * @deprecated 请使用 createFormConfigContext。
+ *
+ * @example
+ * ```ts
+ * createContext({ schemaConfig: { disabled: true } })
+ * ```
  */
 export const createContext = createFormConfigContext
 
@@ -88,7 +72,7 @@ export const createContext = createFormConfigContext
  * @example
  * ```ts
  * const context = useFormConfigContext()
- * console.log(context.readonly, context.disabled)
+ * console.log(context.schemaConfig.readonly, context.schemaConfig.disabled)
  * ```
  */
 export function useFormConfigContext(): FormContextProps {
@@ -108,5 +92,10 @@ export function useFormConfigContext(): FormContextProps {
  * `useFormConfigContext` 的兼容别名。
  *
  * @deprecated 请使用 useFormConfigContext。
+ *
+ * @example
+ * ```ts
+ * const context = useContext()
+ * ```
  */
 export const useContext = useFormConfigContext

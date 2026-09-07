@@ -7,7 +7,6 @@
 import type { FieldProps } from "vant"
 
 import type { InputValue, TextAreaAutosize } from "../../components/Input/types"
-
 import type { SchemxBaseComponentProps } from "@schemx/core"
 
 export type { InputValue }

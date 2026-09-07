@@ -51,14 +51,3 @@ export interface SensitiveInputRendererProps extends Omit<
   /** 只读时是否允许查看完整值 */
   revealWhenReadonly?: boolean
 }
-
-export function defaultMaskFormatter(value: string): string {
-  const chars = [...value]
-  const length = chars.length
-
-  if (length <= 0) return ""
-  if (length <= 2) return "*".repeat(length)
-  if (length <= 6) return `${chars[0]}****${chars[length - 1]}`
-
-  return `${chars.slice(0, 3).join("")}****${chars.slice(-4).join("")}`
-}

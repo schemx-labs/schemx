@@ -25,16 +25,19 @@
  * const fresh = singleton.getInstance('localhost', 6379) // 重新创建
  * ```
  */
-export function createStrictSingleton<T, Args extends any[] = []>(
-  factory: (...args: Args) => T
+export function createStrictSingleton<TValue, TArgs extends any[] = []>(
+  factory: (...args: TArgs) => TValue
 ) {
-  let instance: T | undefined
+  // 首次成功访问时创建并缓存的单例实例。
+  let instance: TValue | undefined
+
+  // 标记工厂是否已经创建过单例实例。
   let initialized = false
 
   /**
    * 返回当前单例；首次调用时执行外部 factory。
    */
-  const getInstance = (...args: Args): T => {
+  const getInstance = (...args: TArgs): TValue => {
     if (!initialized) {
       instance = factory(...args)
 
@@ -45,7 +48,7 @@ export function createStrictSingleton<T, Args extends any[] = []>(
       initialized = true
     }
 
-    return instance as T
+    return instance as TValue
   }
 
   /**
@@ -53,14 +56,17 @@ export function createStrictSingleton<T, Args extends any[] = []>(
    */
   const reset = (): void => {
     try {
-      // @ts-expect-error Ignore
-      if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
-        console.warn("[Singleton] reset() 不应在生产环境调用")
+      const processEnvironment = (
+        globalThis as { process?: { env?: { NODE_ENV?: string } } }
+      ).process?.env
+
+      if (processEnvironment?.NODE_ENV === "production") {
+        console.warn("[schemx] reset() 不应在生产环境调用")
 
         return
       }
     } catch {
-      /* 环境不支持时优雅降级 */
+      // 不支持 process 的环境直接重置单例，不执行环境检查。
     }
 
     instance = undefined

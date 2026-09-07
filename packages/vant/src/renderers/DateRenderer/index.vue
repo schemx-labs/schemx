@@ -1,14 +1,20 @@
 <template>
-  <div :class="['schemx-renderer', 'schemx-date-renderer', props.className]">
-    <SchemxCell
-      :placeholder="placeholder"
-      :readonly-placeholder="props.readonlyPlaceholder"
-      :readonly="props.readonly"
-      :disabled="props.disabled"
-      :align="align"
-      :value="fieldValue"
-      @click="handleClick"
-    />
+  <Wrapper
+    :class="['schemx-renderer', 'schemx-date-renderer', props.className]"
+    :readonly="props.readonly"
+    :disabled="props.disabled"
+  >
+    <template #readonly>
+      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
+    </template>
+
+    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+      <template #value>
+        <span :style="`text-align: ${align}`">
+          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
+        </span>
+      </template>
+    </Cell>
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -25,7 +31,7 @@
         @cancel="handleCancel"
       />
     </Popup>
-  </div>
+  </Wrapper>
 </template>
 
 <script setup lang="ts">
@@ -39,13 +45,13 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { DatePicker, type FieldTextAlign, Popup } from "vant"
+  import { Cell, DatePicker, type FieldTextAlign, Popup } from "vant"
 
+  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import SchemxCell from "@/components/Cell/index.vue"
-  import { getFieldProps } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { DateRendererProps, DateValue } from "./types"
 
@@ -85,6 +91,7 @@
 
   const datePickerProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }
+
     const {
       value: _value,
       onChange: _onChange,
@@ -105,6 +112,7 @@
       formInstance: _formInstance,
       ...rest
     } = rendererProps
+
     const {
       value: _attrsValue,
       onChange: _attrsOnChange,
@@ -168,6 +176,7 @@
 
   const modelValue = computed(() => {
     const value = getValue(dateValue.value) || new Date().toISOString()
+
     const dateParts = dayjs(value).format("YYYY-MM-DD").split("-")
 
     return dateParts
@@ -175,6 +184,7 @@
 
   const handleConfirm = ({ selectedValues }: { selectedValues: string[] }): void => {
     const formattedValue = getValue(selectedValues)
+
     dateValue.value = formattedValue
     props.onConfirm?.(formattedValue)
     props.onChange?.(formattedValue)
