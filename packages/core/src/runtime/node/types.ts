@@ -480,6 +480,13 @@ export interface DependencyNode<
   readonly staticSchema: Signal<SchemxDependencyField<TValues>>
 
   /**
+   * Dynamic 行内 Dependency 的上下文 token；普通 Dependency 不设置。
+   *
+   * 该字段仅用于区分同一稳定行在索引变化后的 renderer 上下文，不暴露到 ViewSchema。
+   */
+  rendererContextKey?: string
+
+  /**
    * 依赖节点呈现 dependencies 产生的动态覆盖。
    */
   readonly dynamicOverrides: Signal<PresentationDynamicOverrides>

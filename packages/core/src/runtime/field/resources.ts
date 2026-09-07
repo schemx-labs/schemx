@@ -50,7 +50,7 @@ export function updateFieldResources<TValues extends Values>(
   node: FieldNode<TValues>,
   previousNode: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
-): void {
+): NamePath<TValues> | undefined {
   const previousName = previousNode.name.peek()
 
   const nameChanged = createFieldKey(previousName) !== createFieldKey(node.name.peek())
@@ -58,11 +58,6 @@ export function updateFieldResources<TValues extends Values>(
   if (nameChanged) {
     batchUpdates(() => {
       context.store.unregisterFieldPath(previousName)
-
-      if (previousNode.staticSchema.peek().preserve === false) {
-        context.store.removeFieldValue(previousName)
-      }
-
       context.store.registerFieldPath(node.name.peek())
     })
   }
@@ -80,8 +75,21 @@ export function updateFieldResources<TValues extends Values>(
   const dynamicConfig = node.staticSchema.peek().dependencies
 
   if (shouldRecreateDependenciesEffect(previousDynamicConfig, dynamicConfig)) {
+    if (
+      dynamicConfig?.triggerFields == null ||
+      dynamicConfig.triggerFields.length === 0
+    ) {
+      node.dynamicOverrides.value = {}
+    }
+
     recreateDependenciesEffect(node, context)
   }
+
+  if (nameChanged && previousNode.staticSchema.peek().preserve === false) {
+    return previousName
+  }
+
+  return undefined
 }
 
 /**

@@ -11,6 +11,7 @@
 
 import type { SchemxGroupDependencies } from "./dependencies"
 import type { Values } from "./form"
+import type { SchemxLayout } from "./layout"
 import type { SchemxField } from "./schema"
 
 /**
@@ -28,6 +29,9 @@ import type { SchemxField } from "./schema"
  *   }
  * }
  * ```
+ *
+ * 扩展属性会作为静态 Schema 元数据保留，并透传到 Group ViewSchema；
+ * 声明扩展属性不会自动增加 dependencies 可动态覆盖的属性。
  */
 export interface SchemxGroupFieldDefinition {}
 
@@ -56,6 +60,14 @@ export interface SchemxGroupField<
    * 分组内的列配置
    */
   children: SchemxField<TValues>[]
+
+  /**
+   * Group 在 24 栅格布局容器中的静态布局配置。
+   *
+   * Core 会将该配置透传到 Group ViewSchema；具体的布局组件由适配层解释。
+   */
+  layout?: SchemxLayout
+
   /**
    * 是否可见。
    *

@@ -5,14 +5,13 @@
  */
 
 export {
-  isBaseSchema,
+  isFieldSchema,
   isGroupSchema,
   isDependencySchema,
   isDynamicSchema,
   findSchema,
+  isValidSchema,
 } from "./schema"
-
-export { normalizeSchemas } from "./normalize"
 
 export {
   getByPath,

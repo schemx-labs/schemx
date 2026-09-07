@@ -1,4 +1,5 @@
 import type { RegistryOptions } from "./types"
+import type { AsyncValidatorDescriptor } from "../types/asyncValidator"
 import type { PresetRuleDefinition } from "../types/rule"
 import type { StandardSchemaV1 } from "../types/standardSchema"
 import type { ValidationRule } from "../validator/types"
@@ -26,7 +27,9 @@ type PresetRuleValue<TKey extends PresetRuleKey> = TKey extends DeclaredPresetRu
  * 规则注册表中已经解析、可直接执行的规则条目。
  */
 type ResolvedPresetRuleEntry<TValue> =
-  StandardSchemaV1<TValue, unknown> | ValidationRule<TValue>
+  | StandardSchemaV1<TValue, unknown>
+  | ValidationRule<TValue>
+  | AsyncValidatorDescriptor
 
 /**
  * 命名规则工厂可读取的字段元数据。

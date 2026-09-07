@@ -7,8 +7,9 @@
  * @module core/runtime/dynamic/resources
  */
 
-import { createSignalEffect } from "../../reactivity"
+import { createSignalEffect, runSignalUntracked } from "../../reactivity"
 import {
+  createFieldKey,
   getByPath,
   isDependencySchema,
   isDynamicSchema,
@@ -37,6 +38,12 @@ type DynamicDependencyRenderer<
 interface CachedDynamicDependencyRenderer<TItem extends Values, TValues extends Values> {
   readonly source: DynamicDependencyRenderer<TItem, TValues>
   readonly renderer: SchemxDependencyField<TValues>["renderer"]
+  readonly state: {
+    rowPath: string
+    rowIndex: number
+    dynamicRowKey: string
+    activeRendererKeys: Set<string>
+  }
 }
 
 /**
@@ -62,8 +69,20 @@ export function mountDynamicResources<TValues extends Values>(
  */
 export function updateDynamicResources<TValues extends Values>(
   node: DynamicNode<TValues>,
+  previousNode: DynamicNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
+  const previousSchema = previousNode.staticSchema.peek()
+
+  const currentSchema = node.staticSchema.peek()
+
+  if (
+    createFieldKey(previousSchema.name) === createFieldKey(currentSchema.name) &&
+    previousSchema.item === currentSchema.item
+  ) {
+    return
+  }
+
   recreateDynamicEffect(node, context)
 }
 
@@ -122,12 +141,24 @@ function recreateDynamicEffect<TValues extends Values>(
       index,
     }))
 
+    const activeRendererKeys = new Set<string>()
+
     node.dynamicRows.value = rows
 
-    context.reconcileChildren(
-      node.id,
-      expandDynamicSchemas(schema, rows, dependencyRendererCache)
-    )
+    try {
+      runSignalUntracked(() => {
+        context.reconcileChildren(
+          node.id,
+          expandDynamicSchemas(schema, rows, dependencyRendererCache, activeRendererKeys)
+        )
+      })
+    } finally {
+      for (const cacheKey of dependencyRendererCache.keys()) {
+        if (!activeRendererKeys.has(cacheKey)) {
+          dependencyRendererCache.delete(cacheKey)
+        }
+      }
+    }
   })
 
   dynamicEffectScope.add(disposeEffect)
@@ -153,7 +184,8 @@ function recreateDynamicEffect<TValues extends Values>(
 function expandDynamicSchemas<TValues extends Values>(
   schema: SchemxDynamicField<TValues>,
   rows: readonly DynamicRowState[],
-  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>
+  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>,
+  activeRendererKeys: Set<string>
 ): SchemxField<TValues>[] {
   const expanded: SchemxField<TValues>[] = []
 
@@ -175,7 +207,8 @@ function expandDynamicSchemas<TValues extends Values>(
           index,
           row.index,
           row.key,
-          dependencyRendererCache
+          dependencyRendererCache,
+          activeRendererKeys
         )
       )
     }
@@ -204,7 +237,8 @@ function expandDynamicSchema<TValues extends Values>(
   index: number,
   rowIndex: number,
   dynamicRowKey: string,
-  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>
+  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>,
+  activeRendererKeys: Set<string>
 ): SchemxField<TValues> {
   const templateKey = getTemplateKey(schema, index)
 
@@ -219,7 +253,7 @@ function expandDynamicSchema<TValues extends Values>(
   if (isDependencySchema(schema as SchemxField<TValues>)) {
     const dependency = schema as SchemxDynamicItemDependency<Values, TValues>
 
-    return {
+    const expandedDependency = {
       ...dependency,
       key,
       renderer: getDynamicDependencyRenderer(
@@ -228,9 +262,22 @@ function expandDynamicSchema<TValues extends Values>(
         key,
         rowIndex,
         dynamicRowKey,
-        dependencyRendererCache
+        dependencyRendererCache,
+        activeRendererKeys
       ),
-    } as SchemxField<TValues>
+    }
+
+    Object.defineProperty(
+      expandedDependency,
+      Symbol.for("schemx.dynamicDependencyContext"),
+      {
+        configurable: true,
+        enumerable: false,
+        value: `${dynamicRowKey}:${prefix}`,
+      }
+    )
+
+    return expandedDependency as SchemxField<TValues>
   }
 
   if (isGroupSchema(schema as SchemxField<TValues>)) {
@@ -253,7 +300,8 @@ function expandDynamicSchema<TValues extends Values>(
           childIndex,
           rowIndex,
           dynamicRowKey,
-          dependencyRendererCache
+          dependencyRendererCache,
+          activeRendererKeys
         )
       ),
     } as SchemxField<TValues>
@@ -292,14 +340,29 @@ function getDynamicDependencyRenderer<TValues extends Values>(
   dependencyKey: string,
   rowIndex: number,
   dynamicRowKey: string,
-  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>
+  dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>,
+  activeRendererKeys: Set<string>
 ): SchemxDependencyField<TValues>["renderer"] {
-  const cacheKey = `${dependencyKey}:${rowPath}`
+  const cacheKey = dependencyKey
+
+  activeRendererKeys.add(cacheKey)
 
   const cached = dependencyRendererCache.get(cacheKey)
 
   if (cached?.source === dependency.renderer) {
+    cached.state.rowPath = rowPath
+    cached.state.rowIndex = rowIndex
+    cached.state.dynamicRowKey = dynamicRowKey
+    cached.state.activeRendererKeys = activeRendererKeys
+
     return cached.renderer
+  }
+
+  const state = {
+    rowPath,
+    rowIndex,
+    dynamicRowKey,
+    activeRendererKeys,
   }
 
   const renderer = async (
@@ -309,7 +372,7 @@ function getDynamicDependencyRenderer<TValues extends Values>(
   ): Promise<SchemxField<TValues>[]> => {
     const item = getByPath<TValues, NamePath<TValues>, Values>(
       values,
-      rowPath as NamePath<TValues>
+      state.rowPath as NamePath<TValues>
     )
 
     if (item === undefined || item === null) {
@@ -319,20 +382,21 @@ function getDynamicDependencyRenderer<TValues extends Values>(
     const children = await dependency.renderer(values, form, {
       ...context,
       item,
-      rowKey: dynamicRowKey,
-      rowIndex,
-      rowPath: rowPath as NamePath<TValues>,
+      rowKey: state.dynamicRowKey,
+      rowIndex: state.rowIndex,
+      rowPath: state.rowPath as NamePath<TValues>,
     })
 
     return children.map((child, childIndex) =>
       expandDynamicSchema(
         child,
-        rowPath,
+        state.rowPath,
         `${dependencyKey}/renderer`,
         childIndex,
-        rowIndex,
-        dynamicRowKey,
-        dependencyRendererCache
+        state.rowIndex,
+        state.dynamicRowKey,
+        dependencyRendererCache,
+        state.activeRendererKeys
       )
     )
   }
@@ -340,6 +404,7 @@ function getDynamicDependencyRenderer<TValues extends Values>(
   dependencyRendererCache.set(cacheKey, {
     source: dependency.renderer,
     renderer,
+    state,
   })
 
   return renderer

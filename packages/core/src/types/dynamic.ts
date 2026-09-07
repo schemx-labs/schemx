@@ -12,6 +12,7 @@ import type { SchemxExactBaseField } from "./field"
 import type { FieldValue, NamePath, Values } from "./form"
 import type { SchemxGroupField } from "./group"
 import type { SchemxFormApi } from "./instance"
+import type { SchemxLayout } from "./layout"
 
 /**
  * 从数组字段值中提取单行类型。
@@ -128,6 +129,9 @@ export interface FieldArrayChange {
  *   }
  * }
  * ```
+ *
+ * 扩展属性会作为静态 Schema 元数据保留，并透传到 Dynamic ViewSchema；
+ * 声明扩展属性不会自动增加 dependencies 可动态覆盖的属性。
  */
 export interface SchemxDynamicDefinition {}
 
@@ -297,6 +301,13 @@ export interface SchemxDynamicField<
    * 展示名称。
    */
   label?: string
+
+  /**
+   * Dynamic 容器在 24 栅格布局容器中的静态布局配置。
+   *
+   * Core 会将该配置透传到 Dynamic ViewSchema；具体的布局组件由适配层解释。
+   */
+  layout?: SchemxLayout
 
   /**
    * 每个数组 item 复用的 Schema 模板。

@@ -6,6 +6,8 @@
  * @module utils/schema
  */
 
+import { createFieldKey } from "./path"
+
 import type {
   SchemxBaseField,
   SchemxDependencyField,
@@ -107,14 +109,14 @@ export function isDynamicSchema<TValues extends Values = Values>(
  * ]
  *
  * schemas.forEach(schema => {
- *   if (isBaseSchema(schema)) {
+ *   if (isFieldSchema(schema)) {
  *     // TypeScript 现在知道这是 SchemxBaseField
  *     console.log('基础字段:', schema.name)
  *   }
  * })
  * ```
  */
-export function isBaseSchema<TValues extends Values = Values>(
+export function isFieldSchema<TValues extends Values = Values>(
   schema: SchemxField<TValues>
 ): schema is SchemxBaseField<TValues> {
   return getSchemaKind(schema) === "field"
@@ -220,7 +222,7 @@ export function findSchema<TValues extends Values = Values>(
   name: string
 ): SchemxBaseField<TValues> | undefined {
   for (const schema of schemas) {
-    if (isBaseSchema(schema) && schema.name === name) {
+    if (isFieldSchema(schema) && schema.name === name) {
       return schema
     }
 
@@ -232,4 +234,158 @@ export function findSchema<TValues extends Values = Values>(
   }
 
   return undefined
+}
+
+/**
+ * 判断单个 Schema 及其静态子树是否满足运行时结构约束。
+ *
+ * Dynamic 模板只能包含 Field、Group 和 Dependency，且同一静态树内的字段名不能
+ * 重复。该函数不补全默认渲染器，也不修改传入对象；缺少 `componentType` 的 Field
+ * 因此视为不合规。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param schema - 待校验的未知 Schema 节点。
+ * @returns Schema 及其静态子树是否合规。
+ *
+ * @example
+ * ```ts
+ * isValidSchema({ name: "email", label: "邮箱", componentType: "input" })
+ * // => true
+ * ```
+ */
+export function isValidSchema<TValues extends Values = Values>(schema: unknown): boolean {
+  /** 记录结构错误并返回 false，保持标准化检查的无异常语义。 */
+  const reportInvalid = (path: string, message: string): false => {
+    const separator = message.startsWith(".") ? "" : " "
+
+    console.error(`[schemx] ${path}${separator}${message}`)
+
+    return false
+  }
+
+  /**
+   * 校验节点并记录所属静态树中的字段名。
+   *
+   * @param candidate - 当前待检查的未知节点。
+   * @param fieldNames - 当前静态树已出现的规范化字段名。
+   * @param dynamicTemplate - 当前节点是否位于 Dynamic 数组项模板内。
+   * @param path - 当前节点在 Schema 树中的路径。
+   */
+  const isValid = (
+    candidate: unknown,
+    fieldNames: Set<string>,
+    dynamicTemplate: boolean,
+    path: string
+  ): boolean => {
+    if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
+      return reportInvalid(path, "必须是对象")
+    }
+
+    const field = candidate as SchemxField<TValues>
+
+    const record = candidate as Record<string, unknown>
+
+    const kind = getSchemaKind(field)
+
+    if (kind === "field") {
+      if (typeof record.name !== "string" || record.name.length === 0) {
+        return reportInvalid(path, ".name 必须是非空字符串")
+      }
+
+      if (typeof record.label !== "string") {
+        return reportInvalid(path, ".label 必须是字符串")
+      }
+
+      if (typeof record.componentType !== "string" || record.componentType.length === 0) {
+        return reportInvalid(path, ".componentType 必须是非空字符串")
+      }
+
+      const fieldKey = createFieldKey(record.name)
+
+      if (fieldNames.has(fieldKey)) {
+        return reportInvalid(path, `字段名 "${record.name}" 重复`)
+      }
+
+      fieldNames.add(fieldKey)
+
+      return true
+    }
+
+    if (kind === "group") {
+      if (record.componentType === "group") {
+        return reportInvalid(path, '.componentType 不应为 "group"')
+      }
+
+      if (typeof record.label !== "string") {
+        return reportInvalid(path, ".label 必须是字符串")
+      }
+
+      if (!Array.isArray(record.children)) {
+        return reportInvalid(path, ".children 必须是数组")
+      }
+
+      return record.children.every((child, index) =>
+        isValid(child, fieldNames, dynamicTemplate, `${path}.children[${index}]`)
+      )
+    }
+
+    if (kind === "dynamic") {
+      if (dynamicTemplate) {
+        return reportInvalid(
+          path,
+          "只能包含 Field、Group 或 Dependency Schema，不能包含 Dynamic Schema"
+        )
+      }
+
+      if (typeof record.key !== "string" || record.key.length === 0) {
+        return reportInvalid(path, ".key 必须是非空字符串")
+      }
+
+      if (typeof record.name !== "string" || record.name.length === 0) {
+        return reportInvalid(path, ".name 必须是非空字符串")
+      }
+
+      if (!Array.isArray(record.item)) {
+        return reportInvalid(path, ".item 必须是数组")
+      }
+
+      const fieldKey = createFieldKey(record.name)
+
+      if (fieldNames.has(fieldKey)) {
+        return reportInvalid(path, `字段名 "${record.name}" 重复`)
+      }
+
+      fieldNames.add(fieldKey)
+
+      const itemFieldNames = new Set<string>()
+
+      return record.item.every((item, index) =>
+        isValid(item, itemFieldNames, true, `${path}.item[${index}]`)
+      )
+    }
+
+    if (kind === "dependency") {
+      if (record.componentType === "dependency") {
+        return reportInvalid(path, '.componentType 不应为 "dependency"')
+      }
+
+      if (
+        !Array.isArray(record.to) ||
+        record.to.length === 0 ||
+        !record.to.every((name) => typeof name === "string" && name.length > 0)
+      ) {
+        return reportInvalid(path, ".to 必须是包含非空字符串的数组")
+      }
+
+      if (typeof record.renderer !== "function") {
+        return reportInvalid(path, ".renderer 必须是函数")
+      }
+
+      return true
+    }
+
+    return reportInvalid(path, "类型无法识别")
+  }
+
+  return isValid(schema, new Set(), false, "schema")
 }

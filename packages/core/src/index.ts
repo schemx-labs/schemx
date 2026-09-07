@@ -106,7 +106,7 @@ export {
 } from "./reactivity"
 
 export {
-  isBaseSchema,
+  isFieldSchema,
   isGroupSchema,
   isDependencySchema,
   isDynamicSchema,
@@ -133,12 +133,15 @@ export type {
   CSSProperties,
   ValidationTrigger,
   StandardSchemaV1,
+  AsyncValidatorRule,
+  AsyncValidatorDescriptor,
   SchemxInstance,
   SchemxFormApi,
   SchemxFieldRulesMap,
   SchemxSchemaConfig,
   SchemxRendererKey,
   SchemxRendererDefinition,
+  SchemxLayout,
   SchemxFieldDefinition,
   SchemxGroupFieldDefinition,
   SchemxBaseComponentProps,

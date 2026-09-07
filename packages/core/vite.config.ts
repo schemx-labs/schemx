@@ -2,7 +2,7 @@ import { defineConfig } from "vite"
 import { resolve } from "path"
 import { createVitePlugins } from "./vite.plugins"
 
-const externalPackages = ["es-toolkit", "@preact/signals-core"]
+const externalPackages = ["es-toolkit", "@preact/signals-core", "async-validator"]
 
 function isExternal(id: string) {
   return externalPackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))

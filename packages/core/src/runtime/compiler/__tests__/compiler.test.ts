@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { normalizeSchemas } from "../../../utils"
 import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import { createCompile } from "../index"
 
@@ -10,14 +9,14 @@ import type { SchemxField, SchemxInstance } from "../../../types"
  * 验证 compiler 直接创建节点，并保留配置 token 缓存语义。
  */
 describe("createCompile().createNode", () => {
-  it("编译已在边界规范化的字段", () => {
-    const compile = createCompile({ defaultRendererType: "input" })
+  it("编译字段", () => {
+    const compile = createCompile()
 
-    const schema = { name: "email", label: "" } as SchemxField
-
-    const normalized = normalizeSchemas([schema], "input")
-
-    const node = compile.createNode(normalized[0], "", 0)
+    const node = compile.createNode(
+      { name: "email", label: "", componentType: "input" },
+      "",
+      0
+    )
 
     expect(node).toMatchObject({
       type: "field",
@@ -25,7 +24,6 @@ describe("createCompile().createNode", () => {
     })
 
     expect(isFieldNode(node) && node.staticSchema.value.componentType).toBe("input")
-    expect(schema).not.toHaveProperty("componentType")
   })
 
   it("按 Renderer 默认值、字段 Props 和 Core 受控状态编译组件 Props", () => {
@@ -110,7 +108,6 @@ describe("createCompile().createNode", () => {
 
   it("只按 Schema 的精确 componentType 读取 Renderer 默认 Props", () => {
     const compile = createCompile({
-      defaultRendererType: "text",
       rendererProps: {
         text: { placeholder: "fallback 占位" },
         unknown: { placeholder: "精确占位" },

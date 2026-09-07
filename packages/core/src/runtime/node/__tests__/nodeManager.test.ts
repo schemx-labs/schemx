@@ -45,6 +45,25 @@ describe("NodeManager", () => {
     expect(manager.getIndex(first.id)).toBe(0)
   })
 
+  it("批量重排既有子节点时只更新顺序并保留节点归属", () => {
+    const manager = createNodeManager()
+
+    const root = manager.getRoot()
+
+    const first = createFieldNode({ id: 1, ...createFieldNodeOptions("first") })
+
+    const second = createFieldNode({ id: 2, ...createFieldNodeOptions("second") })
+
+    manager.insert(first, root.id)
+    manager.insert(second, root.id)
+    manager.reorderChildren(root.id, [second, first])
+
+    expect(root.childNodes.value).toEqual([second, first])
+    expect(first.parent).toBe(root)
+    expect(second.parent).toBe(root)
+    expect(manager.values()).toEqual([root, first, second])
+  })
+
   it("删除子树时仅解除结构并返回 preorder 节点", () => {
     const manager = createNodeManager()
 

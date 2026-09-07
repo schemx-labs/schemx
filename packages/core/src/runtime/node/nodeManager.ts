@@ -253,6 +253,13 @@ export interface NodeManager<TValues extends Values = Values> {
   transaction(run: () => void): void
 
   /**
+   * 一次性写入同一父节点的既有子节点顺序，不改变节点归属或节点状态。
+   *
+   * 仅用于 Reconciler 已完成 key 校验且 children 集合未变化的纯重排。
+   */
+  reorderChildren(parentId: NodeId, children: readonly SchemaNode<TValues>[]): void
+
+  /**
    * 关闭节点索引并禁止后续写操作，不处理节点生命周期。
    */
   dispose(): void
@@ -962,6 +969,44 @@ export function createNodeManager<
     batch(run)
   }
 
+  function reorderChildren(
+    parentId: NodeId,
+    children: readonly SchemaNode<TValues>[]
+  ): void {
+    assertManagerAvailable()
+
+    const parent = requireParentNode(parentId)
+
+    const currentChildren = readChildren(parent)
+
+    const currentIds = new Set(currentChildren.map((child) => child.id))
+
+    const childIds = new Set<NodeId>()
+
+    if (
+      currentChildren.length !== children.length ||
+      children.some((child) => {
+        if (
+          child.parent?.id !== parentId ||
+          !currentIds.has(child.id) ||
+          childIds.has(child.id)
+        ) {
+          return true
+        }
+
+        childIds.add(child.id)
+
+        return false
+      })
+    ) {
+      throw new Error(
+        `[schemx] Cannot reorder children for Node "${parentId}" with a different child set.`
+      )
+    }
+
+    writeChildren(parent, children)
+  }
+
   // dispose 只关闭结构管理器，不替代 NodeLifecycle 的资源释放。
   function dispose(): void {
     if (disposed) {
@@ -1023,6 +1068,7 @@ export function createNodeManager<
     removeChildren,
     clear,
     transaction,
+    reorderChildren,
     dispose,
 
     // 数据

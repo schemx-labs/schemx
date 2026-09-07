@@ -8,7 +8,6 @@
  */
 
 import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
-import { normalizeSchemas } from "../utils"
 
 import { createCompile } from "./compiler"
 import { createNodeLifecycleEmitter } from "./lifecycle"
@@ -37,7 +36,6 @@ import type {
   SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
-  SchemxRendererKey,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
@@ -81,10 +79,6 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    * 按 Renderer 类型配置的静态默认 Props。
    */
   rendererProps?: SchemxRendererPropsMap<TValues>
-  /**
-   * 未注册 renderer 的 fallback 类型。
-   */
-  defaultRendererType?: SchemxRendererKey<TValues>
   /**
    * Runtime 生命周期钩子。
    */
@@ -214,7 +208,6 @@ export function createSchemaRuntime<TValues extends Values>(
   const compile = createCompile({
     schemaConfig,
     rendererProps: options.rendererProps,
-    defaultRendererType: options.defaultRendererType,
     formInstance: options.instance,
     debug: options.debug,
   })
@@ -238,10 +231,7 @@ export function createSchemaRuntime<TValues extends Values>(
     lifecycle,
     // 统一由 Reconciler 提交子 Schema，避免各调用方绕过树提交流程。
     reconcileChildren: (parentId, schemas) =>
-      reconciler.reconcileChildren(
-        parentId,
-        normalizeSchemas(schemas, options.defaultRendererType)
-      ),
+      reconciler.reconcileChildren(parentId, schemas),
   }
 
   const nodeManager = createNodeManager<TValues>()
@@ -269,7 +259,7 @@ export function createSchemaRuntime<TValues extends Values>(
       return
     }
 
-    reconciler.reconcile(normalizeSchemas(nextSchemas, options.defaultRendererType))
+    reconciler.reconcile(nextSchemas)
   }
 
   /**
@@ -313,7 +303,7 @@ export function createSchemaRuntime<TValues extends Values>(
     )
 
     compile.invalidate()
-    applySchemas(options.schemas.peek())
+    reconciler.refresh()
   }
 
   /**

@@ -79,7 +79,7 @@ function createCompileCache<TValues extends Values = Values>(): CompileCache<TVa
  *
  * @example
  * ```ts
- * const compile = createCompile({ defaultRendererType: "input" })
+ * const compile = createCompile()
  * const node = compile.createNode(schema, "schemx:root", 0)
  * ```
  */
@@ -92,7 +92,6 @@ export function createCompile<TValues extends Values = Values>(
   const compileOptions: CompileOptions<TValues> = {
     schemaConfig: options.schemaConfig ?? mergeAndResolveSchemxConfig().schemaConfig,
     rendererProps: options.rendererProps,
-    defaultRendererType: options.defaultRendererType,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
     debug: options.debug,
   }
@@ -241,6 +240,8 @@ export function createCompile<TValues extends Values = Values>(
 
     // Dependency 节点的 children 由动态 renderer 产生，静态节点只保存触发配置。
     if (isDependencySchema(schema)) {
+      const rendererContextKey = readDynamicDependencyContextKey(schema)
+
       const runtimeStaticSchema: SchemxDependencyField<TValues> = {
         ...schema,
         key,
@@ -285,6 +286,7 @@ export function createCompile<TValues extends Values = Values>(
         disposed: createSignal(false),
         configToken,
         staticSchema,
+        rendererContextKey,
         dynamicOverrides,
         effectiveState,
         viewSchemas: null,
@@ -453,6 +455,20 @@ export function createCompile<TValues extends Values = Values>(
     createNode,
     invalidate,
   }
+}
+
+/**
+ * 读取 Dynamic 行内 Dependency 的内部上下文 token。
+ *
+ * Dynamic 模块通过非枚举 Symbol 写入该值，因此不会污染公开 ViewSchema 或
+ * 用户可见的 Schema 属性。
+ */
+function readDynamicDependencyContextKey<TValues extends Values>(
+  schema: SchemxDependencyField<TValues>
+): string | undefined {
+  const value = Reflect.get(schema, Symbol.for("schemx.dynamicDependencyContext"))
+
+  return typeof value === "string" ? value : undefined
 }
 
 /**

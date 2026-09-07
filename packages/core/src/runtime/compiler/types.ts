@@ -10,7 +10,6 @@ import type {
   NamePath,
   SchemxField,
   SchemxInstance,
-  SchemxRendererKey,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
@@ -35,17 +34,6 @@ export interface CompileOptions<TValues extends Values> {
    * 按 Renderer 类型配置的静态默认 Props。
    */
   rendererProps?: SchemxRendererPropsMap<TValues>
-  /**
-   * 缺失 `componentType` 的 field 使用的显式默认渲染器类型。
-   *
-   * 未配置时不会从 renderer registry 推断默认值。
-   *
-   * @example
-   * ```ts
-   * createCompile({ defaultRendererType: "input" })
-   * ```
-   */
-  defaultRendererType?: SchemxRendererKey<TValues>
   /**
    * 表单实例方法，用于在编译时提供表单操作能力。
    */

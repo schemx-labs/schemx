@@ -20,9 +20,19 @@ import type {
   ValidationAdapterV1,
   ValidationError,
   ValidationResult,
+  AsyncValidatorDescriptor,
+  AsyncValidatorRule,
 } from "../../index"
 
 type CoreExports = typeof import("../../index")
+
+const asyncRule: AsyncValidatorRule = {
+  type: "email",
+  message: "邮箱格式错误",
+}
+const asyncDescriptor: AsyncValidatorDescriptor = [asyncRule]
+
+void asyncDescriptor
 
 // @ts-expect-error 旧必填工厂已从 Core 公共入口删除。
 type _RemovedCreateRequiredConfig = CoreExports["createRequiredConfig"]

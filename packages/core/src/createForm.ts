@@ -114,7 +114,6 @@ export function createForm<TValues extends Values>(
     schemaConfig: merged.schemaConfig,
     fieldRules: merged.fieldRules,
     rendererProps: merged.rendererProps,
-    defaultRendererType: merged.defaultRendererType,
     lifecycleHooks: merged.lifecycleHooks,
     debug: merged.debug,
     schedulerOptions: merged.schedulerOptions,

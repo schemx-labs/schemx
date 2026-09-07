@@ -30,6 +30,8 @@ export type {
 
 export type { SchemxRendererKey, SchemxRendererDefinition } from "./renderer"
 
+export type { SchemxLayout } from "./layout"
+
 export type {
   SchemxBaseComponentProps,
   SchemxComponentProps,
@@ -85,5 +87,7 @@ export type {
 } from "./dependencies"
 
 export type { StandardSchemaV1 } from "./standardSchema"
+
+export type { AsyncValidatorRule, AsyncValidatorDescriptor } from "./asyncValidator"
 
 export type { ValidationAdapterV1 } from "./validationAdapter"

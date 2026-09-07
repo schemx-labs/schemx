@@ -41,7 +41,7 @@ import {
   updateFieldDiagnostics,
 } from "./helper"
 
-import type { Values } from "../../types"
+import type { NamePath, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type { ContainerNode, SchemaNode } from "./types"
 
@@ -69,7 +69,10 @@ export interface NodeLifecycle<TValues extends Values = Values> {
    * @param current - 树中被复用的当前节点。
    * @param desired - 携带下一轮配置的 detached 节点。
    */
-  update(current: SchemaNode<TValues>, desired: SchemaNode<TValues>): void
+  update(
+    current: SchemaNode<TValues>,
+    desired: SchemaNode<TValues>
+  ): NamePath<TValues> | undefined
   /**
    * 卸载节点并按需删除字段当前值。
    *
@@ -89,6 +92,12 @@ export interface NodeLifecycle<TValues extends Values = Values> {
    * @param node - 要丢弃的 SchemaNode。
    */
   discard(node: SchemaNode<TValues>): void
+  /**
+   * 删除一个已确认不再被活动字段使用的旧字段路径。
+   *
+   * Reconciler 会在整批节点协调完成后调用该方法，避免 Dynamic 行重排时误删值。
+   */
+  removeFieldValue(name: NamePath<TValues>): void
 }
 
 /**
@@ -130,8 +139,11 @@ export function createNodeLifecycle<TValues extends Values>(
   }
 
   // 更新当前节点的配置和资源，并发布 updated 事件。
-  const update = (current: SchemaNode<TValues>, desired: SchemaNode<TValues>): void => {
-    updateNodeResources(current, desired, context)
+  const update = (
+    current: SchemaNode<TValues>,
+    desired: SchemaNode<TValues>
+  ): NamePath<TValues> | undefined => {
+    return updateNodeResources(current, desired, context)
   }
 
   // 卸载 ViewSchema computed 和领域资源，但不释放节点自身 scope。
@@ -149,6 +161,10 @@ export function createNodeLifecycle<TValues extends Values>(
     node.scope.dispose()
   }
 
+  const removeFieldValue = (name: NamePath<TValues>): void => {
+    context.store.removeFieldValue(name)
+  }
+
   return {
     created,
     mount,
@@ -156,6 +172,7 @@ export function createNodeLifecycle<TValues extends Values>(
     unmount,
     dispose,
     discard: dispose,
+    removeFieldValue,
   }
 }
 
@@ -204,7 +221,7 @@ export function updateNodeResources<TValues extends Values>(
   node: SchemaNode<TValues>,
   desired: SchemaNode<TValues>,
   context: SchemaRuntimeContext<TValues>
-): void {
+): NamePath<TValues> | undefined {
   let previousNode: SchemaNode<TValues>
 
   if (isFieldNode(node)) {
@@ -254,8 +271,11 @@ export function updateNodeResources<TValues extends Values>(
   }
 
   applyNode(node, desired)
-  updateDomainResources(node, previousNode, context)
+  const valueCleanupPath = updateDomainResources(node, previousNode, context)
+
   context.lifecycle.emitUpdated(node, previousNode)
+
+  return valueCleanupPath
 }
 
 /**
@@ -301,30 +321,28 @@ function updateDomainResources<TValues extends Values>(
   node: SchemaNode<TValues>,
   previousNode: SchemaNode<TValues>,
   context: SchemaRuntimeContext<TValues>
-): void {
+): NamePath<TValues> | undefined {
   if (isFieldNode(node) && isFieldNode(previousNode)) {
-    updateFieldResources(node, previousNode, context)
-
-    return
+    return updateFieldResources(node, previousNode, context)
   }
 
   if (isGroupNode(node) && isGroupNode(previousNode)) {
     updatePresentationResources(node, previousNode, context)
 
-    return
+    return undefined
   }
 
   if (isDynamicNode(node) && isDynamicNode(previousNode)) {
     updatePresentationResources(node, previousNode, context)
-    updateDynamicResources(node, context)
+    updateDynamicResources(node, previousNode, context)
 
-    return
+    return undefined
   }
 
   if (isDependencyNode(node) && isDependencyNode(previousNode)) {
     updateDependencyResources(node, previousNode, context)
 
-    return
+    return undefined
   }
 
   throw new Error(
@@ -432,6 +450,7 @@ function applyNode<TValues extends Values>(
 
   if (isDependencyNode(node) && isDependencyNode(desired)) {
     node.configToken = desired.configToken
+    node.rendererContextKey = desired.rendererContextKey
     node.staticSchema.value = desired.staticSchema.peek()
 
     return

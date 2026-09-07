@@ -53,7 +53,8 @@
   "dependencies": {
     "@preact/signals-core": "^1.14.0",
     "csstype": "^3.2.3",
-    "es-toolkit": "catalog:"
+    "es-toolkit": "catalog:",
+    "async-validator": "^4.2.5"
   },
   "scripts": {
     "build": "vite build",

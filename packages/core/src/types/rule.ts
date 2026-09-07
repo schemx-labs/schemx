@@ -6,6 +6,7 @@
 
 import type { FieldValue, NamePath, Values } from "./form"
 import type { StandardSchemaV1 } from "./standardSchema"
+import type { AsyncValidatorRule } from "./asyncValidator"
 import type { ValidationAdapterV1 } from "./validationAdapter"
 import type { ValidationRule } from "../validator/types"
 
@@ -121,6 +122,7 @@ export type FieldRule<
   | ValidationAdapterV1.Rule
   | ValidationRule<TValue, TValues, TName>
   | StandardSchemaV1<TValue, unknown>
+  | AsyncValidatorRule
   | ValidationAdapterObjectRule
 
 /**

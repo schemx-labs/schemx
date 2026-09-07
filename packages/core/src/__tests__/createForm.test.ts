@@ -14,7 +14,6 @@ import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createPresetRuleRegistry, createRendererRegistry } from "../registry"
-import { CompileError } from "../runtime/compiler"
 import { isFieldNode } from "../runtime/node/helper"
 
 interface StudentFormValues {
@@ -715,36 +714,30 @@ describe("渲染器注册中心下沉 单元测试", () => {
     expect(valueDuringUnmount).toBe("Alice")
   })
 
-  it("createForm 仅用显式 defaultRendererType 补齐缺失的 field componentType", () => {
-    const form = createForm({
-      defaultRendererType: "input",
-      schemas: [{ name: "email", label: "" } as any],
-    })
-
-    expect(form.getViewSchemas()[0]).toMatchObject({ componentType: "input" })
-
-    form.destroy()
-  })
-
-  it("rendererRegistry 的内部默认值不会隐式补齐 field componentType", () => {
+  it("createForm 跳过不合规 Schema 并输出错误日志", () => {
     const customRegistry = createRendererRegistry("registry-default")
 
-    let thrown: unknown
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
     try {
-      createForm({
+      const form = createForm({
         rendererRegistry: customRegistry,
-        schemas: [{ name: "email", label: "" } as any],
+        schemas: [
+          { name: "email", label: "" } as any,
+          { name: "name", label: "姓名", componentType: "text" },
+        ],
       })
-    } catch (error) {
-      thrown = error
-    }
 
-    expect(thrown).toBeInstanceOf(CompileError)
-    expect(thrown).toHaveProperty(
-      "message",
-      expect.stringContaining("schemas[0].componentType")
-    )
+      expect(form.getViewSchemas()).toHaveLength(1)
+      expect(form.getViewSchemas()[0]).toMatchObject({ name: "name" })
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[schemx] schema.componentType 必须是非空字符串"
+      )
+
+      form.destroy()
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   it("form 返回对象包含 getRenderer、registerRenderer、hasRenderer 方法", () => {

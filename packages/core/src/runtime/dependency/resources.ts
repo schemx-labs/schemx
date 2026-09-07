@@ -58,9 +58,13 @@ export function updateDependencyResources<TValues extends Values>(
 
   const currentSchema = node.staticSchema.peek()
 
+  const rendererContextChanged =
+    previousNode.rendererContextKey !== node.rendererContextKey
+
   if (
     areNamePathListsEqual(previousSchema.to, currentSchema.to) &&
     previousSchema.renderer === currentSchema.renderer &&
+    !rendererContextChanged &&
     node.rendererEffect
   ) {
     return

@@ -208,4 +208,57 @@ describe("commitSchemas", () => {
         : undefined
     ).toBe("email")
   })
+
+  it("嵌套子树重复 key 编译失败时保留旧树", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
+
+    const current = createRawFieldSchema("current", "current")
+
+    commitSchemas(root, [current])
+
+    expect(() =>
+      commitSchemas(root, [
+        {
+          key: "group",
+          label: "分组",
+          children: [
+            createRawFieldSchema("duplicate", "first"),
+            createRawFieldSchema("duplicate", "second"),
+          ],
+        },
+      ])
+    ).toThrow('[schemx] Duplicate runtime node key "duplicate".')
+
+    expect(root.childNodes.value).toHaveLength(1)
+    expect(root.childNodes.value[0]?.key).toBe("current")
+    expect(root.childNodes.value[0]?.disposed.value).toBe(false)
+  })
+
+  it("按最终根 Schema 允许字段从后续分组迁移到前置分组", () => {
+    const { commitSchemas, root } = createRuntimeGraphHarness()
+
+    const firstGroup = { key: "first", label: "第一组", children: [] }
+
+    const secondGroup = {
+      key: "second",
+      label: "第二组",
+      children: [createRawFieldSchema("name", "name")],
+    }
+
+    commitSchemas(root, [firstGroup, secondGroup])
+
+    commitSchemas(root, [
+      { ...firstGroup, children: secondGroup.children },
+      { ...secondGroup, children: [] },
+    ])
+
+    expect(
+      root.childNodes.value[0] &&
+        isGroupNode(root.childNodes.value[0]) &&
+        root.childNodes.value[0].childNodes.value[0]?.key
+    ).toBe("name")
+    expect(
+      isGroupNode(root.childNodes.value[1]) && root.childNodes.value[1].childNodes.value
+    ).toEqual([])
+  })
 })

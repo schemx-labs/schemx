@@ -132,6 +132,49 @@ describe("Dynamic Schema", () => {
     form.destroy()
   })
 
+  it("Dynamic 行重排时 preserve=false 不应删除其他行的字段值", () => {
+    const form = createForm<FormValues>({
+      initialValues: {
+        users: [
+          { name: "Ada", age: 36 },
+          { name: "Grace", age: 28 },
+        ],
+      },
+      schemas: [
+        {
+          key: "users-schema",
+          name: "users",
+          item: [
+            {
+              name: "name",
+              label: "姓名",
+              componentType: "input",
+              preserve: false,
+            },
+          ],
+        },
+      ],
+    })
+
+    form.setFieldValue("users", (users) => {
+      const next = [...(users ?? [])]
+
+      const moved = next.shift()
+
+      if (moved) {
+        next.push(moved)
+      }
+
+      return next
+    })
+
+    expect(form.getFieldsValue()).toMatchObject({
+      users: [{ name: "Grace" }, { name: "Ada" }],
+    })
+
+    form.destroy()
+  })
+
   it("展开 Dynamic 行内的 Group 模板", () => {
     const form = createForm<FormValues>({
       initialValues: { users: [{ name: "Ada", age: 36 }] },
@@ -587,9 +630,11 @@ describe("Dynamic Schema", () => {
     form.destroy()
   })
 
-  it("拒绝 Dynamic 模板中的嵌套 Dynamic", () => {
-    expect(() =>
-      createForm<FormValues>({
+  it("跳过 Dynamic 模板中的嵌套 Dynamic 并输出错误日志", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    try {
+      const form = createForm<FormValues>({
         initialValues: { users: [] },
         schemas: [
           {
@@ -605,7 +650,16 @@ describe("Dynamic Schema", () => {
           } as never,
         ],
       })
-    ).toThrow("只能包含 Field、Group 或 Dependency Schema")
+
+      expect(form.getViewSchemas()).toEqual([])
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[schemx] schema.item[0] 只能包含 Field、Group 或 Dependency Schema，不能包含 Dynamic Schema"
+      )
+
+      form.destroy()
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   it("通过 key、name、item 识别 Dynamic Schema", () => {

@@ -5,15 +5,16 @@
  *
  * @module utils/__tests__/schema
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   findSchema,
   getSchemaKind,
-  isBaseSchema,
   isDependencySchema,
   isDynamicSchema,
+  isFieldSchema,
   isGroupSchema,
+  isValidSchema,
 } from "../schema"
 
 import type { SchemxField } from "../../types"
@@ -67,7 +68,7 @@ describe("getSchemaKind", () => {
 
 describe("Raw Schema 类型守卫", () => {
   it("分别收窄普通字段、Group、Dependency 和 Dynamic", () => {
-    expect(isBaseSchema(baseField)).toBe(true)
+    expect(isFieldSchema(baseField)).toBe(true)
     expect(isGroupSchema(groupField)).toBe(true)
     expect(isDependencySchema(dependencyField)).toBe(true)
     expect(isDynamicSchema(dynamicField)).toBe(true)
@@ -99,5 +100,93 @@ describe("findSchema", () => {
     const schemas: SchemxField[] = [baseField, groupField]
 
     expect(findSchema(schemas, "nonexistent")).toBeUndefined()
+  })
+})
+
+describe("isValidSchema", () => {
+  it("接受合规的 Field、Group、Dynamic 和 Dependency Schema", () => {
+    expect(isValidSchema({ name: "name", label: "姓名", componentType: "input" })).toBe(
+      true
+    )
+    expect(
+      isValidSchema({
+        label: "资料",
+        children: [{ name: "email", label: "邮箱", componentType: "input" }],
+      })
+    ).toBe(true)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [{ name: "name", label: "姓名", componentType: "input" }],
+      })
+    ).toBe(true)
+    expect(
+      isValidSchema({
+        to: ["type"],
+        renderer: () => [],
+      })
+    ).toBe(true)
+  })
+
+  it("拒绝字段结构、重复路径和不允许的 Dynamic 嵌套", () => {
+    expect(isValidSchema({ name: "name", label: "姓名", componentType: "" })).toBe(false)
+    expect(
+      isValidSchema({
+        label: "资料",
+        children: [
+          { name: "email", label: "邮箱", componentType: "input" },
+          { name: "email", label: "重复邮箱", componentType: "input" },
+        ],
+      })
+    ).toBe(false)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [
+          { name: "email", label: "邮箱", componentType: "input" },
+          { name: "email", label: "重复邮箱", componentType: "input" },
+        ],
+      })
+    ).toBe(false)
+    expect(
+      isValidSchema({
+        key: "users",
+        name: "users",
+        item: [
+          {
+            key: "nested-users",
+            name: "users",
+            item: [],
+          },
+        ],
+      })
+    ).toBe(false)
+  })
+
+  it("拒绝不完整的 Group、Dynamic 和 Dependency Schema", () => {
+    expect(isValidSchema({ label: "资料", children: "invalid" })).toBe(false)
+    expect(isValidSchema({ key: "", name: "users", item: [] })).toBe(false)
+    expect(isValidSchema({ to: [], renderer: () => [] })).toBe(false)
+    expect(isValidSchema({ to: ["type"], renderer: "invalid" })).toBe(false)
+  })
+
+  it("检查失败时输出带 Schema 路径的错误日志", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    try {
+      expect(
+        isValidSchema({
+          label: "资料",
+          children: [{ label: "缺少名称", componentType: "input" }],
+        })
+      ).toBe(false)
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[schemx] schema.children[0].name 必须是非空字符串"
+      )
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })

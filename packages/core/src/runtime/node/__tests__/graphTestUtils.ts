@@ -10,7 +10,6 @@ import { vi } from "vitest"
 
 import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createSignal } from "../../../reactivity"
-import { normalizeSchemas } from "../../../utils"
 import { type Compile, createCompile } from "../../compiler"
 import { type SchemaRuntimeContext } from "../../context"
 import { createNodeLifecycleEmitter, type NodeLifecycleHooks } from "../../lifecycle"
@@ -212,14 +211,12 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     parent: ParentNode<TValues>,
     schemas: SchemxField<TValues>[]
   ): void => {
-    const normalizedSchemas = normalizeSchemas<TValues>(schemas, "text")
-
-    reconciler.reconcileChildren(parent.id, normalizedSchemas)
+    reconciler.reconcileChildren(parent.id, schemas)
   }
 
   Object.assign(context, {
     reconcileChildren: (parentId: number, schemas: SchemxField<TValues>[]) =>
-      reconciler.reconcileChildren(parentId, normalizeSchemas<TValues>(schemas, "text")),
+      reconciler.reconcileChildren(parentId, schemas),
   })
 
   return {

@@ -15,6 +15,7 @@ import {
 } from "../utils/path"
 
 import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
+import { createAsyncValidatorAdapter } from "./asyncValidator.adapter"
 import { createRequiredValidationRule } from "./built-in.rules"
 import { createStandardSchemaAdapter } from "./standardSchema.adapter"
 
@@ -136,6 +137,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   // 按注册顺序保存可识别字段规则的 adapter。
   private readonly adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>
 
+  // Core 内置 async-validator 适配器；作为用户 adapter 未命中时的兜底处理。
+  private readonly asyncValidatorAdapter: ValidationAdapter
+
   // 当前仍可能提交状态的单字段运行。
   private readonly runs = new Map<string, ValidationRun>()
 
@@ -154,6 +158,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.presetRuleRegistry = options.presetRuleRegistry
     this.fieldStore = options.fieldStore
     const standardSchemaAdapter = createStandardSchemaAdapter()
+    this.asyncValidatorAdapter = createAsyncValidatorAdapter()
 
     this.adapters = createValidationAdapterMap([
       standardSchemaAdapter,
@@ -613,7 +618,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     rule: unknown,
     config: FieldValidationConfig<TValues, NamePath<TValues>>
   ): readonly ValidationRule[] {
-    const adapter = findValidationAdapter(this.adapters, rule)
+    const adapter =
+      findValidationAdapter(this.adapters, rule) ??
+      (this.asyncValidatorAdapter.isRule(rule) ? this.asyncValidatorAdapter : undefined)
 
     if (!adapter) {
       if (typeof rule === "string") {

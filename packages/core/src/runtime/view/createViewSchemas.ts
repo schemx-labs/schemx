@@ -134,6 +134,34 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
 
       const childNodes = node.childNodes.value
 
+      const childrenByRowKey = new Map<string, SchemaNode<TValues>[]>()
+
+      const childKeyPrefix = `${node.key}/`
+
+      for (const child of childNodes) {
+        if (!child.key.startsWith(childKeyPrefix)) {
+          continue
+        }
+
+        const rowKeyStart = childKeyPrefix.length
+
+        const rowKeyEnd = child.key.indexOf("/", rowKeyStart)
+
+        if (rowKeyEnd < 0) {
+          continue
+        }
+
+        const rowKey = child.key.slice(rowKeyStart, rowKeyEnd)
+
+        const rowChildren = childrenByRowKey.get(rowKey)
+
+        if (rowChildren) {
+          rowChildren.push(child)
+        } else {
+          childrenByRowKey.set(rowKey, [child])
+        }
+      }
+
       return [
         {
           ...viewStaticSchema,
@@ -142,11 +170,7 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
           readonly: effective.readonly,
           disabled: effective.disabled,
           items: node.dynamicRows.value.map((row) => {
-            const rowPrefix = `${node.key}/${row.key}/`
-
-            const rowChildren = childNodes.filter((child) =>
-              child.key.startsWith(rowPrefix)
-            )
+            const rowChildren = childrenByRowKey.get(row.key) ?? []
 
             return {
               key: row.key,
