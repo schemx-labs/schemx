@@ -213,6 +213,9 @@ importers:
 
   examples/vant:
     dependencies:
+      '@schemx/vant':
+        specifier: 1.0.0-next.5
+        version: 1.0.0-next.5(vant@4.10.0(vue@3.5.41(typescript@5.9.3)))(vue@3.5.41(typescript@5.9.3))
       vant:
         specifier: ^4.9.24
         version: 4.10.0(vue@3.5.41(typescript@5.9.3))
@@ -2211,6 +2214,20 @@ packages:
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
+
+  '@schemx/core@1.0.0-next.5':
+    resolution: {integrity: sha512-ZFzFqGie3NZdBWmqywLiVXC99E/X8HRQKsfkkEHv4GJZ5zlHuu45umdDd081cEGGfW69fUdwJbQ6HabQtmmOvA==}
+
+  '@schemx/vant@1.0.0-next.5':
+    resolution: {integrity: sha512-9iTgvUo0Yyuvg5WA0yDSL9+0fLgqwM3MHqJEkm0iL0W6fOG/6z/oW70XCNgZRtzKU776gLwQCruBkAJGRf9Jbg==}
+    peerDependencies:
+      vant: ^4.0.0
+      vue: ^3.0.0
+
+  '@schemx/vue@1.0.0-next.5':
+    resolution: {integrity: sha512-Mqauq3ryyd1vDHWf+HtUNHbcM/sUrXn6uCQXucSLoqN+PS2m8XkJhGgfJxnXj1mtxeefwJya90vWo92KFXit4g==}
+    peerDependencies:
+      vue: ^3.0.0
 
   '@sinonjs/commons@1.8.6':
     resolution: {integrity: sha512-Ky+XkAkqPZSm3NLBeUng77EBQl3cmeJhITaGHdYH8kjVB+aun3S4XBRti2zt17mtt0mIUDiNxYeoJm6drVvBJQ==}
@@ -8648,6 +8665,31 @@ snapshots:
     optional: true
 
   '@rtsao/scc@1.1.0': {}
+
+  '@schemx/core@1.0.0-next.5':
+    dependencies:
+      '@preact/signals-core': 1.14.4
+      async-validator: 4.2.5
+      csstype: 3.2.3
+      es-toolkit: 1.50.0
+
+  '@schemx/vant@1.0.0-next.5(vant@4.10.0(vue@3.5.41(typescript@5.9.3)))(vue@3.5.41(typescript@5.9.3))':
+    dependencies:
+      '@schemx/core': 1.0.0-next.5
+      '@schemx/vue': 1.0.0-next.5(vue@3.5.41(typescript@5.9.3))
+      classnames: 2.5.1
+      dayjs: 1.11.21
+      es-toolkit: 1.50.0
+      vant: 4.10.0(vue@3.5.41(typescript@5.9.3))
+      vue: 3.5.41(typescript@5.9.3)
+
+  '@schemx/vue@1.0.0-next.5(vue@3.5.41(typescript@5.9.3))':
+    dependencies:
+      '@schemx/core': 1.0.0-next.5
+      classnames: 2.5.1
+      csstype: 3.2.3
+      es-toolkit: 1.50.0
+      vue: 3.5.41(typescript@5.9.3)
 
   '@sinonjs/commons@1.8.6':
     dependencies:

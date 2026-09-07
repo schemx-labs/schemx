@@ -53,7 +53,7 @@ export function createVitePlugins({ analyze }: PackagePluginOptions): PluginOpti
       include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
       outDir: "dist",
       tsconfigPath: "tsconfig.build.json",
-      rollupTypes: true,
+      clearPureImport: false,
     }),
     analyze &&
       visualizer({
