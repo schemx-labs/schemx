@@ -1,5 +1,6 @@
 import type { ClassValue, StyleValue } from "vue"
 
+import type { SchemxVueConfig } from "./layout"
 import type { SchemxButtonProps } from "../components/Button"
 import type {
   DefinedFieldValue,
@@ -8,7 +9,6 @@ import type {
   FormPerformanceOptions,
   NamePath,
   RequiredConfig,
-  SchemxConfig,
   SchemxFieldRulesMap,
   SchemxInstance,
   SchemxSchemasInput,
@@ -66,7 +66,7 @@ export type SchemxFormAction = boolean | SchemxFormActionConfig
  */
 export interface SchemxFormProps<TValues extends Values = Values>
   extends
-    Omit<SchemxConfig<TValues>, "schemaConfig">,
+    Omit<SchemxVueConfig<TValues>, "schemaConfig">,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
     FormPerformanceOptions,

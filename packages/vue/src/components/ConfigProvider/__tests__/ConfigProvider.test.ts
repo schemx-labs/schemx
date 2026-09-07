@@ -1,4 +1,4 @@
-import { defineComponent, h, markRaw } from "vue"
+import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
 import { createRendererRegistry, type SchemxInstance } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
@@ -28,6 +28,20 @@ const FormConfigRenderer = defineComponent({
         "data-readonly": String(formConfig.schemaConfig.readonly),
         "data-label-align": formConfig.schemaConfig.labelAlign,
       })
+  },
+})
+
+const ProviderColA = defineComponent({
+  name: "ProviderColA",
+  setup(_, { slots }) {
+    return () => h("section", { "data-testid": "provider-col-a" }, slots.default?.())
+  },
+})
+
+const ProviderColB = defineComponent({
+  name: "ProviderColB",
+  setup(_, { slots }) {
+    return () => h("section", { "data-testid": "provider-col-b" }, slots.default?.())
   },
 })
 
@@ -187,6 +201,73 @@ describe("ConfigProvider", () => {
 
     expect(wrapper.find("input").attributes("data-readonly")).toBe("true")
     expect(wrapper.find("input").attributes("data-label-align")).toBe("center")
+
+    wrapper.unmount()
+  })
+
+  it("动态更新内部 SchemxForm 的展示配置和 Core 配置", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("context", markRaw(FormConfigRenderer))
+
+    const formRef = ref<SchemxInstance>()
+
+    const formReadonly = ref<boolean | undefined>()
+
+    const FormHost = defineComponent({
+      setup() {
+        return () =>
+          h(SchemxForm, {
+            ref: formRef,
+            readonly: formReadonly.value,
+            schemas: [
+              {
+                name: "name",
+                label: "姓名",
+                componentType: "context",
+              },
+            ],
+          })
+      },
+    })
+
+    const wrapper = mount(ConfigProvider, {
+      props: {
+        schemaConfig: { readonly: true, labelAlign: "center" },
+        rendererRegistry,
+        colComponent: ProviderColA,
+      },
+      slots: {
+        default: () => h(FormHost),
+      },
+    })
+
+    expect(wrapper.find("input").attributes("data-readonly")).toBe("true")
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({ readonly: true })
+    expect(wrapper.find("[data-testid='provider-col-a']").exists()).toBe(true)
+
+    formReadonly.value = false
+    await nextTick()
+
+    expect(wrapper.find("input").attributes("data-readonly")).toBe("false")
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({ readonly: false })
+
+    formReadonly.value = undefined
+    await nextTick()
+
+    expect(wrapper.find("input").attributes("data-readonly")).toBe("true")
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({ readonly: true })
+
+    await wrapper.setProps({
+      schemaConfig: { readonly: false, labelAlign: "left" },
+      colComponent: ProviderColB,
+    })
+    await nextTick()
+
+    expect(wrapper.find("input").attributes("data-readonly")).toBe("false")
+    expect(wrapper.find("input").attributes("data-label-align")).toBe("left")
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({ readonly: false })
+    expect(wrapper.find("[data-testid='provider-col-b']").exists()).toBe(true)
 
     wrapper.unmount()
   })

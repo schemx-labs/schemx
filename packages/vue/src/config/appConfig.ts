@@ -9,13 +9,14 @@
 
 import { type App, getCurrentInstance, inject, type InjectionKey } from "vue"
 
-import type { SchemxConfig, SchemxRendererPropsMap } from "@schemx/core"
+import type { SchemxVueConfig } from "../types"
+import type { SchemxRendererPropsMap } from "@schemx/core"
 
 // Vue App 级配置在组件树中的私有注入 key。
-const SCHEMX_APP_CONFIG_KEY: InjectionKey<SchemxConfig> = Symbol("schemx:app-config")
+const SCHEMX_APP_CONFIG_KEY: InjectionKey<SchemxVueConfig> = Symbol("schemx:app-config")
 
 // 没有安装配置时使用的不可变空配置。
-const EMPTY_SCHEMX_CONFIG: SchemxConfig = Object.freeze({
+const EMPTY_SCHEMX_CONFIG: SchemxVueConfig = Object.freeze({
   schemaConfig: Object.freeze({}),
   validatorAdapters: Object.freeze([]),
 })
@@ -29,7 +30,7 @@ const EMPTY_SCHEMX_CONFIG: SchemxConfig = Object.freeze({
  * @param config - 插件安装时传入的配置。
  * @returns 与调用方输入隔离的 App 配置快照。
  */
-function normalizeSchemxAppConfig(config: SchemxConfig): SchemxConfig {
+function normalizeSchemxAppConfig(config: SchemxVueConfig): SchemxVueConfig {
   // 复制并冻结 App 级字段默认值，避免外部对象后续变更配置。
   const schemaConfig = Object.freeze({ ...(config.schemaConfig ?? {}) })
 
@@ -43,6 +44,7 @@ function normalizeSchemxAppConfig(config: SchemxConfig): SchemxConfig {
     defaultRendererType: config.defaultRendererType,
     rendererRegistry: config.rendererRegistry,
     presetRuleRegistry: config.presetRuleRegistry,
+    colComponent: config.colComponent,
   })
 }
 
@@ -73,7 +75,7 @@ function normalizeRendererProps(
  * @param app - 要安装 Schemx 的 Vue App 实例。
  * @param config - 当前 App 的默认配置。
  */
-export function provideSchemxAppConfig(app: App, config: SchemxConfig = {}): void {
+export function provideSchemxAppConfig(app: App, config: SchemxVueConfig = {}): void {
   // 当前 App 后续组件实例应读取的配置快照。
   const normalizedConfig = normalizeSchemxAppConfig(config)
 
@@ -88,7 +90,7 @@ export function provideSchemxAppConfig(app: App, config: SchemxConfig = {}): voi
  *
  * @returns 当前 App 的安装配置，或无 App 上下文时的空配置。
  */
-export function getSchemxAppConfig(): SchemxConfig {
+export function getSchemxAppConfig(): SchemxVueConfig {
   // 只有存在当前组件实例时才读取 Vue 注入上下文，避免 setup 外触发 Vue 警告。
   if (getCurrentInstance() === null) {
     return EMPTY_SCHEMX_CONFIG

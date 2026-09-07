@@ -24,14 +24,6 @@
   margin-bottom: 0;
 }
 
-.is-disabled {
-  opacity: 0.65;
-}
-
-.is-readonly {
-  opacity: 1;
-}
-
 .schemx-field {
   display: flex;
   align-items: flex-start;

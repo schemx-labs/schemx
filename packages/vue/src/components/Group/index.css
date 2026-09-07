@@ -6,7 +6,7 @@
   position: relative;
   margin-bottom: var(--schemx-padding-sm);
   background-color: var(--schemx-background-color);
-  padding: var(--schemx-padding-base) var(--schemx-padding-md);
+  padding: 0 var(--schemx-padding-md);
   border-radius: var(--schemx-border-radius-md);
 }
 
@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-block: var(--schemx-padding-sm);
+  padding-block: var(--schemx-padding-md);
   user-select: none;
 }
 .schemx-group__header--clickable {

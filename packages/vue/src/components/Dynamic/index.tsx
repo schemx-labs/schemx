@@ -28,6 +28,10 @@ export interface SchemxDynamicProps {
   schema: SchemxViewDynamicSchema
   /** 当前 Form 根级 ViewSchema，用于计算字段区段样式。 */
   viewSchemas: readonly SchemxViewSchema[]
+  /**
+   * 内部 SchemaList 递归渲染数组行子节点的回调；未提供时使用 Dynamic 自身的兼容渲染器。
+   */
+  renderChildren?: (schemas: readonly SchemxViewSchema[]) => VNodeChild
 }
 
 const Dynamic = defineComponent({
@@ -42,6 +46,11 @@ const Dynamic = defineComponent({
     viewSchemas: {
       type: Array as PropType<readonly SchemxViewSchema[]>,
       required: true,
+    },
+    renderChildren: {
+      type: Function as PropType<SchemxDynamicProps["renderChildren"]>,
+      required: false,
+      default: undefined,
     },
   },
 
@@ -92,9 +101,13 @@ const Dynamic = defineComponent({
         return null
       }
 
-      return props.schema.items.map((item) => (
-        <Fragment key={item.key}>{item.children.map(renderItemSchema)}</Fragment>
-      ))
+      return props.schema.items.map((item) => {
+        const children = props.renderChildren
+          ? props.renderChildren(item.children)
+          : item.children.map(renderItemSchema)
+
+        return <Fragment key={item.key}>{children}</Fragment>
+      })
     }
   },
 })

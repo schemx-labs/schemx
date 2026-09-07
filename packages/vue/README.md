@@ -9,10 +9,10 @@
 ## 安装与样式
 
 ```bash
-pnpm add @schemx/vue @schemx/core vue
+pnpm add @schemx/vue vue
 ```
 
-`@schemx/core` 和 `vue` 是 `@schemx/vue` 的 peer dependencies，业务项目需要显式安装。
+`@schemx/core` 是 `@schemx/vue` 的运行时依赖，会随安装自动安装；`vue` 是 peer dependency，业务项目需要显式安装。若业务代码直接导入 `@schemx/core` 或其子路径，也应在项目中显式声明该包。
 
 ESM 入口 `@schemx/vue` 会通过入口模块自动加载基础样式，常规 Vite / Vue ESM 项目不需要再次导入 CSS。CommonJS 入口不会保留这条 CSS import；直接使用 CommonJS，或构建工具没有处理入口 CSS import 时，需要显式导入公开的样式子路径：
 
@@ -119,6 +119,8 @@ console.log(Schemx === schemxForm) // true
 
 上述 Schema 默认配置都会参与 core 的字段规范化，通常按字段配置 → 表单 Prop → core 固定默认值合并。Registry、默认 Renderer 和 `validatorAdapters` 则按表单显式配置 → 当前 App 安装配置 → Vue 模块级 Registry → Core 模块级配置 → Core 内置默认值解析。必填只能通过 `required: true` 或 `RequiredOptions` 表达；普通 `rules` 只负责执行校验，不会显示必填星号。传入 `form` 时，`initialValues`、Registry 和所有表单回调都由外部实例的创建者配置；组件不会用同名 Props 重建 Core Form，但会通过 Vue bridge 包装该实例，并同步 `schemas` 与组件声明的 schema 配置。
 
+`ConfigProvider` 的 `schemaConfig` 和 `colComponent` 更新会同步到已挂载的内部 `<Schemx>`；Registry、校验 adapter 和默认 Renderer 类型仍在 Form 创建时解析。
+
 当未显式传入 `rendererRegistry` 时，Vue `useForm()` 会使用全局 Registry；该 Registry 默认以 `input` 作为 fallback。因此若要让 `<Schemx :default-renderer-type="...">` 生效，应传入独立 Registry，或直接对 Vue 导出的全局 Registry 调用 `setFallback()`。传入外部 `form` 时，Renderer 配置由该实例决定。
 
 ### `v-model`、`initialValues` 与事件
@@ -127,7 +129,9 @@ console.log(Schemx === schemxForm) // true
 
 - 创建内部实例时，非空 `modelValue` 会覆盖同名 `initialValues` 字段，作为初始快照。
 - 外部替换 `modelValue` 后，组件会调用 `setFieldsValue()` 同步内部表单。
+- 传入外部 `form` 时，非空 `modelValue` 会在组件挂载时先写入该实例；空对象仍视为未提供。
 - 内部或外部 `form` 的字段变化都会发出 `update:modelValue`，值为最新表单快照；同步来自 `modelValue` 的变化不会重复发出该事件。
+- 外部 `form` 上的组件级 Schema Prop 撤销后会回到 Core 默认值，不保证恢复外部实例挂载前的同名配置。
 - 传入外部 `form` 时，组件级 `onFinish`、`onFinishFailed`、`onValuesChange` 和 `onFieldsChange` 不会重新配置该实例；这些回调应在创建外部实例时配置。
 - 传入外部 `form` 时，`onReset` 与 `onLoadingChange` 同样不会重新配置该实例；请在创建该实例时传入回调。
 - `onFinish`、`onFinishFailed`、`onValuesChange` 和 `onFieldsChange` 是声明过的回调 Props，不在 `defineEmits` 的事件列表中。模板中的 `@finish` 等写法会按 Vue listener Prop 规则映射到这些 Props，但 TypeScript 用户更适合显式传回调。
@@ -195,7 +199,7 @@ console.log(Schemx === schemxForm) // true
 
 | 分类               | 成员                                                                                                                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 值                 | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`                                                          |
+| 值                 | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`                                                                                                                 |
 | 快照与初始值       | `getFieldSnapshot`、`getFieldsSnapshot`、`getInitialValue`、`getInitialValues`、`setInitialValue`、`setInitialValues`                                                                |
 | touched            | `isFieldTouched`、`isFieldsTouched`、`setFieldTouched`、`setFieldsTouched`、`getTouchedFields`                                                                                       |
 | pending 与 loading | `setFieldPending`、`setFieldsPending`、`isFieldPending`、`isFieldsPending`、`getPendingFields`、`isLoading`                                                                          |
@@ -1077,40 +1081,40 @@ Vue 根入口自有以下公开类型：
 
 ### Vue 自有导出
 
-| 分类            | 导出                                  | 用途                                          |
-| --------------- | ------------------------------------- | --------------------------------------------- |
-| 表单组件        | `schemxForm`                          | 可安装的表单组件；与 `default` 指向同一对象。 |
-| 组件            | `Field`                               | 渲染字段 ViewSchema。                         |
-| 组件            | `Group`                               | 渲染分组 ViewSchema。                         |
-| HOC             | `WithRemoteOptions`                   | 为 Renderer 接入 Dictionary。                 |
-| Registry        | `rendererRegistry`                    | Vue 全局 Renderer Registry。                  |
-| Registry        | `presetRuleRegistry`                  | Vue 全局 PresetRuleRegistry。                 |
-| Hook            | `useForm`                             | 创建并按 Vue scope 销毁表单。                 |
-| Context         | `createFormContext`                   | 提供表单实例。                                |
-| Context         | `useFormContext`                      | 读取表单实例。                                |
-| Hook            | `useField`                            | 创建 Vue 字段控制器。                         |
-| Context         | `createFieldContext`                  | 提供字段控制器。                              |
-| Context         | `useFieldContext`                     | 读取字段控制器。                              |
-| Context         | `createFormConfigContext`             | 提供表单展示配置。                            |
-| Context         | `useFormConfigContext`                | 读取表单展示配置。                            |
-| Watch           | `useWatch`                            | 统一分发 Vue Watch。                          |
-| Watch           | `useWatchField`                       | 单字段 Vue Watch。                            |
-| Watch           | `useWatchFields`                      | 多字段 Vue Watch。                            |
-| Watch           | `useWatchAll`                         | 全表 Vue Watch。                              |
-| Dictionary      | `useDictionary`                       | 管理函数式选项源。                            |
-| Vue 响应式      | `useStableRef`                        | 建立浅比较稳定 Ref。                          |
-| ViewSchema      | `useViewSchemas`                      | 桥接 ViewSchemas 为 Ref。                     |
-| Hook            | `useFormSelector`                     | 从表单值派生只读 Vue Ref。                    |
-| 默认导出        | `default`                             | 与 `schemxForm` 严格相等。                    |
-| Context 类型    | `FormContextProps`                    | 表单展示 Context。                            |
-| Runtime 类型    | `VueSchemxInstance`                   | 可在 Vue effect 中追踪读取的 Form Instance。  |
-| Dictionary 类型 | `SchemxDictionary`                    | 函数式选项源配置。                            |
-| 插件类型        | `SchemxInstallOptions`                | 当前 Vue App 的默认配置安装选项。             |
-| Dictionary 类型 | `SchemxWithDictionary`                | 为 Props 增加 `dict`。                        |
-| Dictionary 类型 | `UseDictionaryReturn`                 | `useDictionary()` 返回值。                    |
-| 表单类型        | `SchemxFormProps<TValues>`            | `<Schemx>` 组件 Props 类型。                  |
-| 字段类型        | `FieldInstance<TValues>`              | Vue Ref / Computed 桥接后的字段控制器类型。   |
-| Selector 类型   | `UseFormSelectorOptions<TSelected>`   | `useFormSelector` 的比较和刷新配置。          |
+| 分类            | 导出                                | 用途                                          |
+| --------------- | ----------------------------------- | --------------------------------------------- |
+| 表单组件        | `schemxForm`                        | 可安装的表单组件；与 `default` 指向同一对象。 |
+| 组件            | `Field`                             | 渲染字段 ViewSchema。                         |
+| 组件            | `Group`                             | 渲染分组 ViewSchema。                         |
+| HOC             | `WithRemoteOptions`                 | 为 Renderer 接入 Dictionary。                 |
+| Registry        | `rendererRegistry`                  | Vue 全局 Renderer Registry。                  |
+| Registry        | `presetRuleRegistry`                | Vue 全局 PresetRuleRegistry。                 |
+| Hook            | `useForm`                           | 创建并按 Vue scope 销毁表单。                 |
+| Context         | `createFormContext`                 | 提供表单实例。                                |
+| Context         | `useFormContext`                    | 读取表单实例。                                |
+| Hook            | `useField`                          | 创建 Vue 字段控制器。                         |
+| Context         | `createFieldContext`                | 提供字段控制器。                              |
+| Context         | `useFieldContext`                   | 读取字段控制器。                              |
+| Context         | `createFormConfigContext`           | 提供表单展示配置。                            |
+| Context         | `useFormConfigContext`              | 读取表单展示配置。                            |
+| Watch           | `useWatch`                          | 统一分发 Vue Watch。                          |
+| Watch           | `useWatchField`                     | 单字段 Vue Watch。                            |
+| Watch           | `useWatchFields`                    | 多字段 Vue Watch。                            |
+| Watch           | `useWatchAll`                       | 全表 Vue Watch。                              |
+| Dictionary      | `useDictionary`                     | 管理函数式选项源。                            |
+| Vue 响应式      | `useStableRef`                      | 建立浅比较稳定 Ref。                          |
+| ViewSchema      | `useViewSchemas`                    | 桥接 ViewSchemas 为 Ref。                     |
+| Hook            | `useFormSelector`                   | 从表单值派生只读 Vue Ref。                    |
+| 默认导出        | `default`                           | 与 `schemxForm` 严格相等。                    |
+| Context 类型    | `FormContextProps`                  | 表单展示 Context。                            |
+| Runtime 类型    | `VueSchemxInstance`                 | 可在 Vue effect 中追踪读取的 Form Instance。  |
+| Dictionary 类型 | `SchemxDictionary`                  | 函数式选项源配置。                            |
+| 插件类型        | `SchemxInstallOptions`              | 当前 Vue App 的默认配置安装选项。             |
+| Dictionary 类型 | `SchemxWithDictionary`              | 为 Props 增加 `dict`。                        |
+| Dictionary 类型 | `UseDictionaryReturn`               | `useDictionary()` 返回值。                    |
+| 表单类型        | `SchemxFormProps<TValues>`          | `<Schemx>` 组件 Props 类型。                  |
+| 字段类型        | `FieldInstance<TValues>`            | Vue Ref / Computed 桥接后的字段控制器类型。   |
+| Selector 类型   | `UseFormSelectorOptions<TSelected>` | `useFormSelector` 的比较和刷新配置。          |
 
 根入口没有名为 `SchemxForm` 的命名导出。
 
@@ -1140,7 +1144,7 @@ Vue 根入口自有以下公开类型：
 | Watch         | `createWatchAll`              | 全表 Core Watch。                            |
 | Registry      | `createRendererRegistry`      | 创建 Renderer Registry。                     |
 | Registry      | `createPresetRuleRegistry`    | 创建 PresetRuleRegistry。                    |
-| Schema 守卫   | `isBaseSchema`                | 判断原始普通字段。                           |
+| Schema 守卫   | `isFieldSchema`               | 判断原始普通字段。                           |
 | Schema 守卫   | `isGroupSchema`               | 判断原始 Group。                             |
 | Schema 守卫   | `isDependencySchema`          | 判断原始 Dependency。                        |
 | 路径          | `getByPath`                   | 读取嵌套路径。                               |

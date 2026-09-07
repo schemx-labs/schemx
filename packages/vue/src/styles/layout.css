@@ -1,0 +1,37 @@
+/**
+ * Schema 栅格布局基础样式。
+ *
+ * Row 由 Vue 层提供，Col 的宽度和偏移由已注册的 UI 组件负责；该规则只保证
+ * 未提供 Row 的 UI 组件仍能作为 flex 子项换行排列。
+ */
+.schemx-row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.schemx-col {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/** Row 包装后保持原有根级 Field/Group 的末项间距行为。 */
+.schemx
+  > .schemx-row:has(+ .schemx-actions)
+  > .schemx-col:last-child
+  > .schemx-field-wrapper--last,
+.schemx
+  > .schemx-row:has(+ .schemx-actions)
+  > .schemx-col:last-child
+  > .schemx-group-wrapper {
+  margin-bottom: 0;
+}
+
+/** Row 包装后保持 Group 子项最后一个字段的底部分隔线规则。 */
+.schemx-group__body
+  > .schemx-row
+  > .schemx-col:last-child
+  > .schemx-field-wrapper
+  .schemx-field:after {
+  display: none;
+}

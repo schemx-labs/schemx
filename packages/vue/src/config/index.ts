@@ -1,3 +1,7 @@
 export { provideSchemxAppConfig, getSchemxAppConfig } from "./appConfig"
-export { provideSchemxConfigProvider, getSchemxConfigProvider } from "./providerConfig"
+export {
+  provideSchemxConfigProvider,
+  getSchemxConfigProvider,
+  getSchemxConfigProviderRef,
+} from "./providerConfig"
 export { mergeVueSchemxConfig } from "./vueConfig"

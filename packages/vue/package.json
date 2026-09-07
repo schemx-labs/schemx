@@ -47,10 +47,10 @@
     "**/index.ts"
   ],
   "peerDependencies": {
-    "@schemx/core": "workspace:*",
     "vue": "^3.0.0"
   },
   "dependencies": {
+    "@schemx/core": "workspace:*",
     "classnames": "^2.5.1",
     "csstype": "^3.2.3",
     "es-toolkit": "catalog:"
@@ -71,7 +71,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@schemx/core": "workspace:*",
     "@vue/test-utils": "^2.4.6",
     "vue": "catalog:",
     "vue-tsc": "^3.3.9",

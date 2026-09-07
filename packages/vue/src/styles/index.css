@@ -3,6 +3,7 @@
  */
 
 @import "./variables.css";
+@import "./layout.css";
 
 /**
  * 组件样式
@@ -52,4 +53,13 @@
 .schemx-renderer-readonly {
   color: var(--schemx-readonly-color);
   cursor: default;
+}
+
+.is-disabled {
+  opacity: 0.6;
+}
+
+.is-readonly,
+.is-disabled .is-disabled {
+  opacity: 1;
 }

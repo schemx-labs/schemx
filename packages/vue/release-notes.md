@@ -1,196 +1,198 @@
-# Release Notes
+# Release Notes — 1.0.0-next.4
 
 ## 版本信息
 
-- 基准版本：`@schemx/vue@0.2.3`
-- 基准提交：`c9b1d20`
-- 比较范围：`@schemx/vue@0.2.3..HEAD`
-- 目标提交：`b2c8dc7`
-- 当前分支：`dev`
-- 生成日期：`2026-08-06`
+- 目标版本：1.0.0-next.4
+- 发布包：@schemx/vue
+- 生成日期：2026-09-04
+- 基准版本：@schemx/vue@0.2.3
+- 比较范围：c9b1d200d09002498b902dd96f8ec84d61cd21fe..0136a0a47d8daee37019ac3e30bfd701c6b27936
+- 目标提交：0136a0a
+- 当前分支：dev
 
-## 概览
+本预发布版本重构了 Vue 表单组件、Core Bridge 和配置层，新增 Dynamic、ConfigProvider、表单操作区与 Vue 响应式选择器。公共组件名称、规则注册、Effect Hook、配置上下文和字段插槽参数均有不兼容变化。
 
-本轮同步了 Core 的表单配置、Schema 容器和校验契约，调整了 Vue 根导出、字段错误和表单上下文类型，并扩展了 App 级配置隔离、FormGroup 状态和受控 `modelValue` 行为。升级时需要优先处理下方的公共 API 迁移；包版本、导出路径和运行时依赖未变化。
+## Important Notices
+
+- `1.0.0-next.4` 是预发布版本，公共 API 仍可能继续调整。
 
 ## Breaking Changes
 
-### @schemx/vue：校验注册表与字段错误 API
+<a id="change-7675652d636f6d706f6e656e742d656e747279706f696e7473"></a>
 
-- 根入口中的 `validatorRegistry` 统一改为 `validationRuleRegistry`；旧的 `createValidatorsRegistry` 等名称也不再作为当前公共入口。`useForm`、`SchemxForm` 配置和校验规则注册统一使用新的命名。
-- `FieldInstance.error` 改为只读的 `FieldInstance.errors` 计算值；错误读取使用 `getErrors()`，不再使用旧的单数错误 API。`errors` 始终提供只读字符串数组。
-- @schemx/vue 不再构建或从 Hooks 入口导出 useEffect；该 Hook 原先负责创建 Core effect 并在组件卸载时自动 dispose。
+### FormItem/FormGroup 更名为 Field/Group
 
-#### 迁移说明
+`@schemx/vue` 根入口不再导出 `FormItem` 与 `FormGroup`，改为导出 `Field` 与 `Group`；默认插件静态引用同步使用 `Field`。
 
-```ts
-import { useField, useForm, validationRuleRegistry } from "@schemx/vue"
-
-const form = useForm({ validationRuleRegistry })
-const field = useField("email")
-
-console.log(field.errors.value)
-console.log(field.getErrors())
-void form
-```
-
-### @schemx/vue：表单属性与配置上下文边界
-
-- `SchemxFormProps` 不再继承 Core 的旧 `SchemxProps`，改为由 Vue 层显式声明 `schemas`、`initialValues`、`modelValue`、`form`、样式、回调和生命周期属性，并组合新的 Schema 配置类型。
-- `FormContextProps` 收敛为 `{ schemaConfig }`。自定义上下文 Provider 和消费者应使用 `createFormConfigContext` / `useFormConfigContext`，不再读取旧的扁平上下文字段。
-- `useForm` 的表单配置使用 `schemaConfig` 承载字段默认呈现配置；`SchemxForm` 的扁平 Schema 属性仍由 Vue 适配层映射到该结构。依赖旧 `SchemxProps`、旧上下文字段或 `updateDefaultProps` 的封装需要调整。
+影响范围：直接导入旧组件名，或依赖 `SchemxForm.FormItem` 静态属性的项目。
 
 #### 迁移说明
 
-```ts
-import { createFormConfigContext, useForm, useFormConfigContext } from "@schemx/vue"
+影响范围：根入口、SchemxForm 插件静态属性和组件注册
 
-const form = useForm({
-  schemaConfig: { readonly: true, validationTrigger: "blur" },
-})
+1. 将 `FormItem` 替换为 `Field`，将 `FormGroup` 替换为 `Group`。
+2. 将 `SchemxForm.FormItem` 替换为 `SchemxForm.Field`。
+3. 检查自定义组件对旧组件源码路径的直接引用。
 
-createFormConfigContext({
-  schemaConfig: { labelAlign: "right" },
-})
+替代方案：`Field` 与 `Group`
 
-const { schemaConfig } = useFormConfigContext()
-void form
-void schemaConfig
-```
+<a id="change-7675652d72756c652d7265676973747279"></a>
 
-### @schemx/vue：Group/Dependency Schema 契约
+### Vue 规则注册表改用 presetRuleRegistry
 
-- Group 不再依赖 `componentType: "group"`，改由包含 `children` 的 Schema 识别；Dependency 不再依赖 `componentType: "dependency"`，改用 `to` 与 `renderer` 结构。普通字段仍可使用名为 `group` 或 `dependency` 的 renderer key。
+`validatorRegistry` 和旧的校验注册导出不再作为 Vue 当前公共入口；命名规则使用 `presetRuleRegistry` / `createPresetRuleRegistry`，第三方校验器使用 `validatorAdapters`。
+
+影响范围：在 Vue 插件、useForm、ConfigProvider 或表单 Props 中传入旧规则注册表的项目。
 
 #### 迁移说明
 
-```ts
-const schemas = [
-  {
-    label: "个人信息",
-    children: [{ name: "email", label: "邮箱", componentType: "text" }],
-  },
-  {
-    to: ["showAdvanced"],
-    renderer: (values) =>
-      values.showAdvanced
-        ? [{ name: "remark", label: "备注", componentType: "text" }]
-        : [],
-  },
-]
-```
+影响范围：根入口、useForm、SchemxFormProps 和配置 Provider
 
-### @schemx/vue：Dictionary 公共类型
+1. 将 `validatorRegistry` 替换为 `presetRuleRegistry`。
+2. 将外部校验库接入移到 `validatorAdapters`。
+3. 同步检查 `@schemx/core` 的 `CreateFormOptions` 命名。
 
-- `SchemxDictionary` 从 `<TValues, R = any>` 扩展为 `<TValues, TResponse = unknown, TOption = unknown>`，`formatter`、`onSuccess` 和 `UseDictionaryReturn<TOption>` 现在可保持响应数据与选项类型；未显式指定类型的旧代码可能需要补充泛型。
+替代方案：`presetRuleRegistry` + `validatorAdapters`
+
+<a id="change-7675652d7573652d6566666563742d72656d6f76616c"></a>
+
+### 移除 useEffect Hook
+
+`@schemx/vue` 不再导出 `useEffect`；它原先封装 Core 的旧 `createEffect` 并在组件卸载时释放。
+
+影响范围：直接从 `@schemx/vue` 导入 `useEffect` 的组件。
 
 #### 迁移说明
 
-```ts
-import type { SchemxDictionary } from "@schemx/vue"
+影响范围：Vue Hooks 根入口
 
-type FormValues = { city: string }
-type CityOption = { label: string; value: string }
-type CityResponse = { items: CityOption[] }
+1. 需要 Signal effect 时从 `@schemx/core` 导入 `createSignalEffect`。
+2. 将 disposer 交给 Vue 的 `onUnmounted` 或当前 effect scope。
+3. 需要按字段、多个字段或全表监听时改用 `useWatch`。
 
-const dictionary: SchemxDictionary<FormValues, CityResponse, CityOption> = {
-  api: async () => ({ items: [] }),
-  formatter: (response) => response.items,
-}
-```
+替代方案：`createSignalEffect` + `onUnmounted`，或 `useWatch`
 
-#### 迁移说明
+<a id="change-7675652d636f6e6669672d636f6e74657874"></a>
 
-1. 从 @schemx/core 导入 createSignalEffect，从 vue 导入 onUnmounted。
-2. 使用 createSignalEffect 创建 effect，并将返回的 disposer 交给 onUnmounted；仍可手动提前调用 disposer。
-3. 需要 source/callback 监听时，可改用 @schemx/core 的 createSignalWatch。
+### Form 配置上下文收敛为 schemaConfig
 
-替代方案：@schemx/core 的 createSignalEffect（配合 Vue onUnmounted）或 createSignalWatch
+`FormContextProps` 从旧的扁平 Props 映射改为仅包含 `{ schemaConfig }`；`SchemxFormProps` 改为显式组合 Schema、Registry、回调、生命周期和性能配置。
 
-升级前：
-
-```ts
-const stop = useEffect(() => {
-  readSignal()
-})
-```
-
-升级后：
-
-```ts
-const stop = createSignalEffect(() => {
-  readSignal()
-})
-onUnmounted(stop)
-```
-
-### FormItem 插槽参数改为 Renderer Props
-
-{name}Content、{name}Error 和字段整体插槽不再展开传入 ViewSchema；现在传入实际的 componentProps，并通过 formItemProps 保留当前字段 Schema。
-
-影响范围：依赖字段插槽参数中的 schema、label、componentType 等 ViewSchema 顶层属性的自定义 Vue 组件。
+影响范围：自定义 Provider、字段组件或封装层读取旧扁平上下文字段的项目。
 
 #### 迁移说明
 
-1. 将插槽参数命名为 props，并按 Renderer Props 读取 value、onChange、onBlur 等字段属性。
-2. 需要读取当前 ViewSchema 时，从 props.formItemProps 访问 label、name、componentType 等字段。
-3. 内容插槽仍可从 props.columnElement 取得默认 Renderer VNode。
+影响范围：createFormConfigContext、useFormConfigContext 和 SchemxFormProps
 
-替代方案：使用 componentProps，并通过 formItemProps 读取 ViewSchema
+1. 将上下文读取改为 `const { schemaConfig } = useFormConfigContext()`。
+2. 通过 `createFormConfigContext({ schemaConfig: { ... } })` 提供默认展示配置。
+3. 将字段规则和 Renderer 配置分别放入 `fieldRules` 与 `rendererProps`。
 
-升级前：
+替代方案：`FormContextProps = { schemaConfig }`
 
-```ts
-<template #emailContent="schema">{{ schema.label }}</template>
-```
+<a id="change-7675652d6669656c642d736c6f742d636f6e7472616374"></a>
 
-升级后：
+### 字段插槽参数改为统一 Slot Props
 
-```ts
-<template #emailContent="props">{{ props.formItemProps?.label }}</template>
-```
+`{name}Label`、`{name}Before`、`{name}Content`、`{name}After`、`{name}Error` 和字段整体插槽现在传入 `schema`、`componentProps`、`value`、`field`、`form`；Content 额外提供 `columnElement`，Error 额外提供 `errors`。
+
+影响范围：依赖旧插槽参数直接展开 ViewSchema 顶层属性的自定义组件。
+
+#### 迁移说明
+
+影响范围：字段区域插槽和自定义字段渲染器
+
+1. 按新的 Slot Props 对象接收插槽参数。
+2. 从 `props.schema` 或 `props.componentProps.formItemProps` 读取字段 Schema。
+3. Content 使用 `props.columnElement`，Error 使用 `props.errors`。
+
+替代方案：`SchemxFieldSlotProps` 系列类型
+
+<a id="change-7675652d6669656c642d696e7374616e63652d6572726f7273"></a>
+
+### FieldInstance 错误状态改用 errors
+
+Vue 字段实例以只读 `errors: ComputedRef<readonly string[]>` 暴露当前错误；旧的 `error` / 单数错误调用方式不再适用。
+
+影响范围：读取 `FieldInstance.error`、`getError()` 或依赖错误值为 undefined 的组件。
+
+#### 迁移说明
+
+影响范围：useField() 返回值和 Field 插槽上下文
+
+1. 将 `field.error` 改为 `field.errors`，空状态按空数组处理。
+2. 将 `getError`、`setError`、`clearError` 改为对应复数方法。
+3. 表单级错误改从 `form.getFieldsErrors()` 读取。
+
+替代方案：`FieldInstance.errors` 与复数错误 API
 
 ## Features
 
-- `SchemxForm` 插件支持按 Vue App 隔离的安装配置；`app.use(SchemxForm, options)` 可配置 `schemaConfig`、`validatorAdapters`、`defaultRendererType`、`rendererRegistry` 和 `validationRuleRegistry`，不同 App 互不污染。
-- `FormItem` 新增字段级 `{name}Before` 与 `{name}After` 插槽，分别渲染在当前 Renderer 前后；插槽参数与字段内容插槽一致，可读取当前字段的 `value`、Renderer Props 和 `formItemProps`。
-- 配置优先级明确为表单显式配置 > App 安装配置 > Vue 模块默认注册表 > Core 全局配置 > Core 默认值；`validatorAdapters` 支持累积注册，并可通过 `{ adapter, override: true }` 覆盖同 ID 适配器。
-- FormGroup 状态契约得到扩展：支持 `visible`、`readonly`、`disabled`、受控 `collapsed`、`onCollapsedChange`、`destroyOnCollapse` 以及对应的 ARIA 属性和关联 ID。默认折叠时销毁内容，`destroyOnCollapse=false` 时保留内容并隐藏。
-- `FormItem` 将必填校验与 `showRequiredMark` 视觉标记分开处理；未显式设置标记时跟随 `required`，只读或禁用字段不显示标记且不参与交互校验。
-- 新增 `Button` 组件，支持 `loading`、`loadingText`、`disabled`、三档 `size` 以及 `prefix` / `suffix` 插槽；同时导出 `SchemxButtonProps`、`SchemxButtonSize`。
-- `Schemx` 新增内置提交与重置操作区：通过 `submitter`、`resetter` 配置默认按钮，或使用同名插槽完全替换，并可通过 `loading` 覆盖操作区显示状态。
-- 新增 `useFormSelector()`、`getCoreForm()` 与共享 Form Bridge；`useForm()`、`useField()`、Context 和视图 Schema 读取可复用同一份 Vue 响应式订阅。
+### @schemx/vue
+
+- <a id="change-7675652d64796e616d69632d72656e6465726572"></a>`SchemxForm` 识别 Core 的 Dynamic ViewSchema，并按数组行渲染 Field、Group 及行内动态子树；字段插槽会继续透传。
+
+- <a id="change-7675652d636f6e6669672d70726f7669646572"></a>新增 `ConfigProvider`，支持在 `app.use(SchemxForm, options)` 和组件树中提供 `schemaConfig`、`rendererProps`、Registry 与 `validatorAdapters`；配置按表单、Provider、App 和模块默认值合并。
+
+- <a id="change-7675652d666f726d2d616374696f6e73"></a>`SchemxForm` 默认提供提交/重置按钮，可通过 `submitter`、`resetter` 配置文本和按钮属性，或用同名插槽替换；`loading` 会统一禁用操作区。
+
+- <a id="change-7675652d666f726d2d627269646765"></a>`useForm()` 返回可在 Vue effect 中追踪字段值、错误、touched、pending 和 loading 的 `VueSchemxInstance`；新增 `useFormSelector()` 将表单快照映射为只读浅引用。
+
+- <a id="change-7675652d67726f75702d6163636573736962696c697479"></a>Group 支持受控 `collapsed`、`onCollapsedChange`、`destroyOnCollapse`、`visible`、`readonly` 和 `disabled`，并输出关联 ID、ARIA 展开状态和键盘切换行为。
 
 ## Fixes
 
-- 外部 `modelValue` 更新通过 `setFieldsValue` 同步到表单，并避免同步过程重复触发相同的 `update:modelValue` 事件。
-- 响应式 Schema、动态组件属性和 Dependency 子树更新的边界更稳定，减少相同配置重复写入；可见 Group 现在作为表单项区段边界参与首尾样式计算。
-- 字段触发器和标签布局统一读取 `formContext.schemaConfig`，必填字段在没有显式 rules 时也能进入校验展示逻辑。
-- 目标提交中的 Vue README 仍记录已删除的 useEffect、createEffect 及旧 effect 类型，文档与当前导出不一致。（影响范围：@schemx/vue README）；临时方案：发布前同步更新 Vue/Core effect API 文档。
-- 字段整体插槽渲染路径仍包含 console.log("componentProps.value", componentProps.value) 调试输出。（影响范围：使用字段名整体插槽的开发环境）；临时方案：发布前移除该调试日志。
+### @schemx/vue
+
+- <a id="change-7675652d6d6f64656c2d73796e63"></a>外部 `modelValue` 更新现在通过 `setFieldsValue` 同步到 Core，并抑制同一快照的回写事件；响应式 Schema 和 Dependency 子树更新会复用同一表单实例。
 
 ## Improvements
 
-- Vue 表单组件、Hooks 和公共类型统一使用 `TValues` 泛型命名，并新增 `tsconfig.type-tests.json`；`build` 现在会先执行 `type-check`，且类型检查包含公共类型测试。
-- `FieldInstance` 将 Core 字段状态映射为更明确的 Vue 响应式类型，`dirty`、`pending` 和 `errors` 使用只读计算值表达。
-- Vue 层的 Core 类型扩展和表单组件泛型声明更加显式，`class`、`style` 等 Schema 扩展属性集中在公共类型入口声明，便于 Vue SFC 类型推导。
-- `SchemxFormProps` 支持 `rendererProps`、`onReset` 和 `onLoadingChange`，并将对应能力传递给内部创建的 Core Form。
-- `useForm()` 返回 `VueSchemxInstance`：常用值、错误、touched、pending 与 loading 读取可被 Vue effect 追踪；需要无依赖快照或原始实例时可使用已有快照 API 或 `getCoreForm()`。
-- `FormItem` 字段插槽与动态 ViewSchema 更新使用共享 Bridge，减少重复订阅并保持字段状态同步。
-- Vue Form Bridge 按表单、字段、Instance 与类型职责拆分为独立内部模块，并统一消费 Core 的 `FormStateAdapter` / `SnapshotSource`；`@schemx/vue` 根入口和公开 Hooks 保持不变，业务不应依赖内部源码路径。
+### @schemx/vue
 
-## Dependencies and Compatibility
+- <a id="change-7675652d64696374696f6e6172792d747970696e67"></a>`SchemxDictionary<TValues, TResponse, TOption>` 将 API 响应与格式化后的选项类型分离，并支持 AbortSignal、重试、依赖变化清理和 shouldFetch。
 
-- `@schemx/vue` 继续依赖 `@schemx/core`，本范围内 `package.json` 的版本、`exports`、peerDependencies 和运行时依赖未改变；主要兼容性风险来自 Core 公共配置、Schema 和校验契约的同步重构。
-- Vue Bridge 已切换到 `@schemx/core/adapter` 的 `createFormStateAdapter()` 与 `SnapshotSource`；升级时应将 `@schemx/core` 与 `@schemx/vue` 作为同一兼容性批次检查。
-- `@schemx/vant` 通过 Vue/Core 导出链继承新的注册表、字段错误和配置类型；升级时应将 `@schemx/core`、`@schemx/vue` 与 `@schemx/vant` 作为同一兼容性批次检查。
+- <a id="change-7675652d747970652d636865636b2d6275696c64"></a>Vue 包的 `build` 会先运行 `vue-tsc` 和公共类型测试；新增 `vue-tsc` 开发依赖，类型错误会在 Vite 构建前失败。
 
 ## Documentation
 
-- 更新 Vue README，补充 App 安装配置、扁平 Schema 属性、`FieldInstance.errors`、Group 折叠、字典泛型和新的校验注册表名称。
+### @schemx/vue
+
+- <a id="change-7675652d646f63756d656e746174696f6e"></a>Vue README 补充 Field/Group、配置 Provider、Dynamic、字段插槽、字典泛型、Form 操作区和新的规则注册名称。
+
+## API Changes
+
+- [FormItem/FormGroup 更名为 Field/Group](#change-7675652d636f6d706f6e656e742d656e747279706f696e7473)
+- [Vue 规则注册表改用 presetRuleRegistry](#change-7675652d72756c652d7265676973747279)
+- [移除 useEffect Hook](#change-7675652d7573652d6566666563742d72656d6f76616c)
+- [Form 配置上下文收敛为 schemaConfig](#change-7675652d636f6e6669672d636f6e74657874)
+- [字段插槽参数改为统一 Slot Props](#change-7675652d6669656c642d736c6f742d636f6e7472616374)
+- [FieldInstance 错误状态改用 errors](#change-7675652d6669656c642d696e7374616e63652d6572726f7273)
+- [新增 Dynamic 数组渲染组件](#change-7675652d64796e616d69632d72656e6465726572)
+- [新增 App 与组件树级 ConfigProvider](#change-7675652d636f6e6669672d70726f7669646572)
+- [新增内置提交与重置操作区](#change-7675652d666f726d2d616374696f6e73)
+- [新增 Vue 响应式 Form Bridge 与 useFormSelector](#change-7675652d666f726d2d627269646765)
+- [增强 Group 折叠与可访问性状态](#change-7675652d67726f75702d6163636573736962696c697479)
+- [增强字典请求与选项类型推导](#change-7675652d64696374696f6e6172792d747970696e67)
+- [更新 Vue 组件与 Hook 文档](#change-7675652d646f63756d656e746174696f6e)
+
+## TypeScript Changes
+
+- [FormItem/FormGroup 更名为 Field/Group](#change-7675652d636f6d706f6e656e742d656e747279706f696e7473)
+- [Vue 规则注册表改用 presetRuleRegistry](#change-7675652d72756c652d7265676973747279)
+- [移除 useEffect Hook](#change-7675652d7573652d6566666563742d72656d6f76616c)
+- [Form 配置上下文收敛为 schemaConfig](#change-7675652d636f6e6669672d636f6e74657874)
+- [字段插槽参数改为统一 Slot Props](#change-7675652d6669656c642d736c6f742d636f6e7472616374)
+- [FieldInstance 错误状态改用 errors](#change-7675652d6669656c642d696e7374616e63652d6572726f7273)
+- [新增 Vue 响应式 Form Bridge 与 useFormSelector](#change-7675652d666f726d2d627269646765)
+- [增强字典请求与选项类型推导](#change-7675652d64696374696f6e6172792d747970696e67)
+- [发布构建纳入 Vue 类型契约检查](#change-7675652d747970652d636865636b2d6275696c64)
+- [与 Core 适配边界同步](#change-7675652d636f6d70617469626c652d636f7265)
+
+## Dependencies and Compatibility
+
+- <a id="change-7675652d636f6d70617469626c652d636f7265"></a>Vue Bridge 消费 `@schemx/core/adapter` 的快照协议，并依赖 Core 的 SchemxInstance、Schema、配置和校验类型；升级时应与 Core 配套检查。
 
 ## Affected Packages
 
-- `@schemx/vue`：表单组件、Hooks、插件配置、上下文和公共类型直接变化。
-- `@schemx/core`：Vue 层依赖新的 Schema、配置、校验和字段错误契约。
-- `@schemx/vant`：依赖 Vue/Core 导出并继承相关类型变化。
+- @schemx/vue

@@ -107,6 +107,54 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
   }
 }
 
+describe("SchemxForm 配置与外部值同步", () => {
+  it("内部 Form 的配置 Prop 撤销后恢复 Core 默认值", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        readonly: true,
+        schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+      },
+    })
+
+    const form = wrapper.vm as unknown as SchemxInstance<{ name?: string }>
+
+    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true })
+
+    await wrapper.setProps({ readonly: undefined })
+    await nextTick()
+
+    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: false })
+
+    wrapper.unmount()
+  })
+
+  it("外部 Form 挂载时应用非空 modelValue 且不重复回写", async () => {
+    const form = createForm<Values>({
+      initialValues: { name: "Alice" },
+      schemas: [],
+    })
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        form,
+        modelValue: { name: "Bob" },
+        schemas: [],
+      },
+    })
+
+    expect(form.getFieldValue("name")).toBe("Bob")
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined()
+
+    wrapper.unmount()
+    form.destroy()
+  })
+})
+
 describe("SchemxForm 动态 schemas", () => {
   it("透明渲染 Dynamic Schema 的数组项字段", async () => {
     const rendererRegistry = createRendererRegistry()

@@ -27,6 +27,10 @@ export interface SchemxGroupProps {
   class?: ClassValue
   /** 父级传入的 style，会在 Schema style 之前合并。 */
   style?: StyleValue
+  /**
+   * 内部 SchemaList 递归渲染子节点的回调；未提供时使用 Group 自身的兼容渲染器。
+   */
+  renderChildren?: (schemas: readonly SchemxViewSchema[]) => VNodeChild
 }
 
 const Group = defineComponent({
@@ -45,6 +49,11 @@ const Group = defineComponent({
     },
     style: {
       type: [String, Object, Array] as PropType<StyleValue>,
+      required: false,
+      default: undefined,
+    },
+    renderChildren: {
+      type: Function as PropType<SchemxGroupProps["renderChildren"]>,
       required: false,
       default: undefined,
     },
@@ -144,7 +153,10 @@ const Group = defineComponent({
           readonly: Boolean(schema.readonly),
           toggle,
           slots,
-          renderChildren: () => schema.children.map(renderChild),
+          renderChildren: () =>
+            props.renderChildren
+              ? props.renderChildren(schema.children)
+              : schema.children.map(renderChild),
         })
 
       const body = (

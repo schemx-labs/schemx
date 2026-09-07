@@ -1,7 +1,7 @@
 /**
  * ConfigProvider - Vue 组件树级默认配置。
  *
- * 不渲染额外 DOM，只为后代 Form 提供 SchemxConfig。
+ * 不渲染额外 DOM，只为后代 Form 提供 Vue 层配置。
  *
  * @module components/ConfigProvider
  */
@@ -10,10 +10,10 @@ import { computed, defineComponent, type PropType } from "vue"
 
 import { provideSchemxConfigProvider } from "../../config"
 
+import type { SchemxColComponent, SchemxVueConfig } from "../../types"
 import type {
   PresetRuleRegistry,
   RendererRegistry,
-  SchemxConfig,
   SchemxRendererKey,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
@@ -22,7 +22,8 @@ import type {
 } from "@schemx/core"
 
 /** ConfigProvider 的公开 Props。 */
-export type ConfigProviderProps<TValues extends Values = Values> = SchemxConfig<TValues>
+export type ConfigProviderProps<TValues extends Values = Values> =
+  SchemxVueConfig<TValues>
 
 const ConfigProvider = defineComponent({
   name: "SchemxConfigProvider",
@@ -53,16 +54,21 @@ const ConfigProvider = defineComponent({
       type: Object as PropType<PresetRuleRegistry>,
       default: undefined,
     },
+    colComponent: {
+      type: [Object, Function] as PropType<SchemxColComponent>,
+      default: undefined,
+    },
   },
 
   setup(props, { slots }) {
-    const config = computed<SchemxConfig>(() => ({
+    const config = computed<SchemxVueConfig>(() => ({
       schemaConfig: props.schemaConfig,
       rendererProps: props.rendererProps,
       validatorAdapters: props.validatorAdapters,
       defaultRendererType: props.defaultRendererType,
       rendererRegistry: props.rendererRegistry,
       presetRuleRegistry: props.presetRuleRegistry,
+      colComponent: props.colComponent,
     }))
 
     provideSchemxConfigProvider(config)

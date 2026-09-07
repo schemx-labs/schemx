@@ -16,10 +16,14 @@ describe("@schemx/vue 根入口", () => {
       RendererRegistry: expect.any(Function),
       Field: expect.any(Object),
       Group: expect.any(Object),
+      Col: expect.any(Object),
+      Wrapper: expect.any(Object),
+      registerCol: expect.any(Function),
       ConfigProvider: expect.any(Object),
     })
 
     expect("getCoreForm" in vuePackage).toBe(false)
+    expect("Cell" in vuePackage).toBe(false)
     expect("useFieldArray" in vuePackage).toBe(false)
     expect("createFieldArrayHook" in vuePackage).toBe(false)
     expect(["validator", "Registry"].join("") in vuePackage).toBe(false)
