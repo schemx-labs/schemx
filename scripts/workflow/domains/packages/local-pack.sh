@@ -76,9 +76,9 @@ packages__pack_expand_packages() {
   local target
   local emitted=$'\n'
 
-  # 缺失的 peer workspace 包需先补齐；已经显式选择的目标则保留用户的选择顺序。
-  # vue/vant/validator 均 peer 依赖 @schemx/core，选中任一但未显式选 core 时补齐。
-  if [[ "$selected" == *$'\nvue\n'* || "$selected" == *$'\nvant\n'* || "$selected" == *$'\nvalidator\n'* ]] && [[ "$selected" != *$'\ncore\n'* ]]; then
+  # 缺失的内部 workspace 依赖包需先补齐；已经显式选择的目标则保留用户的选择顺序。
+  # vue/vant 均依赖 @schemx/core，选中任一但未显式选 core 时补齐。
+  if [[ "$selected" == *$'\nvue\n'* || "$selected" == *$'\nvant\n'* ]] && [[ "$selected" != *$'\ncore\n'* ]]; then
     printf '%s\n' core
     emitted+="core"$'\n'
   fi
@@ -232,7 +232,7 @@ packages__pack_local_orchestrate() {
   expanded="$(packages__pack_expand_packages "$package_dirs")"
   if [[ -n "$expanded" ]]; then
     # 闭包内所有 workspace 包统一使用同一 dev 时间戳版本，确保 pack 时 workspace:*
-    # peer 引用解析到一致的 dev 版本，而不是被还原后的 base 版本。
+    # 内部依赖引用解析到一致的 dev 版本，而不是被还原后的 base 版本。
     package_json_require_jq || return
     mkdir -p "$pack_directory" || return
     pack_backup_directory="$(mktemp -d "${TMPDIR:-/tmp}/schemx-pack-backup.XXXXXX")" || return

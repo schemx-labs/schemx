@@ -7,10 +7,6 @@
     "dev": "npx vite --config vite.config.ts"
   },
   "dependencies": {
-    "@schemx/core": "workspace:*",
-    "@schemx/vant": "workspace:*",
-    "@schemx/vue": "workspace:*",
-    "@schemx/validator": "workspace:*",
     "vant": "^4.9.24",
     "vue": "^3.5.38",
     "zod": "^3.24.0"

@@ -21,7 +21,6 @@ schemx focuses on the parts of dynamic forms that are most likely to become diff
 | Package                                      | Responsibility                  | Use Case                                             |
 | -------------------------------------------- | ------------------------------- | ---------------------------------------------------- |
 | [`@schemx/core`](./packages/core)           | Framework-agnostic headless form engine | Build form runtimes, field dependencies, validation, and ViewSchemas |
-| [`@schemx/validator`](./packages/validator) | Third-party validator adapter   | Integrate async-validator and other non-Standard Schema validators |
 | [`@schemx/vue`](./packages/vue)             | Vue 3 adapter                  | Render ViewSchemas as Vue component trees            |
 | [`@schemx/vant`](./packages/vant)           | Vant renderer adapter           | Quickly build mobile dynamic forms with Vant 4     |
 
@@ -36,20 +35,19 @@ pnpm add @schemx/core
 # Run the Zod Standard Schema example below
 pnpm add @schemx/core zod
 
-# Integrate async-validator with Core
-pnpm add @schemx/core @schemx/validator async-validator
+# Use built-in async-validator descriptors
+pnpm add @schemx/core
 
 # Add a custom Vue Renderer
-pnpm add @schemx/vue @schemx/core vue
+pnpm add @schemx/vue vue
 
 # Use the built-in Vant Renderer
-pnpm add @schemx/vant @schemx/vue @schemx/core vant vue
+pnpm add @schemx/vant vant vue
 ```
 
 See the documentation for each package for complete examples, style import instructions, and API details:
 
 - [`@schemx/core` guide](./packages/core/README.md)
-- [`@schemx/validator` guide](./packages/validator/README.md)
 - [`@schemx/vue` guide](./packages/vue/README.md)
 - [`@schemx/vant` guide](./packages/vant/README.md)
 
@@ -101,7 +99,7 @@ raw schemas
 
 `@schemx/vant` is a collection of Vant 4 renderers for mobile form scenarios. It reuses the capabilities of `@schemx/core` and `@schemx/vue`, and automatically registers the default renderers at the package entry point.
 
-`@schemx/vue` and `@schemx/vant` declare downstream capabilities as `peerDependencies`. Business projects must install the corresponding dependencies explicitly, avoiding implicit installation of core runtime versions by the published packages.
+`@schemx/core` includes async-validator descriptor support as a built-in capability. `@schemx/vue` and `@schemx/vant` install their required Schemx lower-layer packages automatically; Vue and Vant remain peer dependencies and must be declared by business projects when used.
 
 ## When to Use
 
@@ -116,8 +114,8 @@ If you only have a few static fields and do not need field dependencies, dynamic
 ## Choosing an Entry Point
 
 - Need only form runtime, validation, dependencies, and ViewSchemas: use `@schemx/core`.
-- Already have a Vue component library or business components and need to register your own renderers: install `@schemx/vue`, `@schemx/core`, and `vue`.
-- Using Vue 3 + Vant 4 and want built-in mobile renderers: install `@schemx/vant`, `@schemx/vue`, `@schemx/core`, `vant`, and `vue`.
+- Already have a Vue component library or business components and need to register your own renderers: install `@schemx/vue` and `vue`.
+- Using Vue 3 + Vant 4 and want built-in mobile renderers: install `@schemx/vant`, `vant`, and `vue`.
 
 See the documentation for each package for detailed APIs and usage examples.
 

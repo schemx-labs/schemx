@@ -21,7 +21,6 @@ schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、�
 | 包                                          | 职责                         | 适用场景                                         |
 | ------------------------------------------- | ---------------------------- | ------------------------------------------------ |
 | [`@schemx/core`](./packages/core)           | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas     |
-| [`@schemx/validator`](./packages/validator) | 第三方校验器适配包           | 接入 async-validator 等非 Standard Schema 校验器 |
 | [`@schemx/vue`](./packages/vue)             | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树                 |
 | [`@schemx/vant`](./packages/vant)           | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单               |
 
@@ -36,20 +35,19 @@ pnpm add @schemx/core
 # 运行下方 Zod Standard Schema 示例
 pnpm add @schemx/core zod
 
-# 在 Core 中接入 async-validator
-pnpm add @schemx/core @schemx/validator async-validator
+# 使用 Core 内置的 async-validator 规则
+pnpm add @schemx/core
 
 # 接入自定义 Vue Renderer
-pnpm add @schemx/vue @schemx/core vue
+pnpm add @schemx/vue vue
 
 # 使用内置 Vant Renderer
-pnpm add @schemx/vant @schemx/vue @schemx/core vant vue
+pnpm add @schemx/vant vant vue
 ```
 
 各入口的完整示例、样式导入方式和 API 说明见对应的包文档：
 
 - [`@schemx/core` 使用说明](./packages/core/README.md)
-- [`@schemx/validator` 使用说明](./packages/validator/README.md)
 - [`@schemx/vue` 使用说明](./packages/vue/README.md)
 - [`@schemx/vant` 使用说明](./packages/vant/README.md)
 
@@ -101,7 +99,7 @@ raw schemas
 
 `@schemx/vant` 是基于 Vant 4 的 renderer 集合，面向移动端表单场景。它复用 `@schemx/core` 和 `@schemx/vue` 的能力，并在包入口自动注册默认 renderer。
 
-`@schemx/vue` 和 `@schemx/vant` 会把下游能力声明为 `peerDependencies`。业务项目需要显式安装对应依赖，避免发布包替用户隐式拉入核心运行时版本。
+`@schemx/core` 内置 async-validator 规则支持。`@schemx/vue` 和 `@schemx/vant` 会自动安装必需的 Schemx 下层包；Vue 和 Vant 仍是 peer dependencies，使用时需由业务项目显式声明。
 
 ## 何时使用
 
@@ -116,8 +114,8 @@ raw schemas
 ## 选择入口
 
 - 只需要表单运行时、校验、依赖和 ViewSchemas：使用 `@schemx/core`。
-- 已有 Vue 组件库或业务组件，需要自己注册 renderer：安装 `@schemx/vue`、`@schemx/core` 和 `vue`。
-- 项目使用 Vue 3 + Vant 4，希望直接使用内置移动端 renderer：安装 `@schemx/vant`、`@schemx/vue`、`@schemx/core`、`vant` 和 `vue`。
+- 已有 Vue 组件库或业务组件，需要自己注册 renderer：安装 `@schemx/vue` 和 `vue`。
+- 项目使用 Vue 3 + Vant 4，希望直接使用内置移动端 renderer：安装 `@schemx/vant`、`vant` 和 `vue`。
 
 具体 API 和使用示例见各包文档。
 

@@ -66,7 +66,6 @@ assert_contains "$(<"$prompt_options_file")" 'group-multiselect'
 assert_contains "$(<"$prompt_options_file")" '--group'
 assert_contains "$(<"$prompt_options_file")" 'Packages'
 assert_contains "$(<"$prompt_options_file")" 'Plugins'
-assert_contains "$(<"$prompt_options_file")" '@schemx/validator · packages/validator'
 assert_contains "$(<"$prompt_options_file")" '@schemx/vite-plugin-realpath-fallback · plugins/vite-plugin-realpath-fallback'
 assert_not_contains "$(<"$prompt_options_file")" '@plugins/inject-style-css'
 rm -f "$prompt_options_file"

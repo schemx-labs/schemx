@@ -37,6 +37,16 @@ packages__config_package_has() {
     '.[$block][$name] != null' "$packages__config_root/$relative_path" >/dev/null
 }
 
+packages__config_package_has_specifier() {
+  local relative_path="$1"
+  local dependency_block="$2"
+  local dependency_name="$3"
+  local expected_specifier="$4"
+
+  jq -e --arg block "$dependency_block" --arg name "$dependency_name" --arg specifier "$expected_specifier" \
+    '.[$block][$name] == $specifier' "$packages__config_root/$relative_path" >/dev/null
+}
+
 packages__config_package_peer_optional() {
   local relative_path="$1"
   local dependency_name="$2"
@@ -45,18 +55,20 @@ packages__config_package_peer_optional() {
     '.peerDependenciesMeta[$name].optional == true' "$packages__config_root/$relative_path" >/dev/null
 }
 
-packages__config_validate_internal_peer() {
+packages__config_validate_internal_dependency() {
   local relative_path="$1"
   local dependency_name="$2"
 
-  if ! packages__config_package_has "$relative_path" peerDependencies "$dependency_name"; then
-    packages__config_add_failure "${relative_path}: peerDependencies 缺少 ${dependency_name}"
+  if ! packages__config_package_has "$relative_path" dependencies "$dependency_name"; then
+    packages__config_add_failure "${relative_path}: dependencies 缺少 ${dependency_name}"
+  elif ! packages__config_package_has_specifier "$relative_path" dependencies "$dependency_name" 'workspace:*'; then
+    packages__config_add_failure "${relative_path}: dependencies.${dependency_name} 必须为 workspace:*"
   fi
-  if packages__config_package_has "$relative_path" dependencies "$dependency_name"; then
-    packages__config_add_failure "${relative_path}: dependencies 不应声明 ${dependency_name}"
+  if packages__config_package_has "$relative_path" peerDependencies "$dependency_name"; then
+    packages__config_add_failure "${relative_path}: peerDependencies 不应声明 ${dependency_name}"
   fi
-  if ! packages__config_package_has "$relative_path" devDependencies "$dependency_name"; then
-    packages__config_add_failure "${relative_path}: devDependencies 缺少本地开发依赖 ${dependency_name}"
+  if packages__config_package_has "$relative_path" devDependencies "$dependency_name"; then
+    packages__config_add_failure "${relative_path}: devDependencies 不应重复声明 ${dependency_name}"
   fi
 }
 
@@ -131,22 +143,17 @@ packages_check_config() {
   packages__config_failures=()
   package_json_require_jq || return
   for package_file in \
-    packages/validator/package.json \
     packages/vue/package.json \
     packages/vant/package.json \
     packages/core/package.json; do
     packages__config_require_package_file "$package_file"
   done
   if [[ "${#packages__config_failures[@]}" -eq 0 ]]; then
-    packages__config_validate_internal_peer packages/validator/package.json @schemx/core
-    packages__config_validate_internal_peer packages/vue/package.json @schemx/core
-    packages__config_validate_internal_peer packages/vant/package.json @schemx/core
-    packages__config_validate_internal_peer packages/vant/package.json @schemx/vue
-    packages__config_validate_optional_peer packages/validator/package.json async-validator
-
+    packages__config_validate_internal_dependency packages/vue/package.json @schemx/core
+    packages__config_validate_internal_dependency packages/vant/package.json @schemx/core
+    packages__config_validate_internal_dependency packages/vant/package.json @schemx/vue
     for package_file in \
       packages/core/package.json \
-      packages/validator/package.json \
       packages/vue/package.json \
       packages/vant/package.json; do
       packages__config_validate_vite_scripts "$package_file"

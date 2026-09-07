@@ -15,6 +15,6 @@ allowBuilds:
   unrs-resolver: false
 
 minimumReleaseAgeExclude:
-  - '@schemx/vant@0.1.11-alpha.20260616215132.4f3ffde || 0.1.11-alpha.20260616230724.c7d7626 || 0.1.11-beta.20260617210349.ea163cc || 0.2.0'
-  - '@schemx/vue@0.1.21 || 0.1.22 || 0.2.0'
-  - '@schemx/core@0.1.24 || 0.2.0'
+  - '@schemx/vant@0.1.11-alpha.20260616215132.4f3ffde || 0.1.11-alpha.20260616230724.c7d7626 || 0.1.11-beta.20260617210349.ea163cc || 0.2.0 || 1.0.0-next.4'
+  - '@schemx/vue@0.1.21 || 0.1.22 || 0.2.0 || 1.0.0-next.4'
+  - '@schemx/core@0.1.24 || 0.2.0 || 1.0.0-next.4'

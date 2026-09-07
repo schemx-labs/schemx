@@ -33,45 +33,35 @@ packages__bundle_has_bare_specifier() {
   rg -q --pcre2 "$pattern" "$packages__bundle_root/$relative_path"
 }
 
-packages__bundle_is_unavailable_placeholder() {
-  rg -q -F 'validatorAdapterUnavailable(' "$packages__bundle_root/$1"
-}
-
 packages__bundle_check_js() {
   local relative_path="$1"
   shift
   local mode='required'
   local specifier
-  local has_required_when_implemented=false
   local required=()
-  local required_when_implemented=()
   local forbidden=()
 
   packages__bundle_require_file "$relative_path" || return
   for specifier in "$@"; do
     case "$specifier" in
-      --required-when-implemented) mode='required_when_implemented' ;;
       --forbidden) mode='forbidden' ;;
       *)
         case "$mode" in
           required) required+=("$specifier") ;;
-          required_when_implemented)
-            required_when_implemented+=("$specifier")
-            has_required_when_implemented=true
-            ;;
           forbidden) forbidden+=("$specifier") ;;
         esac
         ;;
     esac
   done
-  if [[ "$has_required_when_implemented" == true ]] && ! packages__bundle_is_unavailable_placeholder "$relative_path"; then
-    required+=("${required_when_implemented[@]}")
-  fi
   for specifier in "${required[@]}"; do
-    packages__bundle_has_bare_specifier "$relative_path" "$specifier" || packages__bundle_add_failure "${relative_path}: 缺少 ${specifier}"
+    if ! packages__bundle_has_bare_specifier "$relative_path" "$specifier"; then
+      packages__bundle_add_failure "${relative_path}: 缺少 ${specifier}"
+    fi
   done
-  for specifier in "${forbidden[@]}"; do
-    packages__bundle_has_bare_specifier "$relative_path" "$specifier" true && packages__bundle_add_failure "${relative_path}: 泄漏 ${specifier}"
+  for specifier in "${forbidden[@]:-}"; do
+    if packages__bundle_has_bare_specifier "$relative_path" "$specifier" true; then
+      packages__bundle_add_failure "${relative_path}: 泄漏 ${specifier}"
+    fi
   done
 }
 
@@ -81,46 +71,40 @@ packages__bundle_check_declaration() {
   shift 2
   local mode='required'
   local specifier
-  local has_required_when_implemented=false
   local source
   local required=()
-  local required_when_implemented=()
   local forbidden=()
 
   packages__bundle_require_file "$relative_path" || return
   source="$(<"$packages__bundle_root/$relative_path")"
   for specifier in "$@"; do
     case "$specifier" in
-      --required-when-implemented) mode='required_when_implemented' ;;
       --forbidden) mode='forbidden' ;;
       *)
         case "$mode" in
           required) required+=("$specifier") ;;
-          required_when_implemented)
-            required_when_implemented+=("$specifier")
-            has_required_when_implemented=true
-            ;;
           forbidden) forbidden+=("$specifier") ;;
         esac
         ;;
     esac
   done
-  if [[ "$has_required_when_implemented" == true && -n "$implementation_path" ]] && packages__bundle_require_file "$implementation_path" && ! packages__bundle_is_unavailable_placeholder "$implementation_path"; then
-    required+=("${required_when_implemented[@]}")
-  fi
   for specifier in "${required[@]}"; do
-    [[ "$source" == *"$specifier"* ]] || packages__bundle_add_failure "${relative_path}: 类型声明缺少 ${specifier}"
+    if [[ "$source" != *"$specifier"* ]]; then
+      packages__bundle_add_failure "${relative_path}: 类型声明缺少 ${specifier}"
+    fi
   done
-  for specifier in "${forbidden[@]}"; do
-    [[ "$source" == *"$specifier"* ]] && packages__bundle_add_failure "${relative_path}: 类型声明泄漏 ${specifier}"
+  for specifier in "${forbidden[@]:-}"; do
+    if [[ "$source" == *"$specifier"* ]]; then
+      packages__bundle_add_failure "${relative_path}: 类型声明泄漏 ${specifier}"
+    fi
   done
 }
 
 packages_check_bundle_boundaries() {
   packages__bundle_root="${1:-$(cd "$module_root/../.." && pwd)}"
   packages__bundle_failures=()
-  packages__bundle_check_js packages/validator/dist/index.mjs async-validator --forbidden @schemx/core zod
-  packages__bundle_check_js packages/validator/dist/index.cjs async-validator --forbidden @schemx/core zod
+  packages__bundle_check_js packages/core/dist/index.mjs async-validator --forbidden @schemx/validator
+  packages__bundle_check_js packages/core/dist/index.cjs async-validator --forbidden @schemx/validator
   packages__bundle_check_js packages/core/dist/index.mjs es-toolkit es-toolkit/compat @preact/signals-core
   packages__bundle_check_js packages/core/dist/index.cjs es-toolkit es-toolkit/compat @preact/signals-core
   packages__bundle_check_js packages/vue/dist/index.mjs @schemx/core classnames es-toolkit --forbidden simple-async-context @preact/signals-core
@@ -128,7 +112,6 @@ packages_check_bundle_boundaries() {
   packages__bundle_check_js packages/vant/dist/index.mjs @schemx/vue classnames dayjs es-toolkit --forbidden simple-async-context @preact/signals-core
   packages__bundle_check_js packages/vant/dist/index.cjs @schemx/vue classnames dayjs es-toolkit --forbidden simple-async-context @preact/signals-core
 
-  packages__bundle_check_declaration packages/validator/dist/async-validator.d.ts '' @schemx/core async-validator --forbidden ../../core/src ../../core/dist
   packages__bundle_check_declaration packages/vant/dist/index.d.ts '' @schemx/vue @schemx/core --forbidden ../../vue/src ../../core/src
 
   if [[ "${#packages__bundle_failures[@]}" -gt 0 ]]; then

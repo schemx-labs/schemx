@@ -142,10 +142,10 @@ task_boundary_stderr="$temp_dir/task-boundary.stderr"
   export SCHEMX_UI_FORMAT=plain
   ui_flow_begin --domain workspace --title '目录任务间隔'
   ui_task --title '处理 packages/core' --log live -- true
-  ui_task --title '处理 packages/validator' --log live -- true
+  ui_task --title '处理 packages/vue' --log live -- true
   ui_flow_end success '目录任务间隔完成'
 ) >/dev/null 2>"$task_boundary_stderr"
-assert_rail_gap_count_before "$task_boundary_stderr" '[任务] 处理 packages/validator' 2
+assert_rail_gap_count_before "$task_boundary_stderr" '[任务] 处理 packages/vue' 2
 
 # TTY 直通任务不能进入 Spinner，也必须保留标准任务事件和结果。
 interactive_stdout="$temp_dir/interactive.stdout"

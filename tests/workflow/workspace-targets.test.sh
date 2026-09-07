@@ -31,18 +31,18 @@ fi
 
 interactive_selection="$({
   ui_is_interactive() { return 0; }
-  ui_prompt() { printf 'packages/core\npackages/validator\n'; }
+  ui_prompt() { printf 'packages/core\npackages/vue\n'; }
   workspace_select_target_identifiers '请选择构建目标' "$tool_records"
 })"
-[[ "$interactive_selection" == 'packages/core,packages/validator' ]]
+[[ "$interactive_selection" == 'packages/core,packages/vue' ]]
 
 interactive_records="$({
   ui_is_interactive() { return 0; }
-  ui_prompt() { printf 'packages/core\npackages/validator\n'; }
+  ui_prompt() { printf 'packages/core\npackages/vue\n'; }
   workspace_select_task_targets "$root_dir" build
 })"
 [[ "$interactive_records" == *$'packages\tcore\t@schemx/core\tbuild'* ]]
-[[ "$interactive_records" == *$'packages\tvalidator\t@schemx/validator\tbuild'* ]]
+[[ "$interactive_records" == *$'packages\tvue\t@schemx/vue\tbuild'* ]]
 
 # 通用 workspace 命令默认首错停止，--keep-going 执行剩余目标并返回首个失败码。
 source "$root_dir/scripts/workflow/commands/workspace.sh"
