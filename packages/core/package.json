@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@schemx/core",
-  "version": "0.2.3",
+  "version": "1.0.0",
   "description": "框架无关的表单引擎核心（Framework-agnostic form engine core）",
   "keywords": [
     "schemx",
