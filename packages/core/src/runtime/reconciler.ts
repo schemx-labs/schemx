@@ -64,12 +64,6 @@ export interface Reconciler<TValues extends Values = Values> {
    */
   refresh(): void
   /**
-   * 移除节点及其子树，并完成生命周期清理。
-   *
-   * @param id - 要移除的 SchemaNode id。
-   */
-  remove(id: NodeId): void
-  /**
    * 清空全部 SchemaNode，保留 root。
    */
   clear(): void
@@ -227,15 +221,6 @@ export function createReconciler<TValues extends Values>(
 
       reconcileChildren(parentId, schemas)
     }
-  }
-
-  /**
-   * 统一通过资源清理流程移除节点。
-   *
-   * @param id - 要移除的 SchemaNode id。
-   */
-  const remove = (id: NodeId): void => {
-    removeNode(id)
   }
 
   // NodeManager 只解除树结构，资源释放由 reconciler 补齐。
@@ -700,7 +685,7 @@ export function createReconciler<TValues extends Values>(
       })
 
       for (const update of updates) {
-        const cleanupPath = updateNode(update.current, update.desired)
+        const cleanupPath = lifecycle.update(update.current, update.desired)
 
         if (cleanupPath) {
           deferredValueRemovals.push(cleanupPath)
@@ -733,19 +718,6 @@ export function createReconciler<TValues extends Values>(
       removed,
       deferredValueRemovals,
     }
-  }
-
-  /**
-   * 将 detached 节点配置应用到树中已复用的节点。
-   *
-   * @param current - 树中保留的当前节点。
-   * @param desired - 携带下一轮配置的 detached 节点。
-   */
-  function updateNode(
-    current: SchemaNode<TValues>,
-    desired: SchemaNode<TValues>
-  ): NamePath<TValues> | undefined {
-    return lifecycle.update(current, desired)
   }
 
   /**
@@ -885,7 +857,6 @@ export function createReconciler<TValues extends Values>(
     reconcile,
     reconcileChildren,
     refresh,
-    remove,
     clear,
   }
 }

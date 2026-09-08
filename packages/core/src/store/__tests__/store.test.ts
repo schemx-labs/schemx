@@ -458,6 +458,95 @@ describe("Store", () => {
       expect(store.getFieldValue("email")).toBe("j@t.com")
     })
 
+    it("批量清空普通数组并保留未传入字段", () => {
+      const store = createStore({
+        initialValues: { student: ["Ada"], attachment: ["file"], name: "保留" },
+      })
+
+      store.setFieldsValue({ student: [], attachment: [] })
+
+      expect(store.getFieldsValue()).toEqual({
+        student: [],
+        attachment: [],
+        name: "保留",
+      })
+    })
+
+    it("整体替换短数组和对象数组，不残留旧元素或属性", () => {
+      const store = createStore<{
+        tags: string[]
+        users: Array<{ name: string; extra?: string }>
+        matrix: number[][]
+      }>({
+        initialValues: {
+          tags: ["a", "b"],
+          users: [{ name: "Ada", extra: "旧属性" }, { name: "Grace" }],
+          matrix: [[1, 2], [3]],
+        },
+      })
+
+      store.setFieldsValue({ tags: ["c"], users: [{ name: "新成员" }], matrix: [[]] })
+
+      expect(store.getFieldsValue()).toEqual({
+        tags: ["c"],
+        users: [{ name: "新成员" }],
+        matrix: [[]],
+      })
+    })
+
+    it("嵌套数组整体替换，保留对象兄弟字段和空对象合并语义", () => {
+      const store = createStore<{ profile: { tags: string[]; name?: string } }>({
+        initialValues: { profile: { tags: ["a", "b"], name: "Ada" } },
+      })
+
+      store.setFieldsValue({ profile: { tags: [] } })
+      expect(store.getFieldsValue()).toEqual({ profile: { tags: [], name: "Ada" } })
+      store.setFieldsValue({})
+      expect(store.getFieldsValue()).toEqual({ profile: { tags: [], name: "Ada" } })
+    })
+
+    it("批量数组 updater 只执行一次并整体替换", () => {
+      const store = createStore({ initialValues: { tags: ["a", "b"] } })
+      let runs = 0
+
+      store.setFieldsValue((previous) => {
+        runs += 1
+        expect(previous.tags).toEqual(["a", "b"])
+        return { tags: [] }
+      })
+
+      expect(runs).toBe(1)
+      expect(store.getFieldValue("tags")).toEqual([])
+    })
+
+    it("批量缩短和清空 FieldArray 时同步行 key", () => {
+      const store = createStore({
+        initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
+      })
+      const handle = store.getArrayStructureHandle("users")
+
+      handle.register()
+      store.setFieldsValue({ users: [{ name: "新成员" }] })
+      expect(store.getFieldValue("users")).toEqual([{ name: "新成员" }])
+      expect(handle.getKeys()).toHaveLength(1)
+      store.setFieldsValue({ users: [] })
+      expect(store.getFieldValue("users")).toEqual([])
+      expect(handle.getKeys()).toEqual([])
+    })
+
+    it("批量替换初始数组不改变当前值，重置后使用新数组", () => {
+      const store = createStore({
+        initialValues: { student: ["Ada"], attachment: ["a", "b"] },
+      })
+
+      store.setInitialValues({ student: [], attachment: ["c"] })
+
+      expect(store.getInitialValues()).toEqual({ student: [], attachment: ["c"] })
+      expect(store.getFieldsValue()).toEqual({ student: ["Ada"], attachment: ["a", "b"] })
+      store.reset()
+      expect(store.getFieldsValue()).toEqual({ student: [], attachment: ["c"] })
+    })
+
     it("批量 updater 只执行一次并读取当前值", () => {
       const store = createStore<TestForm>({
         initialValues: { name: "John", age: 25, email: "j@t.com" },

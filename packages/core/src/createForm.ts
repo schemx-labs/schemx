@@ -102,7 +102,7 @@ export function createForm<TValues extends Values>(
   })
 
   // 传递给动态渲染器实现的轻量 API；直接复用公开实例能力。
-  const formApi = createFormApi(model, instance)
+  const formApi = createFormApi(instance)
 
   // 负责编译并协调当前 Schema 的 Runtime。
   runtime = createSchemaRuntime({

@@ -7,7 +7,6 @@
  * @module core/runtime/node/helper
  */
 
-import { findNodeBFS } from "../../utils/find"
 import { createFieldKey } from "../../utils/path"
 
 import {
@@ -199,14 +198,21 @@ export function findFieldNode<TValues extends Values>(
 ): FieldNode<TValues> | undefined {
   const fieldKey = createFieldKey(name)
 
-  const node = findNodeBFS(
-    root,
-    (current) => isFieldNode(current) && createFieldKey(current.name.value) === fieldKey,
-    { getChildren: getNodeChildren }
-  )
+  // 按层级查找，保留同一路径优先匹配较浅节点的顺序。
+  const queue: ContainerNode<TValues>[] = [root]
 
-  if (node && isFieldNode(node)) {
-    return node
+  for (let index = 0; index < queue.length; index += 1) {
+    const node = queue[index]
+
+    if (!node) {
+      continue
+    }
+
+    if (isFieldNode(node) && createFieldKey(node.name.value) === fieldKey) {
+      return node
+    }
+
+    queue.push(...getNodeChildren(node))
   }
 
   return undefined

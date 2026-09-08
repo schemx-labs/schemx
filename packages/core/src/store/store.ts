@@ -11,7 +11,6 @@ import { cloneDeep } from "es-toolkit"
 import { batchUpdates, createSignal, createSignalWatch, type Signal } from "../reactivity"
 import {
   areOverlappingFieldPaths,
-  collectObjectPathsByLeaf,
   createFieldKey,
   getByPath,
   isDescendantFieldPath,
@@ -254,7 +253,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 按叶子路径和已创建数组根批量写入当前值。
+   * 批量写入当前值：对象按字段合并，数组整体替换。
    *
    * @param action - 要合并写入的字段值对象或基于当前值计算下一值的 updater。
    */
@@ -384,7 +383,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 按叶子路径和已创建数组根批量更新初始值。
+   * 批量更新初始值：对象按字段合并，数组整体替换。
    *
    * @param action - 要合并写入的初始值对象或基于当前初始值计算下一值的 updater。
    */
@@ -845,7 +844,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   /**
    * 收集批量写入路径，并把已创建数组的任意后代路径折叠为数组根。
    *
-   * 空数组不会产生叶子路径，因此额外读取已创建数组根以保留替换语义。
+   * 数组直接收集根路径，普通对象递归收集叶子路径。
    *
    * @param values - 待写入的部分值对象。
    * @returns 去重后的字段或 FieldArray 根路径列表。
@@ -853,13 +852,29 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   private getBatchWritePaths(values: Partial<TValues>): NamePath<TValues>[] {
     const paths = new Map<FieldKey, NamePath<TValues>>()
 
-    for (const path of collectObjectPathsByLeaf<TValues>(values)) {
-      const arrayState = this.getArrayStateForPath(path)
+    /**
+     * 收集对象叶子和完整数组，避免按索引合并残留旧元素。
+     *
+     * @param object - 当前层待写入的对象。
+     * @param prefix - 当前对象的字段路径前缀。
+     */
+    const collectPaths = (object: object, prefix = ""): void => {
+      for (const [key, value] of Object.entries(object)) {
+        const path = (prefix ? `${prefix}.${key}` : key) as NamePath<TValues>
 
-      const targetPath = arrayState?.path ?? path
+        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+          collectPaths(value, String(path))
+          continue
+        }
 
-      paths.set(createFieldKey(targetPath), targetPath)
+        const arrayState = this.getArrayStateForPath(path)
+        const targetPath = arrayState?.path ?? path
+
+        paths.set(createFieldKey(targetPath), targetPath)
+      }
     }
+
+    collectPaths(values)
 
     for (const state of this.arrays.values()) {
       if (getByPath(values, state.path) !== undefined) {

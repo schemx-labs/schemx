@@ -96,63 +96,50 @@ export interface CreateFormInstanceOptions<TValues extends Values> {
 }
 
 /**
- * 创建传递给动态 renderer 的轻量 Form API。
+ * 复用公开实例的方法，创建传递给动态 renderer 的轻量 Form API。
  *
  * @typeParam TValues - 表单值对象类型。
- * @param model - 提供值、错误和批处理能力的 FormModel。
- * @param instance - 提供校验、提交和字段规则能力的公开 Form 实例。
+ * @param instance - 提供字段状态、校验和规则操作的公开 Form 实例。
  * @returns 面向动态 renderer 的 Form API。
  *
  * @example
  * ```ts
- * const formApi = createFormApi(model, instance)
+ * const formApi = createFormApi(instance)
  * const values = formApi.getFieldsValue()
  * ```
  */
 export function createFormApi<TValues extends Values>(
-  model: FormModel<TValues>,
   instance: SchemxInstance<TValues>
 ): SchemxFormApi<TValues> {
-  // 把公开的 errors 字段转换为内部 messages 字段。
-  const setFieldsErrors: SchemxFormApi<TValues>["setFieldsErrors"] = (fields) => {
-    model.store.setFieldsErrors(
-      fields.map(({ name, errors }) => ({
-        field: name,
-        errors: toExternalIssues(errors),
-      }))
-    )
-  }
-
   return {
-    setFieldValue: model.store.setFieldValue.bind(model.store),
-    setFieldsValue: model.store.setFieldsValue.bind(model.store),
-    getFieldValue: model.store.getFieldValue.bind(model.store),
-    getFieldsValue: model.store.getFieldsValue.bind(model.store),
-    getFieldSnapshot: model.store.getFieldSnapshot.bind(model.store),
-    getFieldsSnapshot: model.store.getFieldsSnapshot.bind(model.store),
-    getInitialValue: model.store.getInitialValue.bind(model.store),
-    getInitialValues: model.store.getInitialValues.bind(model.store),
-    setInitialValue: model.store.setInitialValue.bind(model.store),
-    setInitialValues: model.store.setInitialValues.bind(model.store),
-    isFieldTouched: model.store.isFieldTouched.bind(model.store),
-    isFieldsTouched: model.store.isFieldsTouched.bind(model.store),
-    getTouchedFields: model.store.getTouchedFields.bind(model.store),
-    setFieldTouched: model.store.setFieldTouched.bind(model.store),
-    setFieldsTouched: model.store.setFieldsTouched.bind(model.store),
-    isFieldPending: model.store.isFieldPending.bind(model.store),
-    isFieldsPending: model.store.isFieldsPending.bind(model.store),
-    getPendingFields: model.store.getPendingFields.bind(model.store),
-    setFieldPending: model.store.setFieldPending.bind(model.store),
-    setFieldsPending: model.store.setFieldsPending.bind(model.store),
-    resetField: model.store.resetField.bind(model.store),
-    resetFields: model.store.resetFields.bind(model.store),
-    getFieldErrors: (name) => getFieldErrorMessages(model.store, name),
-    getFieldsErrors: (names) => getFieldsErrorMessages(model.store, names),
-    setFieldErrors: (name, errors) =>
-      model.store.setFieldErrors(name, toExternalIssues(errors)),
-    setFieldsErrors,
-    clearFieldErrors: model.store.clearFieldErrors.bind(model.store),
-    clearFieldsErrors: model.store.clearFieldsErrors.bind(model.store),
+    setFieldValue: instance.setFieldValue,
+    setFieldsValue: instance.setFieldsValue,
+    getFieldValue: instance.getFieldValue,
+    getFieldsValue: instance.getFieldsValue,
+    getFieldSnapshot: instance.getFieldSnapshot,
+    getFieldsSnapshot: instance.getFieldsSnapshot,
+    getInitialValue: instance.getInitialValue,
+    getInitialValues: instance.getInitialValues,
+    setInitialValue: instance.setInitialValue,
+    setInitialValues: instance.setInitialValues,
+    isFieldTouched: instance.isFieldTouched,
+    isFieldsTouched: instance.isFieldsTouched,
+    getTouchedFields: instance.getTouchedFields,
+    setFieldTouched: instance.setFieldTouched,
+    setFieldsTouched: instance.setFieldsTouched,
+    isFieldPending: instance.isFieldPending,
+    isFieldsPending: instance.isFieldsPending,
+    getPendingFields: instance.getPendingFields,
+    setFieldPending: instance.setFieldPending,
+    setFieldsPending: instance.setFieldsPending,
+    resetField: instance.resetField,
+    resetFields: instance.resetFields,
+    getFieldErrors: instance.getFieldErrors,
+    getFieldsErrors: instance.getFieldsErrors,
+    setFieldErrors: instance.setFieldErrors,
+    setFieldsErrors: instance.setFieldsErrors,
+    clearFieldErrors: instance.clearFieldErrors,
+    clearFieldsErrors: instance.clearFieldsErrors,
     setFieldRules: instance.setFieldRules,
     setFieldsRules: instance.setFieldsRules,
     removeFieldRules: instance.removeFieldRules,

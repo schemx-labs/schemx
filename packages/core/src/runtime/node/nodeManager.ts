@@ -27,7 +27,7 @@ import type { Values } from "../../types"
  * @example
  * ```ts
  * const manager = createNodeManager()
- * manager.append(node, manager.getRoot().id)
+ * manager.insert(node, manager.getRoot().id)
  * ```
  */
 export interface NodeManager<TValues extends Values = Values> {
@@ -64,28 +64,12 @@ export interface NodeManager<TValues extends Values = Values> {
   has(id: NodeId): boolean
 
   /**
-   * 获取节点的直接父节点。
-   *
-   * @param id - 要查询的节点 id。
-   * @returns 父节点；root 返回 `null`，未知 id 返回 `undefined`。
-   */
-  getParent(id: NodeId): ParentNode<TValues> | null | undefined
-
-  /**
    * 获取节点的直接子节点。
    *
    * @param id - 要查询的节点 id。
    * @returns 子节点列表；未知节点或不可承载子节点的节点返回空数组。
    */
   getChildren(id: NodeId): readonly SchemaNode<TValues>[]
-
-  /**
-   * 获取同级节点，不包含自身。
-   *
-   * @param id - 要查询的节点 id。
-   * @returns 同一父节点下的其他子节点。
-   */
-  getSiblings(id: NodeId): readonly SchemaNode<TValues>[]
 
   /**
    * 获取节点在当前 parent.childNodes 中的位置。
@@ -98,17 +82,6 @@ export interface NodeManager<TValues extends Values = Values> {
   getIndex(id: NodeId): number | undefined
 
   /**
-   * 获取祖先节点。
-   *
-   * 顺序：
-   * parent -> grandparent -> root
-   *
-   * @param id - 要查询的节点 id。
-   * @returns 从直接父节点到 root 的祖先列表。
-   */
-  getAncestors(id: NodeId): readonly ParentNode<TValues>[]
-
-  /**
    * 获取全部后代节点。
    *
    * 使用 preorder：
@@ -118,28 +91,6 @@ export interface NodeManager<TValues extends Values = Values> {
    * @returns 按 preorder 排列的后代节点，不包含自身。
    */
   getDescendants(id: NodeId): readonly SchemaNode<TValues>[]
-
-  // ---------------------------------------------------------------------------
-  // 关系
-  // ---------------------------------------------------------------------------
-
-  /**
-   * 判断一个节点是否为另一个节点的祖先。
-   *
-   * @param ancestorId - 候选祖先节点 id。
-   * @param id - 要检查的后代节点 id。
-   * @returns `ancestorId` 严格位于 `id` 的父链上时返回 `true`。
-   */
-  isAncestor(ancestorId: NodeId, id: NodeId): boolean
-
-  /**
-   * 判断一个节点是否为另一个节点的后代。
-   *
-   * @param id - 候选后代节点 id。
-   * @param ancestorId - 要检查的祖先节点 id。
-   * @returns `id` 严格位于 `ancestorId` 的子树中时返回 `true`。
-   */
-  isDescendant(id: NodeId, ancestorId: NodeId): boolean
 
   // ---------------------------------------------------------------------------
   // 插入
@@ -155,38 +106,6 @@ export interface NodeManager<TValues extends Values = Values> {
    */
   insert(node: SchemaNode<TValues>, parentId: NodeId, index?: number): void
 
-  /**
-   * 将节点追加到指定父节点末尾。
-   *
-   * @param node - 要插入且尚未挂载的节点。
-   * @param parentId - 目标父节点 id。
-   */
-  append(node: SchemaNode<TValues>, parentId: NodeId): void
-
-  /**
-   * 将节点插入指定父节点开头。
-   *
-   * @param node - 要插入且尚未挂载的节点。
-   * @param parentId - 目标父节点 id。
-   */
-  prepend(node: SchemaNode<TValues>, parentId: NodeId): void
-
-  /**
-   * 将节点插入到参考节点之前。
-   *
-   * @param node - 要插入且尚未挂载的节点。
-   * @param referenceId - 同级参考节点 id。
-   */
-  insertBefore(node: SchemaNode<TValues>, referenceId: NodeId): void
-
-  /**
-   * 将节点插入到参考节点之后。
-   *
-   * @param node - 要插入且尚未挂载的节点。
-   * @param referenceId - 同级参考节点 id。
-   */
-  insertAfter(node: SchemaNode<TValues>, referenceId: NodeId): void
-
   // ---------------------------------------------------------------------------
   // 移动
   // ---------------------------------------------------------------------------
@@ -201,22 +120,6 @@ export interface NodeManager<TValues extends Values = Values> {
    */
   move(id: NodeId, parentId: NodeId, index?: number): void
 
-  /**
-   * 将节点移动到参考节点之前。
-   *
-   * @param id - 要移动的节点 id。
-   * @param referenceId - 同级参考节点 id。
-   */
-  moveBefore(id: NodeId, referenceId: NodeId): void
-
-  /**
-   * 将节点移动到参考节点之后。
-   *
-   * @param id - 要移动的节点 id。
-   * @param referenceId - 同级参考节点 id。
-   */
-  moveAfter(id: NodeId, referenceId: NodeId): void
-
   // ---------------------------------------------------------------------------
   // 删除
   // ---------------------------------------------------------------------------
@@ -229,14 +132,6 @@ export interface NodeManager<TValues extends Values = Values> {
    * @param id - 要删除的 SchemaNode id。
    */
   remove(id: NodeId): readonly ContainerNode<TValues>[]
-
-  /**
-   * 删除某个 parent 的全部 children。
-   *
-   * @param id - 要清空子节点的父节点 id。
-   * @returns 被删除的节点列表。
-   */
-  removeChildren(id: NodeId): readonly ContainerNode<TValues>[]
 
   /**
    * 清空整棵树，但保留 root。
@@ -304,7 +199,7 @@ export function createNodeManager<
   }
 
   // 以稳定 id 索引整棵树，供查询和结构操作复用。
-  const nodes = new Map<NodeId, ContainerNode<TValues>>()
+  const nodes = new Map<NodeId, ContainerNode<TValues>>([[root.id, root]])
 
   // dispose 后拒绝所有会写入树结构的操作。
   let disposed = false
@@ -554,10 +449,6 @@ export function createNodeManager<
   // 关系查询
   // ---------------------------------------------------------------------------
 
-  function getParent(id: NodeId): ParentNode<TValues> | null | undefined {
-    return nodes.get(id)?.parent
-  }
-
   function getChildren(id: NodeId): readonly SchemaNode<TValues>[] {
     const node = nodes.get(id)
 
@@ -566,16 +457,6 @@ export function createNodeManager<
     }
 
     return readChildren(node)
-  }
-
-  function getSiblings(id: NodeId): readonly SchemaNode<TValues>[] {
-    const node = nodes.get(id)
-
-    if (!node?.parent) {
-      return []
-    }
-
-    return readChildren(node.parent).filter((sibling) => sibling.id !== id)
   }
 
   function getIndex(id: NodeId): number | undefined {
@@ -588,34 +469,6 @@ export function createNodeManager<
     const index = childIndex(node.parent, id)
 
     return index >= 0 ? index : undefined
-  }
-
-  function getAncestors(id: NodeId): readonly ParentNode<TValues>[] {
-    const node = nodes.get(id)
-
-    if (!node) {
-      return []
-    }
-
-    const result: ParentNode<TValues>[] = []
-
-    let parent = node.parent
-
-    const visited = new Set<NodeId>()
-
-    while (parent) {
-      if (visited.has(parent.id)) {
-        throw new Error(
-          `[schemx] Circular parent relationship detected at runtime node ${parent.id}`
-        )
-      }
-
-      visited.add(parent.id)
-      result.push(parent)
-      parent = parent.parent
-    }
-
-    return result
   }
 
   function getDescendants(id: NodeId): readonly SchemaNode<TValues>[] {
@@ -698,10 +551,6 @@ export function createNodeManager<
     return false
   }
 
-  function isDescendant(id: NodeId, ancestorId: NodeId): boolean {
-    return isAncestor(ancestorId, id)
-  }
-
   // ---------------------------------------------------------------------------
   // 插入
   // ---------------------------------------------------------------------------
@@ -729,50 +578,6 @@ export function createNodeManager<
 
       writeChildren(parent, children)
     })
-  }
-
-  function append(node: SchemaNode<TValues>, parentId: NodeId): void {
-    insert(node, parentId)
-  }
-
-  function prepend(node: SchemaNode<TValues>, parentId: NodeId): void {
-    insert(node, parentId, 0)
-  }
-
-  function insertBefore(node: SchemaNode<TValues>, referenceId: NodeId): void {
-    const reference = requireSchemaNode(referenceId)
-
-    const parent = reference.parent
-
-    if (!parent) {
-      throw new Error(`[schemx] Node "${referenceId}" has no parent`)
-    }
-
-    const index = childIndex(parent, referenceId)
-
-    if (index < 0) {
-      throw new Error(`[schemx] Node "${referenceId}" is not attached`)
-    }
-
-    insert(node, parent.id, index)
-  }
-
-  function insertAfter(node: SchemaNode<TValues>, referenceId: NodeId): void {
-    const reference = requireSchemaNode(referenceId)
-
-    const parent = reference.parent
-
-    if (!parent) {
-      throw new Error(`[schemx] Node "${referenceId}" has no parent`)
-    }
-
-    const index = childIndex(parent, referenceId)
-
-    if (index < 0) {
-      throw new Error(`[schemx] Node "${referenceId}" is not attached`)
-    }
-
-    insert(node, parent.id, index + 1)
   }
 
   // ---------------------------------------------------------------------------
@@ -835,66 +640,6 @@ export function createNodeManager<
     })
   }
 
-  function moveBefore(id: NodeId, referenceId: NodeId): void {
-    if (id === referenceId) {
-      return
-    }
-
-    const node = requireSchemaNode(id)
-
-    const reference = requireSchemaNode(referenceId)
-
-    const parent = reference.parent
-
-    if (!parent) {
-      throw new Error(`[schemx] Node "${referenceId}" has no parent`)
-    }
-
-    const referenceIndex = childIndex(parent, referenceId)
-
-    let targetIndex = referenceIndex
-
-    if (node.parent?.id === parent.id) {
-      const sourceIndex = childIndex(parent, id)
-
-      if (sourceIndex < referenceIndex) {
-        targetIndex--
-      }
-    }
-
-    move(id, parent.id, targetIndex)
-  }
-
-  function moveAfter(id: NodeId, referenceId: NodeId): void {
-    if (id === referenceId) {
-      return
-    }
-
-    const node = requireSchemaNode(id)
-
-    const reference = requireSchemaNode(referenceId)
-
-    const parent = reference.parent
-
-    if (!parent) {
-      throw new Error(`[schemx] Node "${referenceId}" has no parent`)
-    }
-
-    const referenceIndex = childIndex(parent, referenceId)
-
-    let targetIndex = referenceIndex + 1
-
-    if (node.parent?.id === parent.id) {
-      const sourceIndex = childIndex(parent, id)
-
-      if (sourceIndex < referenceIndex) {
-        targetIndex--
-      }
-    }
-
-    move(id, parent.id, targetIndex)
-  }
-
   // ---------------------------------------------------------------------------
   // 删除
   // ---------------------------------------------------------------------------
@@ -940,16 +685,10 @@ export function createNodeManager<
     return removed
   }
 
-  function removeChildren(id: NodeId): readonly ContainerNode<TValues>[] {
+  function clear(): readonly ContainerNode<TValues>[] {
     assertManagerAvailable()
 
-    const parent = requireParentNode(id)
-
-    const children = [...readChildren(parent)]
-
-    if (children.length === 0) {
-      return []
-    }
+    const children = readChildren(root)
 
     const removed: ContainerNode<TValues>[] = []
 
@@ -958,10 +697,6 @@ export function createNodeManager<
     }
 
     return removed
-  }
-
-  function clear(): readonly ContainerNode<TValues>[] {
-    return removeChildren(root.id)
   }
 
   function transaction(run: () => void): void {
@@ -1021,18 +756,6 @@ export function createNodeManager<
     return [...nodes.values()]
   }
 
-  // ---------------------------------------------------------------------------
-  // 初始化
-  // ---------------------------------------------------------------------------
-
-  root.parent = null
-  nodes.set(root.id, root)
-
-  for (const child of readChildren(root)) {
-    bindSubtreeParent(child, root)
-    registerSubtree(child)
-  }
-
   return {
     // 基础查询
     get,
@@ -1040,32 +763,18 @@ export function createNodeManager<
     getRoot,
 
     // 关系查询
-    getParent,
     getChildren,
-    getSiblings,
     getIndex,
-    getAncestors,
     getDescendants,
-
-    // 关系判断
-    isAncestor,
-    isDescendant,
 
     // 插入
     insert,
-    append,
-    prepend,
-    insertBefore,
-    insertAfter,
 
     // 移动
     move,
-    moveBefore,
-    moveAfter,
 
     // 删除
     remove,
-    removeChildren,
     clear,
     transaction,
     reorderChildren,
