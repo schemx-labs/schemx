@@ -5,7 +5,8 @@
 ## 示例列表
 
 1. **form-groups**：合并表单示例，通过 Group 区分基础表单、动态表单、字段联动和动态数组。
-2. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
+2. **array-value-update**：数组字段赋值示例，对比 `setFieldsValue` 与 `setFieldValue` 对普通数组和 Dynamic 数组的整体替换行为。
+3. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
 
 ## 运行示例
 

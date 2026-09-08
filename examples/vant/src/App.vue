@@ -23,6 +23,7 @@
 <script setup lang="ts">
   import { computed, markRaw, ref } from "vue"
 
+  import ArrayValueUpdateForm from "./form/ArrayValueUpdateForm.vue"
   import FormGroupsForm from "./form/FormGroupsForm.vue"
   import SlotsForm from "./slots/SlotsForm.vue"
 
@@ -37,6 +38,11 @@
       id: "form-groups",
       name: "基础 / 动态 / 联动 / 动态数组",
       component: markRaw(FormGroupsForm),
+    },
+    {
+      id: "array-value-update",
+      name: "数组字段批量赋值",
+      component: markRaw(ArrayValueUpdateForm),
     },
     { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
   ]
