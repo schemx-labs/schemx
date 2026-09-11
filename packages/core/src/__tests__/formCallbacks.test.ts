@@ -76,7 +76,10 @@ describe("Form reset callbacks", () => {
           componentType: "input",
           dependencies: {
             triggerFields: ["name"],
-            trigger: (_values, nextFormApi) => {
+            trigger: (
+              _values: { name: string },
+              nextFormApi: SchemxFormApi<{ name: string }>
+            ) => {
               formApi = nextFormApi
             },
           },

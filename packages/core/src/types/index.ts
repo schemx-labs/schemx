@@ -32,6 +32,7 @@ export type {
 export type { SchemxRendererKey, SchemxRendererDefinition } from "./renderer"
 
 export type {
+  SchemxCoreBaseComponentProps,
   SchemxBaseComponentProps,
   SchemxComponentPropsDefinition,
   SchemxComponentProps,

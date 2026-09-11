@@ -309,6 +309,7 @@ function createVueFormRuntime<TValues extends Values>(
   })
 
   const runtime: VueFormRuntime<TValues> = {
+    core,
     instance,
     retain,
     trackField,

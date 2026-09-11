@@ -9,6 +9,7 @@ import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../util
 import type { CompileOptions } from "./types"
 import type {
   NamePath,
+  SchemxBaseComponentProps,
   SchemxComponentProps,
   ValidationTrigger,
   Values,
@@ -34,6 +35,8 @@ export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
   disabled: false,
 }
 
+type LegacyRendererAlignmentProps = Pick<SchemxBaseComponentProps, "align">
+
 /**
  * 合并字段 Schema 与全局默认值，生成编译后的静态字段配置。
  *
@@ -54,6 +57,12 @@ export function buildFieldStaticSchema<TValues extends Values>(
   const { schemaConfig, formInstance } = options
 
   const {
+    contentAlign,
+    labelIcon,
+    labelAlign,
+    labelPosition,
+    labelWidth,
+    colon,
     componentProps,
     visible,
     readonly,
@@ -61,12 +70,19 @@ export function buildFieldStaticSchema<TValues extends Values>(
     disabled,
     required,
     rules,
+    showRequiredMark,
     validationTrigger,
     dependencies: _dependencies,
     ...rest
   } = schema
 
   const rendererComponentProps = options.rendererProps?.[schema.componentType]
+
+  const legacyComponentProps = componentProps as
+    (SchemxComponentProps<TValues> & LegacyRendererAlignmentProps) | undefined
+
+  const legacyRendererComponentProps = rendererComponentProps as
+    (Partial<SchemxComponentProps<TValues>> & LegacyRendererAlignmentProps) | undefined
 
   const mergedComponentProps = {
     ...rendererComponentProps,
@@ -75,12 +91,20 @@ export function buildFieldStaticSchema<TValues extends Values>(
 
   const mergedReadonly = readonly ?? schemaConfig.readonly
 
+  const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
+
   const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
 
   const mergedReadonlyPlaceholder =
     componentProps?.readonlyPlaceholder ??
     readonlyPlaceholder ??
     rendererComponentProps?.readonlyPlaceholder
+
+  const mergedAlign =
+    legacyComponentProps?.align ??
+    contentAlign ??
+    legacyRendererComponentProps?.align ??
+    schemaConfig.contentAlign
 
   const normalizedSchema = {
     ...rest,
@@ -91,21 +115,34 @@ export function buildFieldStaticSchema<TValues extends Values>(
     disabled: disabled ?? schemaConfig.disabled,
     required: required ?? schemaConfig.required,
     placeholder: mergedPlaceholder,
+    showRequiredMark: showRequiredMark ?? schemaConfig.showRequiredMark,
+    labelIcon: labelIcon ?? schemaConfig.labelIcon,
+    labelAlign: labelAlign ?? schemaConfig.labelAlign,
+    labelPosition: labelPosition ?? schemaConfig.labelPosition,
+    labelWidth: labelWidth ?? schemaConfig.labelWidth,
+    contentAlign: mergedContentAlign,
+    colon: colon ?? schemaConfig.colon,
     rules,
     validationTrigger: normalizeTrigger(
       validationTrigger ?? schemaConfig.validationTrigger ?? "blur"
     ),
   } as SchemxBaseField<TValues>
 
+  if (mergedReadonly) {
+    normalizedSchema.contentAlign = "right"
+    normalizedSchema.labelPosition = "left"
+  }
+
   normalizedSchema.componentProps = {
     ...mergedComponentProps,
+    align: mergedReadonly ? "right" : mergedAlign,
     readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: disabled ?? schemaConfig.disabled,
     placeholder: mergedPlaceholder,
     formItemProps: { ...normalizedSchema },
     formInstance,
-  }
+  } as SchemxComponentProps<TValues>
 
   return normalizedSchema
 }

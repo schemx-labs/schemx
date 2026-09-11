@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@schemx/vant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "基于 Vant 组件库的 schemx 渲染器适配包",
   "keywords": [
     "schemx",

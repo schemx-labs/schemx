@@ -7,7 +7,7 @@
 import type { ComputedRef, Ref, VNodeChild } from "vue"
 
 import type {
-  SchemxBaseComponentProps as CoreSchemxBaseComponentProps,
+  SchemxCoreBaseComponentProps as CoreSchemxBaseComponentProps,
   FieldValue,
   NamePath,
   SchemxComponentProps,

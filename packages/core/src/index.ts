@@ -146,6 +146,7 @@ export type {
   SchemxFieldDefinition,
   SchemxGroupFieldDefinition,
   SchemxBaseComponentProps,
+  SchemxCoreBaseComponentProps,
   SchemxComponentPropsDefinition,
   SchemxComponentProps,
   SchemxRendererPropsMap,

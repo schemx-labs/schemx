@@ -35,6 +35,41 @@ export const defaultSchemxConfig = Object.freeze({
   visible: true,
 
   /**
+   * 标签图标。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  labelIcon: "",
+
+  /**
+   * 标签对齐方式。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  labelAlign: "left",
+
+  /**
+   * 标签位置。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  labelPosition: "left",
+
+  /**
+   * 标签宽度。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  labelWidth: "auto",
+
+  /**
+   * 内容区域对齐方式。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  contentAlign: "right",
+
+  /**
    * 校验触发时机
    *
    * 支持单个或多个触发时机组合，如 `'change'`、`'blur'`、`['change', 'blur']`。
@@ -42,6 +77,19 @@ export const defaultSchemxConfig = Object.freeze({
    */
   validationTrigger: "blur",
 
+  /**
+   * 是否在标签后显示冒号。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  colon: true,
+
+  /**
+   * 是否显示必填视觉标记。
+   *
+   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   */
+  showRequiredMark: undefined as boolean | undefined,
 } as const)
 
 /**

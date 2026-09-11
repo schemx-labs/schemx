@@ -251,8 +251,6 @@ export interface SchemxBase<
 
   /**
    * 失焦触发
-   *
-   * @deprecated 请使用 UI 适配层的字段回调定义。
    */
   onBlur?: (form: SchemxInstance<TValues>) => void
 

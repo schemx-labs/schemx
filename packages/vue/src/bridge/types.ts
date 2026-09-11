@@ -143,6 +143,12 @@ export type VueFormDependency = "values" | "touchedFields" | "pendingFields" | "
  */
 export interface VueFormRuntime<TValues extends Values = Values> {
   /**
+   * 原始 Core Form 实例。
+   *
+   * @deprecated 请使用 `instance`；该字段仅为兼容旧版 Runtime 消费者保留。
+   */
+  readonly core: SchemxInstance<TValues>
+  /**
    * 对外提供的 Vue 响应式 Form Instance。
    */
   readonly instance: VueSchemxInstance<TValues>

@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
 
 import { mount } from "@vue/test-utils"
+import type { Component } from "vue"
 import { describe, expect, it } from "vitest"
 
 import SchemxForm from "../index"
 
 describe("Vant Col layout adapter", () => {
   it("导入 Vant 适配包后使用 VanCol 渲染 Schema layout", () => {
-    const wrapper = mount(SchemxForm, {
+    const wrapper = mount(SchemxForm as Component, {
       props: {
         initialValues: { first: "A", second: "B" },
         schemas: [
