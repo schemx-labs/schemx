@@ -11,15 +11,13 @@
 import type { ComputedSignal, Signal } from "../../reactivity"
 import type {
   NamePath,
+  SchemxBaseField,
   SchemxComponentProps,
+  SchemxDependencyField,
+  SchemxDynamicField,
+  SchemxGroupField,
   Values,
 } from "../../types"
-import type {
-  SchemxRuntimeDependency as SchemxDependencyField,
-  SchemxRuntimeDynamic as SchemxDynamicField,
-  SchemxRuntimeField as SchemxBaseField,
-  SchemxRuntimeGroup as SchemxGroupField,
-} from "../../types/runtimeSchema"
 import type { FieldRules } from "../../types/rule"
 import type { DependencyRendererEffect } from "../dependency/rendererEffect"
 import type { SchemxViewSchema } from "../view/types"

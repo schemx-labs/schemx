@@ -1,8 +1,4 @@
-import type {
-  SchemxConfig,
-  SchemxRendererPropsMap,
-  SchemxRuntimeInjectedProp,
-} from "../../index"
+import type { SchemxConfig, SchemxRendererPropsMap } from "../../index"
 
 const rendererProps: SchemxRendererPropsMap = {
   custom: {
@@ -12,8 +8,6 @@ const rendererProps: SchemxRendererPropsMap = {
 }
 
 const config: SchemxConfig = { rendererProps }
-
-const runtimeInjectedProp: SchemxRuntimeInjectedProp = "value"
 
 const invalidValue: SchemxRendererPropsMap = {
   custom: {
@@ -44,7 +38,6 @@ const invalidFormItemProps: SchemxRendererPropsMap = {
 }
 
 void config
-void runtimeInjectedProp
 void invalidValue
 void invalidValueUpdate
 void invalidFormInstance

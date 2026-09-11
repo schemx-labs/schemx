@@ -1162,8 +1162,6 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema             | `SchemxGroupField`              | 原始 Group Schema。                                                   |
 | Schema             | `SchemxDependencyField`         | 原始 Dependency Schema。                                              |
 | Schema             | `SchemxField`                   | 全部原始 Schema 联合。                                                |
-| Schema             | `SchemxSchemaValues`            | 从 Schema 或 Schema source 提取表单值类型。                            |
-| Schema             | `SchemxValuesHint`              | 为 Schema 数组提供表单值类型提示。                                     |
 | Schema             | `SchemxBaseComponentProps`      | Core Renderer 公共 Props。                                             |
 | Schema             | `SchemxFormItemProps`           | Field 展示 Props。                                                     |
 | Schema             | `SchemxVueBaseComponentProps`   | Vue Renderer 公共 Props。                                              |

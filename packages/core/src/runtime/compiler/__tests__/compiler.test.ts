@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import { createCompile } from "../index"
 
-import type { SchemxRuntimeSchema as SchemxField } from "../../../types/runtimeSchema"
+import type { SchemxField } from "../../../types"
 
 /**
  * 验证 compiler 直接创建节点，并保留配置 token 缓存语义。

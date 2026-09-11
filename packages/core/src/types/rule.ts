@@ -4,9 +4,9 @@
  * @module types/rule
  */
 
+import type { AsyncValidatorRule } from "./asyncValidator"
 import type { FieldValue, NamePath, Values } from "./form"
 import type { StandardSchemaV1 } from "./standardSchema"
-import type { AsyncValidatorRule } from "./asyncValidator"
 import type { ValidationAdapterV1 } from "./validationAdapter"
 import type { ValidationRule } from "../validator/types"
 
@@ -81,22 +81,6 @@ export type DefinedFieldValue<
 export interface PresetRuleDefinition {}
 
 /**
- * 字段规则扩展点。
- *
- * 在模块声明中添加属性后，`rules` 只接受与字段值类型匹配的规则名称。
- *
- * @example
- * ```ts
- * declare module "@schemx/core" {
- *   interface FieldRuleDefinition {
- *     async-validator: AsyncValidatorRule
- *   }
- * }
- * ```
- */
-export interface FieldRuleDefinition {}
-
-/**
  * 从声明合并的规则定义中提取规则名称。
  */
 type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
@@ -135,6 +119,8 @@ export type FieldRule<
   TValue = DefinedFieldValue<TValues, TName>,
 > =
   | PresetRuleName<TValue>
+  | ValidationAdapterV1.Rule
+  | ValidationRule<TValue, TValues, TName>
   | StandardSchemaV1<TValue, unknown>
   | AsyncValidatorRule
   | ValidationAdapterObjectRule

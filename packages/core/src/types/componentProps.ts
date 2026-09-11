@@ -120,7 +120,7 @@ export interface SchemxComponentPropsDefinition<TValues extends Values = Values>
 export type SchemxComponentProps<
   TValues extends Values = Values,
   TKey extends string = SchemxRendererKey<TValues>,
-> = SchemxCoreBaseComponentProps<TValues> &
+> = SchemxBaseComponentProps<TValues> &
   SchemxComponentPropsDefinition<TValues> &
   ([Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
     ? unknown
@@ -134,5 +134,10 @@ export type SchemxComponentProps<
  * Runtime 注入的 value、事件、formInstance 和 formItemProps 不属于默认 Props。
  */
 export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
-  [TKey in SchemxRendererKey<TValues>]: SchemxComponentProps<TValues, TKey>
+  [TKey in SchemxRendererKey<TValues>]: Partial<
+    Omit<
+      SchemxComponentProps<TValues, TKey>,
+      "value" | "onUpdate:value" | "formInstance" | "formItemProps"
+    >
+  >
 }>

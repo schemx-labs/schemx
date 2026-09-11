@@ -176,6 +176,8 @@ pnpm --filter vant-demo dev
 | `pnpm format`         | 交互选择并执行 Prettier 格式化。                                                      |
 | `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                                                    |
 | `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                                                |
+| `pnpm fix`            | 执行全部代码自动修复；提交钩子使用 `--staged` 模式。                                   |
+| `pnpm code-check`     | 执行所有 workspace 包的完整代码检查。                                                 |
 | `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
 | `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。                                       |
 | `pnpm preview`        | 启动 Vite Preview。                                                                   |
@@ -192,8 +194,13 @@ pnpm dev
 pnpm build
 pnpm lint
 pnpm test
+pnpm fix
+pnpm code-check
 pnpm check:packages
 ```
+
+`pnpm install` 会配置版本化 Git hook；配置完成后，每次提交都会先执行 `pnpm fix --staged`，
+再执行 `pnpm code-check`。
 
 有限批处理默认在首个失败后停止；构建、workspace 质量任务以及 `release check`、`release pack`、
 `release verify` 可传入 `--keep-going`，继续执行剩余目标并最终返回首个失败码。取消始终立即停止：

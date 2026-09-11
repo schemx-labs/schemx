@@ -15,7 +15,7 @@ workspace_usage() {
 用法：
   bash scripts/workflow.sh <task> [target] [--keep-going]
 
-task：build:analyze、check、lint、lint:fix、format、format:check、type-check、test
+task：build:analyze、check、code-check、lint、lint:fix、format、format:check、type-check、test
 target：all、packages/core、plugins/<name>、examples/<name>，或以英文逗号分隔的多个目标
 USAGE
 }

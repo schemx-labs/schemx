@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# 提交前先修复暂存代码，再执行完整代码检查。
+# 副作用：可能修改并重新暂存当前已暂存文件；未暂存的其他文件不会被加入提交。
+# 退出码：任一修复或检查命令失败时阻止本次提交。
+
+set -euo pipefail
+
+hook_root="$(git rev-parse --show-toplevel)"
+cd "$hook_root"
+
+pnpm fix --staged
+pnpm code-check

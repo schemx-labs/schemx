@@ -324,7 +324,7 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | Schema 判断     | `isFieldSchema`、`isGroupSchema`、`isDependencySchema`                                                                                                                    |
 | ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`                                                                                                                            |
 | 路径工具        | `getByPath`、`setByPath`、`collectObjectPathsByLeaf`                                                                                                                      |
-| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxFieldRulesMap`、`SchemxSchemaValues`、`SchemxValuesHint`、`StandardSchemaV1` |
+| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxFieldRulesMap`、`StandardSchemaV1` |
 | 适配层扩展类型  | `SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxFormItemProps`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`、`ValidationAdapter`、`ValidationAdapterOption`              |
 | `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter` 及表单状态快照相关类型，供 UI 适配层使用。                                                                             |

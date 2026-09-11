@@ -22,6 +22,7 @@ workspace_discover_task_targets() {
   case "$task" in
     build) candidates=(build build:h5) ;;
     dev) candidates=(dev dev:h5) ;;
+    code-check) candidates=(check) ;;
     *) candidates=("$task") ;;
   esac
 
@@ -240,6 +241,7 @@ workspace_task_label() {
     build) printf '构建' ;;
     build:analyze) printf '构建分析' ;;
     check) printf '完整检查' ;;
+    code-check) printf '代码检查' ;;
     lint) printf '检查 lint' ;;
     lint:fix) printf '修复 lint' ;;
     format) printf '格式化' ;;

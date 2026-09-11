@@ -176,6 +176,8 @@ pnpm --filter vant-demo dev
 | `pnpm format`         | Interactively select and run Prettier formatting.                                            |
 | `pnpm format:check`   | Interactively select and run Prettier format checks.                                         |
 | `pnpm check`          | Interactively select and run the target's complete static checks.                            |
+| `pnpm fix`            | Run all automatic code fixes; `--staged` is used by the pre-commit hook.                     |
+| `pnpm code-check`     | Run the complete code checks for all workspace packages.                                     |
 | `pnpm pack-local`     | Interactively select packable `packages` / `plugins` targets and generate tarballs.          |
 | `pnpm check:packages` | Check workspace package configuration and build output external boundaries.                  |
 | `pnpm preview`        | Start Vite Preview.                                                                          |
@@ -189,8 +191,13 @@ pnpm dev
 pnpm build
 pnpm lint
 pnpm test
+pnpm fix
+pnpm code-check
 pnpm check:packages
 ```
+
+After `pnpm install` configures the versioned Git hook, each commit runs `pnpm fix --staged`
+and `pnpm code-check` before it is created.
 
 Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
 

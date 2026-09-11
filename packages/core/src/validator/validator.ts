@@ -155,6 +155,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.presetRuleRegistry = options.presetRuleRegistry
     this.fieldStore = options.fieldStore
     const standardSchemaAdapter = createStandardSchemaAdapter()
+
     const asyncValidatorAdapter = createAsyncValidatorAdapter()
 
     this.adapters = createValidationAdapterMap([

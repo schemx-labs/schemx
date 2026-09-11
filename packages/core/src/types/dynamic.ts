@@ -230,10 +230,7 @@ export type SchemxDynamicItemDependency<
  * @typeParam TValues - 表单值对象类型。
  * @typeParam TPath - Dynamic 数组路径。
  */
-export type SchemxDynamicItemValue<
-  TValues extends Values,
-  TPath extends NamePath<TValues>,
-> = Extract<
+type DynamicItemValue<TValues extends Values, TPath extends NamePath<TValues>> = Extract<
   NonNullable<FieldArrayItemValue<FieldValue<TValues, TPath>>>,
   Values
 >
@@ -244,7 +241,7 @@ export type SchemxDynamicItemValue<
  * @typeParam TValues - 表单值对象类型。
  */
 type DynamicObjectArrayPath<TValues extends Values> = {
-  [TPath in FieldArrayPath<TValues>]: [SchemxDynamicItemValue<TValues, TPath>] extends [never]
+  [TPath in FieldArrayPath<TValues>]: [DynamicItemValue<TValues, TPath>] extends [never]
     ? never
     : TPath
 }[FieldArrayPath<TValues>]

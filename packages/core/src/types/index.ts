@@ -49,7 +49,7 @@ export type {
   SchemxExactBaseField,
 } from "./field"
 
-export type { SchemxField, SchemxSchemaValues, SchemxValuesHint } from "./schema"
+export type { SchemxField } from "./schema"
 
 export type { SchemxGroupFieldDefinition, SchemxGroupField } from "./group"
 
@@ -59,7 +59,6 @@ export type {
   FieldArrayItemValue,
   FieldArrayChange,
   FieldArrayPath,
-  SchemxDynamicItemValue,
   SchemxDynamicDefinition,
   SchemxDynamicField,
   SchemxDynamicArrayPath,

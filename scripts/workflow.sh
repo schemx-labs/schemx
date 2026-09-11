@@ -12,7 +12,7 @@ workflow_usage() {
 用法：
   bash scripts/workflow.sh <command> [arguments]
 
-workspace command：dev、build、build:analyze、check、lint、lint:fix、format、format:check、type-check、test
+workspace command：dev、build、build:analyze、check、code-check、fix、lint、lint:fix、format、format:check、type-check、test
 tool command：preview、pack-local、check:packages
 release command：release <check|pack|publish|plan|dry-run|verify|execute|test> [...]
 USAGE
@@ -39,7 +39,11 @@ case "${1:-}" in
     shift
     workflow_run bash "$workflow_root/scripts/workflow/commands/build.sh" "$@"
     ;;
-  build:analyze | check | lint | lint:fix | format | format:check | type-check | test)
+  fix)
+    shift
+    workflow_run bash "$workflow_root/scripts/workflow/commands/fix.sh" "$@"
+    ;;
+  build:analyze | check | code-check | lint | lint:fix | format | format:check | type-check | test)
     command="$1"
     shift
     workflow_run bash "$workflow_root/scripts/workflow/commands/workspace.sh" "$command" "$@"

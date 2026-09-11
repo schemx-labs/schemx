@@ -507,11 +507,13 @@ describe("Store", () => {
 
     it("批量数组 updater 只执行一次并整体替换", () => {
       const store = createStore({ initialValues: { tags: ["a", "b"] } })
+
       let runs = 0
 
       store.setFieldsValue((previous) => {
         runs += 1
         expect(previous.tags).toEqual(["a", "b"])
+
         return { tags: [] }
       })
 
@@ -523,6 +525,7 @@ describe("Store", () => {
       const store = createStore({
         initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
       })
+
       const handle = store.getArrayStructureHandle("users")
 
       handle.register()

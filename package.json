@@ -40,6 +40,8 @@
     "build": "bash scripts/workflow.sh build",
     "build:analyze": "bash scripts/workflow.sh build:analyze",
     "check": "bash scripts/workflow.sh check",
+    "code-check": "bash scripts/workflow.sh code-check",
+    "fix": "bash scripts/workflow.sh fix",
     "lint": "bash scripts/workflow.sh lint",
     "lint:fix": "bash scripts/workflow.sh lint:fix",
     "format": "bash scripts/workflow.sh format",
@@ -53,7 +55,8 @@
     "release:pack": "bash scripts/workflow.sh release pack",
     "release:publish": "bash scripts/workflow.sh release publish",
     "release:test": "bash scripts/workflow.sh release test",
-    "release:dry-run": "bash scripts/workflow.sh release dry-run"
+    "release:dry-run": "bash scripts/workflow.sh release dry-run",
+    "prepare": "bash scripts/install-git-hooks.sh"
   },
   "repository": {
     "type": "git",

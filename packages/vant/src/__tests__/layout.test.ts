@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
-import { mount } from "@vue/test-utils"
 import type { Component } from "vue"
+
+import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vitest"
 
 import SchemxForm from "../index"

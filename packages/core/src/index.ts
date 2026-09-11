@@ -164,8 +164,6 @@ export type {
   SchemxDynamicItemDependency,
   SchemxDynamicItemDependencyRendererContext,
   SchemxField,
-  SchemxSchemaValues,
-  SchemxValuesHint,
   SchemxFormItemProps,
   SchemxFieldDependencies,
   SchemxFieldDependenciesDefinition,

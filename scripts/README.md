@@ -23,6 +23,10 @@ scripts/
 `workflow/domains/packages/` 中保留需要 Node 读取复杂产物或 JSON 结构的领域实现；它们不再作为
 根命令入口，统一由 `workflow/commands/tools.sh` 包装并通过 `workflow/ui/api.sh` 显示生命周期反馈。
 
+根目录提供两个提交前质量命令：`pnpm fix` 执行 `format` 和 `lint:fix`，`pnpm code-check`
+执行 workspace 的完整代码检查。Git hooks 由 `pnpm install` 的 `prepare` script 配置；
+`.githooks/pre-commit` 使用 `pnpm fix --staged` 和 `pnpm code-check`。
+
 ## Shell UI 约定
 
 `scripts/workflow/ui/api.sh` 是工作流唯一的 UI 边界。业务脚本只使用以下公共方法，底层的

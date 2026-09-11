@@ -1,68 +1,78 @@
-# Release Notes — 1.0.0
+# Release Notes — 1.0.1
 
 ## 版本信息
 
-- 目标版本：1.0.0
+- 目标版本：1.0.1
 - 发布包：@schemx/core
 - 生成日期：2026-09-11
 - 基准版本：@schemx/core@1.0.0
-- 比较范围：9696a15daf708ed8f1438f4cf3324e50019f95b1..53ca367fb7757dcc47f2abe27ed31a798a08c064
-- 目标提交：53ca367
+- 比较范围：9696a15daf708ed8f1438f4cf3324e50019f95b1..a62db33c25a2d43a9a071eec8748f75ad09d477a
+- 目标提交：a62db33
 - 当前分支：main
 
-本次版本重构了 Core 的 Schema 公共类型与适配层边界：字段值、Renderer Props 和依赖扩展获得更精确的类型推导，同时将 UI 展示默认值交给适配层。使用 Vue/Vant 适配包的项目应同步检查三包公共契约。
+1.0.1 在保留 1.0.0 Core 公共类型与配置兼容入口的同时，完善按字段名和 Renderer 的 Schema 类型推导，并为 UI 适配层提供可声明的 Props、配置和动态依赖扩展点。
 
 ## Important Notices
 
-- 目标提交尚未创建匹配的 @schemx/*@1.0.0 Tag；本说明的版本号取自目标清单，仅记录 HEAD 相对现有 1.0.0 基线的候选变更。
-- 本批次同步涉及 @schemx/core、@schemx/vue 与 @schemx/vant 的公共类型契约，建议作为同一兼容性批次升级。
+- 目标提交尚未创建匹配的 @schemx/core@1.0.1 Tag；目标版本取自目标提交中的 package.json。
+- Core、Vue 与 Vant 的公共类型存在交叉依赖，建议同步升级至 1.0.1。
 
 ## Breaking Changes
 
-<a id="change-636f72652d75692d616461707465722d626f756e64617279"></a>
+<a id="change-636f72652d616461707465722d747970652d626f756e64617279"></a>
 
-### Core 的 Renderer Props 与 UI 默认配置改由适配层提供
+### Core 适配层类型边界调整 (@schemx/core)
 
-Core 的 SchemxBaseComponentProps 仅保留框架无关的 Renderer 属性；Vue 专属的 align、value、onUpdate:value、onChange 和 onBlur 由适配层类型承担。defaultSchemxConfig 不再提供标签、内容对齐、冒号和必填标记等 UI 默认值，并新增声明合并扩展点。
+Core 将 Renderer 公共 Props、Schema 展示配置和字段依赖的适配层扩展改为声明合并边界；SchemxField 同时按字段名和 componentType 收窄。旧版 SchemxBaseComponentProps 与 UI 默认配置仍保留为兼容入口，但新适配层应使用专属扩展类型。
 
-影响范围：直接导入 Core SchemxBaseComponentProps 或 SchemxRuntimeInjectedProp 定义 UI Renderer，或读取 Core UI 默认配置的适配层。
+影响范围：直接实现 UI 适配层、依赖 SchemxComponentProps 的 TypeScript 项目，以及需要字段级 Schema 推导的项目。
 
 #### 迁移说明
 
-影响范围：Core UI 类型、Renderer 默认 Props 和框架适配层配置
+影响范围：Core/UI 适配层的 Renderer Props、Schema 配置和动态依赖声明
 
-1. Vue Renderer 将 SchemxBaseComponentProps 改为从 @schemx/vue 导入 SchemxVueBaseComponentProps。
-2. 移除对 Core 根入口 SchemxRuntimeInjectedProp 的依赖；value 和事件回调由 UI 适配层的 Renderer Props 契约管理。
-3. 其他 UI 适配层通过 SchemxComponentPropsDefinition 与 SchemxSchemaConfigDefinition 声明自身 Props 和展示默认值。
-
-替代方案：@schemx/vue 的 SchemxVueBaseComponentProps，或适配层自己的声明合并类型
+1. Vue Renderer 从 @schemx/vue 导入 SchemxVueBaseComponentProps；其他适配层用 SchemxComponentPropsDefinition<TValues> 声明公共 Renderer Props。
+2. 用 SchemxSchemaConfigDefinition 声明适配层的表单展示默认值，用 SchemxFieldDependenciesDefinition<TValues> 声明可动态覆盖的展示属性。
+3. 升级 @schemx/core、@schemx/vue 和 @schemx/vant 至相同的 1.0.1 版本。
 
 ## Features
 
 ### @schemx/core
 
-- <a id="change-636f72652d736368656d612d76616c75652d696e666572656e6365"></a>SchemxField 现在同时按字段 name 和 componentType 分发，规则、required.isEmpty、initialValue 与 onChange 能获得当前字段值类型；createForm({ schemas })、带 initialValues 的 createForm 和 createSchemas(schemas) 也可从 Schema 输入推导表单值类型。（影响范围：使用对象值、自定义 Renderer 或内联 Schema 的 TypeScript 项目可减少字段值联合误报，并在初始值、规则和回调中更早发现类型错误。）
+- <a id="change-636f72652d616461707465722d657874656e73696f6e2d706f696e7473"></a>新增 SchemxComponentPropsDefinition、SchemxSchemaConfigDefinition 和 SchemxFieldDependenciesDefinition；适配层可声明 Renderer Props、字段展示默认值及依赖动态属性，Core 会在运行时解析这些扩展键。（影响范围：编写 Vue、Vant 或其他 UI 适配层时，可以通过声明合并扩展展示契约，不必让 Core 预先硬编码每个 UI 属性。）
 
-- <a id="change-636f72652d646570656e64656e63792d657874656e73696f6e2d6b657973"></a>字段 dependencies 除 Core 内置属性外，还会解析依赖对象中由适配层声明的额外属性，并将其写入运行时覆盖；适配层不需要让 Core 预先知道每个展示属性的名称。（影响范围：需要根据其他字段动态切换自定义展示属性的 UI 适配层或 Renderer。）
+## Fixes
+
+### @schemx/core
+
+- <a id="change-636f72652d726573746f72652d6c65676163792d617069"></a>恢复 SchemxRuntimeInjectedProp、旧版 Renderer Props 字段和 Core UI 默认配置；兼容入口继续可用，并通过弃用标记提示适配层迁移到新的扩展类型。（影响范围：从 1.0.0 升级的 Core 消费方可以继续使用既有 Renderer Props、Runtime 注入字段和标签展示默认配置。）
+
+## Improvements
+
+### @schemx/core
+
+- <a id="change-636f72652d736368656d612d6669656c642d696e666572656e6365"></a>SchemxField 现在同时按字段名和 componentType 分发，rules、required.isEmpty、initialValue 与 onChange 可获得当前字段值类型；createSchemas(schemas) 也会从 Schema 数组提取表单值类型。（影响范围：使用对象值、嵌套字段或自定义 Renderer 的 TypeScript 项目可减少字段值联合误报，并更早发现初始值、规则和回调中的类型错误。）
 
 ## Documentation
 
 ### @schemx/core
 
-- <a id="change-636f72652d736368656d612d747970652d646f6373"></a>Core README 补充了适配层扩展类型、Schema 值类型推导和 Core/Vue 配置边界；仓库新增 Schema 类型推导说明文档。（影响范围：需要迁移自定义 Renderer、Schema 类型或框架适配层配置的开发者。）
+- <a id="change-636f72652d6170692d646f63756d656e746174696f6e"></a>Core README 更新 Schema 值类型推导、Renderer Props、依赖扩展、Schema 配置和 Runtime 边界说明，便于实现自定义适配层和排查类型约束。（影响范围：需要升级 Core 类型体系或实现自定义 UI 适配层的开发者可以按新的公开类型和扩展点调整代码。）
 
 ## API Changes
 
-- [Core 的 Renderer Props 与 UI 默认配置改由适配层提供](#change-636f72652d75692d616461707465722d626f756e64617279)
-- [Schema 字段值与 Renderer 类型推导更精确](#change-636f72652d736368656d612d76616c75652d696e666572656e6365)
-- [dependencies 支持适配层扩展的动态属性](#change-636f72652d646570656e64656e63792d657874656e73696f6e2d6b657973)
+- [Core 适配层类型边界调整](#change-636f72652d616461707465722d747970652d626f756e64617279) (@schemx/core)
+- [按字段名和 Renderer 精确推导 Schema 类型](#change-636f72652d736368656d612d6669656c642d696e666572656e6365) (@schemx/core)
+- [提供适配层 Props、配置和动态依赖扩展点](#change-636f72652d616461707465722d657874656e73696f6e2d706f696e7473) (@schemx/core)
+- [恢复 1.0.0 Core 公共类型与默认配置](#change-636f72652d726573746f72652d6c65676163792d617069) (@schemx/core)
+- [补充 Schema 类型与适配层 API 文档](#change-636f72652d6170692d646f63756d656e746174696f6e) (@schemx/core)
 
 ## TypeScript Changes
 
-- [Core 的 Renderer Props 与 UI 默认配置改由适配层提供](#change-636f72652d75692d616461707465722d626f756e64617279)
-- [Schema 字段值与 Renderer 类型推导更精确](#change-636f72652d736368656d612d76616c75652d696e666572656e6365)
-- [dependencies 支持适配层扩展的动态属性](#change-636f72652d646570656e64656e63792d657874656e73696f6e2d6b657973)
-- [补充 Schema 类型推导与适配层 API 文档](#change-636f72652d736368656d612d747970652d646f6373)
+- [Core 适配层类型边界调整](#change-636f72652d616461707465722d747970652d626f756e64617279) (@schemx/core)
+- [按字段名和 Renderer 精确推导 Schema 类型](#change-636f72652d736368656d612d6669656c642d696e666572656e6365) (@schemx/core)
+- [提供适配层 Props、配置和动态依赖扩展点](#change-636f72652d616461707465722d657874656e73696f6e2d706f696e7473) (@schemx/core)
+- [补充 Schema 类型与适配层 API 文档](#change-636f72652d6170692d646f63756d656e746174696f6e) (@schemx/core)
 
 ## Affected Packages
 

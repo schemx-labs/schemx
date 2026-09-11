@@ -9,13 +9,7 @@
 
 import * as AsyncValidatorModule from "async-validator"
 
-import type { Rule, RuleItem } from "async-validator"
-
-import type {
-  AsyncValidatorDescriptor,
-  NamePath,
-  Values,
-} from "../types"
+import type { AsyncValidatorDescriptor, NamePath, Values } from "../types"
 import type {
   ValidationAdapter,
   ValidationRule,
@@ -23,6 +17,7 @@ import type {
   ValidationRuleIssue,
   ValidationRuleResult,
 } from "./types"
+import type { Rule, RuleItem } from "async-validator"
 
 // 规则对象至少包含一个 async-validator 支持的配置字段。
 const asyncValidatorDescriptorKeys: ReadonlySet<string> = new Set([
@@ -46,6 +41,7 @@ const asyncValidatorDescriptorKeys: ReadonlySet<string> = new Set([
 // async-validator publishes CommonJS with an `__esModule` default export; resolve the
 // native Node ESM, nested CommonJS, and bundler interop shapes before construction.
 const asyncValidatorDefault = AsyncValidatorModule.default as unknown
+
 const AsyncValidatorSchema = (
   typeof asyncValidatorDefault === "function"
     ? asyncValidatorDefault
@@ -112,7 +108,9 @@ async function validateDescriptor(
   if (context.signal.aborted) return { valid: true }
 
   const name = String(context.name)
+
   const source = { ...context.values, [name]: value }
+
   const schema = new AsyncValidatorSchema({ [name]: descriptor as Rule })
 
   try {
@@ -163,6 +161,7 @@ function isAsyncValidatorRuleItem(value: unknown): value is RuleItem {
  */
 function toValidationResult(error: unknown): ValidationRuleResult {
   const errors = getValidationErrors(error)
+
   const issues = errors.map<ValidationRuleIssue>((item) => ({
     message: item.message ?? "校验失败",
     ...(item.field ? { code: item.field } : {}),

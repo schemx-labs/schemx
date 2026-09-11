@@ -2,6 +2,8 @@ import { createForm, createPresetRuleRegistry } from "../../index"
 
 import type {
   AdapterRule,
+  AsyncValidatorDescriptor,
+  AsyncValidatorRule,
   FieldRules,
   FormSchemaOptions,
   PresetRuleEntry,
@@ -20,8 +22,6 @@ import type {
   ValidationAdapterV1,
   ValidationError,
   ValidationResult,
-  AsyncValidatorDescriptor,
-  AsyncValidatorRule,
 } from "../../index"
 
 type CoreExports = typeof import("../../index")
@@ -30,6 +30,7 @@ const asyncRule: AsyncValidatorRule = {
   type: "email",
   message: "邮箱格式错误",
 }
+
 const asyncDescriptor: AsyncValidatorDescriptor = [asyncRule]
 
 void asyncDescriptor

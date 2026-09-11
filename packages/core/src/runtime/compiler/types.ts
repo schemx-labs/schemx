@@ -8,12 +8,12 @@
 
 import type {
   NamePath,
+  SchemxField,
   SchemxInstance,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
 } from "../../types"
-import type { SchemxRuntimeSchema as SchemxField } from "../../types/runtimeSchema"
 import type { SchemaNode, Scope } from "../node"
 
 /**

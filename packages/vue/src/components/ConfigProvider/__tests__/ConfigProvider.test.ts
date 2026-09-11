@@ -4,8 +4,8 @@ import { createRendererRegistry, type SchemxInstance } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
 import { describe, expect, it } from "vitest"
 
-import SchemxForm from "../../../form.vue"
 import { useFormConfigContext } from "../../../context/formContext.js"
+import SchemxForm from "../../../form.vue"
 import { useForm } from "../../../hooks/useForm"
 import ConfigProvider from "../index"
 

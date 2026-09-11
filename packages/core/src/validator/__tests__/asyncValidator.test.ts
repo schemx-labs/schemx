@@ -57,6 +57,7 @@ describe("Core 内置 async-validator", () => {
 
   it("向自定义 validator 提供完整表单值", async () => {
     const sources: unknown[] = []
+
     const form = createForm({
       initialValues: { password: "secret", confirm: "other" },
       schemas: [
@@ -68,6 +69,7 @@ describe("Core 内置 async-validator", () => {
             {
               asyncValidator(_rule, value, _callback, source) {
                 sources.push(source)
+
                 return value === source.confirm
                   ? undefined
                   : Promise.reject(new Error("两次输入不一致"))
@@ -100,6 +102,7 @@ describe("Core 内置 async-validator", () => {
         },
       ],
     }
+
     const form = createForm({
       initialValues: { email: "valid@example.com" },
       validatorAdapters: [adapter],

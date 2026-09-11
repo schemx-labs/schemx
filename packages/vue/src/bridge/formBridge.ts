@@ -7,8 +7,9 @@
  * @module vue/bridge/formBridge
  */
 
-import { createFormStateAdapter } from "@schemx/core/adapter"
 import { getCurrentScope, onScopeDispose } from "vue"
+
+import { createFormStateAdapter } from "@schemx/core/adapter"
 
 import { getVueFieldState } from "./fieldBridge"
 import { createVueFormInstance } from "./formInstance"

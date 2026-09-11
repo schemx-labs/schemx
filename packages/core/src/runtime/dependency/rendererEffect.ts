@@ -11,8 +11,7 @@ import { createSignal } from "../../reactivity"
 import { createDependencySchedulerEffect } from "../dependencyScheduler"
 
 import type { Signal } from "../../reactivity"
-import type { Values } from "../../types"
-import type { SchemxRuntimeSchema as SchemxField } from "../../types/runtimeSchema"
+import type { SchemxField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type { DependencyNode, Scope } from "../node"
 

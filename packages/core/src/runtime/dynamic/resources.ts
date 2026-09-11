@@ -19,16 +19,14 @@ import {
 import type {
   FieldArrayPath,
   NamePath,
+  SchemxDependencyField,
+  SchemxDynamicField,
   SchemxDynamicItemDependency,
+  SchemxDynamicItemSchema,
+  SchemxField,
   SchemxFormApi,
   Values,
 } from "../../types"
-import type {
-  SchemxRuntimeDependency,
-  SchemxRuntimeDynamic,
-  SchemxRuntimeGroup,
-  SchemxRuntimeSchema as SchemxField,
-} from "../../types/runtimeSchema"
 import type { SchemaRuntimeContext } from "../context"
 import type { DynamicNode, DynamicRowState } from "../node"
 
@@ -39,7 +37,7 @@ type DynamicDependencyRenderer<
 
 interface CachedDynamicDependencyRenderer<TItem extends Values, TValues extends Values> {
   readonly source: DynamicDependencyRenderer<TItem, TValues>
-  readonly renderer: SchemxRuntimeDependency<TValues>["renderer"]
+  readonly renderer: SchemxDependencyField<TValues>["renderer"]
   readonly state: {
     rowPath: string
     rowIndex: number
@@ -184,7 +182,7 @@ function recreateDynamicEffect<TValues extends Values>(
  * @returns 按行顺序展开的表单 Schema。
  */
 function expandDynamicSchemas<TValues extends Values>(
-  schema: SchemxRuntimeDynamic<TValues>,
+  schema: SchemxDynamicField<TValues>,
   rows: readonly DynamicRowState[],
   dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>,
   activeRendererKeys: Set<string>
@@ -233,7 +231,7 @@ function expandDynamicSchemas<TValues extends Values>(
  * @returns 可交给普通 Reconciler 的表单 Schema。
  */
 function expandDynamicSchema<TValues extends Values>(
-  schema: SchemxField<TValues>,
+  schema: SchemxDynamicItemSchema<Values, TValues>,
   prefix: string,
   rowKey: string,
   index: number,
@@ -246,14 +244,14 @@ function expandDynamicSchema<TValues extends Values>(
 
   const key = `${rowKey}/${templateKey}`
 
-  if (isDynamicSchema(schema)) {
+  if (isDynamicSchema(schema as SchemxField<TValues>)) {
     throw new Error(
       `[schemx] Dynamic item schema cannot contain nested Dynamic Schema: "${key}".`
     )
   }
 
-  if (isDependencySchema(schema)) {
-    const dependency = schema as unknown as SchemxDynamicItemDependency<Values, TValues>
+  if (isDependencySchema(schema as SchemxField<TValues>)) {
+    const dependency = schema as SchemxDynamicItemDependency<Values, TValues>
 
     const expandedDependency = {
       ...dependency,
@@ -282,8 +280,10 @@ function expandDynamicSchema<TValues extends Values>(
     return expandedDependency as SchemxField<TValues>
   }
 
-  if (isGroupSchema(schema)) {
-    const group = schema as SchemxRuntimeGroup<TValues>
+  if (isGroupSchema(schema as SchemxField<TValues>)) {
+    const group = schema as SchemxField<TValues> & {
+      children: readonly SchemxDynamicField<TValues>["item"][number][]
+    }
 
     return {
       ...group,
@@ -342,7 +342,7 @@ function getDynamicDependencyRenderer<TValues extends Values>(
   dynamicRowKey: string,
   dependencyRendererCache: Map<string, CachedDynamicDependencyRenderer<Values, TValues>>,
   activeRendererKeys: Set<string>
-): SchemxRuntimeDependency<TValues>["renderer"] {
+): SchemxDependencyField<TValues>["renderer"] {
   const cacheKey = dependencyKey
 
   activeRendererKeys.add(cacheKey)
@@ -368,7 +368,7 @@ function getDynamicDependencyRenderer<TValues extends Values>(
   const renderer = async (
     values: TValues,
     form: SchemxFormApi<TValues>,
-    context: Parameters<SchemxRuntimeDependency<TValues>["renderer"]>[2]
+    context: Parameters<SchemxDependencyField<TValues>["renderer"]>[2]
   ): Promise<SchemxField<TValues>[]> => {
     const item = getByPath<TValues, NamePath<TValues>, Values>(
       values,
@@ -387,7 +387,7 @@ function getDynamicDependencyRenderer<TValues extends Values>(
       rowPath: state.rowPath as NamePath<TValues>,
     })
 
-    return (children as unknown as readonly SchemxField<TValues>[]).map((child, childIndex) =>
+    return children.map((child, childIndex) =>
       expandDynamicSchema(
         child,
         state.rowPath,

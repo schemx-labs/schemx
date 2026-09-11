@@ -27,9 +27,7 @@ type PresetRuleValue<TKey extends PresetRuleKey> = TKey extends DeclaredPresetRu
  * 规则注册表中已经解析、可直接执行的规则条目。
  */
 type ResolvedPresetRuleEntry<TValue> =
-  | StandardSchemaV1<TValue, unknown>
-  | ValidationRule<TValue>
-  | AsyncValidatorDescriptor
+  StandardSchemaV1<TValue, unknown> | ValidationRule<TValue> | AsyncValidatorDescriptor
 
 /**
  * 命名规则工厂可读取的字段元数据。

@@ -18,8 +18,7 @@ import { createScheduler, type Scheduler } from "../../scheduler"
 import { createNodeManager } from "../nodeManager"
 import { createNodeLifecycle } from "../resources"
 
-import type { SchemxFormApi, Values } from "../../../types"
-import type { SchemxRuntimeSchema as SchemxField } from "../../../types/runtimeSchema"
+import type { SchemxField, SchemxFormApi, Values } from "../../../types"
 import type { ContainerNode, ParentNode, RootNode } from "../types"
 
 /**

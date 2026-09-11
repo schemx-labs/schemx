@@ -14,7 +14,7 @@ import {
 } from "../../node/__tests__/graphTestUtils"
 import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 
-import type { SchemxRuntimeSchema as SchemxField } from "../../../types/runtimeSchema"
+import type { SchemxField } from "../../../types"
 import type { DependencyNode, FieldNode, GroupNode } from "../../node"
 
 describe("呈现状态运行时链路", () => {

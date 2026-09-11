@@ -13,10 +13,10 @@ import { isSchemaNode } from "../helper"
 import type { ComputedSignal, Signal } from "../../../reactivity"
 import type {
   NamePath,
+  SchemxBaseField,
   SchemxComponentProps,
   Values,
 } from "../../../types"
-import type { SchemxRuntimeField as SchemxBaseField } from "../../../types/runtimeSchema"
 import type { FieldRules } from "../../../types/rule"
 import type {
   FieldDynamicOverrideKey,

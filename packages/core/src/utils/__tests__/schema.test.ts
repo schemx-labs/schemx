@@ -17,7 +17,7 @@ import {
   isValidSchema,
 } from "../schema"
 
-import type { SchemxRuntimeSchema as SchemxField } from "../../types/runtimeSchema"
+import type { SchemxField } from "../../types"
 
 const baseField: SchemxField = {
   name: "username",

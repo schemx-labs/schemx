@@ -10,14 +10,12 @@ import type { CompileOptions } from "./types"
 import type {
   NamePath,
   SchemxBaseComponentProps,
+  SchemxBaseField,
   SchemxComponentProps,
+  SchemxField,
   ValidationTrigger,
   Values,
 } from "../../types"
-import type {
-  SchemxRuntimeField as SchemxBaseField,
-  SchemxRuntimeSchema as SchemxField,
-} from "../../types/runtimeSchema"
 import type {
   FieldEffectiveSchema,
   FieldRuntimeDiagnostics,

@@ -9,9 +9,8 @@ import { inject, type InjectionKey, provide } from "vue"
 import type { FieldInstance } from "../types/field"
 import type { Values } from "@schemx/core"
 
-const SCHEMX_FIELD_CONTEXT_KEY: InjectionKey<FieldInstance<Values>> = Symbol(
-  "schemx:field"
-)
+const SCHEMX_FIELD_CONTEXT_KEY: InjectionKey<FieldInstance<Values>> =
+  Symbol("schemx:field")
 
 /**
  * 向后代组件提供当前字段实例。

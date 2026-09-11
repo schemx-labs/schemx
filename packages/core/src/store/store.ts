@@ -868,6 +868,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
         }
 
         const arrayState = this.getArrayStateForPath(path)
+
         const targetPath = arrayState?.path ?? path
 
         paths.set(createFieldKey(targetPath), targetPath)

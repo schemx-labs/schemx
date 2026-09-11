@@ -26,17 +26,15 @@ import {
 
 import type { Compile, CompileOptions } from "./types"
 import type {
+  SchemxBaseField,
+  SchemxDependencyField,
+  SchemxDynamicField,
+  SchemxField,
+  SchemxGroupField,
   SchemxInstance,
   SchemxSchemaConfig,
   Values,
 } from "../../types"
-import type {
-  SchemxRuntimeDependency as SchemxDependencyField,
-  SchemxRuntimeDynamic as SchemxDynamicField,
-  SchemxRuntimeField as SchemxBaseField,
-  SchemxRuntimeGroup as SchemxGroupField,
-  SchemxRuntimeSchema as SchemxField,
-} from "../../types/runtimeSchema"
 import type {
   DependencyNode,
   DynamicNode,

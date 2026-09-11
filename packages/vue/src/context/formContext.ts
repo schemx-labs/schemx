@@ -19,17 +19,14 @@ type ErasedFormContextValue = FormContextValue<any>
 
 type LegacyFormContextInstance = VueSchemxInstance<any>
 
-const SCHEMX_FORM_CONTEXT_KEY: InjectionKey<ErasedFormContextValue> = Symbol(
-  "schemx:form-context"
-)
+const SCHEMX_FORM_CONTEXT_KEY: InjectionKey<ErasedFormContextValue> =
+  Symbol("schemx:form-context")
 
-const LEGACY_FORM_INSTANCE_KEY: InjectionKey<LegacyFormContextInstance> = Symbol(
-  "schemx:instance"
-)
+const LEGACY_FORM_INSTANCE_KEY: InjectionKey<LegacyFormContextInstance> =
+  Symbol("schemx:instance")
 
-const LEGACY_FORM_CONFIG_KEY: InjectionKey<FormConfigContextValue> = Symbol(
-  "schemx:form-config"
-)
+const LEGACY_FORM_CONFIG_KEY: InjectionKey<FormConfigContextValue> =
+  Symbol("schemx:form-config")
 
 /** @internal 仅供迁移期测试注入旧 Context。 */
 export const SCHEMX_FORM_INSTANCE_KEY = LEGACY_FORM_INSTANCE_KEY
@@ -86,7 +83,10 @@ export function provideFormContext<TValues extends Values = Values>(
     },
   }
 
-  provide<ErasedFormContextValue>(SCHEMX_FORM_CONTEXT_KEY, context as ErasedFormContextValue)
+  provide<ErasedFormContextValue>(
+    SCHEMX_FORM_CONTEXT_KEY,
+    context as ErasedFormContextValue
+  )
 
   return runtime.instance
 }
@@ -94,7 +94,9 @@ export function provideFormContext<TValues extends Values = Values>(
 /**
  * 获取最近祖先提供的完整 Form Context。
  */
-export function useFormContextValue<TValues extends Values = Values>(): FormContextValue<TValues> {
+export function useFormContextValue<
+  TValues extends Values = Values,
+>(): FormContextValue<TValues> {
   const context = inject<ErasedFormContextValue | null>(SCHEMX_FORM_CONTEXT_KEY, null)
 
   if (context) {
@@ -141,14 +143,19 @@ export function createFormContext<TValues extends Values = Values>(
  *
  * 优先读取统一 Form Context，随后兼容旧的 createFormContext() Provider。
  */
-export function useFormContext<TValues extends Values = Values>(): VueSchemxInstance<TValues> {
+export function useFormContext<
+  TValues extends Values = Values,
+>(): VueSchemxInstance<TValues> {
   const context = inject<ErasedFormContextValue | null>(SCHEMX_FORM_CONTEXT_KEY, null)
 
   if (context) {
     return context.form as VueSchemxInstance<TValues>
   }
 
-  const instance = inject<LegacyFormContextInstance | null>(LEGACY_FORM_INSTANCE_KEY, null)
+  const instance = inject<LegacyFormContextInstance | null>(
+    LEGACY_FORM_INSTANCE_KEY,
+    null
+  )
 
   if (!instance) {
     throw new Error(
@@ -196,6 +203,8 @@ export function useFormConfigContext(): FormConfigContextValue {
 /**
  * 获取当前表单的内部 Runtime。
  */
-export function useFormRuntimeContext<TValues extends Values = Values>(): VueFormRuntime<TValues> {
+export function useFormRuntimeContext<
+  TValues extends Values = Values,
+>(): VueFormRuntime<TValues> {
   return useVueFormRuntime(useFormContext<TValues>())
 }

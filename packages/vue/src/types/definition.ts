@@ -8,7 +8,7 @@ import type { StyleValue } from "vue"
 
 import type { SchemxVueBaseComponentProps } from "./field"
 import type { SchemxVueLayout } from "./layout"
-import type { SchemxConditionFn, SchemxInstance, Values } from "@schemx/core"
+import type { SchemxConditionFn, Values } from "@schemx/core"
 
 declare module "@schemx/core" {
   /**
