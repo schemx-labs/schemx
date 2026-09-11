@@ -130,12 +130,18 @@ export interface SchemxDictionary<
    */
   resetOnDepsChange?: boolean
 
-  /** 失败重试次数，默认 `0`（不重试） */
+  /**
+   * 失败重试次数，默认 `0`（不重试）
+   */
   retryCount?: number
-  /** 重试间隔（毫秒），默认 `1000` */
+  /**
+   * 重试间隔（毫秒），默认 `1000`
+   */
   retryInterval?: number
 
-  /** 请求失败回调 */
+  /**
+   * 请求失败回调
+   */
   onError?: (error: Error, form: SchemxInstance<TValues>) => void
 
   /**

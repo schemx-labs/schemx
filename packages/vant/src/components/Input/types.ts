@@ -6,7 +6,7 @@
 
 import type { FieldAutosizeConfig, FieldProps } from "vant"
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type InputValue = FieldProps["modelValue"]
 
@@ -35,7 +35,7 @@ export interface TextAreaAutosize {
  * 定义输入组件的所有可配置属性。
  */
 export interface SchemxInputProps extends Omit<
-  SchemxBaseComponentProps,
+  SchemxVueBaseComponentProps,
   "onChange" | "onBlur" | "value" | "onUpdate:value"
 > {
   /** 当前值 */

@@ -6,7 +6,7 @@
 
 import type { RadioProps } from "vant"
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type RadioValue = RadioProps["name"]
 
@@ -34,7 +34,7 @@ export interface RadioOption extends Partial<
 export interface RadioRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<RadioProps, "modelValue" | "onUpdate:modelValue" | "name">> {
   /** 当前值 */

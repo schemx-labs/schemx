@@ -230,7 +230,10 @@ export type SchemxDynamicItemDependency<
  * @typeParam TValues - 表单值对象类型。
  * @typeParam TPath - Dynamic 数组路径。
  */
-type DynamicItemValue<TValues extends Values, TPath extends NamePath<TValues>> = Extract<
+export type SchemxDynamicItemValue<
+  TValues extends Values,
+  TPath extends NamePath<TValues>,
+> = Extract<
   NonNullable<FieldArrayItemValue<FieldValue<TValues, TPath>>>,
   Values
 >
@@ -241,7 +244,7 @@ type DynamicItemValue<TValues extends Values, TPath extends NamePath<TValues>> =
  * @typeParam TValues - 表单值对象类型。
  */
 type DynamicObjectArrayPath<TValues extends Values> = {
-  [TPath in FieldArrayPath<TValues>]: [DynamicItemValue<TValues, TPath>] extends [never]
+  [TPath in FieldArrayPath<TValues>]: [SchemxDynamicItemValue<TValues, TPath>] extends [never]
     ? never
     : TPath
 }[FieldArrayPath<TValues>]
@@ -299,6 +302,8 @@ export interface SchemxDynamicField<
 
   /**
    * 展示名称。
+   *
+   * @deprecated Dynamic 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   label?: string
 
@@ -306,6 +311,8 @@ export interface SchemxDynamicField<
    * Dynamic 容器在 24 栅格布局容器中的静态布局配置。
    *
    * Core 会将该配置透传到 Dynamic ViewSchema；具体的布局组件由适配层解释。
+   *
+   * @deprecated 请从 UI 适配层使用 Dynamic 布局定义。
    */
   layout?: SchemxLayout
 

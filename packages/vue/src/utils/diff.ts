@@ -1,14 +1,11 @@
 /**
  * 对象浅层 diff 工具
  *
- * 提供三个函数：
- * - {@link diff} — 对比两个对象，返回变化的 key、新值和旧值
- * - {@link diffValues} — 对比两个对象，仅返回变化的属性新值
- * - {@link diffPaths} — 对比两个对象，返回变化的属性路径列表
+ * 对比两个对象并返回变化属性的新值。
  *
  * 使用 `isEqual`（来自 es-toolkit）进行深度比较。
  *
- * @module core/utils/diff
+ * @module utils/diff
  */
 
 import { isEqual } from "es-toolkit/compat"
@@ -28,7 +25,7 @@ import { isEqual } from "es-toolkit/compat"
  *
  * @example
  * ```typescript
- * const changed = diffValues({ a: 1, b: 2 }, { a: 1, b: 3 })
+ * const changed = diff({ a: 1, b: 2 }, { a: 1, b: 3 })
  * // changed => { b: 2 }
  * ```
  */

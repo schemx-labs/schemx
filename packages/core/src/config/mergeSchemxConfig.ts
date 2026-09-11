@@ -128,7 +128,10 @@ export function resolveSchemxConfig<TValues extends Values = Values>(
   const schemaConfig = config.schemaConfig
 
   // Runtime 消费的完整 Schema 配置。
-  const resolvedSchemaConfig: SchemxSchemaConfig = { ...defaultSchemxConfig }
+  const resolvedSchemaConfig: SchemxSchemaConfig = {
+    ...defaultSchemxConfig,
+    ...(schemaConfig ?? {}),
+  }
 
   // 将缺失或显式 undefined 的字段归一化为内置默认值。
   for (const key of defaultSchemxConfigKeys) {

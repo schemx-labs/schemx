@@ -294,7 +294,7 @@ rendererRegistry.register("addressPicker", AddressPicker)
 ### `input` / `InputRenderer`
 
 - **值与选项：** `InputValue = FieldProps["modelValue"]`；无 Option。
-- **Props：** `InputRendererProps extends Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`，不直接继承全部 `FieldProps`。
+- **Props：** `InputRendererProps extends Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`，不直接继承全部 `FieldProps`。
 - **Dictionary：** 不支持。
 - **行为：** `formatter` 按 `formatTrigger` 处理输入；无确认步骤；`clearable` 使用 Vant Field 清空；`readonly` 改为 Cell 展示，`disabled` 保留输入但阻止编辑。
 
@@ -563,7 +563,7 @@ const areaField: SchemxField<{ area: string[] }>[] = [
 ### `selectPicker` / `SelectPickerRenderer`
 
 - **值与选项：** `SelectPickerValue` 是 Radio / Checkbox name 或其数组；`SelectPickerOption` 提供 `label`、`value`、`disabled` 与扩展字段。
-- **Props：** 继承 `Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`，不继承完整 Vant Popup / Radio / Checkbox Props。
+- **Props：** 继承 `Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`，不继承完整 Vant Popup / Radio / Checkbox Props。
 - **Dictionary：** 完整支持。
 - **行为：** 弹窗内先写 `pendingValue`，点击确认才更新模型并依次调用 `onChange` / `onConfirm`；关闭不提交并触发 `onBlur`；无内置清空；`readonly` 使用 Cell，`disabled` 阻止打开。
 
@@ -607,9 +607,9 @@ const roleField: SchemxField<{ roles: string[] }>[] = [
 ### `selector` / `SelectorRenderer`
 
 - **值与选项：** `SelectValue = string | number | (string | number)[]`；`SelectorOption` 提供 `label`、`value`、`disabled` 与扩展字段。
-- **Props：** 继承 `Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`。
+- **Props：** 继承 `Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">`。
 - **Dictionary：** 完整支持。
-- **行为：** `SelectorRendererProps` 与其基类 `SchemxBaseComponentProps` 都未声明 `multiple`。运行时 `SelectorRenderer` 会把未声明的 attrs 透传给内部 `Selector`，所以直接把 `multiple` 作为 Vue attr 传入时可以启用多选；但严格类型的 Schema `componentProps` 会拒绝该字段，这是当前的类型 / 运行时不一致。点击即更新，无格式化、确认或内置清空；`readonly` 用 Cell，`disabled` 禁止选择。
+- **行为：** `SelectorRendererProps` 与其基类 `SchemxVueBaseComponentProps` 都未声明 `multiple`。运行时 `SelectorRenderer` 会把未声明的 attrs 透传给内部 `Selector`，所以直接把 `multiple` 作为 Vue attr 传入时可以启用多选；但严格类型的 Schema `componentProps` 会拒绝该字段，这是当前的类型 / 运行时不一致。点击即更新，无格式化、确认或内置清空；`readonly` 用 Cell，`disabled` 禁止选择。
 
 | 包内显式字段                                    | 类型 / 说明                       |
 | ----------------------------------------------- | --------------------------------- |
@@ -1048,13 +1048,19 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Registry   | `rendererRegistry`        | Vue 全局 Renderer Registry；Vant 默认注册写入此实例。   |
 | Registry   | `presetRuleRegistry`      | Vue 全局 PresetRuleRegistry。                           |
 | Hook       | `useForm`                 | 创建并按 Vue scope 销毁表单。                           |
-| Context    | `createFormContext`       | 提供表单实例。                                          |
+| Context    | `provideFormContext`      | 一次提供表单实例和展示配置。                            |
+| Context    | `useFormContextValue`     | 读取统一 Form Context。                                 |
 | Context    | `useFormContext`          | 读取表单实例。                                          |
+| Context    | `useFormRuntimeContext`   | 获取当前表单的共享 Vue Runtime。                        |
+| Context    | `createFormContext`       | 兼容 API：仅提供表单实例。                              |
 | Hook       | `useField`                | 创建 Vue 字段控制器。                                   |
 | Context    | `createFieldContext`      | 提供字段控制器。                                        |
 | Context    | `useFieldContext`         | 读取字段控制器。                                        |
-| Context    | `createFormConfigContext` | 提供表单展示配置。                                      |
-| Context    | `useFormConfigContext`    | 读取表单展示配置。                                      |
+| Context    | `createFormConfigContext` | 兼容 API：仅提供表单展示配置。                          |
+| Context    | `useFormConfigContext`    | 读取兼容表单展示配置。                                  |
+| Context    | `createConfigProviderContext` | 创建 ConfigProvider 上下文。                         |
+| Context    | `useConfigProviderContext` | 读取 ConfigProvider 当前配置。                         |
+| Context    | `useConfigProviderContextRef` | 读取 ConfigProvider 响应式配置引用。                |
 | Watch      | `useWatch`                | 统一分发 Vue Watch。                                    |
 | Watch      | `useWatchField`           | 单字段 Vue Watch。                                      |
 | Watch      | `useWatchFields`          | 多字段 Vue Watch。                                      |
@@ -1068,10 +1074,12 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 
 | 分类            | 导出                     | 用途                                                          |
 | --------------- | ------------------------ | ------------------------------------------------------------- |
-| Context 类型    | `FormContextProps`       | 表单展示 Context。                                            |
+| Context 类型    | `FormContextValue<TValues>` | 统一 Form Context，包含表单实例和展示配置。                  |
+| Context 类型    | `ProvideFormContextOptions<TValues>` | `provideFormContext()` 的输入配置。                           |
+| Context 类型    | `FormContextProps`       | 兼容 API 使用的表单展示配置类型。                              |
 | Runtime 类型    | `VueSchemxInstance`      | 可在 Vue effect 中追踪读取的 Form Instance。                  |
 | Dictionary 类型 | `SchemxDictionary`       | 函数式选项源配置。                                            |
-| 插件类型        | `SchemxInstallOptions`   | 当前 Vue App 的默认配置安装选项，等同于 Core `SchemxConfig`。 |
+| 插件类型        | `SchemxInstallOptions`   | 基于 Vue `SchemxVueConfig` 且包含 `colComponent` 的 App 默认配置安装选项。 |
 | Dictionary 类型 | `SchemxWithDictionary`   | 为 Renderer Props 增加可选 `dict`。                           |
 | Dictionary 类型 | `UseDictionaryReturn`    | `useDictionary()` 的响应式状态与控制方法。                    |
 | 表单类型        | `SchemxFormProps`        | Vue 表单组件 Props 类型。                                     |
@@ -1097,7 +1105,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 配置          | `mergeSchemxConfig`           | 按优先级纯合并配置。                         |
 | 配置          | `resolveSchemxConfig`         | 补齐 `schemaConfig` 默认值。                 |
 | 配置          | `mergeAndResolveSchemxConfig` | 合并配置并补齐默认值。                       |
-| 配置          | `defaultSchemxConfig`         | Core 内置字段默认值。                        |
+| 配置          | `defaultSchemxConfig`         | Core 内置框架无关字段默认值；UI 展示默认值由 Vue 层提供。 |
 | 配置          | `defaultSchemxConfigKeys`     | 当前默认配置 key 集合。                      |
 | 配置          | `excludeSchemxConfigKeys`     | 不参与字段默认配置的 key。                   |
 | Watch         | `createWatch`                 | 分发 Core Watch。                            |
@@ -1154,12 +1162,17 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Schema             | `SchemxGroupField`              | 原始 Group Schema。                                                   |
 | Schema             | `SchemxDependencyField`         | 原始 Dependency Schema。                                              |
 | Schema             | `SchemxField`                   | 全部原始 Schema 联合。                                                |
-| Schema             | `SchemxBaseComponentProps`      | Renderer 公共 Props。                                                 |
+| Schema             | `SchemxSchemaValues`            | 从 Schema 或 Schema source 提取表单值类型。                            |
+| Schema             | `SchemxValuesHint`              | 为 Schema 数组提供表单值类型提示。                                     |
+| Schema             | `SchemxBaseComponentProps`      | Core Renderer 公共 Props。                                             |
+| Schema             | `SchemxFormItemProps`           | Field 展示 Props。                                                     |
+| Schema             | `SchemxVueBaseComponentProps`   | Vue Renderer 公共 Props。                                              |
 | Schema             | `SchemxComponentProps`          | Renderer 专属与公共 Props。                                           |
-| Schema             | `SchemxFormItemProps`           | Core 保留的字段展示 Props 类型（schema 属性名仍为 `formItemProps`）。 |
+| 扩展               | `SchemxComponentPropsDefinition` | Renderer 公共 Props 的声明合并扩展点。                                  |
 | 扩展               | `SchemxFieldDefinition`         | 普通字段声明合并接口。                                                |
 | 扩展               | `SchemxGroupFieldDefinition`    | Group 声明合并接口。                                                  |
 | 依赖               | `SchemxFieldDependencies`       | 普通字段的动态属性与触发字段配置。                                    |
+| 依赖               | `SchemxFieldDependenciesDefinition` | 字段依赖配置的适配层声明合并扩展点。                                   |
 | 依赖               | `SchemxGroupDependencies`       | Group 容器的动态状态配置。                                            |
 | 依赖               | `SchemxDependencyDependencies`  | Dependency 容器的动态状态配置。                                       |
 | 依赖               | `SchemxContainerDependencies`   | Group/Dependency 容器动态状态配置。                                   |
@@ -1171,6 +1184,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | 配置               | `SchemxConfig`                  | Core 全局默认配置。                                                   |
 | 配置               | `MergedSchemxConfig`            | 已合并且补齐 `schemaConfig` 默认值。                                  |
 | 配置               | `SchemxSchemaConfig`            | 表单级字段默认展示与校验配置。                                        |
+| 配置               | `SchemxSchemaConfigDefinition`  | 表单级 Schema 配置的适配层声明合并扩展点。                             |
 | 配置               | `SchemxConfigKey`               | 当前默认配置 key 类型。                                               |
 | 配置               | `ExcludeSchemxConfigKeys`       | 排除配置 key 类型。                                                   |
 | Renderer           | `SchemxRendererKey`             | Renderer key 类型。                                                   |
@@ -1198,6 +1212,8 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Validator          | `ValidationAdapterOption`       | adapter 或带覆盖选项的注册项。                                        |
 | Validator          | `ValidationTrigger`             | 校验触发时机。                                                        |
 | Validator          | `StandardSchemaV1`              | Standard Schema v1 协议。                                             |
+| Validator          | `AsyncValidatorRule`            | async-validator 单条规则。                                            |
+| Validator          | `AsyncValidatorDescriptor`      | async-validator 单条或多条规则描述。                                  |
 | Rule               | `PresetRuleDefinition`          | 自定义规则声明合并接口。                                              |
 | Rule               | `PresetRuleName`                | 声明合并推导的规则 key。                                              |
 | Rule               | `RequiredOptions`               | 必填消息与空值判断配置。                                              |

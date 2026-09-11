@@ -10,20 +10,15 @@
 
 /* eslint-disable vue/one-component-per-file */
 import { computed, defineComponent, PropType } from "vue"
-import type { ClassValue, StyleValue, VNodeChild } from "vue"
+import type { ClassValue, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isSchemxViewFieldSchema } from "@schemx/core"
 import classnames from "classnames"
 
 import type { TriggerConfig } from "@/utils"
 
-import {
-  createFieldContext,
-  useField,
-  useFormConfigContext,
-  useFormContext,
-  useStableRef,
-} from "../../hooks"
+import { createFieldContext, useFormContextValue } from "../../context"
+import { useField, useStableRef } from "../../hooks"
 import { useViewSchema } from "../../hooks/useViewSchemas"
 import {
   mergeTrigger,
@@ -34,6 +29,7 @@ import {
 
 import { createFieldSlotRenderers } from "./slot"
 
+import type { SchemxFieldSlots } from "../../types/field"
 import type {
   FieldValue,
   NamePath,
@@ -48,8 +44,17 @@ import type {
  * 提供待渲染的字段 ViewSchema。
  */
 export interface SchemxFieldProps {
+  /**
+   * 当前字段的已解析 ViewSchema。
+   */
   schema: unknown
+  /**
+   * 追加到字段外层包装器的 CSS 类名。
+   */
   class?: ClassValue
+  /**
+   * 追加到字段外层包装器的内联样式。
+   */
   style?: StyleValue
 }
 
@@ -74,6 +79,8 @@ const Field = defineComponent({
     },
   },
 
+  slots: Object as SlotsType<SchemxFieldSlots>,
+
   /**
    * 初始化字段上下文，并组合响应式 schema、校验处理器与插槽渲染器。
    *
@@ -82,7 +89,9 @@ const Field = defineComponent({
    * @param slots - Vue setup 上下文提供的插槽集合。
    */
   setup(props, { attrs, slots }) {
-    const form = useFormContext<Values>()
+    const formContext = useFormContextValue<Values>()
+
+    const form = formContext.form
 
     const inputSchema = computed<SchemxViewFieldSchema<Values>>(
       () => props.schema as SchemxViewFieldSchema<Values>
@@ -97,8 +106,6 @@ const Field = defineComponent({
         ? latestSchema.value
         : inputSchema.value
     })
-
-    const formContext = useFormConfigContext()
 
     const field = useField(schemaRef.value.name)
 
@@ -138,6 +145,7 @@ const Field = defineComponent({
     const handleChange = (v: FieldValue<Values, NamePath<Values>>) => {
       field.setValue(v)
       schemaRef.value.componentProps?.onChange?.(v)
+      schemaRef.value.onChange?.(v, form)
 
       if (canVerified.value && shouldValidateOn("change", trigger.value)) {
         field.validate()
@@ -151,6 +159,7 @@ const Field = defineComponent({
      */
     const handleBlur = (v: FieldValue<Values, NamePath<Values>>) => {
       schemaRef.value.componentProps?.onBlur?.(v)
+      schemaRef.value.onBlur?.(form)
 
       if (canVerified.value && shouldValidateOn("blur", trigger.value)) {
         field.validate()
@@ -162,7 +171,7 @@ const Field = defineComponent({
      *
      * @param v - 渲染器提交的最新字段值。
      */
-    const handleValueUpdate = (v: FieldValue<Values, NamePath<Values>>) => {
+    const updateValue = (v: FieldValue<Values, NamePath<Values>>) => {
       field.setValue(v)
     }
 
@@ -173,10 +182,19 @@ const Field = defineComponent({
 
         return {
           ...currentComponentProps,
+          align: schemaRef.value.readonly
+            ? "right"
+            : (currentComponentProps.align ?? schemaRef.value.contentAlign),
+          readonly: schemaRef.value.readonly,
+          disabled: schemaRef.value.disabled,
+          placeholder: currentComponentProps.placeholder ?? schemaRef.value.placeholder,
+          readonlyPlaceholder:
+            currentComponentProps.readonlyPlaceholder ??
+            schemaRef.value.readonlyPlaceholder,
           value: field.value.value,
           onChange: handleChange,
           onBlur: handleBlur,
-          "onUpdate:value": handleValueUpdate,
+          "onUpdate:value": updateValue,
         }
       }
     )

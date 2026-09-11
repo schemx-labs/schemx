@@ -144,8 +144,6 @@ describe("configureSchemx", () => {
   it("按全局、Form、字段优先级合并 Renderer Props，并隔离全局配置快照", () => {
     const globalOnChange = () => undefined
 
-    const formOnBlur = () => undefined
-
     const nestedRendererValue = { theme: "light" }
 
     const globalRendererProps = {
@@ -171,7 +169,6 @@ describe("configureSchemx", () => {
       rendererProps: {
         input: {
           placeholder: "Form 占位",
-          onBlur: formOnBlur,
         },
       },
       schemas: [
@@ -190,7 +187,6 @@ describe("configureSchemx", () => {
       placeholder: "字段占位",
       readonlyPlaceholder: "全局空值",
       onChange: globalOnChange,
-      onBlur: formOnBlur,
     })
     expect((componentProps as { metadata?: unknown }).metadata).toBe(nestedRendererValue)
     expect(nestedRendererValue).toEqual({ theme: "dark" })

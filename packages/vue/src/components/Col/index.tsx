@@ -12,8 +12,7 @@ import type { ClassValue, StyleValue, VNodeChild } from "vue"
 
 import { registeredColComponent } from "../../utils/colProvider"
 
-import type { SchemxColComponent } from "../../types/layout"
-import type { SchemxLayout } from "@schemx/core"
+import type { SchemxColComponent, SchemxVueLayout } from "../../types/layout"
 
 const Col = defineComponent({
   name: "SchemxCol",
@@ -21,7 +20,7 @@ const Col = defineComponent({
 
   props: {
     layout: {
-      type: Object as PropType<SchemxLayout>,
+      type: Object as PropType<SchemxVueLayout>,
       required: false,
       default: undefined,
     },

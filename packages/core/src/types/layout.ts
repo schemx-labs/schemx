@@ -3,6 +3,8 @@
  *
  * Core 只保存并透传布局元数据，不负责渲染或转换为具体 UI 组件库的 Props。
  * 未设置的字段由适配层决定默认行为。
+ *
+ * @deprecated 请从对应 UI 适配层导入布局类型。
  */
 export interface SchemxLayout {
   /**

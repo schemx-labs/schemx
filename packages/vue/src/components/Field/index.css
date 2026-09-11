@@ -104,6 +104,12 @@
   left: -8px;
 }
 
+.schemx-field__label-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--schemx-padding-xs);
+}
+
 /**
  * 内容区域
  */

@@ -88,8 +88,16 @@ export type SchemxFieldRulesMap<TValues extends Values = Values> = {
 }
 
 /**
+ * 表单级 Schema 配置的适配层扩展点。
+ *
+ * Core 保留框架无关的字段状态与校验配置；展示适配层通过声明合并增加默认项。
+ */
+export interface SchemxSchemaConfigDefinition {}
+
+/**
  * 表单级默认配置。
  *
  * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
  */
-export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemxConfigKey>
+export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemxConfigKey> &
+  SchemxSchemaConfigDefinition

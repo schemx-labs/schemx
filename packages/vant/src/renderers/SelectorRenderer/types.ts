@@ -4,7 +4,7 @@
  * @module renderers/SelectorRenderer/types
  */
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type SelectValue = string | number | (string | number)[]
 
@@ -57,7 +57,10 @@ export interface SelectorProps {
 export interface SelectorRendererProps
   extends
     SelectorProps,
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value"> {
+    Omit<
+      SchemxVueBaseComponentProps,
+      "onChange" | "onBlur" | "value" | "onUpdate:value"
+    > {
   /** 当前值 */
   value?: SelectValue
   /** 值变化回调 */

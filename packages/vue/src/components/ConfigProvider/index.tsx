@@ -8,7 +8,7 @@
 
 import { computed, defineComponent, type PropType } from "vue"
 
-import { provideSchemxConfigProvider } from "../../config"
+import { createConfigProviderContext } from "../../context"
 
 import type { SchemxColComponent, SchemxVueConfig } from "../../types"
 import type {
@@ -21,7 +21,13 @@ import type {
   Values,
 } from "@schemx/core"
 
-/** ConfigProvider 的公开 Props。 */
+/**
+ * ConfigProvider 的公开 Props。
+ *
+ * 配置会按组件树继承；子级 Provider 的非空配置覆盖父级同名配置。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
 export type ConfigProviderProps<TValues extends Values = Values> =
   SchemxVueConfig<TValues>
 
@@ -71,7 +77,7 @@ const ConfigProvider = defineComponent({
       colComponent: props.colComponent,
     }))
 
-    provideSchemxConfigProvider(config)
+    createConfigProviderContext(config)
 
     return () => slots.default?.()
   },

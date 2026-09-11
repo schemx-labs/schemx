@@ -4,7 +4,7 @@
  * 安装配置属于当前 Vue App，而不是 Core 模块级共享状态；该模块只在 Vue
  * 适配层内部保存和读取安装配置，不将注入 key 暴露为公共 API。
  *
- * @module utils/appConfig
+ * @module config/appConfig
  */
 
 import { type App, getCurrentInstance, inject, type InjectionKey } from "vue"
@@ -74,6 +74,11 @@ function normalizeRendererProps(
  *
  * @param app - 要安装 Schemx 的 Vue App 实例。
  * @param config - 当前 App 的默认配置。
+ *
+ * @example
+ * ```ts
+ * app.use(SchemxForm, { schemaConfig: { readonly: true } })
+ * ```
  */
 export function provideSchemxAppConfig(app: App, config: SchemxVueConfig = {}): void {
   // 当前 App 后续组件实例应读取的配置快照。
@@ -89,6 +94,11 @@ export function provideSchemxAppConfig(app: App, config: SchemxVueConfig = {}): 
  * 使 `useForm()` 仍可在独立 effect scope 中使用 Vue 模块级 Registry。
  *
  * @returns 当前 App 的安装配置，或无 App 上下文时的空配置。
+ *
+ * @example
+ * ```ts
+ * const appConfig = getSchemxAppConfig()
+ * ```
  */
 export function getSchemxAppConfig(): SchemxVueConfig {
   // 只有存在当前组件实例时才读取 Vue 注入上下文，避免 setup 外触发 Vue 警告。

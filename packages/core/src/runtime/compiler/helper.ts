@@ -9,12 +9,14 @@ import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../util
 import type { CompileOptions } from "./types"
 import type {
   NamePath,
-  SchemxBaseField,
   SchemxComponentProps,
   ValidationTrigger,
   Values,
 } from "../../types"
-import type { SchemxField } from "../../types"
+import type {
+  SchemxRuntimeField as SchemxBaseField,
+  SchemxRuntimeSchema as SchemxField,
+} from "../../types/runtimeSchema"
 import type {
   FieldEffectiveSchema,
   FieldRuntimeDiagnostics,
@@ -52,12 +54,6 @@ export function buildFieldStaticSchema<TValues extends Values>(
   const { schemaConfig, formInstance } = options
 
   const {
-    contentAlign,
-    labelIcon,
-    labelAlign,
-    labelPosition,
-    labelWidth,
-    colon,
     componentProps,
     visible,
     readonly,
@@ -65,7 +61,6 @@ export function buildFieldStaticSchema<TValues extends Values>(
     disabled,
     required,
     rules,
-    showRequiredMark,
     validationTrigger,
     dependencies: _dependencies,
     ...rest
@@ -80,20 +75,12 @@ export function buildFieldStaticSchema<TValues extends Values>(
 
   const mergedReadonly = readonly ?? schemaConfig.readonly
 
-  const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
-
   const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
 
   const mergedReadonlyPlaceholder =
     componentProps?.readonlyPlaceholder ??
     readonlyPlaceholder ??
     rendererComponentProps?.readonlyPlaceholder
-
-  const mergedAlign =
-    componentProps?.align ??
-    contentAlign ??
-    rendererComponentProps?.align ??
-    schemaConfig.contentAlign
 
   const normalizedSchema = {
     ...rest,
@@ -104,27 +91,14 @@ export function buildFieldStaticSchema<TValues extends Values>(
     disabled: disabled ?? schemaConfig.disabled,
     required: required ?? schemaConfig.required,
     placeholder: mergedPlaceholder,
-    showRequiredMark: showRequiredMark ?? schemaConfig.showRequiredMark,
-    labelIcon: labelIcon ?? schemaConfig.labelIcon,
-    labelAlign: labelAlign ?? schemaConfig.labelAlign,
-    labelPosition: labelPosition ?? schemaConfig.labelPosition,
-    labelWidth: labelWidth ?? schemaConfig.labelWidth,
-    contentAlign: mergedContentAlign,
-    colon: colon ?? schemaConfig.colon,
     rules,
     validationTrigger: normalizeTrigger(
       validationTrigger ?? schemaConfig.validationTrigger ?? "blur"
     ),
   } as SchemxBaseField<TValues>
 
-  if (mergedReadonly) {
-    normalizedSchema.contentAlign = "right"
-    normalizedSchema.labelPosition = "left"
-  }
-
   normalizedSchema.componentProps = {
     ...mergedComponentProps,
-    align: mergedReadonly ? "right" : mergedAlign,
     readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: disabled ?? schemaConfig.disabled,

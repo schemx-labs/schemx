@@ -1,16 +1,38 @@
 /**
  * Vue 层使用的 Col 组件类型与布局配置。
  *
- * Core 只定义 {@link SchemxLayout} 元数据；Vue 层负责将其映射到具体的组件。
+ * Vue 层负责将布局元数据映射到具体的组件。
  *
  * @module types/layout
  */
 
 import type { Component } from "vue"
 
-import type { SchemxConfig, SchemxLayout, Values } from "@schemx/core"
+import type { SchemxConfig, Values } from "@schemx/core"
 
-/** UI 组件库 Col 组件的 Vue 组件类型。 */
+/**
+ * Vue 适配层使用的静态 24 栅格布局元数据。
+ */
+export interface SchemxVueLayout {
+  /**
+   * 节点占据的栅格列数。
+   */
+  span?: number
+
+  /**
+   * 节点左侧偏移的栅格列数。
+   */
+  offset?: number
+
+  /**
+   * 节点是否独占当前布局行。
+   */
+  block?: boolean
+}
+
+/**
+ * UI 组件库 Col 组件的 Vue 组件类型。
+ */
 export type SchemxColComponent = Component
 
 /**
@@ -20,9 +42,13 @@ export type SchemxColComponent = Component
  * 提供 `layout`，组件会从显式组件属性或全局注册表解析实现。
  */
 export interface SchemxColProps {
-  /** 当前 Schema 的静态布局元数据。 */
-  layout?: SchemxLayout
-  /** 当前 Form 解析出的 Col 实现。 */
+  /**
+   * 当前 Schema 的静态布局元数据。
+   */
+  layout?: SchemxVueLayout
+  /**
+   * 当前 Form 解析出的 Col 实现。
+   */
   component?: SchemxColComponent
 }
 
@@ -34,6 +60,8 @@ export interface SchemxColProps {
 export interface SchemxVueConfig<
   TValues extends Values = Values,
 > extends SchemxConfig<TValues> {
-  /** 当前 App、Provider 或 Form 使用的 Col 实现。 */
+  /**
+   * 当前 App、Provider 或 Form 使用的 Col 实现。
+   */
   readonly colComponent?: SchemxColComponent
 }

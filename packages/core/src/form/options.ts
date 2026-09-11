@@ -85,6 +85,8 @@ export interface FormRegistryOptions<TValues extends Values = Values> {
   validatorAdapters?: readonly ValidationAdapterOption[]
 }
 
+type CallbackValues<TValues extends Values> = 0 extends 1 & TValues ? Values : TValues
+
 /**
  * `createForm` 的回调配置。
  *
@@ -125,8 +127,8 @@ export interface FormCallbackOptions<
    * 字段值变化后的回调。
    */
   onValuesChange?: (
-    changedValues: Readonly<Partial<TValues>>,
-    latestSnapshot: Readonly<TValues> | TValues
+    changedValues: Readonly<Partial<CallbackValues<TValues>>>,
+    latestSnapshot: Readonly<CallbackValues<TValues>> | CallbackValues<TValues>
   ) => void
   /**
    * 字段路径变化后的回调。

@@ -27,7 +27,8 @@ import {
 } from "./node/helper"
 
 import type { Compile } from "./compiler"
-import type { NamePath, SchemxField, Values } from "../types"
+import type { NamePath, Values } from "../types"
+import type { SchemxRuntimeSchema as SchemxField } from "../types/runtimeSchema"
 import type { NodeManager } from "./node/nodeManager"
 import type { NodeLifecycle } from "./node/resources"
 import type { ContainerNode, NodeId, ParentNode, SchemaNode } from "./node/types"

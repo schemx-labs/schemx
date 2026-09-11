@@ -16,8 +16,8 @@
  * @returns 两个对象浅相等时返回 true
  *
  * @example
- * shallowEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // => true
- * shallowEqual({ a: 1 }, { a: 1, b: 2 })        // => false
+ * isShallowEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // => true
+ * isShallowEqual({ a: 1 }, { a: 1, b: 2 })        // => false
  */
 export const isShallowEqual = (
   a: Record<string, any>,

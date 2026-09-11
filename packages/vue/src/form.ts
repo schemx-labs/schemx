@@ -39,6 +39,11 @@ export interface SchemxInstallOptions extends SchemxVueConfig {}
  * @param extra - 要挂载的静态属性
  * @typeParam TComponent - 原始组件类型。
  * @typeParam TExtras - 待挂载的静态属性类型。
+ *
+ * @example
+ * ```ts
+ * const Plugin = withInstall(Component, { install(app) { app.component("Demo", Component) } })
+ * ```
  */
 export function withInstall<
   TComponent extends object,
@@ -47,18 +52,25 @@ export function withInstall<
   return Object.assign(comp, extra) as TComponent & TExtras
 }
 
+/**
+ * 挂载了 Vue 插件安装方法和 `Field` 子组件的 Form 组件类型。
+ */
 export type SchemxFormPlugin = typeof SchemxForm & {
   install: (app: App, options?: SchemxInstallOptions) => void
   Field: typeof Field
 }
 
 const SchemxFormExport = withInstall(SchemxForm, {
-  /** Vue 插件安装方法 */
+  /**
+   * Vue 插件安装方法
+   */
   install(app: App, options: SchemxInstallOptions = {}) {
     provideSchemxAppConfig(app, options)
     app.component("SchemxForm", SchemxForm)
   },
-  /** Field 子组件引用 */
+  /**
+   * Field 子组件引用
+   */
   Field,
 }) as unknown as SchemxFormPlugin
 

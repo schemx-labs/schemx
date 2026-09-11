@@ -8,6 +8,6 @@
  * @module vue/bridge
  */
 
-export { acquireVueFormRuntime } from "./formBridge"
+export { acquireVueFormRuntime, useVueFormRuntime } from "./formBridge"
 export { getVueFieldState } from "./fieldBridge"
 export type { VueFieldState, VueFormRuntime, VueSchemxInstance } from "./types"

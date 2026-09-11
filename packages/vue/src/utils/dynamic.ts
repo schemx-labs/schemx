@@ -22,9 +22,13 @@ import type { Values } from "@schemx/core"
  * @typeParam TValue - 属性值类型
  */
 export interface DependencieEntry<TValue> {
-  /** 动态属性值（函数、静态值、null 或 undefined） */
+  /**
+   * 动态属性值（函数、静态值、null 或 undefined）
+   */
   value: Dynamic<TValue> | undefined | null
-  /** 默认值，当 value 为空或函数返回 nullish 时使用 */
+  /**
+   * 默认值，当 value 为空或函数返回 nullish 时使用
+   */
   defaultValue: TValue
 }
 

@@ -4,10 +4,10 @@
  * @module hooks/useFormSelector
  */
 
-import { onScopeDispose, readonly, shallowRef, watch } from "vue"
+import { readonly, shallowRef, watch } from "vue"
 import type { ShallowRef } from "vue"
 
-import { acquireVueFormRuntime } from "../bridge"
+import { useVueFormRuntime } from "../bridge"
 
 import type { SchemxInstance, Values } from "@schemx/core"
 
@@ -55,9 +55,7 @@ export function useFormSelector<TValues extends Values = Values, TSelected = unk
   selector: (values: Readonly<TValues>) => TSelected,
   options: UseFormSelectorOptions<TSelected> = {}
 ): Readonly<ShallowRef<TSelected>> {
-  const acquired = acquireVueFormRuntime(form)
-
-  const values = acquired.runtime.getValuesRef()
+  const values = useVueFormRuntime(form).getValuesRef()
 
   const selected = shallowRef<TSelected>(selector(values.value))
 
@@ -68,7 +66,7 @@ export function useFormSelector<TValues extends Values = Values, TSelected = unk
    *
    * @param values - Runtime 发布的最新完整表单快照。
    */
-  const stop = watch(
+  watch(
     values,
     (values) => {
       const next = selector(values)
@@ -79,11 +77,6 @@ export function useFormSelector<TValues extends Values = Values, TSelected = unk
     },
     { flush: options.flush ?? "sync" }
   )
-
-  onScopeDispose(() => {
-    stop()
-    acquired.release()
-  })
 
   return readonly(selected) as Readonly<ShallowRef<TSelected>>
 }

@@ -24,7 +24,10 @@ import {
 } from "../createViewSchemas"
 import { isSchemxViewFieldSchema } from "../helper"
 
-import type { SchemxBaseField, SchemxDependencyField } from "../../../types"
+import type {
+  SchemxRuntimeDependency as SchemxDependencyField,
+  SchemxRuntimeField as SchemxBaseField,
+} from "../../../types/runtimeSchema"
 // 验证 createViewSchemas 对各类 Node 的 ViewSchema 创建、更新与清理。
 describe("createViewSchemas", () => {
   it("为 root 创建并注册 root viewSchemas", () => {

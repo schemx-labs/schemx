@@ -8,12 +8,13 @@
  * @module core/runtime/view/types
  */
 
+import type { Values } from "../../types"
 import type {
-  SchemxBaseField,
-  SchemxDynamicField,
-  SchemxGroupField,
-  Values,
-} from "../../types"
+  SchemxRuntimeDynamic as SchemxDynamicField,
+  SchemxRuntimeField as SchemxBaseField,
+  SchemxRuntimeGroup as SchemxGroupField,
+  SchemxRuntimeSchema as SchemxField,
+} from "../../types/runtimeSchema"
 import type { FieldDynamicOverrideKey } from "../node"
 
 /**

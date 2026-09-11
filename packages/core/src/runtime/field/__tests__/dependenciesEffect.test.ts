@@ -56,6 +56,7 @@ function createDependenciesNode(
     visible: (values: { country?: string }) => values.country === "CN",
     required: (values: { country?: string }) => values.country === "CN",
     showRequiredMark: (values: { country?: string }) => values.country === "US",
+    customDisplay: (values: { country?: string }) => values.country ?? "unknown",
   }
 
   return createFieldNode<{ country?: string }>({
@@ -397,6 +398,7 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
       visible: false,
       required: false,
       showRequiredMark: true,
+      customDisplay: "US",
     })
     expect(node.effectiveSchema.value.visible).toBe(false)
     expect(node.effectiveSchema.value.required).toBe(false)
@@ -408,6 +410,7 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
       visible: true,
       required: true,
       showRequiredMark: false,
+      customDisplay: "CN",
     })
     expect(node.effectiveSchema.value.visible).toBe(true)
     expect(node.effectiveSchema.value.required).toBe(true)
@@ -481,6 +484,7 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
       visible: true,
       required: true,
       showRequiredMark: false,
+      customDisplay: "CN",
     })
     expect(node.effectiveSchema.value.visible).toBe(true)
     expect(node.effectiveSchema.value.required).toBe(true)

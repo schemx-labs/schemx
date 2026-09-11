@@ -22,11 +22,17 @@ import type {
   SchemxViewSchema,
 } from "@schemx/core"
 
-/** Dynamic 组件属性。 */
+/**
+ * Dynamic 组件属性。
+ */
 export interface SchemxDynamicProps {
-  /** 当前 Dynamic 数组的 ViewSchema。 */
+  /**
+   * 当前 Dynamic 数组的 ViewSchema。
+   */
   schema: SchemxViewDynamicSchema
-  /** 当前 Form 根级 ViewSchema，用于计算字段区段样式。 */
+  /**
+   * 当前 Form 根级 ViewSchema，用于计算字段区段样式。
+   */
   viewSchemas: readonly SchemxViewSchema[]
   /**
    * 内部 SchemaList 递归渲染数组行子节点的回调；未提供时使用 Dynamic 自身的兼容渲染器。
@@ -61,11 +67,21 @@ const Dynamic = defineComponent({
    * @param slots - 父级透传的字段插槽。
    */
   setup(props, { slots }) {
-    /** 根据字段路径生成渲染 key，路径变化时重新绑定字段控制器。 */
+    /**
+     * 根据字段路径生成渲染 key，路径变化时重新绑定字段控制器。
+     *
+     * @param schema - 当前字段 ViewSchema。
+     * @returns 包含 Schema key 和字段路径的渲染 key。
+     */
     const getFieldRenderKey = (schema: SchemxViewFieldSchema): string =>
       `${schema.key}:${normalizeNameKey(schema.name)}`
 
-    /** 根据根级 ViewSchema 计算 Dynamic 字段的首尾样式类。 */
+    /**
+     * 根据根级 ViewSchema 计算 Dynamic 字段的首尾样式类。
+     *
+     * @param schema - 当前 Dynamic 行中的 ViewSchema。
+     * @returns 首尾字段对应的 CSS class 映射。
+     */
     const getFieldClass = (schema: SchemxViewSchema) => {
       const { isFirst, isLast } = getSectionPosition(
         props.viewSchemas as SchemxViewSchema[],
@@ -78,7 +94,12 @@ const Dynamic = defineComponent({
       }
     }
 
-    /** 渲染单个 Dynamic 行模板节点。 */
+    /**
+     * 渲染单个 Dynamic 行模板节点。
+     *
+     * @param schema - 当前行模板中的 ViewSchema。
+     * @returns Group 或 Field 的 VNode。
+     */
     const renderItemSchema = (schema: SchemxViewSchema): VNodeChild => {
       if (isViewGroupSchema(schema)) {
         return <Group key={schema.key} schema={schema} v-slots={slots} />

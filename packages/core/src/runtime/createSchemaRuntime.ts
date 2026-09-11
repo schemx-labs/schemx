@@ -32,7 +32,7 @@ import type { SchemxViewSchema } from "./view"
 import type {
   NamePath,
   SchemxBaseField,
-  SchemxField,
+  SchemxField as PublicSchemxField,
   SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
@@ -40,6 +40,7 @@ import type {
   SchemxSchemaConfig,
   Values,
 } from "../types"
+import type { SchemxRuntimeSchema as SchemxField } from "../types/runtimeSchema"
 
 /**
  * 创建 SchemaRuntime 所需的依赖。
@@ -276,8 +277,12 @@ export function createSchemaRuntime<TValues extends Values>(
 
     mounted = true
 
-    applySchemas(options.schemas.peek())
-    scope.add(options.schemas.subscribe(applySchemas))
+    const toRuntimeSchemas = (
+      schemas: readonly PublicSchemxField<TValues>[]
+    ): readonly SchemxField<TValues>[] => schemas as unknown as readonly SchemxField<TValues>[]
+
+    applySchemas(toRuntimeSchemas(options.schemas.peek()))
+    scope.add(options.schemas.subscribe((nextSchemas) => applySchemas(toRuntimeSchemas(nextSchemas))))
   }
 
   /**

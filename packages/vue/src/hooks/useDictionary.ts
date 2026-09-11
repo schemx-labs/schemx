@@ -12,7 +12,7 @@ import { onMounted, onScopeDispose, Ref, ref, shallowRef } from "vue"
 
 import type { SchemxDictionary } from "@/types/dictionary"
 
-import { useFormContext } from "./provideFormContext"
+import { useFormContext } from "../context/formContext"
 import { useWatchFields } from "./useWatch"
 
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
@@ -20,27 +20,42 @@ import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 export type { SchemxDictionary, SchemxWithDictionary } from "@/types/dictionary"
 
 /**
- * useDictionary 返回值
+ * useDictionary 返回值。
+ *
+ * @typeParam TOption - 格式化后的字典选项类型。
  */
 export interface UseDictionaryReturn<TOption = unknown> {
-  /** 远程加载的字典选项列表（响应式） */
+  /**
+   * 远程加载的字典选项列表（响应式）
+   */
   list: Ref<TOption[]>
-  /** 请求加载状态（响应式） */
+  /**
+   * 请求加载状态（响应式）
+   */
   loading: Ref<boolean>
-  /** 请求错误信息（响应式） */
+  /**
+   * 请求错误信息（响应式）
+   */
   error: Ref<Error | undefined>
-  /** 触发字典选项加载 */
+  /**
+   * 触发字典选项加载
+   */
   loadDict: () => Promise<void>
-  /** 使用当前配置重新执行 api */
+  /**
+   * 使用当前配置重新执行 api
+   */
   refresh: () => Promise<void>
-  /** 直接修改 list 的值，不触发 api 调用 */
+  /**
+   * 直接修改 list 的值，不触发 api 调用
+   */
   mutate: (data: TOption[]) => void
 }
 
 /**
- * @deprecated
+ * useDictionary 返回值的旧类型别名。
  *
- * 已弃用，请使用 **UseDictionaryReturn**
+ * @deprecated 请使用 `UseDictionaryReturn`。
+ * @typeParam TOption - 格式化后的字典选项类型。
  */
 export type UseDictOptionsReturn<TOption = unknown> = UseDictionaryReturn<TOption>
 
@@ -49,6 +64,11 @@ export type UseDictOptionsReturn<TOption = unknown> = UseDictionaryReturn<TOptio
  *
  * @param err - 捕获的值（可能是任意类型）
  * @returns 包装原始值的 `Error` 对象
+ *
+ * @example
+ * ```ts
+ * const error = normalizeError("request failed")
+ * ```
  */
 export function normalizeError(err: unknown): Error {
   if (err instanceof Error) return err
@@ -64,6 +84,9 @@ export function normalizeError(err: unknown): Error {
  * 重试、错误处理等能力。
  *
  * @typeParam TValues - 表单值类型
+ * @typeParam TName - 当前字段路径类型
+ * @typeParam TResponse - api 的原始返回值类型
+ * @typeParam TOption - 格式化后的字典选项类型
  * @param options - 字典配置选项
  * @param fieldName - 当前字段名，用于 resetOnDepsChange 时清空字段值
  * @returns `{ list, loading, error, loadDict, refresh, mutate }`：响应式选项、
@@ -118,6 +141,9 @@ export const useDictionary = <
 
   /**
    * 使用配置的 formatter 格式化原始响应数据
+   *
+   * @param res - api 返回的原始数据。
+   * @returns 可供 Renderer 使用的选项列表。
    */
   const format = async (res: Awaited<TResponse>): Promise<TOption[]> => {
     if (typeof options?.formatter === "function") {
@@ -135,6 +161,10 @@ export const useDictionary = <
 
   /**
    * 带重试的执行
+   *
+   * @param formValues - 当前表单值快照。
+   * @param signal - 用于中止当前请求或重试等待的信号。
+   * @returns api 返回的原始数据。
    */
   const executeWithRetry = async (
     formValues: TValues,
@@ -167,6 +197,8 @@ export const useDictionary = <
 
   /**
    * 执行 api 函数加载字典选项
+   *
+   * 只有最后一次请求可以写入响应式状态；组件卸载或新请求开始时，旧请求会被忽略。
    */
   const loadDict = async (): Promise<void> => {
     const currentCount = ++requestCount
@@ -231,8 +263,10 @@ export const useDictionary = <
     }
   }
 
+  // 使用当前配置重新执行一次字典请求。
   const refresh = (): Promise<void> => loadDict()
 
+  // 直接替换当前选项列表，不触发远程请求。
   const mutate = (data: TOption[]): void => {
     list.value = data
   }
@@ -279,6 +313,10 @@ export const useDictionary = <
 
 /**
  * 可响应 AbortSignal 的重试等待。
+ *
+ * @param delay - 等待时长，单位为毫秒。
+ * @param signal - 中止等待的 AbortSignal。
+ * @returns 等待完成后 resolve；中止时 reject。
  */
 function waitForRetry(delay: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -313,6 +351,12 @@ function waitForRetry(delay: number, signal: AbortSignal): Promise<void> {
 
 /**
  * 兼容旧的两参数字典 API；显式声明第三参数时才传入 AbortSignal。
+ *
+ * @param values - 当前表单值快照。
+ * @param form - 当前表单实例。
+ * @param api - 字典数据获取函数。
+ * @param signal - 当前请求的 AbortSignal。
+ * @returns api 的同步或异步返回值。
  */
 function callDictionaryApi<TValues extends Values, TResponse>(
   values: TValues,

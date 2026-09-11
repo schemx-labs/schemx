@@ -23,6 +23,7 @@
 <script setup lang="ts">
   import { computed, markRaw, ref } from "vue"
 
+  import CustomRendererForm from "./custom/CustomRendererForm.vue"
   import ArrayValueUpdateForm from "./form/ArrayValueUpdateForm.vue"
   import FormGroupsForm from "./form/FormGroupsForm.vue"
   import SlotsForm from "./slots/SlotsForm.vue"
@@ -45,6 +46,11 @@
       component: markRaw(ArrayValueUpdateForm),
     },
     { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
+    {
+      id: "custom-renderer",
+      name: "自定义子渲染器",
+      component: markRaw(CustomRendererForm),
+    },
   ]
 
   /** 当前激活的 tab id */

@@ -6,11 +6,11 @@
 
 import { mergeSchemxConfig } from "@schemx/core"
 
+import { useConfigProviderContext } from "../context/configProviderContext"
 import { presetRuleRegistry as globalPresetRuleRegistry } from "../utils/presetRuleProvider"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
 
 import { getSchemxAppConfig } from "./appConfig"
-import { getSchemxConfigProvider } from "./providerConfig"
 
 import type { SchemxConfig, Values } from "@schemx/core"
 
@@ -22,12 +22,19 @@ import type { SchemxConfig, Values } from "@schemx/core"
  * @param localConfig - 当前 Form 或 useForm() 的显式配置。
  * @param fallbackConfig - Vue 层更低优先级的回退配置。
  * @returns 已合并 Provider、App 和 Vue 默认 Registry 的配置。
+ *
+ * @example
+ * ```ts
+ * const config = mergeVueSchemxConfig({
+ *   schemaConfig: { readonly: true },
+ * })
+ * ```
  */
 export function mergeVueSchemxConfig<TValues extends Values = Values>(
   localConfig: SchemxConfig<TValues>,
   fallbackConfig: SchemxConfig<TValues> = {}
 ): SchemxConfig<TValues> {
-  const providerConfig = getSchemxConfigProvider()
+  const providerConfig = useConfigProviderContext()
 
   return mergeSchemxConfig(
     localConfig,

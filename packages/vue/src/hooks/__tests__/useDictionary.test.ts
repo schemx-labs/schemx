@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { SchemxDictionary } from "@/types/dictionary"
 
-import { SCHEMX_FORM_INSTANCE_KEY } from "../provideFormContext"
+import { provideFormContext } from "../../context/formContext"
 import { normalizeError, useDictionary, type UseDictionaryReturn } from "../useDictionary"
 
 // ========== normalizeError 单元测试 ==========
@@ -78,13 +78,15 @@ function mountUseDictionary(
     },
   })
 
-  const wrapper = mount(Comp, {
-    global: {
-      provide: {
-        [SCHEMX_FORM_INSTANCE_KEY]: form,
-      },
+  const Provider = defineComponent({
+    setup() {
+      provideFormContext({ form, schemaConfig: {} })
+
+      return () => h(Comp)
     },
   })
+
+  const wrapper = mount(Provider)
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return { wrapper, hookReturn: hookReturn!, form }

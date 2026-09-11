@@ -11,7 +11,9 @@ import { shallowRef } from "vue"
 
 import type { SchemxColComponent } from "../types/layout"
 
-/** 当前全局注册的 Col 组件。 */
+/**
+ * 当前全局注册的 Col 组件。
+ */
 export const registeredColComponent = shallowRef<SchemxColComponent>()
 
 /**

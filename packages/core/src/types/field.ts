@@ -9,107 +9,13 @@
 // 有意保留声明合并能力，以支持 Schema 专属的扩展接口。
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 
+import type { SchemxComponentProps } from "./componentProps"
 import type { SchemxFieldDependencies } from "./dependencies"
 import type { FieldValue, NamePath, ValidationTrigger, Values } from "./form"
 import type { SchemxInstance } from "./instance"
 import type { SchemxLayout } from "./layout"
 import type { SchemxRendererDefinition, SchemxRendererKey } from "./renderer"
 import type { DefinedFieldValue, FieldRules, RequiredConfig } from "./rule"
-
-/**
- * 渲染器组件通用扩展属性
- *
- * 所有渲染器组件都会自动注入的公共 props，
- * 与 {@link SchemxRendererDefinition} 中各组件的专属 Props 交叉后，
- * 作为 `componentProps` 的最终类型。
- */
-export interface SchemxBaseComponentProps<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-  TValue = FieldValue<TValues, TName>,
-> {
-  /**
-   * 是否只读
-   */
-  readonly?: boolean
-  /**
-   * 是否禁用
-   */
-  disabled?: boolean
-  /**
-   * 占位符
-   */
-  placeholder?: string
-  /**
-   * 只读并且值为空时的占位符
-   */
-  readonlyPlaceholder?: string
-  /**
-   * 内容区域对齐方式
-   */
-  align?: "left" | "center" | "right"
-  /**
-   * Field 组件的展示 Props；schema 属性名保留 `formItemProps`。
-   */
-  formItemProps?: SchemxFormItemProps<TValues>
-  /**
-   * Form 表单实例方法
-   */
-  formInstance?: SchemxInstance<TValues>
-  /**
-   * 字段值
-   */
-  value?: TValue
-  /**
-   * 值变化处理
-   */
-  "onUpdate:value"?: (value: TValue) => void
-  /**
-   * 值变化处理
-   */
-  onChange?: (value: TValue) => void
-  /**
-   * 失焦处理
-   */
-  onBlur?: (value: TValue) => void
-}
-
-/**
- * 渲染器组件完整 Props 类型
- *
- * 将 {@link SchemxRendererDefinition} 中对应组件的专属 Props 与 {@link SchemxBaseComponentProps} 交叉，
- * 得到传递给渲染组件的完整属性类型。
- *
- * @typeParam  TKey - 组件类型键
- */
-export type SchemxComponentProps<
-  TValues extends Values = Values,
-  TKey extends string = SchemxRendererKey<TValues>,
-> = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
-  ? SchemxBaseComponentProps<TValues>
-  : TKey extends keyof SchemxRendererDefinition<TValues>
-    ? SchemxRendererDefinition<TValues>[TKey] & SchemxBaseComponentProps<TValues>
-    : SchemxBaseComponentProps<TValues>
-
-/**
- * 由 Form Runtime 注入、不能作为 Renderer 默认值配置的 Props。
- */
-export type SchemxRuntimeInjectedProp =
-  "value" | "onUpdate:value" | "formInstance" | "formItemProps"
-
-/**
- * 按 Renderer 类型配置的静态默认 Props。
- *
- * Renderer key 与 Props 通过 {@link SchemxRendererDefinition} 保持关联；字段自身的
- * `componentProps`、动态依赖结果和 Runtime 受控属性可以继续覆盖这些默认值。
- *
- * @typeParam TValues - 用于解析 Renderer 声明和表单值相关 Props 的表单值类型。
- */
-export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
-  [TKey in SchemxRendererKey<TValues>]: Partial<
-    Omit<SchemxComponentProps<TValues, TKey>, SchemxRuntimeInjectedProp>
-  >
-}>
 
 /**
  * 自定义 Schema 基础字段扩展接口
@@ -129,8 +35,11 @@ export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
  *
  * 扩展属性会作为静态 Schema 元数据保留，并透传到 Field ViewSchema；
  * 声明扩展属性不会自动增加 dependencies 可动态覆盖的属性。
+ *
+ * @typeParam TValues - 当前表单值类型，供适配层回调属性使用。
  */
-export interface SchemxFieldDefinition {}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxFieldDefinition<TValues extends Values = Values> {}
 
 /**
  * 基础字段配置
@@ -144,7 +53,7 @@ export interface SchemxBase<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TKey extends string = SchemxRendererKey<TValues>,
-> extends SchemxFieldDefinition {
+> extends SchemxFieldDefinition<TValues> {
   /**
    * 唯一标识字段配置的键，供框架层使用，业务方无需设置
    *
@@ -179,6 +88,8 @@ export interface SchemxBase<
    * 字段在 24 栅格布局容器中的静态布局配置。
    *
    * Core 会将该配置透传到 Field ViewSchema；具体的布局组件由适配层解释。
+   *
+   * @deprecated 请从 `@schemx/vue` 使用 Vue 布局类型。
    */
   layout?: SchemxLayout
 
@@ -220,6 +131,8 @@ export interface SchemxBase<
    *
    * 该属性只控制渲染层的必填标记，不启用、禁用或改变 `required` 校验。
    * 未配置时，最终值跟随当前有效 `required`；静态或动态显式值优先。
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   showRequiredMark?: boolean
 
@@ -254,7 +167,7 @@ export interface SchemxBase<
    *
    * 组件挂载时写入表单状态，同时作为 `reset()` 的还原目标。
    */
-  initialValue?: FieldValue<TValues, NamePath<TValues>>
+  initialValue?: FieldValue<TValues, TName>
 
   /**
    * 校验规则
@@ -275,6 +188,8 @@ export interface SchemxBase<
    * 标签图标
    *
    * 显示在 label 文本旁的图标标识。
+   *
+   * @deprecated 请使用 UI 适配层提供的字段定义。
    */
   labelIcon?: string
 
@@ -282,6 +197,8 @@ export interface SchemxBase<
    * 标签对齐方式
    *
    * 未设置时继承当前 Form 的 `schemaConfig.labelAlign` 配置。
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   labelAlign?: "left" | "center" | "right"
 
@@ -289,6 +206,8 @@ export interface SchemxBase<
    * 标签位置
    *
    * 未设置时继承当前 Form 的 `schemaConfig.labelPosition` 配置。
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   labelPosition?: "left" | "top" | "right"
 
@@ -296,11 +215,15 @@ export interface SchemxBase<
    * 标签宽度
    *
    * 未设置时继承当前 Form 的 `schemaConfig.labelWidth` 配置。
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   labelWidth?: string
 
   /**
    * 内容区域对齐方式
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   contentAlign?: "left" | "center" | "right"
 
@@ -308,6 +231,8 @@ export interface SchemxBase<
    * 是否在标签后显示冒号
    *
    * 未设置时继承当前 Form 的 `schemaConfig.colon` 配置。
+   *
+   * @deprecated 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   colon?: boolean
 
@@ -322,10 +247,12 @@ export interface SchemxBase<
   /**
    * 值变化触发
    */
-  onChange?: (value: FieldValue<TValues>, form: SchemxInstance<TValues>) => void
+  onChange?: (value: FieldValue<TValues, TName>, form: SchemxInstance<TValues>) => void
 
   /**
    * 失焦触发
+   *
+   * @deprecated 请使用 UI 适配层的字段回调定义。
    */
   onBlur?: (form: SchemxInstance<TValues>) => void
 
@@ -344,14 +271,6 @@ export interface SchemxBase<
    */
   renderer?: never
 }
-
-/**
- * Field 组件的展示 Props。
- */
-export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
-  SchemxBase<TValues>,
-  "componentProps"
->
 
 /**
  * 基础字段配置的精确分布式联合类型。

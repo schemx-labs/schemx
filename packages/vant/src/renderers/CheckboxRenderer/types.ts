@@ -6,7 +6,7 @@
 
 import type { CheckboxProps } from "vant"
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type CheckboxOptionValue = CheckboxProps["name"]
 export type CheckboxValue = CheckboxOptionValue[] | string
@@ -35,7 +35,7 @@ export interface CheckboxOption extends Partial<
 export interface CheckboxRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<
       Omit<CheckboxProps, "modelValue" | "onUpdate:modelValue" | "onChange" | "name">

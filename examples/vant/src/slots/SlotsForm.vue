@@ -298,6 +298,7 @@
       label: "用户名",
       componentType: "text",
       required: true,
+      disabled: true,
     },
     // 2 & 3. Label + Error 插槽演示 — #emailLabel（绿色）+ #emailError（红色）
     {

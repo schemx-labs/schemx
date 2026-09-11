@@ -6,7 +6,7 @@
 
 import type { CalendarProps, FieldProps } from "vant"
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type CalendarValue = string | string[] | Date | Date[]
 export type CalendarFormattedValue = string | string[]
@@ -19,7 +19,7 @@ export type CalendarFormattedValue = string | string[]
 export interface CalendarRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<CalendarProps, "show" | "onUpdate:show">> {
   /** 当前值，支持字符串、字符串数组或 Date 对象 */

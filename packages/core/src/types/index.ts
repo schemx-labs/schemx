@@ -14,6 +14,7 @@ export type {
   ValidationTrigger,
   SchemxFieldRulesMap,
   SchemxSchemaConfig,
+  SchemxSchemaConfigDefinition,
 } from "./form"
 
 export type { SchemxInstance, SchemxFormApi } from "./instance"
@@ -30,21 +31,24 @@ export type {
 
 export type { SchemxRendererKey, SchemxRendererDefinition } from "./renderer"
 
+export type {
+  SchemxBaseComponentProps,
+  SchemxComponentPropsDefinition,
+  SchemxComponentProps,
+  SchemxFormItemProps,
+  SchemxRendererPropsMap,
+} from "./componentProps"
+
 export type { SchemxLayout } from "./layout"
 
 export type {
-  SchemxBaseComponentProps,
-  SchemxComponentProps,
-  SchemxRuntimeInjectedProp,
-  SchemxRendererPropsMap,
   SchemxFieldDefinition,
   SchemxBase,
   SchemxBaseField,
   SchemxExactBaseField,
-  SchemxFormItemProps,
 } from "./field"
 
-export type { SchemxField } from "./schema"
+export type { SchemxField, SchemxSchemaValues, SchemxValuesHint } from "./schema"
 
 export type { SchemxGroupFieldDefinition, SchemxGroupField } from "./group"
 
@@ -54,6 +58,7 @@ export type {
   FieldArrayItemValue,
   FieldArrayChange,
   FieldArrayPath,
+  SchemxDynamicItemValue,
   SchemxDynamicDefinition,
   SchemxDynamicField,
   SchemxDynamicArrayPath,
@@ -81,6 +86,7 @@ export type {
   SchemxDependencyDependencies,
   SchemxDynamicDependencies,
   SchemxFieldDependencies,
+  SchemxFieldDependenciesDefinition,
   SchemxFieldDependenciesConditionKey,
   SchemxFieldDependenciesStaticProps,
   SchemxGroupDependencies,

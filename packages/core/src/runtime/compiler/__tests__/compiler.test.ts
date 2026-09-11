@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import { createCompile } from "../index"
 
-import type { SchemxField, SchemxInstance } from "../../../types"
+import type { SchemxRuntimeSchema as SchemxField } from "../../../types/runtimeSchema"
 
 /**
  * 验证 compiler 直接创建节点，并保留配置 token 缓存语义。
@@ -27,17 +27,13 @@ describe("createCompile().createNode", () => {
   })
 
   it("按 Renderer 默认值、字段 Props 和 Core 受控状态编译组件 Props", () => {
-    const formInstance = { id: "form" } as unknown as SchemxInstance
-
-    const rendererOnChange = () => undefined
+    const formInstance = { id: "form" } as any
 
     const compile = createCompile({
       formInstance,
       rendererProps: {
         input: {
-          align: "left",
           disabled: true,
-          onChange: rendererOnChange,
           placeholder: "Renderer 占位",
           readonly: false,
           readonlyPlaceholder: "Renderer 空值",
@@ -53,7 +49,6 @@ describe("createCompile().createNode", () => {
         readonly: true,
         disabled: false,
         componentProps: {
-          align: "center",
           placeholder: "字段占位",
           readonlyPlaceholder: "字段空值",
         },
@@ -67,9 +62,7 @@ describe("createCompile().createNode", () => {
     }
 
     expect(node.staticSchema.value.componentProps).toMatchObject({
-      align: "right",
       disabled: false,
-      onChange: rendererOnChange,
       placeholder: "字段占位",
       readonly: true,
       readonlyPlaceholder: "字段空值",
@@ -100,7 +93,6 @@ describe("createCompile().createNode", () => {
     }
 
     expect(topLevelNode.staticSchema.value.componentProps).toMatchObject({
-      align: "center",
       placeholder: "顶层字段占位",
       readonlyPlaceholder: "顶层字段空值",
     })

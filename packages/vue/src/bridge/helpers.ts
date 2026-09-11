@@ -33,6 +33,14 @@ export function createVueShallowRef<TValue>(value: TValue): ShallowRef<TValue> {
  *
  * SnapshotSource 的生命周期由所属 FormStateAdapter 统一管理；这里仅保留
  * 同步逻辑，避免每个 Form 级来源重复声明一套订阅函数。
+ *
+ * @param source - 提供快照和订阅能力的 Core Source。
+ * @returns 与 Source 当前快照同步的 Vue shallow Ref。
+ *
+ * @example
+ * ```ts
+ * const values = bindSnapshotSource(stateAdapter.values)
+ * ```
  */
 export function bindSnapshotSource<TValue>(
   source: SnapshotSource<TValue>

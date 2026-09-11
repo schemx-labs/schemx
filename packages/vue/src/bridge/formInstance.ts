@@ -10,14 +10,28 @@
 import type { VueFieldDependency, VueFormDependency, VueSchemxInstance } from "./types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
-/** 创建 Instance 所需的 Runtime 追踪能力。 */
+/**
+ * 创建 Instance 所需的 Runtime 追踪能力。
+ */
 export interface VueFormInstanceDependencies<TValues extends Values> {
+  /**
+   * 追踪单个字段的指定状态依赖。
+   */
   trackField<TName extends NamePath<TValues>>(
     name: TName,
     dependency: VueFieldDependency
   ): void
+  /**
+   * 追踪完整表单值或指定字段值。
+   */
   trackFieldsValue(names?: NamePath<TValues>[]): void
+  /**
+   * 追踪 Form 级聚合状态。
+   */
   trackForm(dependency: VueFormDependency): void
+  /**
+   * 销毁 Runtime 持有的响应式资源。
+   */
   destroy(): void
 }
 
@@ -27,6 +41,11 @@ export interface VueFormInstanceDependencies<TValues extends Values> {
  * @param form - 要包装的原始 Core Form。
  * @param dependencies - 所属 Runtime 提供的依赖追踪与销毁能力。
  * @returns 可被 Vue effect 追踪的 Instance。
+ *
+ * @example
+ * ```ts
+ * const instance = createVueFormInstance(coreForm, runtimeDependencies)
+ * ```
  */
 export function createVueFormInstance<TValues extends Values>(
   form: SchemxInstance<TValues>,

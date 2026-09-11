@@ -5,56 +5,78 @@
  */
 
 :root {
-  /* 主色调 */
+  /*
+   * 主色调
+   */
   --schemx-primary-color: #2f6bff;
   --schemx-primary-color-light: #eaf2ff;
 
-  /* 文本颜色 */
+  /*
+   * 文本颜色
+   */
   --schemx-text-color: #323233;
   --schemx-text-color-secondary: #666666;
   --schemx-text-color-placeholder: #c8c9cc;
 
-  /* 只读 / 禁用 */
+  /*
+   * 只读 / 禁用
+   */
   --schemx-readonly-color: #969799;
   --schemx-disabled-color: #c8c9cc;
   --schemx-disabled-opacity: 0.6;
 
-  /* 背景颜色 */
+  /*
+   * 背景颜色
+   */
   --schemx-background-color: #ffffff;
   --schemx-background-color-light: #f3f4f6;
 
-  /* 边框颜色 */
+  /*
+   * 边框颜色
+   */
   --schemx-border-color: #ebedf0;
 
-  /* 状态颜色 */
+  /*
+   * 状态颜色
+   */
   --schemx-danger-color: #ee0a24;
   --schemx-success-color: #07c160;
   --schemx-warning-color: #ff976a;
 
-  /* 间距 */
+  /*
+   * 间距
+   */
   --schemx-padding-base: 4px;
   --schemx-padding-xs: 8px;
   --schemx-padding-sm: 12px;
   --schemx-padding-md: 16px;
   --schemx-padding-lg: 24px;
 
-  /* 字体大小 */
+  /*
+   * 字体大小
+   */
   --schemx-font-size-xs: 10px;
   --schemx-font-size-sm: 12px;
   --schemx-font-size-md: 14px;
   --schemx-font-size-lg: 16px;
 
-  /* 圆角 */
+  /*
+   * 圆角
+   */
   --schemx-border-radius-xs: 2px;
   --schemx-border-radius-sm: 4px;
   --schemx-border-radius-md: 8px;
   --schemx-border-radius-lg: 12px;
 
-  /* 表单容器 */
+  /*
+   * 表单容器
+   */
   --schemx-form-padding-bottom: 15px;
   --schemx-schemas-padding-inline: 6px;
 
-  /* 表单项 */
+  /*
+   * 表单项
+   */
   --schemx-field-gap: 16px;
   --schemx-field-line-height: 1.6;
   --schemx-field-error-line-height: 1.5714285714285714;
@@ -67,7 +89,9 @@
   --schemx-content-align: right;
   --schemx-error-align: right;
 
-  /* 分组 */
+  /*
+   * 分组
+   */
   --schemx-group-arrow-size: 5px;
   --schemx-group-arrow-duration: 0.2s;
 }

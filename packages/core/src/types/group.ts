@@ -54,6 +54,8 @@ export interface SchemxGroupField<
   key?: string
   /**
    * 分组标签
+   *
+   * @deprecated Group 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   label: string
   /**
@@ -65,6 +67,8 @@ export interface SchemxGroupField<
    * Group 在 24 栅格布局容器中的静态布局配置。
    *
    * Core 会将该配置透传到 Group ViewSchema；具体的布局组件由适配层解释。
+   *
+   * @deprecated 请从 UI 适配层使用 Group 布局定义。
    */
   layout?: SchemxLayout
 
@@ -88,22 +92,32 @@ export interface SchemxGroupField<
   dependencies?: SchemxGroupDependencies<TValues>
   /**
    * 是否可折叠
+   *
+   * @deprecated Group 交互配置由 UI 适配层拥有；兼容期间仍保留。
    */
   collapsible?: boolean
   /**
    * 默认是否折叠
+   *
+   * @deprecated Group 交互配置由 UI 适配层拥有；兼容期间仍保留。
    */
   defaultCollapsed?: boolean
   /**
    * 受控折叠状态。
+   *
+   * @deprecated Group 交互配置由 UI 适配层拥有；兼容期间仍保留。
    */
   collapsed?: boolean
   /**
    * 用户切换折叠状态后的回调。
+   *
+   * @deprecated Group 交互配置由 UI 适配层拥有；兼容期间仍保留。
    */
   onCollapsedChange?: (collapsed: boolean) => void
   /**
    * 折叠时是否卸载后代 Renderer，默认保持现有行为 `true`。
+   *
+   * @deprecated Group 交互配置由 UI 适配层拥有；兼容期间仍保留。
    */
   destroyOnCollapse?: boolean
 }

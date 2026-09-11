@@ -16,23 +16,41 @@ import { resolveSlot } from "../../utils"
 import type { SchemxGroupSlotProps } from "../../types"
 import type { SchemxViewGroupSchema, Values } from "@schemx/core"
 
-/** Group 插槽渲染所需的状态与依赖。 */
+/**
+ * Group 插槽渲染所需的状态与依赖。
+ */
 interface GroupSlotRendererOptions<TValues extends Values = Values> {
-  /** 当前分组 ViewSchema。 */
+  /**
+   * 当前分组 ViewSchema。
+   */
   schema: SchemxViewGroupSchema<TValues>
-  /** 当前是否收起。 */
+  /**
+   * 当前是否收起。
+   */
   collapsed: boolean
-  /** 当前分组是否可收起。 */
+  /**
+   * 当前分组是否可收起。
+   */
   collapsible: boolean
-  /** 当前分组是否禁用。 */
+  /**
+   * 当前分组是否禁用。
+   */
   disabled: boolean
-  /** 当前分组是否只读。 */
+  /**
+   * 当前分组是否只读。
+   */
   readonly: boolean
-  /** 切换分组收起状态。 */
+  /**
+   * 切换分组收起状态。
+   */
   toggle: () => void
-  /** 父组件传入的所有具名插槽。 */
+  /**
+   * 父组件传入的所有具名插槽。
+   */
   slots: Slots
-  /** 默认子节点渲染函数。 */
+  /**
+   * 默认子节点渲染函数。
+   */
   renderChildren: () => VNodeChild
 }
 
@@ -41,6 +59,15 @@ interface GroupSlotRendererOptions<TValues extends Values = Values> {
  *
  * `Header` 完全接管 Header 内部内容；`Label` 只替换默认标题；`Content`
  * 只替换 Body 内的默认子节点布局。
+ *
+ * @param options - Group 插槽渲染所需的状态、插槽和子节点渲染器。
+ * @returns Group Header、Body 渲染函数及 Header 是否存在的标记。
+ *
+ * @example
+ * ```ts
+ * const renderers = createGroupSlotRenderers(options)
+ * renderers.renderHeaderContent()
+ * ```
  */
 export function createGroupSlotRenderers<TValues extends Values = Values>(
   options: GroupSlotRendererOptions<TValues>

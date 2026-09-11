@@ -15,7 +15,9 @@
   min-width: 0;
 }
 
-/** Row 包装后保持原有根级 Field/Group 的末项间距行为。 */
+/**
+ * Row 包装后保持原有根级 Field/Group 的末项间距行为。
+ */
 .schemx
   > .schemx-row:has(+ .schemx-actions)
   > .schemx-col:last-child
@@ -27,7 +29,9 @@
   margin-bottom: 0;
 }
 
-/** Row 包装后保持 Group 子项最后一个字段的底部分隔线规则。 */
+/**
+ * Row 包装后保持 Group 子项最后一个字段的底部分隔线规则。
+ */
 .schemx-group__body
   > .schemx-row
   > .schemx-col:last-child

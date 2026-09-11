@@ -1,3 +1,9 @@
+/**
+ * Vue 表单组件与表单操作的公开类型。
+ *
+ * @module types/form
+ */
+
 import type { ClassValue, StyleValue } from "vue"
 
 import type { SchemxVueConfig } from "./layout"
@@ -24,17 +30,64 @@ import type {
  * 让运行时 Props 推导可静态解析，同时避免把这些配置误判为 fallthrough attrs。
  */
 interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
+  /**
+   * 表单级必填校验配置；字段未覆盖时作为字段默认值。
+   */
   required?: RequiredConfig<DefinedFieldValue<TValues, NamePath<TValues>>>
+
+  /**
+   * 是否将字段渲染为只读状态。
+   */
   readonly?: boolean
+
+  /**
+   * 是否禁用字段交互。
+   */
   disabled?: boolean
+
+  /**
+   * 是否渲染字段。
+   */
   visible?: boolean
+
+  /**
+   * 字段标签图标标识。
+   */
   labelIcon?: string
+
+  /**
+   * 字段标签的水平对齐方式。
+   */
   labelAlign?: "left" | "center" | "right"
+
+  /**
+   * 字段标签位于控件左侧、顶部或右侧。
+   */
   labelPosition?: "left" | "top" | "right"
+
+  /**
+   * 字段标签宽度。
+   */
   labelWidth?: string
+
+  /**
+   * 字段内容区域的水平对齐方式。
+   */
   contentAlign?: "left" | "center" | "right"
+
+  /**
+   * 字段校验触发时机。
+   */
   validationTrigger?: ValidationTrigger | ValidationTrigger[]
+
+  /**
+   * 是否在字段标签后显示冒号。
+   */
   colon?: boolean
+
+  /**
+   * 是否显示必填视觉标记；不改变实际校验规则。
+   */
   showRequiredMark?: boolean
 }
 
@@ -56,11 +109,16 @@ export interface SchemxFormActionConfig {
 
 /**
  * 内置表单操作按钮的启用配置。
+ *
+ * `true` 使用默认按钮配置，`false` 隐藏按钮，对象形式用于覆盖按钮文案和属性。
  */
 export type SchemxFormAction = boolean | SchemxFormActionConfig
 
 /**
- * schemx 组件 Props
+ * schemx 表单组件 Props。
+ *
+ * `schemaConfig` 的字段以扁平 Props 形式暴露；Core 的回调、生命周期、性能和
+ * Renderer 配置则通过继承的类型继续提供。
  *
  * @typeParam TValues - 表单值类型
  */

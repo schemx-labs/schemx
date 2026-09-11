@@ -72,6 +72,7 @@ docs/*
 !docs/core-major-refactor-plan.md
 !docs/group-state-extension-design.md
 !docs/release-version-selection-design.md
+!docs/schema-type-inference.md
 !docs/store-refactor-plan.md
 unpackage/
 .packs

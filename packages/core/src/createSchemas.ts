@@ -62,7 +62,11 @@ import { createSignal } from "./reactivity"
 
 import type { ReadonlySignal } from "./reactivity"
 import type { Values } from "./types/form"
-import type { SchemxField } from "./types/schema"
+import type {
+  SchemxField,
+  SchemxSchemaValues,
+  SchemxValuesHint,
+} from "./types/schema"
 
 /**
  * schema source 变化订阅回调。
@@ -100,7 +104,7 @@ export type SchemxSchemasListener<TValues extends Values = Values> = (
  * const dispose = schemas.subscribe(next => console.log(next))
  * ```
  */
-export interface SchemxSchemas<TValues extends Values = Values> {
+export interface SchemxSchemas<TValues extends Values = Values> extends SchemxValuesHint<TValues> {
   /**
    * 当前 schema 列表的只读 signal。
    */
@@ -141,6 +145,12 @@ export interface SchemxSchemas<TValues extends Values = Values> {
 export type SchemxSchemasInput<TValues extends Values = Values> =
   SchemxField<TValues>[] | SchemxSchemas<TValues>
 
+type SchemxSchemaArrayWithValues<TSchema extends readonly unknown[]> = [
+  SchemxSchemaValues<TSchema[number]>,
+] extends [never]
+  ? never
+  : TSchema
+
 /**
  * 创建空 schema source。
  *
@@ -176,8 +186,12 @@ export function createSchemas<TValues extends Values = Values>(): SchemxSchemas<
  * const form = createForm({ schemas })
  * ```
  */
+export function createSchemas<TSchema extends readonly unknown[]>(
+  schemas: SchemxSchemaArrayWithValues<TSchema>
+): SchemxSchemas<SchemxSchemaValues<TSchema[number]>>
+
 export function createSchemas<TValues extends Values = Values>(
-  schemas: readonly SchemxField<TValues>[]
+  schemas: readonly SchemxField<NoInfer<TValues>>[]
 ): SchemxSchemas<TValues>
 
 /**

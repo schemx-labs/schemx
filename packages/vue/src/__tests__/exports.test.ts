@@ -8,6 +8,8 @@ describe("@schemx/vue 根入口", () => {
       createFieldContext: expect.any(Function),
       createFormConfigContext: expect.any(Function),
       createFormContext: expect.any(Function),
+      provideFormContext: expect.any(Function),
+      useFormContextValue: expect.any(Function),
       useStableRef: expect.any(Function),
       useViewSchemas: expect.any(Function),
       presetRuleRegistry: expect.any(Object),

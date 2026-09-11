@@ -42,6 +42,24 @@ export const FIELD_DYNAMIC_OVERRIDE_KEYS = [
 ] as const
 
 /**
+ * 获取当前 dependencies 中需要解析的属性键。
+ *
+ * Core 内置属性保留固定类型；由适配层通过 Definition 声明合并增加的动态属性
+ * 通过运行时键自动纳入解析，不需要 Core 认识具体字段名。
+ */
+function getFieldDynamicOverrideKeys(dependencies: object): readonly string[] {
+  const keys = new Set<string>(FIELD_DYNAMIC_OVERRIDE_KEYS)
+
+  for (const key of Object.keys(dependencies)) {
+    if (key !== "triggerFields" && key !== "trigger") {
+      keys.add(key)
+    }
+  }
+
+  return [...keys]
+}
+
+/**
  * 创建字段 dependencies effect 的运行时依赖。
  *
  * @typeParam TValues - 表单值类型。
@@ -93,7 +111,10 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
     return
   }
 
-  createDependencySchedulerEffect<TValues, FieldDynamicOverrides<TValues>>({
+  createDependencySchedulerEffect<
+    TValues,
+    FieldDynamicOverrides<TValues> & Record<string, unknown>
+  >({
     context,
     triggerFields,
     taskId,
@@ -101,7 +122,7 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
     run: () =>
       resolveDependencyProps<TValues, FieldDynamicOverrides<TValues>>(
         dependencies,
-        FIELD_DYNAMIC_OVERRIDE_KEYS,
+        getFieldDynamicOverrideKeys(dependencies),
         context.formApi,
         `字段 "${String(node.name.value)}"`
       ),

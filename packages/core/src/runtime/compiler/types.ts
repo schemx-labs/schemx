@@ -8,12 +8,12 @@
 
 import type {
   NamePath,
-  SchemxField,
   SchemxInstance,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
 } from "../../types"
+import type { SchemxRuntimeSchema as SchemxField } from "../../types/runtimeSchema"
 import type { SchemaNode, Scope } from "../node"
 
 /**
@@ -34,9 +34,7 @@ export interface CompileOptions<TValues extends Values> {
    * 按 Renderer 类型配置的静态默认 Props。
    */
   rendererProps?: SchemxRendererPropsMap<TValues>
-  /**
-   * 表单实例方法，用于在编译时提供表单操作能力。
-   */
+  /** 当前 Form 实例，注入到 Renderer 的公共 Props。 */
   formInstance: SchemxInstance<TValues>
   /**
    * 是否为 Node 创建 diagnostics Signal。

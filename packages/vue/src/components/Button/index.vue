@@ -4,9 +4,21 @@
   import type { SchemxButtonSize } from "./types"
 
   interface Props {
+    /**
+     * 是否显示加载状态；加载时按钮不可点击。
+     */
     loading?: boolean
+    /**
+     * 加载状态下替换按钮内容的文本。
+     */
     loadingText?: string
+    /**
+     * 是否禁用按钮。
+     */
     disabled?: boolean
+    /**
+     * 按钮尺寸。
+     */
     size?: SchemxButtonSize
   }
 
@@ -19,10 +31,13 @@
     size: "medium",
   })
 
+  // 透传给原生 button 的非组件 Props 属性。
   const attrs = useAttrs()
 
+  // loading 或 disabled 任一为真时锁定按钮交互。
   const isDisabled = computed(() => props.disabled || props.loading)
 
+  // 根据按钮尺寸生成内置样式类。
   const buttonClass = computed(() => ["schemx-button", `schemx-button--${props.size}`])
 </script>
 

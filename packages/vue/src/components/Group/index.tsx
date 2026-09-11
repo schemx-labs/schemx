@@ -8,7 +8,7 @@
  */
 
 import { computed, defineComponent, getCurrentInstance, PropType, ref, watch } from "vue"
-import type { ClassValue, StyleValue, VNodeChild } from "vue"
+import type { ClassValue, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
@@ -18,14 +18,24 @@ import Field from "../Field"
 
 import { createGroupSlotRenderers } from "./slot"
 
+import type { SchemxGroupSlots } from "../../types/field"
 import type { SchemxViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
-/** Group Props。 */
+/**
+ * Group Props。
+ */
 export interface SchemxGroupProps {
+  /**
+   * 当前分组的已解析 ViewSchema。
+   */
   schema: SchemxViewGroupSchema
-  /** 父级传入的 class，会与内部和 Schema class 合并。 */
+  /**
+   * 父级传入的 class，会与内部和 Schema class 合并。
+   */
   class?: ClassValue
-  /** 父级传入的 style，会在 Schema style 之前合并。 */
+  /**
+   * 父级传入的 style，会在 Schema style 之前合并。
+   */
   style?: StyleValue
   /**
    * 内部 SchemaList 递归渲染子节点的回调；未提供时使用 Group 自身的兼容渲染器。
@@ -59,6 +69,8 @@ const Group = defineComponent({
     },
   },
 
+  slots: Object as SlotsType<SchemxGroupSlots>,
+
   setup(props, { attrs, slots }) {
     const internalCollapsed = ref(Boolean(props.schema.defaultCollapsed))
 
@@ -77,6 +89,7 @@ const Group = defineComponent({
       }
     )
 
+    // 切换非受控 Group 的折叠状态，并通知受控回调。
     const toggle = () => {
       if (!props.schema.collapsible || props.schema.disabled) {
         return
@@ -112,6 +125,12 @@ const Group = defineComponent({
 
       const bodyId = `${idBase}-body`
 
+      /**
+       * 递归渲染 Group 的子字段、子分组和 Dynamic。
+       *
+       * @param child - 当前 Group 的子 ViewSchema。
+       * @returns 对应子节点的 VNode。
+       */
       const renderChild = (child: SchemxViewSchema): VNodeChild => {
         if (isViewDynamicSchema(child)) {
           if (child.visible === false) {

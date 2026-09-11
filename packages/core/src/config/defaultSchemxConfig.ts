@@ -35,41 +35,6 @@ export const defaultSchemxConfig = Object.freeze({
   visible: true,
 
   /**
-   * 标签图标
-   *
-   * 显示在 label 文本旁的图标标识。
-   */
-  labelIcon: "",
-
-  /**
-   * 标签对齐方式
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelAlign` 配置。
-   */
-  labelAlign: "left",
-
-  /**
-   * 标签位置
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelPosition` 配置。
-   */
-  labelPosition: "left",
-
-  /**
-   * 标签宽度
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelWidth` 配置。
-   */
-  labelWidth: "auto",
-
-  /**
-   * 内容对齐方式
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.contentAlign` 配置。
-   */
-  contentAlign: "right",
-
-  /**
    * 校验触发时机
    *
    * 支持单个或多个触发时机组合，如 `'change'`、`'blur'`、`['change', 'blur']`。
@@ -77,20 +42,6 @@ export const defaultSchemxConfig = Object.freeze({
    */
   validationTrigger: "blur",
 
-  /**
-   * 是否在标签后显示冒号
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.colon` 配置。
-   */
-  colon: true,
-
-  /**
-   * 是否显示必填视觉标记（静态默认值）
-   *
-   * 未设置时运行时回退到 `Boolean(required)`（跟随必填状态）。
-   * 全局或字段显式设置后覆盖该回退行为。
-   */
-  showRequiredMark: undefined as boolean | undefined,
 } as const)
 
 /**

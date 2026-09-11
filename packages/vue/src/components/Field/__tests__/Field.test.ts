@@ -10,20 +10,25 @@
 
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
 import { defineComponent, h, nextTick } from "vue"
+import type { Component } from "vue"
 
 import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
-import { WithRemoteOptions } from "@/hocs/withRemoteOptions"
 import {
   type FormContextProps,
   SCHEMX_FORM_CONFIG_KEY,
-} from "@/hooks/provideFormConfigContext"
-import { SCHEMX_FORM_INSTANCE_KEY } from "@/hooks/provideFormContext"
+  SCHEMX_FORM_INSTANCE_KEY,
+} from "@/context/formContext"
+import { WithRemoteOptions } from "@/hocs/withRemoteOptions"
 
 import Field from "../index"
 
+import type {
+  SchemxFieldContentSlotProps,
+  SchemxFieldSlotValue,
+} from "../../../types/field"
 import type { SchemxBaseField } from "@schemx/core"
 
 /**
@@ -146,7 +151,7 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input" as any, InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mount(Field as Component, {
       props: {
         schema: form.getViewSchemas()[0],
         class: "parent-website",
@@ -156,8 +161,8 @@ describe("Field 集成测试", () => {
         "data-testid": "website-wrapper",
       },
       slots: {
-        website: (slotProps: { value?: string }) =>
-          h("span", { "data-testid": "website-slot" }, slotProps.value),
+        website: (slotProps: SchemxFieldSlotValue) =>
+          h("span", { "data-testid": "website-slot" }, String(slotProps.value ?? "")),
       },
       global: {
         provide: {
@@ -187,7 +192,7 @@ describe("Field 集成测试", () => {
   })
 
   it("应渲染字段各区域插槽", () => {
-    const slotProps: Record<string, Record<string, unknown>> = {}
+    const slotProps: Record<string, SchemxFieldSlotValue> = {}
 
     const form = createForm({
       initialValues: { "profile.name": "Schemx" },
@@ -202,30 +207,32 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input", InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mount(Field as Component, {
       props: { schema: form.getViewSchemas()[0] },
       slots: {
-        "profile.nameLabel": (props: Record<string, unknown>) => {
+        "profile.nameLabel": (props: SchemxFieldSlotValue) => {
           slotProps.label = props
 
           return h("span", { "data-testid": "label-slot" })
         },
-        "profile.nameBefore": (props: Record<string, unknown>) => {
+        "profile.nameBefore": (props: SchemxFieldSlotValue) => {
           slotProps.before = props
 
           return h("span", { "data-testid": "before-slot" })
         },
-        "profile.nameContent": (props: Record<string, unknown>) => {
+        "profile.nameContent": (props: SchemxFieldSlotValue) => {
           slotProps.content = props
 
-          return h("div", { "data-testid": "content-slot" }, [props.columnElement as any])
+          return h("div", { "data-testid": "content-slot" }, [
+            (props as SchemxFieldContentSlotProps).columnElement,
+          ])
         },
-        "profile.nameAfter": (props: Record<string, unknown>) => {
+        "profile.nameAfter": (props: SchemxFieldSlotValue) => {
           slotProps.after = props
 
           return h("span", { "data-testid": "after-slot" })
         },
-        "profile.nameError": (props: Record<string, unknown>) => {
+        "profile.nameError": (props: SchemxFieldSlotValue) => {
           slotProps.error = props
 
           return h("span", { "data-testid": "error-slot" })
@@ -248,8 +255,8 @@ describe("Field 集成测试", () => {
       expect(slotProps[name].form).toBe(form)
     }
 
-    expect(slotProps.content.columnElement).toBeDefined()
-    expect(slotProps.error.errors).toEqual([])
+    expect((slotProps.content as SchemxFieldContentSlotProps).columnElement).toBeDefined()
+    expect((slotProps.error as { errors: readonly string[] }).errors).toEqual([])
 
     wrapper.unmount()
     form.destroy()
@@ -743,6 +750,84 @@ describe("Field 集成测试", () => {
 
     expect(validateSpy).toHaveBeenCalledTimes(2)
     expect(validateSpy).toHaveBeenCalledWith("title")
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("Vue Field 应调用 Schema 顶层 onChange 和 onBlur 回调", async () => {
+    const onChange = vi.fn()
+
+    const onBlur = vi.fn()
+
+    const schema: SchemxBaseField = {
+      name: "title",
+      label: "标题",
+      componentType: "probe" as any,
+      onChange,
+      onBlur,
+    }
+
+    const form = createForm({
+      initialValues: { title: "旧标题" },
+      schemas: [schema as any],
+    })
+
+    form.registerRenderer("probe" as any, ProbeRenderer)
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    const input = wrapper.get('[data-testid="probe-renderer"]')
+
+    await input.setValue("新标题")
+    await input.trigger("blur")
+
+    expect(onChange).toHaveBeenCalledWith("新标题", form)
+    expect(onBlur).toHaveBeenCalledWith(form)
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("labelIcon 应渲染在标签文本之前", async () => {
+    const form = createForm({
+      schemas: [
+        {
+          name: "title",
+          label: "标题",
+          labelIcon: "!",
+          colon: false,
+          componentType: "input" as any,
+        },
+      ],
+    })
+
+    form.registerRenderer("input" as any, InputRenderer)
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    await nextTick()
+
+    const label = wrapper.get(".schemx-field__label")
+
+    expect(label.get(".schemx-field__label-icon").text()).toBe("!")
+    expect(label.get(".schemx-field__label-text").text()).toBe("标题")
 
     wrapper.unmount()
     form.destroy()

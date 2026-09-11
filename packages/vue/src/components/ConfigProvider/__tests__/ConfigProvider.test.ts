@@ -5,7 +5,7 @@ import { mount, type VueWrapper } from "@vue/test-utils"
 import { describe, expect, it } from "vitest"
 
 import SchemxForm from "../../../form.vue"
-import { useFormConfigContext } from "../../../hooks/provideFormConfigContext"
+import { useFormConfigContext } from "../../../context/formContext.js"
 import { useForm } from "../../../hooks/useForm"
 import ConfigProvider from "../index"
 

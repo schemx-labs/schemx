@@ -1,3 +1,9 @@
+/**
+ * Vue 渲染层使用的 Schema 位置与 DOM key 辅助函数。
+ *
+ * @module utils/helpers
+ */
+
 import { isViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
 /**
@@ -17,6 +23,10 @@ import { isViewGroupSchema, SchemxViewSchema } from "@schemx/core"
  *
  * getSectionPosition(list, 'a')
  * // => { found: true, isFirst: true, isLast: false }
+ *
+ * @param list - 当前层级的 ViewSchema 列表。
+ * @param currentKey - 要定位的 ViewSchema key。
+ * @returns 当前项是否存在以及它在所在区段中的首尾位置。
  */
 export function getSectionPosition<TItem extends SchemxViewSchema>(
   list: TItem[],
@@ -49,7 +59,17 @@ export function getSectionPosition<TItem extends SchemxViewSchema>(
   }
 }
 
-/** 将 NamePath 转换为整体字段与 Renderer 子插槽使用的键。 */
+/**
+ * 将 NamePath 转换为整体字段与 Renderer 子插槽使用的键。
+ *
+ * @param name - 字符串字段名或由路径片段组成的字段名。
+ * @returns 使用点号连接的稳定字段键。
+ *
+ * @example
+ * ```ts
+ * normalizeNameKey(["user", "name"]) // "user.name"
+ * ```
+ */
 export function normalizeNameKey(name: unknown): string {
   if (Array.isArray(name)) {
     return name.map((part) => String(part)).join(".")
@@ -58,15 +78,39 @@ export function normalizeNameKey(name: unknown): string {
   return String(name)
 }
 
-/** 将分组 key 转换为可用于 DOM ID 的安全字符串。 */
+/**
+ * 将分组 key 转换为可用于 DOM ID 的安全字符串。
+ *
+ * @param key - Schema 或 Group 的原始 key。
+ * @returns 仅包含字母、数字、下划线和连字符的字符串。
+ *
+ * @example
+ * ```ts
+ * normalizeId("address.city") // "address-city"
+ * ```
+ */
 export function normalizeId(key: string): string {
   return String(key).replace(/[^a-zA-Z0-9_-]/g, "-")
 }
 
+/**
+ * 判断项是否为参与区段首尾计算的可见普通字段。
+ *
+ * @param item - 待判断的 ViewSchema。
+ * @returns 项存在、可见且不是 Group 时返回 `true`。
+ */
 function isPositionItem<TItem extends SchemxViewSchema>(item?: TItem) {
   return !!item && !isViewGroupSchema(item) && item.visible !== false
 }
 
+/**
+ * 从当前项向指定方向查找同一区段内的可定位字段。
+ *
+ * @param list - 当前层级的 ViewSchema 列表。
+ * @param startIndex - 当前项的索引。
+ * @param step - 向前或向后查找的步长。
+ * @returns 找到同一区段中的可见普通字段时返回 `true`。
+ */
 function hasPositionItemInSection<TItem extends SchemxViewSchema>(
   list: TItem[],
   startIndex: number,

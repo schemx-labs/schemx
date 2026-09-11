@@ -7,27 +7,26 @@
 -->
 
 <script lang="ts" setup generic="TValues extends Values = Values">
-  import { computed, nextTick, reactive, toRaw, useSlots, watch } from "vue"
+  import { computed, nextTick, toRaw, useSlots, watch } from "vue"
 
   import {
     defaultSchemxConfigKeys,
     getGlobalSchemxConfig,
     isSchemxSchemas,
-    mergeAndResolveSchemxConfig,
     mergeSchemxConfig,
+    resolveSchemxConfig,
   } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import Button from "./components/Button"
   import SchemaList from "./components/SchemaList"
-  import { getSchemxAppConfig, getSchemxConfigProviderRef } from "./config"
+  import { getSchemxAppConfig } from "./config"
   import {
-    createFormConfigContext,
-    createFormContext,
-    useForm,
-    useFormSelector,
-    useViewSchemas,
-  } from "./hooks"
+    defaultVueSchemaConfig,
+    defaultVueSchemaConfigKeys,
+  } from "./config/defaultVueSchemaConfig"
+  import { provideFormContext, useConfigProviderContextRef } from "./context"
+  import { useForm, useFormSelector, useViewSchemas } from "./hooks"
   import { registeredColComponent } from "./utils/colProvider"
   import { getSectionPosition } from "./utils/helpers"
 
@@ -96,34 +95,47 @@
   const slots = useSlots()
 
   /**
+   * Core 兼容键与 Vue 展示键的合并集合。
+   */
+  const schemaConfigKeys = [
+    ...defaultSchemxConfigKeys,
+    ...defaultVueSchemaConfigKeys,
+  ] as (keyof SchemxSchemaConfig)[]
+
+  /**
    * 提取需要同步到 Core 的表单级 schema 配置。
    */
   const pickSchemaConfig = (): Partial<SchemxSchemaConfig> => {
     // Vue 保留 `required` 对当前 TValues 的泛型约束；Core 的表单级配置使用
     // unknown 表示任意字段值。运行时该回调只会接收当前 Form 的字段值，因此在
     // Vue 到 Core 的适配边界收窄为 Core 配置类型。
-    const schemaConfig = pick(
-      props,
-      defaultSchemxConfigKeys
-    ) as Partial<SchemxSchemaConfig>
+    const schemaConfig = pick(props, schemaConfigKeys) as Partial<SchemxSchemaConfig>
 
     return Object.fromEntries(
       Object.entries(schemaConfig).filter(([, value]) => value !== undefined)
     ) as Partial<SchemxSchemaConfig>
   }
 
+  // 是否由调用方传入并负责生命周期的外部 Form。
   const isExternalForm = props.form !== undefined
 
+  // 当前组件显式传入的、待同步到 Core 的 schema 配置。
   const schemaConfigProps = computed(pickSchemaConfig)
 
+  // 当前 Vue App 的安装级配置快照。
   const appConfig = getSchemxAppConfig()
 
-  const providerConfig = getSchemxConfigProviderRef()
+  // 当前组件树中最近 Provider 的响应式配置。
+  const providerConfig = useConfigProviderContextRef()
 
-  /** Core 全局配置只在内部 Form 创建时取快照，后续变更不影响已有实例。 */
+  /**
+   * Core 全局配置只在内部 Form 创建时取快照，后续变更不影响已有实例。
+   */
   const coreConfig = getGlobalSchemxConfig()
 
-  /** 保持 SchemxForm 既有默认行为、且允许 Provider/App 覆盖的最低优先级配置。 */
+  /**
+   * 保持 SchemxForm 既有默认行为、且允许 Provider/App 覆盖的最低优先级配置。
+   */
   const formFallbackConfig: SchemxConfig<TValues> = {
     schemaConfig: {
       visible: true,
@@ -131,64 +143,51 @@
     },
   }
 
-  /** 计算提供给后代 Field 的局部配置；不主动展开 Core 固定默认值。 */
-  const contextSchemaConfig = computed<Partial<SchemxSchemaConfig>>(() => {
-    const mergedConfig = isExternalForm
+  /**
+   * 合并配置来源；外部 Form 只接收组件显式配置与组件默认行为。
+   */
+  const mergedConfig = computed(() =>
+    isExternalForm
       ? mergeSchemxConfig({ schemaConfig: schemaConfigProps.value }, formFallbackConfig)
       : mergeSchemxConfig(
           { schemaConfig: schemaConfigProps.value },
           (providerConfig?.value as SchemxConfig<TValues> | undefined) ?? {},
           appConfig as SchemxConfig<TValues>,
-          formFallbackConfig
+          formFallbackConfig,
+          coreConfig as SchemxConfig<TValues>
         )
-
-    return mergedConfig.schemaConfig ?? {}
-  })
-
-  /** 计算内部 Form 当前完整生效的配置，用于撤销局部覆盖和响应 Provider 变化。 */
-  const resolvedSchemaConfig = computed<SchemxSchemaConfig>(
-    () =>
-      mergeAndResolveSchemxConfig<TValues>(
-        { schemaConfig: schemaConfigProps.value },
-        (providerConfig?.value as SchemxConfig<TValues> | undefined) ?? {},
-        appConfig as SchemxConfig<TValues>,
-        formFallbackConfig,
-        coreConfig as SchemxConfig<TValues>
-      ).schemaConfig
   )
-
-  const initialContextSchemaConfig = contextSchemaConfig.value
-
-  const initialCoreSchemaConfig = isExternalForm
-    ? initialContextSchemaConfig
-    : resolvedSchemaConfig.value
 
   /**
-   * 保存供后代组件读取的响应式表单级 schema 配置。
+   * 为后代 Field 补充 Vue 展示默认值。
    */
-  const formSchemaConfig = reactive<Partial<SchemxSchemaConfig>>(
-    initialContextSchemaConfig
+  const contextSchemaConfig = computed<Partial<SchemxSchemaConfig>>(() => ({
+    ...defaultVueSchemaConfig,
+    ...mergedConfig.value.schemaConfig,
+  }))
+
+  /**
+   * 计算内部 Form 当前完整生效的配置，用于撤销局部覆盖和响应 Provider 变化。
+   */
+  const resolvedSchemaConfig = computed<SchemxSchemaConfig>(
+    () => resolveSchemxConfig(mergedConfig.value).schemaConfig
   )
 
+  /**
+   * 判断配置对象是否显式包含指定 key。
+   *
+   * @param config - 待检查的配置对象。
+   * @param key - 要检查的配置 key。
+   * @returns 配置对象自身包含该 key 时返回 `true`。
+   */
   const hasSchemaConfigKey = (
     config: Partial<SchemxSchemaConfig>,
     key: keyof SchemxSchemaConfig
   ): boolean => Object.prototype.hasOwnProperty.call(config, key)
 
-  /** 用最新 Context 配置替换旧快照，确保撤销字段不会残留。 */
-  const replaceFormSchemaConfig = (
-    nextSchemaConfig: Partial<SchemxSchemaConfig>
-  ): void => {
-    for (const key of defaultSchemxConfigKeys) {
-      if (!hasSchemaConfigKey(nextSchemaConfig, key)) {
-        delete formSchemaConfig[key]
-      }
-    }
-
-    Object.assign(formSchemaConfig, nextSchemaConfig)
-  }
-
-  /** 当前 Form 使用的 Col，按 Form、Provider、App、全局注册顺序解析。 */
+  /**
+   * 当前 Form 使用的 Col，按 Form、Provider、App、全局注册顺序解析。
+   */
   const resolvedColComponent = computed(
     () =>
       props.colComponent ??
@@ -196,13 +195,6 @@
       appConfig.colComponent ??
       registeredColComponent.value
   )
-
-  /**
-   * 创建 FormContext 上下文
-   *
-   * 为子组件提供表单配置信息。
-   */
-  createFormConfigContext({ schemaConfig: formSchemaConfig })
 
   /**
    * 获取或创建表单实例
@@ -214,7 +206,7 @@
     ? props.form
     : useForm<TValues>({
         schemas: props.schemas,
-        schemaConfig: initialCoreSchemaConfig,
+        schemaConfig: resolvedSchemaConfig.value,
         initialValues:
           Object.keys(props.modelValue).length > 0
             ? props.modelValue
@@ -283,21 +275,33 @@
    * 无论实例来自 props.form 还是 useForm，都必须同步注册，
    * 从而保证 Field、useField 等后代逻辑能够获取同一个实例。
    */
-  const formInstance = createFormContext(providedForm)
+  const formInstance = provideFormContext({
+    form: providedForm,
+    get schemaConfig() {
+      return contextSchemaConfig.value
+    },
+  })
 
   /**
    * 组件未受控时直接跟随 Core 提交状态；受控值仅覆盖操作区展示。
    */
   const effectiveLoading = computed(() => props.loading ?? formInstance.isLoading())
 
-  /** Form 根节点的 class 来源：组件内部标识与调用方自定义 class。 */
+  /**
+   * Form 根节点的 class 来源：组件内部标识与调用方自定义 class。
+   */
   const formRootClass = computed(() => ["schemx", props.class])
 
-  /** Form 根节点的 style 来源；保留 Vue StyleValue 的对象/数组合并能力。 */
+  /**
+   * Form 根节点的 style 来源；保留 Vue StyleValue 的对象/数组合并能力。
+   */
   const formRootStyle = computed(() => props.style)
 
   /**
    * 归一化启用状态下的操作配置。
+   *
+   * @param action - 布尔开关或操作按钮配置。
+   * @returns 可直接用于渲染按钮的配置对象。
    */
   const normalizeActionConfig = (
     action: SchemxFormProps<TValues>["submitter"]
@@ -315,6 +319,9 @@
 
   /**
    * 操作区必须保护内部事件和 button type，不接受运行时透传的同名属性。
+   *
+   * @param config - 当前操作按钮的配置。
+   * @returns 过滤内部事件和 type 后的按钮属性。
    */
   const getButtonProps = (config: SchemxFormActionConfig) => {
     const buttonProps = Object.fromEntries(
@@ -384,10 +391,16 @@
 
   let syncingFromModel = false
 
-  /** 记录 Core 发出的、等待标准 v-model 回传的一次性快照身份。 */
+  /**
+   * 记录 Core 发出的、等待标准 v-model 回传的一次性快照身份。
+   */
   const internalModelEchoes = new Set<TValues>()
 
-  /** 发出内部模型更新，并记录等待父级原样回传的快照。 */
+  /**
+   * 发出内部模型更新，并记录等待父级原样回传的快照。
+   *
+   * @param values - 要发出的最新表单值快照。
+   */
   const emitModelValue = (values: TValues): void => {
     const rawValues = toRaw(values)
 
@@ -473,6 +486,7 @@
     { immediate: isExternalForm }
   )
 
+  // 当前 Form 的响应式 ViewSchema 列表。
   const viewSchemas = useViewSchemas(formInstance)
 
   /**
@@ -493,13 +507,21 @@
     }
   }
 
-  /** 将内部 Form 的完整配置同步到 Context 和 Core。 */
+  /**
+   * 将内部 Form 的完整配置同步到 Context 和 Core。
+   *
+   * @param nextSchemaConfig - 合并后的完整 schema 配置。
+   */
   const syncInternalSchemaConfig = (nextSchemaConfig: SchemxSchemaConfig): void => {
-    replaceFormSchemaConfig(contextSchemaConfig.value)
     formInstance.updateSchemaConfig(nextSchemaConfig)
   }
 
-  /** 将外部 Form 的组件级配置增量同步到 Context 和 Core。 */
+  /**
+   * 将外部 Form 的组件级配置增量同步到 Context 和 Core。
+   *
+   * @param nextSchemaConfig - 当前组件显式配置。
+   * @param previousSchemaConfig - 上一次组件显式配置，用于清理已移除的 key。
+   */
   const syncExternalSchemaConfig = (
     nextSchemaConfig: Partial<SchemxSchemaConfig>,
     previousSchemaConfig: Partial<SchemxSchemaConfig> | undefined
@@ -507,7 +529,7 @@
     const patch: Partial<SchemxSchemaConfig> = { ...nextSchemaConfig }
 
     if (previousSchemaConfig !== undefined) {
-      for (const key of defaultSchemxConfigKeys) {
+      for (const key of schemaConfigKeys) {
         if (
           hasSchemaConfigKey(previousSchemaConfig, key) &&
           !hasSchemaConfigKey(nextSchemaConfig, key)
@@ -516,8 +538,6 @@
         }
       }
     }
-
-    replaceFormSchemaConfig(contextSchemaConfig.value)
 
     if (Object.keys(patch).length > 0) {
       formInstance.updateSchemaConfig(patch)

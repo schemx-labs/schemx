@@ -25,15 +25,25 @@ import Group from "../Group"
 import type { SchemxColComponent } from "../../types/layout"
 import type { SchemxViewFieldSchema, SchemxViewSchema, Values } from "@schemx/core"
 
-/** SchemaList 的公开属性。 */
+/**
+ * SchemaList 的公开属性。
+ */
 export interface SchemxSchemaListProps<TValues extends Values = Values> {
-  /** 当前同级 ViewSchema 列表。 */
+  /**
+   * 当前同级 ViewSchema 列表。
+   */
   schemas: readonly SchemxViewSchema<TValues>[]
-  /** 根级 ViewSchema 列表，供 Field 首尾样式计算。 */
+  /**
+   * 根级 ViewSchema 列表，供 Field 首尾样式计算。
+   */
   viewSchemas: readonly SchemxViewSchema<TValues>[]
-  /** 当前 Form 解析出的 Col 实现；为空时不创建布局包装。 */
+  /**
+   * 当前 Form 解析出的 Col 实现；为空时不创建布局包装。
+   */
   colComponent?: SchemxColComponent
-  /** 根级 Field wrapper 的 class 解析器。 */
+  /**
+   * 根级 Field wrapper 的 class 解析器。
+   */
   fieldClassResolver?: (schema: SchemxViewSchema<TValues>) => ClassValue
 }
 
@@ -63,9 +73,21 @@ const SchemaList = defineComponent({
   },
 
   setup(props, { slots }) {
+    /**
+     * 根据字段路径生成稳定的 Field 渲染 key。
+     *
+     * @param schema - 当前字段 ViewSchema。
+     * @returns 包含 Schema key 和字段路径的渲染 key。
+     */
     const getFieldRenderKey = (schema: SchemxViewFieldSchema): string =>
       `${schema.key}:${normalizeNameKey(schema.name)}`
 
+    /**
+     * 根据节点类型生成稳定的 Schema 渲染 key。
+     *
+     * @param schema - 当前节点 ViewSchema。
+     * @returns 用于 Col 或子组件的稳定渲染 key。
+     */
     const getSchemaRenderKey = (schema: SchemxViewSchema): string => {
       if (isSchemxViewFieldSchema(schema)) {
         return getFieldRenderKey(schema)
@@ -74,6 +96,12 @@ const SchemaList = defineComponent({
       return schema.key
     }
 
+    /**
+     * 递归创建子级 SchemaList，并复用当前 Form 的根级配置。
+     *
+     * @param schemas - 当前子级 ViewSchema 列表。
+     * @returns 子级 SchemaList 的 VNode。
+     */
     const renderChildren = (schemas: readonly SchemxViewSchema[]): VNodeChild => {
       return h(
         SchemaList,
@@ -86,6 +114,12 @@ const SchemaList = defineComponent({
       )
     }
 
+    /**
+     * 将单个 ViewSchema 渲染为 Field、Group、Dynamic 或 Col。
+     *
+     * @param schema - 当前待渲染的 ViewSchema。
+     * @returns 当前 Schema 对应的 VNode。
+     */
     const renderSchema = (schema: SchemxViewSchema): VNodeChild => {
       if (schema.visible === false) {
         return null

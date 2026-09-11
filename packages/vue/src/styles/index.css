@@ -19,7 +19,9 @@
   padding-bottom: var(--schemx-form-padding-bottom);
 }
 
-/** 表单内置操作区保持框架无关的原生 button 外观。 */
+/**
+ * 表单内置操作区保持框架无关的原生 button 外观。
+ */
 .schemx-actions {
   display: flex;
   align-items: center;

@@ -8,6 +8,7 @@
  */
 
 import { createFormStateAdapter } from "@schemx/core/adapter"
+import { getCurrentScope, onScopeDispose } from "vue"
 
 import { getVueFieldState } from "./fieldBridge"
 import { createVueFormInstance } from "./formInstance"
@@ -24,17 +25,62 @@ import type {
 } from "./types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
-/** 同一 Core Form 只创建一个稳定 Runtime。 */
+/**
+ * 同一 Core Form 只创建一个稳定 Runtime。
+ */
 const runtimeCache = new WeakMap<object, VueFormRuntime<Values>>()
 
-/** 用于从 Vue Instance 找回所属 Runtime。 */
-const instanceRuntimeCache = new WeakMap<object, VueFormRuntime<Values>>()
+/**
+ * 在当前 Vue effect scope 中获取共享 Runtime。
+ *
+ * 每次调用都会为当前 scope 保留一个 Runtime owner，并在 scope 停止时自动
+ * 释放该 owner；最后一个 owner 释放后，字段和表单级响应式资源才会回收。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param form - 要桥接的 Core Form 或 Vue Form Instance。
+ * @returns 当前 Form 对应的共享 Runtime。
+ * @throws 当前没有活动的 Vue effect scope 时抛出错误。
+ *
+ * @example
+ * ```ts
+ * // 在 setup() 或其他活动的 Vue effect scope 中调用。
+ * const runtime = useVueFormRuntime(form)
+ * const values = runtime.getValuesRef()
+ * ```
+ */
+export function useVueFormRuntime<TValues extends Values = Values>(
+  form: SchemxInstance<TValues>
+): VueFormRuntime<TValues> {
+  if (!getCurrentScope()) {
+    throw new Error("[schemx] useVueFormRuntime() requires an active Vue scope.")
+  }
+
+  const { runtime, release } = acquireVueFormRuntime(form)
+
+  onScopeDispose(release)
+
+  return runtime
+}
 
 /**
  * 获取并保留指定 Form 的共享 Runtime。
  *
  * 返回的 release 函数必须绑定到当前 owner 的 Vue scope；最后一个 owner
  * 释放后只销毁响应式资源，Runtime 和 Instance 身份保持稳定。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @param form - 要桥接的 Core Form 或 Vue Form Instance。
+ * @returns 共享 Runtime 及与当前 owner 对应的释放函数。
+ *
+ * @example
+ * ```ts
+ * const { runtime, release } = acquireVueFormRuntime(form)
+ * try {
+ *   runtime.getValuesRef()
+ * } finally {
+ *   release()
+ * }
+ * ```
  */
 export function acquireVueFormRuntime<TValues extends Values = Values>(
   form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
@@ -52,16 +98,17 @@ export function acquireVueFormRuntime<TValues extends Values = Values>(
   }
 }
 
-/** 获取已有 Runtime，或为输入的 Core Form 创建 Runtime。 */
+/**
+ * 获取已有 Runtime，或为输入的 Core Form 创建 Runtime。
+ *
+ * Core Form 和桥接后的 Vue Instance 都会映射到同一个 Runtime，避免同一表单
+ * 因不同入口重复创建状态订阅。
+ *
+ * @param form - 要查找或创建 Runtime 的 Form Instance。
+ */
 function getOrCreateVueFormRuntime<TValues extends Values>(
   form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
 ): VueFormRuntime<TValues> {
-  const cachedByInstance = instanceRuntimeCache.get(form as object)
-
-  if (cachedByInstance) {
-    return cachedByInstance as VueFormRuntime<TValues>
-  }
-
   const cachedByCore = runtimeCache.get(form as object)
 
   if (cachedByCore) {
@@ -71,12 +118,18 @@ function getOrCreateVueFormRuntime<TValues extends Values>(
   const runtime = createVueFormRuntime(form as SchemxInstance<TValues>)
 
   runtimeCache.set(form as object, runtime as VueFormRuntime<Values>)
-  instanceRuntimeCache.set(runtime.instance as object, runtime as VueFormRuntime<Values>)
+  runtimeCache.set(runtime.instance as object, runtime as VueFormRuntime<Values>)
 
   return runtime
 }
 
-/** 创建单个 Core Form 的稳定 Runtime。 */
+/**
+ * 创建单个 Core Form 的稳定 Runtime。
+ *
+ * Runtime 本身保持稳定；只有存在 owner 时才创建并保留 Vue 响应式资源。
+ *
+ * @param core - 要桥接的 Core Form。
+ */
 function createVueFormRuntime<TValues extends Values>(
   core: SchemxInstance<TValues>
 ): VueFormRuntime<TValues> {
@@ -99,8 +152,6 @@ function createVueFormRuntime<TValues extends Values>(
 
     const fieldStates = new Map<object, VueFieldState<TValues>>()
 
-    let viewSchemaState: VueFormResources<TValues>["viewSchemaState"]
-
     let disposed = false
 
     const dispose = (): void => {
@@ -110,21 +161,22 @@ function createVueFormRuntime<TValues extends Values>(
 
       disposed = true
 
-      viewSchemaState?.dispose()
+      currentResources.viewSchemaState?.dispose()
       fieldStates.clear()
       stateAdapter.dispose()
     }
 
-    return {
+    const currentResources: VueFormResources<TValues> = {
       stateAdapter,
       values,
       touchedFields,
       pendingFields,
       loading,
       fieldStates,
-      viewSchemaState,
       dispose,
     }
+
+    return currentResources
   }
 
   const ensureResources = (): VueFormResources<TValues> => {
@@ -257,7 +309,6 @@ function createVueFormRuntime<TValues extends Values>(
   })
 
   const runtime: VueFormRuntime<TValues> = {
-    core,
     instance,
     retain,
     trackField,

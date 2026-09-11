@@ -81,6 +81,16 @@ export interface SchemxContainerDependencies<TValues extends Values = Values> {
 }
 
 /**
+ * 字段 dependencies 的适配层扩展点。
+ *
+ * Core 只负责解析并调度依赖条件；字段展示层可以通过声明合并增加动态属性。
+ *
+ * @typeParam TValues - 当前表单值类型。
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxFieldDependenciesDefinition<TValues extends Values = Values> {}
+
+/**
  * 字段节点的结构化依赖配置。
  *
  * 所有条件函数共享同一个 `triggerFields`，当任一触发字段变化时，
@@ -111,7 +121,10 @@ export interface SchemxFieldDependencies<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TKey extends string = SchemxRendererKey<TValues>,
-> extends SchemxContainerDependencies<TValues> {
+>
+  extends
+    SchemxContainerDependencies<TValues>,
+    SchemxFieldDependenciesDefinition<TValues> {
   /**
    * 传递给渲染组件的属性
    *
@@ -149,6 +162,8 @@ export interface SchemxFieldDependencies<
    *
    * 条件函数返回 `boolean`，只覆盖渲染层的必填标记，不改变动态或静态
    * `required` 校验。未配置静态标记时，标记默认跟随当前有效 `required`。
+   *
+   * @deprecated 展示动态属性由 UI 适配层拥有；兼容期间仍保留。
    */
   showRequiredMark?: SchemxConditionFn<TValues, boolean>
 

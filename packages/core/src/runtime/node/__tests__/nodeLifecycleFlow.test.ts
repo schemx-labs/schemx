@@ -19,7 +19,7 @@ import {
   setFieldDynamicOverrides,
 } from "./signalsTestUtils"
 
-import type { SchemxBaseField } from "../../../types"
+import type { SchemxRuntimeField as SchemxBaseField } from "../../../types/runtimeSchema"
 import type { FieldNode } from "../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护

@@ -16,6 +16,18 @@ import type { FieldValue, NamePath, Values } from "@schemx/core"
  *
  * FormStateAdapter 按规范化路径缓存 Source；Source 身份作为当前资源中的
  * 稳定 key，确保同一字段不会重复创建订阅。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 当前字段路径类型。
+ * @param resources - 当前 Runtime 的响应式资源集合。
+ * @param name - 要读取状态的字段路径。
+ * @returns 当前字段的共享 Vue 状态投影。
+ *
+ * @example
+ * ```ts
+ * const state = getVueFieldState(resources, "name")
+ * console.log(state.value.value)
+ * ```
  */
 export function getVueFieldState<
   TValues extends Values = Values,

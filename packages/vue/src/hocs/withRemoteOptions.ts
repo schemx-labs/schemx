@@ -12,16 +12,20 @@ import { Component, computed, defineComponent, h, PropType, SetupContext } from 
 
 import type { SchemxDictionary } from "@/types/dictionary"
 
-import { useFieldContext } from "../hooks/provideFieldContext"
+import { useFieldContext } from "../context/fieldContext"
 import { useDictionary } from "../hooks/useDictionary"
 
 /**
  * WithRemoteOptions 注入给被包装组件的额外 Props
  */
 export interface RemoteOptionsInjectedProps {
-  /** 加载的选项列表 */
+  /**
+   * 加载的选项列表
+   */
   options: unknown[]
-  /** 加载状态 */
+  /**
+   * 加载状态
+   */
   loading: boolean
 }
 
@@ -29,6 +33,9 @@ type SchemxDictionaryInput = SchemxDictionary | SchemxDictionary["api"]
 
 /**
  * 将 api 简写规范化为完整的字典配置。
+ *
+ * @param dictionary - 完整字典配置或 api 函数简写。
+ * @returns 规范化后的字典配置；未提供时返回 `undefined`。
  */
 function normalizeDictionary(
   dictionary: SchemxDictionaryInput | undefined

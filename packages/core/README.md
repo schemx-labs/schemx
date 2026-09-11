@@ -66,7 +66,7 @@ form.destroy()
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | `schemas`                                              | 字段数组，或 `createSchemas()` 创建的可更新 Schema source。                                         |
 | `initialValues`                                        | 初始值，也是 `reset()` 的还原基准。                                                                 |
-| `schemaConfig`                                         | 字段展示和行为的表单级默认值，如 `required`、`disabled`、`visible`、标签配置与校验触发方式。        |
+| `schemaConfig`                                         | 框架无关的字段默认值，如 `required`、`readonly`、`disabled`、`visible` 和校验触发方式；UI 适配层可通过 `SchemxSchemaConfigDefinition` 扩展。 |
 | `fieldRules`                                           | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先。                                     |
 | `rendererProps` / `rendererRegistry`                   | 按 `componentType` 配置默认 Props，或提供 Renderer Registry。Core 仅保存和解析 Renderer，不渲染它。 |
 | `presetRuleRegistry` / `validatorAdapters`             | 预设规则注册表和额外的第三方校验 adapter；async-validator 规则由 Core 内置支持。                    |
@@ -310,7 +310,7 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | `configureSchemx(config)`                                                 | 设置后续 `createForm()` 的模块级默认配置；采用替换语义。SSR 或多应用场景应使用实例配置。 |
 | `getGlobalSchemxConfig()`                                                 | 获取当前模块级配置。                                                                     |
 | `mergeSchemxConfig`、`resolveSchemxConfig`、`mergeAndResolveSchemxConfig` | 供适配层合并、解析配置。                                                                 |
-| `defaultSchemxConfig`、`defaultSchemxConfigKeys`、`schemaConfigKeys`      | 内置默认配置及其键列表。`excludeSchemxConfigKeys` 用于识别不属于 Schema 配置的选项。     |
+| `defaultSchemxConfig`、`defaultSchemxConfigKeys`、`excludeSchemxConfigKeys` | Core 内置默认配置及其键列表；`excludeSchemxConfigKeys` 用于识别不属于 Schema 配置的选项。 |
 | `createSignalEffect(fn)`                                                  | 创建底层响应式副作用，返回清理函数。                                                     |
 | `runSignalUntracked(fn)`                                                  | 在不收集依赖的上下文执行函数。                                                           |
 | `createSignalWatch`、`createDebouncedSignalWatch`                         | 监听底层 Signal；后者提供防抖控制。                                                      |
@@ -324,7 +324,8 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | Schema 判断     | `isFieldSchema`、`isGroupSchema`、`isDependencySchema`                                                                                                                    |
 | ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`                                                                                                                            |
 | 路径工具        | `getByPath`、`setByPath`、`collectObjectPathsByLeaf`                                                                                                                      |
-| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxFieldRulesMap`、`StandardSchemaV1` |
+| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxFieldRulesMap`、`SchemxSchemaValues`、`SchemxValuesHint`、`StandardSchemaV1` |
+| 适配层扩展类型  | `SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxFormItemProps`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`、`ValidationAdapter`、`ValidationAdapterOption`              |
 | `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter` 及表单状态快照相关类型，供 UI 适配层使用。                                                                             |
 

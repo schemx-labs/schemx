@@ -11,7 +11,7 @@ import type {
   CascaderFieldNames as VantCascaderFieldNames,
 } from "vant"
 
-import type { SchemxBaseComponentProps } from "@schemx/core"
+import type { SchemxVueBaseComponentProps } from "@schemx/vue"
 
 export type CascaderValue = Array<NonNullable<CascaderProps["modelValue"]>>
 
@@ -30,7 +30,7 @@ export type CascaderFieldNames = VantCascaderFieldNames
 export interface CascaderRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<CascaderProps, "modelValue" | "onUpdate:modelValue">> {
   /** 当前值 */

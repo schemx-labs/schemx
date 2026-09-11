@@ -8,7 +8,13 @@
   import { computed, onMounted, ref, useAttrs, useSlots, watch } from "vue"
 
   interface Props {
+    /**
+     * 是否以只读插槽替换默认 Renderer 内容。
+     */
     readonly?: boolean
+    /**
+     * 是否应用禁用状态样式。
+     */
     disabled?: boolean
   }
 
@@ -22,12 +28,16 @@
     disabled: false,
   })
 
+  // 当前 Wrapper 的非组件属性。
   const attrs = useAttrs()
 
+  // 用于判断是否提供只读插槽。
   const slots = useSlots()
 
+  // 防止同一 Wrapper 在开发环境重复输出提示。
   const warnedReadonlySlot = ref(false)
 
+  // 根据状态合并 Wrapper 根节点 class。
   const rootClass = computed(() => [
     "schemx-wrapper",
     attrs.class,
@@ -35,12 +45,18 @@
     props.disabled && "schemx-wrapper--disabled",
   ])
 
+  // 转发给根节点但排除已单独处理的 class。
   const forwardedAttrs = computed(() => {
     const { class: _class, ...rest } = attrs
 
     return rest
   })
 
+  /**
+   * 在开发环境提示只读状态缺少 `#readonly` 插槽。
+   *
+   * @param readonly - 当前 Wrapper 是否处于只读状态。
+   */
   const warnIfReadonlySlotIsMissing = (readonly: boolean): void => {
     if (!readonly || slots.readonly || warnedReadonlySlot.value || !import.meta.env.DEV) {
       return

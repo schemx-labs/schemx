@@ -9,13 +9,15 @@
 import { createFieldKey } from "./path"
 
 import type {
-  SchemxBaseField,
-  SchemxDependencyField,
-  SchemxDynamicField,
-  SchemxField,
-  SchemxGroupField,
   Values,
 } from "../types"
+import type {
+  SchemxRuntimeDependency as SchemxDependencyField,
+  SchemxRuntimeDynamic as SchemxDynamicField,
+  SchemxRuntimeField as SchemxBaseField,
+  SchemxRuntimeGroup as SchemxGroupField,
+  SchemxRuntimeSchema as SchemxField,
+} from "../types/runtimeSchema"
 
 /**
  * Schema 的结构类型。

@@ -44,7 +44,7 @@ export async function resolveDependencyProps<
   TProps extends object,
 >(
   dependencies: DependencyEffectDependencies<TValues>,
-  propKeys: readonly Extract<keyof TProps, string>[],
+  propKeys: readonly string[],
   formApi: SchemxFormApi<TValues>,
   schemaLabel: string
 ): Promise<TProps> {

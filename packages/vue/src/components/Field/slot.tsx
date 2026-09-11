@@ -9,9 +9,9 @@
 import { h } from "vue"
 import type { ShallowRef, Slots, VNodeChild } from "vue"
 
-import { FormContextProps } from "../../hooks/provideFormConfigContext"
 import { extractChildSlots, normalizeNameKey, resolveSlot } from "../../utils"
 
+import type { FormConfigContextValue } from "../../context/formContext"
 import type { FieldInstance } from "../../types/field"
 import type {
   SchemxComponentProps,
@@ -20,19 +20,33 @@ import type {
   Values,
 } from "@schemx/core"
 
-/** Field 插槽渲染所需的状态与依赖。 */
+/**
+ * Field 插槽渲染所需的状态与依赖。
+ */
 interface FieldSlotRendererOptions<TValues extends Values = Values> {
-  /** 当前字段 ViewSchema。 */
+  /**
+   * 当前字段 ViewSchema。
+   */
   schemaRef: Readonly<ShallowRef<SchemxViewFieldSchema<TValues>>>
-  /** 当前字段的响应式控制器。 */
+  /**
+   * 当前字段的响应式控制器。
+   */
   field: FieldInstance<TValues>
-  /** 当前表单实例，用于解析 Renderer。 */
+  /**
+   * 当前表单实例，用于解析 Renderer。
+   */
   form: SchemxInstance<TValues>
-  /** 表单级展示配置。 */
-  formContext: FormContextProps
-  /** 传给 Renderer 的稳定属性。 */
+  /**
+   * 表单级展示配置。
+   */
+  formContext: FormConfigContextValue
+  /**
+   * 传给 Renderer 的稳定属性。
+   */
   componentProps: Readonly<ShallowRef<SchemxComponentProps<TValues>>>
-  /** 父组件传入的所有具名插槽。 */
+  /**
+   * 父组件传入的所有具名插槽。
+   */
   slots: Slots
 }
 
@@ -40,6 +54,15 @@ interface FieldSlotRendererOptions<TValues extends Values = Values> {
  * 创建 Field 各区域的插槽渲染函数。
  *
  * `Before`、`Content`、`After` 依次包裹 Renderer；`Error` 位于控件之后。
+ *
+ * @param options - Field 插槽渲染所需的响应式状态和 Vue 插槽集合。
+ * @returns 各字段区域的插槽渲染函数及统一 Slot Props 构造器。
+ *
+ * @example
+ * ```ts
+ * const renderers = createFieldSlotRenderers(options)
+ * renderers.renderContent()
+ * ```
  */
 export function createFieldSlotRenderers<TValues extends Values = Values>(
   options: FieldSlotRendererOptions<TValues>
@@ -65,7 +88,12 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     return <span class="schemx-field__required">*</span>
   }
 
-  /** 构造各字段插槽共用的规范上下文参数。 */
+  /**
+   * 构造各字段插槽共用的规范上下文参数。
+   *
+   * @param additionalProps - 当前插槽额外携带的属性。
+   * @returns 传给字段插槽的统一上下文对象。
+   */
   const createSlotProps = (additionalProps: Record<string, unknown> = {}) => {
     return {
       schema: schemaRef.value,
@@ -77,14 +105,21 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     }
   }
 
-  /** 渲染指定后缀的字段区域插槽。 */
+  /**
+   * 渲染指定后缀的字段区域插槽。
+   *
+   * @param suffix - 字段插槽名称后缀，例如 `Before` 或 `After`。
+   * @returns 匹配插槽生成的 VNode；未匹配时返回空内容。
+   */
   const renderFieldSlot = (suffix: string): VNodeChild => {
     const slot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}${suffix}`)
 
     return slot?.(createSlotProps()) ?? null
   }
 
-  /** 渲染标签区域，优先使用 `{name}Label` 插槽。 */
+  /**
+   * 渲染标签区域，优先使用 `{name}Label` 插槽。
+   */
   const renderLabel = (): VNodeChild => {
     const labelSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Label`)
 
@@ -104,6 +139,9 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
         style={{ width: labelWidth, textAlign: labelAlign }}
       >
         {renderRequired()}
+        {schemaRef.value.labelIcon ? (
+          <span class="schemx-field__label-icon">{schemaRef.value.labelIcon}</span>
+        ) : null}
         <span class="schemx-field__label-text">
           {schemaRef.value.label}
           {colon ? ":" : ""}
@@ -112,10 +150,14 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     )
   }
 
-  /** 渲染 Renderer 前的 `{name}Before` 插槽。 */
+  /**
+   * 渲染 Renderer 前的 `{name}Before` 插槽。
+   */
   const renderBefore = (): VNodeChild => renderFieldSlot("Before")
 
-  /** 渲染控件区域，优先使用 `{name}Content` 插槽。 */
+  /**
+   * 渲染控件区域，优先使用 `{name}Content` 插槽。
+   */
   const renderContent = (): VNodeChild => {
     const component = form.getRenderer(schemaRef.value.componentType)
 
@@ -145,10 +187,14 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     return <div class="schemx-field__control">{columnElement}</div>
   }
 
-  /** 渲染 Renderer 后的 `{name}After` 插槽。 */
+  /**
+   * 渲染 Renderer 后的 `{name}After` 插槽。
+   */
   const renderAfter = (): VNodeChild => renderFieldSlot("After")
 
-  /** 渲染错误区域，优先使用 `{name}Error` 插槽。 */
+  /**
+   * 渲染错误区域，优先使用 `{name}Error` 插槽。
+   */
   const renderError = (): VNodeChild => {
     const errorSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Error`)
 

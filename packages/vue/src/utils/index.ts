@@ -4,14 +4,18 @@
  * @module utils
  */
 
-/** 动态属性解析 */
+/**
+ * 动态属性解析
+ */
 export {
   type DependencieEntry,
   resolveDependencie,
   batchResolveDependencie,
 } from "./dynamic"
 
-/** 校验触发工具 */
+/**
+ * 校验触发工具
+ */
 export {
   type TriggerConfig,
   type NormalizedTrigger,
@@ -19,10 +23,17 @@ export {
   mergeTrigger,
 } from "./validation"
 
-/** 插槽工具 */
+/**
+ * 插槽工具
+ */
 export { resolveSlot, extractChildSlots } from "./slot"
 
-/** 通用渲染辅助 */
+/**
+ * 通用渲染辅助
+ */
 export { getSectionPosition, normalizeId, normalizeNameKey } from "./helpers"
 
+/**
+ * 对象差异工具。
+ */
 export { diff } from "./diff"

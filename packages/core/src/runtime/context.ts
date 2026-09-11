@@ -16,7 +16,6 @@ import type {
   FieldArrayPath,
   FieldValue,
   NamePath,
-  SchemxField,
   SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
@@ -25,6 +24,7 @@ import type {
   SetValuesAction,
   Values,
 } from "../types"
+import type { SchemxRuntimeSchema as SchemxField } from "../types/runtimeSchema"
 import type { FieldRules } from "../types/rule"
 import type { FieldValidationConfig } from "../validator/types"
 
