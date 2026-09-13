@@ -1,6 +1,6 @@
 # @schemx/vue
 
-`@schemx/vue` 将 `@schemx/core` 的表单实例和 ViewSchemas 渲染为 Vue 3 组件树。它不绑定具体 UI 组件库，适合接入业务组件、设计系统或新的 UI adapter。
+`@schemx/vue` 将 `@schemx/core` 的表单实例和 ViewSchemas 渲染为 Vue 3 组件树，包含 Group、Dependency 和 Dynamic 数组的递归渲染。它不绑定具体 UI 组件库，适合接入业务组件、设计系统或新的 UI adapter。
 
 如果项目使用 Vant，推荐直接安装 [`@schemx/vant`](../vant)。该包已经注册常用的移动端表单 Renderer。
 
@@ -109,7 +109,7 @@ console.log(Schemx === schemxForm) // true
 | `onValuesChange`         | `(changedValues, latestSnapshot) => void`        | `undefined`               | 字段值变化后的回调 Prop                                                                                                         |
 | `onFieldsChange`         | `(changedFields, allFields) => void`             | `undefined`               | 字段路径变化后的回调 Prop                                                                                                       |
 | `onRuleError`            | `FormCallbackOptions<T>["onRuleError"]`          | `undefined`               | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
-| `lifecycleHooks`         | `FormLifecycleOptions["lifecycleHooks"]`         | `undefined`               | Runtime 生命周期钩子                                                                                                            |
+| `lifecycleHooks`         | `FormLifecycleOptions["lifecycleHooks"]`         | `undefined`               | Core Form 的 Runtime 生命周期钩子；当前 `<Schemx>` 创建内部实例时不会透传，需通过 `useForm()` 或 `createForm()` 配置。 |
 | `schedulerOptions`       | `SchedulerOptions`                               | `undefined`               | Scheduler 时间片与 idle 队列配置                                                                                                |
 | `validationConcurrency`  | `number`                                         | `8`                       | 整表校验时同时运行的字段数                                                                                                      |
 | `loading`                | `boolean`                                        | `undefined`               | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
@@ -127,7 +127,7 @@ console.log(Schemx === schemxForm) // true
 
 `initialValues` 是内部 Store 的初始快照和 `reset()` 基准。`modelValue` 按 Vue 约定作为输入和输出：
 
-- 创建内部实例时，非空 `modelValue` 会覆盖同名 `initialValues` 字段，作为初始快照。
+- 创建内部实例时，非空 `modelValue` 会整体作为内部表单初始值，优先于 `initialValues`。
 - 外部替换 `modelValue` 后，组件会调用 `setFieldsValue()` 同步内部表单。
 - 传入外部 `form` 时，非空 `modelValue` 会在组件挂载时先写入该实例；空对象仍视为未提供。
 - 内部或外部 `form` 的字段变化都会发出 `update:modelValue`，值为最新表单快照；同步来自 `modelValue` 的变化不会重复发出该事件。
@@ -136,7 +136,7 @@ console.log(Schemx === schemxForm) // true
 - 传入外部 `form` 时，`onReset` 与 `onLoadingChange` 同样不会重新配置该实例；请在创建该实例时传入回调。
 - `onFinish`、`onFinishFailed`、`onValuesChange` 和 `onFieldsChange` 是声明过的回调 Props，不在 `defineEmits` 的事件列表中。模板中的 `@finish` 等写法会按 Vue listener Prop 规则映射到这些 Props，但 TypeScript 用户更适合显式传回调。
 
-内部表单模式还存在一个 `onFinish` 等待边界：组件传给 core 的包装函数会调用 `props.onFinish(values)`，但没有 `return` 或 `await` 其返回值。因此 `submit()` 只等待这层立即完成的包装 Promise，不等待业务 `onFinish` 返回的异步任务；该任务后续 reject 也不会沿 `submit()` 传播。业务回调若在返回 Promise 前同步抛错，包装函数会转为 rejected Promise，core 的 `submit()` 仍会收到该拒绝。传入外部 `form` 时组件不会安装这层包装，等待和错误传播完全取决于外部实例创建者配置的回调；core `createForm()` 本身会 `await` 直接传给它的 `onFinish`。
+内部表单模式会把 `props.onFinish(values)` 的返回值交给 Core，因此 `submit()` 会等待业务回调返回的 Promise；业务回调同步抛错或异步拒绝时，`submit()` 也会拒绝。传入外部 `form` 时组件不会重新配置这层回调，等待和错误传播完全取决于外部实例创建者；Core `createForm()` 同样会等待直接传入的 `onFinish`。
 
 唯一通过 `defineEmits` 声明的组件事件如下：
 
@@ -171,7 +171,7 @@ console.log(Schemx === schemxForm) // true
 
 ```vue
 <Schemx :schemas="schemas">
-  <template #nicknameLabel="schema">
+  <template #nicknameLabel="{ schema }">
     <strong>{{ schema.label }}</strong>
   </template>
 
@@ -269,9 +269,25 @@ app.use(Schemx, {
 
 `SchemxFormProps` 和 Vue 层 `FieldInstance` 也会从 `@schemx/vue` 根入口导出；业务代码通常仍可直接从组件或 Hook 调用处推导类型，不需要依赖深层路径。
 
+需要对组件树内多个表单统一设置展示默认值时，可以使用 `ConfigProvider`：
+
+```vue
+<script setup lang="ts">
+  import Schemx, { ConfigProvider } from "@schemx/vue"
+</script>
+
+<template>
+  <ConfigProvider :schema-config="{ readonly: true, showRequiredMark: false }">
+    <Schemx :schemas="schemas" />
+  </ConfigProvider>
+</template>
+```
+
+`ConfigProvider` 不渲染额外 DOM；子级 Provider 的非空配置会覆盖父级同名配置。`schemaConfig` 和 `colComponent` 的变化会同步到已挂载的内部 `<Schemx>`，Registry、校验 adapter 和默认 Renderer 类型只在 Form 创建时解析。
+
 ## Schema 写法
 
-根入口从 `@schemx/core` 传递导出 `SchemxField<T>`。它是普通字段、分组和动态依赖子树的联合类型。
+根入口从 `@schemx/core` 传递导出 `SchemxField<T>`。它是普通字段、分组、动态依赖子树和动态数组字段的联合类型。
 
 ### 普通字段
 
@@ -312,11 +328,12 @@ const schemas: SchemxField<Values>[] = [
 | `required`、`readonly`、`disabled`、`visible`            | 否   | 字段展示和交互状态；`required` 同时参与默认必填校验与星号默认展示                                                                                                |
 | `showRequiredMark`                                       | 否   | 只控制 label 前星号：未设置时等同于 `Boolean(required)`；设为 `true` 可显示非必填字段星号，设为 `false` 可隐藏必填字段星号；禁用或只读时始终隐藏，且不会影响校验 |
 | `initialValue`                                           | 否   | 字段挂载时的初始值和 `reset()` 还原值                                                                                                                            |
+| `preserve`                                               | 否   | Schema 移除或字段改名时是否保留字段值和状态；默认保留，设为 `false` 时清理旧路径                                                                             |
 | `rules`                                                  | 否   | 单条或多条校验规则，支持 Standard Schema 与内置规则名                                                                                                            |
 | `labelIcon`、`labelAlign`、`labelPosition`、`labelWidth` | 否   | 标签展示配置                                                                                                                                                     |
 | `contentAlign`、`colon`                                  | 否   | 内容对齐和冒号配置                                                                                                                                               |
 | `validationTrigger`                                      | 否   | `change`、`blur` 等校验触发时机                                                                                                                                  |
-| `onChange`、`onBlur`                                     | 否   | 类型中存在的顶层回调；当前 Vue `Field` 不调用它们，Renderer 事件说明见后文                                                                                       |
+| `onChange`、`onBlur`                                     | 否   | 字段值变化和失焦时由 Vue `Field` 调用；Renderer 事件说明见后文                                                                                                   |
 | `class`、`style`                                         | 否   | Vue 通过声明合并增加，运行时分别应用到字段容器的 class 和内联 style，发布根声明会自动带入该 augmentation                                                         |
 | `key`                                                    | 否   | 框架字段；业务方通常不要设置                                                                                                                                     |
 
@@ -373,14 +390,65 @@ const dependency: SchemxField<Values> = {
 
 `renderer` 可以同步或异步返回新的 `SchemxField<T>[]`；`context.abortSignal` 用于取消已经过期的异步依赖计算。该 `AbortSignal` 属于 Core 的 Dependency renderer，和后文 `useDictionary` 的请求行为不同。
 
-## Dictionary
+### 动态数组
 
-`SchemxDictionary<T, R>` 描述由函数加载的选项列表：`T` 是完整表单值类型，`R` 是 `api` 的原始返回类型，并会传给 `formatter`。
+Dynamic 数组字段使用必填的 `key`、数组路径 `name` 和行模板 `item`。`item` 中的普通字段和 Group 使用相对路径，Vue 会根据当前数组索引展开并递归渲染每一行；数组行增删或移动通过 Core Form 的 `setFieldValue(path, updater)` 完成。
 
 ```ts
-interface SchemxDictionary<T extends Values = Values, R = any> {
+import { useForm, type SchemxField } from "@schemx/vue"
+
+type Member = {
+  name: string
+  role: "developer" | "designer"
+}
+
+type TeamValues = {
+  members: Member[]
+}
+
+const schemas: SchemxField<TeamValues>[] = [
+  {
+    key: "members",
+    name: "members",
+    label: "团队成员",
+    item: [
+      {
+        key: "member",
+        label: "成员信息",
+        children: [
+          { name: "name", label: "姓名", componentType: "input" },
+          { name: "role", label: "角色", componentType: "text" },
+        ],
+      },
+    ],
+  },
+]
+
+const form = useForm<TeamValues>({
+  initialValues: { members: [{ name: "张三", role: "developer" }] },
+  schemas,
+})
+
+form.setFieldValue("members", (members) => [
+  ...(members ?? []),
+  { name: "李四", role: "designer" },
+])
+```
+
+Dynamic 容器的 `visible`、`readonly`、`disabled` 和 `dependencies` 会传递到每行后代字段。行内模板可以包含普通字段、Group 和 Dependency，但不能嵌套 Dynamic；行内 Dependency 的 `to` 使用完整表单路径，`renderer` 返回的子 Schema 使用当前行相对路径。Dynamic 组件是 `Schemx` 内部实现，不是根入口的独立导出。
+
+## Dictionary
+
+`SchemxDictionary<TValues, TResponse, TOption>` 描述由函数加载的选项列表：`TValues` 是完整表单值类型，`TResponse` 是 `api` 的原始返回类型，`TOption` 是格式化后的选项类型。`api` 声明第三个参数时还会收到当前请求的 `AbortSignal`。
+
+```ts
+interface SchemxDictionary<
+  T extends Values = Values,
+  R = unknown,
+  O = unknown,
+> {
   api: (values: T, form: SchemxInstance<T>, signal?: AbortSignal) => R | Promise<R>
-  formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => any[] | Promise<any[]>
+  formatter?: (res: Awaited<R>, form: SchemxInstance<T>) => O[] | Promise<O[]>
   dependsOn?: NamePath<T>[]
   shouldFetch?: (values: T) => boolean
   immediate?: boolean
@@ -388,15 +456,15 @@ interface SchemxDictionary<T extends Values = Values, R = any> {
   retryCount?: number
   retryInterval?: number
   onError?: (error: Error, form: SchemxInstance<T>) => void
-  onSuccess?: (data: any[], form: SchemxInstance<T>) => void
+  onSuccess?: (data: O[], form: SchemxInstance<T>) => void
   onDepsChange?: (values: T, form: SchemxInstance<T>) => void
 }
 ```
 
 | 字段                | 默认值              | 真实行为                                                                                           |
 | ------------------- | ------------------- | -------------------------------------------------------------------------------------------------- |
-| `api`               | 必填                | 接收加载开始时的完整表单快照和实例；支持同步或异步返回                                             |
-| `formatter`         | 直接使用 `api` 结果 | 在请求成功后转换结果；支持异步，返回值应为数组                                                     |
+| `api`               | 必填                | 接收加载开始时的完整表单快照和实例；声明第三个参数时还会收到当前请求的 `AbortSignal`；支持同步或异步返回 |
+| `formatter`         | 直接使用 `api` 结果 | 在请求成功后转换结果；支持异步，返回值应为选项数组                                                     |
 | `dependsOn`         | `undefined`         | 通过 `useWatchFields` 监听这些字段；变化时执行依赖回调、可选重置和重新加载                         |
 | `shouldFetch`       | 总是加载            | 每次加载前判断；返回 `false` 时跳过 `api`、清空 `list` 并结束加载状态                              |
 | `immediate`         | `true`              | 组件 `onMounted` 时是否自动调用一次 `loadDict()`；不影响依赖变化或手动刷新                         |
@@ -410,7 +478,7 @@ interface SchemxDictionary<T extends Values = Values, R = any> {
 当前类型没有 `data`、`list` 或 `options` 形式的静态数组字段。同步 `api` 可以表达静态来源：
 
 ```ts
-const staticDictionary: SchemxDictionary<ProfileValues, Option[]> = {
+const staticDictionary: SchemxDictionary<ProfileValues, Option[], Option> = {
   api: () => [
     { label: "公开", value: "public" },
     { label: "私密", value: "private" },
@@ -425,7 +493,11 @@ type CityResponse = {
   data: Array<{ id: number; name: string }>
 }
 
-const cityDictionary: SchemxDictionary<ProfileValues, CityResponse> = {
+const cityDictionary: SchemxDictionary<
+  ProfileValues,
+  CityResponse,
+  { label: string; value: number }
+> = {
   api: async () => {
     const response = await fetch("/api/cities")
     return (await response.json()) as CityResponse
@@ -448,7 +520,8 @@ type AddressValues = {
 
 const cityDictionary: SchemxDictionary<
   AddressValues,
-  Array<{ id: string; name: string }>
+  Array<{ id: string; name: string }>,
+  { label: string; value: string }
 > = {
   api: (values) => fetchCities(values.province!),
   formatter: (cities) => cities.map((city) => ({ label: city.name, value: city.id })),
@@ -465,7 +538,12 @@ const cityDictionary: SchemxDictionary<
 function useDictionary<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
->(options: SchemxDictionary<TValues>, fieldName?: TName): UseDictionaryReturn
+  TResponse = unknown,
+  TOption = unknown,
+>(
+  options: SchemxDictionary<TValues, TResponse, TOption>,
+  fieldName?: TName,
+): UseDictionaryReturn<TOption>
 ```
 
 `useDictionary` 必须在已经提供表单上下文的后代组件 `setup()` 中同步调用，例如 `Schemx` 的后代 Renderer。`fieldName` 只供 `resetOnDepsChange` 清空目标字段使用。通过 `WithRemoteOptions` 包装、且位于 `Field` 内的 Renderer 会自动从字段 Context 取得当前字段路径；直接调用 `useDictionary()` 或脱离 `Field` 使用 HOC 时，仍可显式传入该参数。
@@ -474,18 +552,18 @@ function useDictionary<
 
 | 成员       | 类型                      | 说明                                                             |
 | ---------- | ------------------------- | ---------------------------------------------------------------- |
-| `list`     | `Ref<any[]>`              | 最终选项数组；初始值为 `[]`                                      |
+| `list`     | `Ref<TOption[]>`          | 最终选项数组；初始值为 `[]`                                      |
 | `loading`  | `Ref<boolean>`            | 通过 `shouldFetch` 后开始请求时为 `true`，成功或失败后为 `false` |
 | `error`    | `Ref<Error \| undefined>` | 新请求开始时清空；最终失败时写入规范化的 `Error`                 |
 | `loadDict` | `() => Promise<void>`     | 使用当前配置和当前表单值执行加载                                 |
 | `refresh`  | `() => Promise<void>`     | `loadDict` 的同语义包装；不会绕过 `shouldFetch`                  |
-| `mutate`   | `(data: any[]) => void`   | 直接替换 `list`，不调用 `api`，也不修改 `loading` / `error`      |
+| `mutate`   | `(data: TOption[]) => void` | 直接替换 `list`，不调用 `api`，也不修改 `loading` / `error`    |
 
 成功路径为 `api`（含重试）→ `formatter` → 写入 `list` → `onSuccess`。`shouldFetch`、`api`、`formatter` 或 `onSuccess` 抛错时都会进入 `loadDict()` 的错误路径：抛出值经 `normalizeError` 转为 `Error`，然后写入 `error`、清空 `list`、结束 `loading` 并调用 `onError`。通常这些错误会被处理，`loadDict()` resolve；但 `onError` 本身若抛错，该异常位于 `catch` 块内，没有第二层捕获，`loadDict()` / `refresh()` 返回的 Promise 会 reject。
 
 依赖监听中的 `onDepsChange` 在调用 `loadDict()` 之前执行，不在其 `try...catch` 内。`onDepsChange` 自身抛错时会直接从 Watch 回调抛出，并阻止本轮重置字段及重新加载；它不会更新 `useDictionary.error`，也不会调用 `onError`。
 
-并发加载使用递增计数避免过期的成功响应或异步 `formatter` 结果写入，但不会创建 `AbortController`，底层请求仍会继续执行，`api` 也不会收到 `AbortSignal`。当前错误分支没有过期请求检查；较早请求的迟到错误仍可能覆盖较新结果。另一个边界是：`shouldFetch` 返回 `false` 时不会递增请求计数，已经在途的旧请求仍可能随后写回。需要严格取消语义时，请在业务 `api` 外层管理请求，并避免把 Dictionary 的竞态控制等同于网络中止。
+每次 `loadDict()` 都会递增请求计数并中止上一次仍在进行的请求。`api` 声明第三个参数时会收到当前请求的 `AbortSignal`；重试等待也可被中止。过期请求的成功结果、异步 `formatter` 结果和错误都不会写入当前状态；`shouldFetch` 返回 `false` 时会清空 `list` 并结束 `loading`。底层 API 是否真正停止仍取决于它是否使用 `AbortSignal`，不要把请求中止等同于业务服务端已经取消处理。
 
 ## 自定义 Renderer
 
@@ -495,18 +573,18 @@ Renderer 是从 Registry 取出的普通 Vue 组件。`Field` 先展开 `schema.
 | ----------------------- | ------------------------------------------------------------------------------------------- |
 | `value`                 | 当前字段值                                                                                  |
 | `onUpdate:value(value)` | 直接调用 `field.setValue(value)`；不在这里触发字段级校验                                    |
-| `onChange(value)`       | 写入字段值，调用 `schema.componentProps.onChange(value)`，并按 `validationTrigger` 执行校验 |
-| `onBlur()`              | 不写值，按 `validationTrigger` 执行校验                                                     |
+| `onChange(value)`       | 写入字段值，调用 `componentProps.onChange(value)` 和 Schema 顶层 `onChange(value)`，并按 `validationTrigger` 执行校验 |
+| `onBlur()`              | 不写值，调用 `componentProps.onBlur(value)` 和 Schema 顶层 `onBlur(form)`，并按 `validationTrigger` 执行校验       |
 | `readonly`              | 当前 ViewSchema 已解析的只读状态，覆盖 `componentProps.readonly`                            |
 | `disabled`              | 当前 ViewSchema 已解析的禁用状态，覆盖 `componentProps.disabled`                            |
 | `placeholder`           | 当前 ViewSchema 的占位文本，覆盖 `componentProps.placeholder`                               |
 | `formItemProps`         | 当前完整 ViewSchema，覆盖 `componentProps.formItemProps`                                    |
 
-其他 `componentProps`（例如 `options`、`readonlyPlaceholder`、`align` 和已经通过声明合并注册的组件专属 Props）原样透传。Vue `Field` 会自动注入当前 Vue Form 实例到 `formInstance`，并用完整 ViewSchema 覆盖 `formItemProps`。
+其他 `componentProps`（例如 `options`、`readonlyPlaceholder`、`align` 和已经通过声明合并注册的组件专属 Props）原样透传。Vue `Field` 会自动注入当前 Core Form 实例到 `formInstance`，并用完整 ViewSchema 覆盖 `formItemProps`。
 
 当前也不会向普通 Renderer 自动注入 `fieldName`、字段校验 `error` / `errors` 或 `loading`。Renderer 如需当前字段路径或响应式状态，可调用 `useFieldContext()`；`WithRemoteOptions` 会自动使用该 Context 的字段路径处理 `resetOnDepsChange`，但不会把内部路径透传给被包装 Renderer。详见下一节。
 
-注意：`componentProps.onChange`、`componentProps.onBlur` 会分别在框架注入的同名回调中调用。Schema 顶层的 `onChange`、`onBlur` 仍没有在 Vue `Field` 中接线；需要使用回调时应放在 `componentProps` 内。
+注意：`componentProps.onChange`、`componentProps.onBlur` 与 Schema 顶层的 `onChange`、`onBlur` 都会在 Vue `Field` 的对应回调中调用。若只希望自定义 Renderer 行为，可把回调放在 `componentProps` 内；Schema 顶层回调分别收到字段值和表单实例。
 
 ```vue
 <script setup lang="ts">
@@ -603,9 +681,9 @@ type SchemxWithDictionary<A, T extends Values = Values> = A & {
 `WithRemoteOptions(WrappedComponent)` 返回一个增强组件。增强组件声明并消费：
 
 - `dict?: SchemxDictionary | SchemxDictionary["api"]`：存在时规范化后调用 `useDictionary(dict, fieldName)`。
-- `fieldName?: NamePath`：仅作为兼容回退。HOC 位于 `Field` 内时，默认从 `useFieldContext().name` 自动取得当前字段路径；显式值只用于脱离 `Field` 的独立使用，且不会继续传给被包装组件。
+- `fieldName?: NamePath`：仅作为兼容回退。HOC 位于 `Field` 内时，默认从 `useFieldContext().name` 自动取得当前字段路径；显式值只用于脱离 `Field` 的独立使用。当前实现会把该未声明属性随 attrs 一并传给被包装组件。
 
-被包装组件实际收到所有其余 attrs、原始 `dict`，以及 HOC 决定的 `options` 和 `loading`：
+被包装组件实际收到所有其余 attrs、规范化后的 `dict`，以及 HOC 决定的 `options` 和 `loading`；函数简写会在这里转换为 `{ api }` 对象：
 
 - 有 `dict` 时，Dictionary 的 `list` 和 `loading` 无条件覆盖 attrs 中的静态 `options`、`loading`，即使列表仍为空。
 - 没有 `dict` 时，原 attrs 的 `options`、`loading` 原样保留。
@@ -731,6 +809,9 @@ componentProps: {
 | `useFieldContext()`         | 获取当前字段控制器                                                                                     |
 | `createFormConfigContext()` | 兼容 API：仅提供表单展示配置；建议改用 `provideFormContext()`                                          |
 | `useFormConfigContext()`    | 获取上层表单展示配置                                                                                   |
+| `createConfigProviderContext()` | 创建组件树级 ConfigProvider 上下文；通常由 `<ConfigProvider>` 内部调用。                            |
+| `useConfigProviderContext()` | 获取当前 ConfigProvider 配置；没有 Provider 时返回 `undefined`。                                    |
+| `useConfigProviderContextRef()` | 获取当前 ConfigProvider 的响应式配置引用；没有 Provider 时返回 `undefined`。                     |
 | `useWatch()`                | 按单字段、多字段或全表签名监听变化                                                                     |
 | `useWatchField()`           | 监听单个字段                                                                                           |
 | `useWatchFields()`          | 监听多个字段                                                                                           |
@@ -769,7 +850,7 @@ provideFormContext({
 })
 ```
 
-`useForm()` 除了补全 Vue 全局 Registry 外，会把 Core options 原样传给 `createForm()`。因此直接调用时，`initialValues` 会按 Core 规则形成初始快照，`submit()` 也会等待直接传入的 `onFinish` Promise。前文 `modelValue` 的初始化与同步行为，以及 `onFinish` Promise 不被等待的限制，只属于 `<Schemx>` 内部创建实例时的 Props 转换与回调包装，不属于 `useForm()` 本身。`defaultRendererType` 仍会受全局 Renderer Registry 已被补全的影响，见前文说明。
+`useForm()` 除了补全 Vue 全局 Registry 外，会把 Core options 原样传给 `createForm()`。因此直接调用时，`initialValues` 会按 Core 规则形成初始快照，`submit()` 也会等待直接传入的 `onFinish` Promise。前文 `modelValue` 的初始化与同步行为只属于 `<Schemx>` 内部创建实例时的 Props 转换，不属于 `useForm()` 本身。`defaultRendererType` 仍会受全局 Renderer Registry 已被补全的影响，见前文说明。
 
 ### Vue Instance 与共享 Runtime
 
@@ -777,9 +858,9 @@ provideFormContext({
 
 `useFormSelector()` 和 `useField()` 复用这个 Runtime；前者返回 selector 结果的只读 Ref，后者复用字段 `value`、`errors`、`touched` 和 `pending` Ref。Runtime 通过 `@schemx/core/adapter` 的 `createFormStateAdapter()` 消费 Core `SnapshotSource`。最后一个 Vue owner 释放或手动调用 `form.destroy()` 后，Runtime 会停止订阅并释放这些快照来源。
 
-### 3 组 Context API
+### Context API
 
-3 组 Context Reader 都要求 Context 存在，没有可选读取模式或默认值。`provideFormContext()` 和 `create*Context()` 必须在 Provider 组件的 `setup()` 同步阶段调用，且只对后代可见；`use*Context()` 仅读取最近祖先提供的值。
+Form、Field 和 ConfigProvider 是 3 组 Context。Form 与 Field 的 Reader 要求对应 Context 存在；ConfigProvider Reader 在没有 Provider 时返回 `undefined`。`provideFormContext()` 和 `create*Context()` 必须在 Provider 组件的 `setup()` 同步阶段调用，且只对后代可见；`use*Context()` 仅读取最近祖先提供的值。
 
 ```ts
 function provideFormContext<TValues extends Values = Values>(
@@ -789,7 +870,7 @@ function useFormContextValue<TValues extends Values = Values>(): FormContextValu
 function useFormContext<TValues extends Values = Values>(): VueSchemxInstance<TValues>
 
 function createFormContext<TValues extends Values = Values>(
-  instance: SchemxInstance<TValues>
+  instance: SchemxInstance<TValues> | VueSchemxInstance<TValues>
 ): VueSchemxInstance<TValues>
 
 function createFieldContext<TValues extends Values = Values>(
@@ -799,6 +880,10 @@ function useFieldContext(): FieldInstance<Values>
 
 function createFormConfigContext(props: FormContextProps): void
 function useFormConfigContext(): FormContextProps
+
+function createConfigProviderContext(config: ComputedRef<SchemxVueConfig>): void
+function useConfigProviderContext(): SchemxVueConfig | undefined
+function useConfigProviderContextRef(): ComputedRef<SchemxVueConfig> | undefined
 ```
 
 上面签名中的 `FieldInstance` 已从 `@schemx/vue` 根入口导出。`createFieldContext()` 当前只有 `TValues extends Values = Values`，**没有独立的 `TName` 泛型**；`field` 必须是 `useField()` 返回的 Vue 字段控制器，字段路径已由创建该返回值时的 `name` 捕获。调用方可以显式导入 `FieldInstance`，也可以依靠 `useField()` 推导参数。
@@ -903,31 +988,31 @@ function useWatchAll<T extends Values = Values>(
 
 `useWatch` 按参数形状分发，3 个语义化函数分别对应单字段、多字段和全表重载。它们都从 `useFormContext()` 读取表单，返回可手动调用的取消函数，并在组件卸载时自动取消。`options.immediate` 和 `options.inequality` 默认均为 `false`；后者使用深比较跳过相等值。
 
-| 模式   | callback 第 1 个参数                                                                                    | callback 第 2 个参数 |
-| ------ | ------------------------------------------------------------------------------------------------------- | -------------------- |
-| 单字段 | `{ value, prevValue }`；`immediate` 首次的 `prevValue` 为 `undefined`。                                 | 变化后的全表快照。   |
-| 多字段 | `{ changedPaths, changedValues, prevValues }`；`immediate` 时路径为全部传入路径、`prevValues` 为 `{}`。 | 变化后的全表快照。   |
-| 全表   | 与多字段相同；`immediate` 时 `changedPaths` 为 `[]`。                                                   | 变化后的全表快照。   |
+| 模式   | callback 第 1 个参数 | callback 第 2 个参数                                                                                                  |
+| ------ | -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 单字段 | 变化后的全表快照。   | `{ value, prevValue }`；`immediate` 首次的 `prevValue` 为 `undefined`。                                                |
+| 多字段 | 变化后的全表快照。   | `{ changedPaths, changedValues, prevValues }`；`immediate` 时路径为全部传入路径、`prevValues` 为 `{}`。                |
+| 全表   | 变化后的全表快照。   | `{ changedPaths, changedValues, prevValues }`；`immediate` 时 `changedPaths` 为 `[]`。                                  |
 
-当前 Core 全表实现在 effect 中读取无追踪的 `getFieldsSnapshot()`，因此 `useWatchAll()` 与 `useWatch(callback)` 通常不会在后续字段变化时再执行；`immediate: true` 仍会同步执行 1 次。需要持续监听时应使用 `useWatchField()` 或 `useWatchFields()`。
+`useWatchAll()` 与 `useWatch(callback)` 会在 effect 中读取可追踪的全表值，因此会在字段变化时执行；`immediate: true` 还会在创建监听时同步执行 1 次。需要减少监听范围时可使用 `useWatchField()` 或 `useWatchFields()`。
 
 ```ts
 import { useWatch, useWatchAll, useWatchField, useWatchFields } from "@schemx/vue"
 
 type ProfileValues = { firstName: string; lastName: string }
-useWatch<ProfileValues>("firstName", ({ value, prevValue }) => {
+useWatch<ProfileValues>("firstName", (_snapshot, { value, prevValue }) => {
   console.log(prevValue, value)
 })
 useWatchField<ProfileValues>(
   "firstName",
-  ({ value, prevValue }, snapshot) => console.log(prevValue, value, snapshot),
+  (snapshot, { value, prevValue }) => console.log(prevValue, value, snapshot),
   { immediate: true, inequality: true }
 )
-const stop = useWatchFields<ProfileValues>(["firstName", "lastName"], (payload) => {
+const stop = useWatchFields<ProfileValues>(["firstName", "lastName"], (_snapshot, payload) => {
   console.log(payload.changedPaths, payload.changedValues)
 })
 useWatchAll<ProfileValues>(
-  (payload, snapshot) => {
+  (snapshot, payload) => {
     console.log(payload.changedPaths, snapshot)
   },
   { immediate: true }
@@ -937,7 +1022,7 @@ stop()
 
 ### `useDictionary` 摘要
 
-签名为 `useDictionary<TValues, TName>(options, fieldName?): UseDictionaryReturn`。它通过 `useFormContext()` 取得表单，在 `onMounted` 时按 `immediate` 决定是否加载，并通过 `useWatchFields()` 自动清理依赖订阅。完整参数、返回值、竞态边界与示例见前文 [`useDictionary`](#usedictionary)，这里不重复维护第 2 份定义。
+签名为 `useDictionary<TValues, TName, TResponse, TOption>(options, fieldName?): UseDictionaryReturn<TOption>`。它通过 `useFormContext()` 取得表单，在 `onMounted` 时按 `immediate` 决定是否加载，并通过 `useWatchFields()` 自动清理依赖订阅。完整参数、返回值、竞态边界与示例见前文 [`useDictionary`](#usedictionary)，这里不重复维护第 2 份定义。
 
 ### `useStableRef`
 
@@ -981,11 +1066,13 @@ console.log(viewSchemas.value)
 
 ### `Field`
 
-`Field` 只接受一个必填 Prop：
+`Field` 的必填 Prop 是 `schema`，还支持用于包装器的 `class` 和 `style`：
 
-| Prop     | 类型                       | 说明                                                        |
-| -------- | -------------------------- | ----------------------------------------------------------- |
-| `schema` | `SchemxViewFieldSchema<T>` | core 已解析完成的字段 ViewSchema，不是原始 `SchemxField<T>` |
+| Prop      | 类型                       | 说明                                                        |
+| --------- | -------------------------- | ----------------------------------------------------------- |
+| `schema`  | `SchemxViewFieldSchema<T>` | Core 已解析完成的字段 ViewSchema，不是原始 `SchemxField<T>` |
+| `class`   | `ClassValue`               | 追加到字段外层 wrapper 的 class。                           |
+| `style`   | `StyleValue`               | 追加到字段外层 wrapper 的内联 style。                      |
 
 `Field` 只处理普通字段 ViewSchema：它创建字段控制器、提供字段上下文、查找 Renderer，并处理标签、内容、错误、校验触发和可见性。`Schemx` 会在根级 ViewSchema 循环中直接区分并渲染 `Field` 或 `Group`。
 
@@ -995,11 +1082,14 @@ console.log(viewSchemas.value)
 
 ### `Group`
 
-`Group` 同样只有一个必填 Prop：
+`Group` 的必填 Prop 是 `schema`，还支持外层样式和递归渲染回调：
 
-| Prop     | 类型                       | 说明                                    |
-| -------- | -------------------------- | --------------------------------------- |
-| `schema` | `SchemxViewGroupSchema<T>` | 包含已解析 `children` 的分组 ViewSchema |
+| Prop             | 类型                          | 说明                                    |
+| ---------------- | ----------------------------- | --------------------------------------- |
+| `schema`         | `SchemxViewGroupSchema<T>`    | 包含已解析 `children` 的分组 ViewSchema |
+| `class`          | `ClassValue`                  | 追加到 Group 外层 wrapper 的 class。    |
+| `style`          | `StyleValue`                  | 追加到 Group 外层 wrapper 的内联 style。 |
+| `renderChildren` | `(schemas) => VNodeChild`     | 自定义子级 ViewSchema 的递归渲染方式。   |
 
 它会把收到的全部 Slots 原样传给子级 `Field` 或嵌套 `Group`，并支持 `{groupKey}Header`、`{groupKey}Label`、`{groupKey}Content` 三个分组自身 Slot。`Header` 替换 Header 内部内容，`Label` 替换标题，`Content` 替换 Body 内的默认子字段布局；三者都接收 `schema`、`collapsed`、`collapsible`、`disabled`、`readonly` 和 `toggle`。`collapsible` 控制标题是否可点击和通过 Enter / Space 切换；`disabled` 状态禁止折叠交互，`readonly` 状态仍允许浏览和折叠。组件支持受控与非受控折叠；从受控切换为非受控时会延续最后一次受控值。`destroyOnCollapse` 控制子级是否卸载，ARIA 关联 ID 优先使用 Core Node ID，直接挂载组件时回退到 Vue 实例 ID，避免规范化后相同 key 发生冲突。
 
@@ -1064,16 +1154,23 @@ Vue 根入口自有以下公开类型：
 | `FormContextValue<TValues>`        | 统一 Form Context，包含表单实例和展示配置。见 [Composition API](#formcontextvalue-与兼容类型的边界)。 |
 | `ProvideFormContextOptions<TValues>` | `provideFormContext()` 的输入配置。                         |
 | `FormContextProps`                 | 兼容 API 使用的表单展示配置类型。                            |
-| `SchemxDictionary<TValues, R>`     | 函数式选项源配置；`R` 从 `api` 传递到 `formatter`。见 [Dictionary](#dictionary)。                                   |
+| `SchemxDictionary<TValues, TResponse, TOption>` | 函数式选项源配置；`TResponse` 从 `api` 传递到 `formatter`，`TOption` 是格式化后的选项类型。见 [Dictionary](#dictionary)。 |
 | `SchemxInstallOptions`             | 基于 Vue `SchemxVueConfig` 的 App 安装配置，额外包含 `colComponent`；`app.use(Schemx, options)` 会保存为当前 Vue App 的默认配置。 |
-| `SchemxWithDictionary<A, TValues>` | `A & { dict?: SchemxDictionary<TValues> }`，只增加可选 `dict`。见 [WithRemoteOptions](#withremoteoptions)。         |
-| `UseDictionaryReturn`              | `{ list, loading, error, loadDict, refresh, mutate }`，各成员类型见 [`useDictionary`](#usedictionary)。             |
+| `SchemxWithDictionary<A, TValues>` | `A & { dict?: SchemxDictionary<TValues> \| SchemxDictionary<TValues>["api"] }`，只增加可选 `dict`。见 [WithRemoteOptions](#withremoteoptions)。 |
+| `UseDictionaryReturn<TOption>`     | `{ list, loading, error, loadDict, refresh, mutate }`，`list` 和 `mutate` 使用 `TOption`。见 [`useDictionary`](#usedictionary)。 |
 | `SchemxFormProps<TValues>`         | `Schemx` 组件 Props 类型，由 Core 表单选项和 Vue 专属 `modelValue`、`form`、`class`、`style` 等属性组合而成。       |
 | `FieldInstance<TValues>`           | Vue Ref / Computed 桥接后的字段控制器类型，由 `useField()` 返回。                                                   |
 | `SchemxFieldSlotProps<TValues>`    | 字段整体、Label、Before、After 插槽的公共参数。                                                                   |
 | `SchemxFieldContentSlotProps<TValues>` | Content 插槽参数，额外包含默认 Renderer 的 `columnElement`。                                                      |
 | `SchemxFieldErrorSlotProps<TValues>` | Error 插槽参数，额外包含当前字段的 `errors`。                                                                    |
 | `SchemxFieldSlots<TValues>`        | `Field` 组件接收的动态字段插槽与 Renderer 子插槽类型。                                                           |
+| `SchemxFieldSlotValue<TValues>`    | 字段区域插槽的参数联合类型。                                                                                      |
+| `SchemxGroupSlotProps<TValues>`    | Group Header、Label、Content 插槽参数。                                                                            |
+| `SchemxGroupSlots<TValues>`        | Group 动态插槽类型映射。                                                                                           |
+| `SchemxVueBaseComponentProps`      | Vue Renderer 公共 Props。                                                                                          |
+| `SchemxVueLayout`                  | Vue 24 栅格布局元数据。                                                                                            |
+| `SchemxVueConfig`                  | Vue 层配置，包含 Core 配置与 `colComponent`。                                                                      |
+| `SchemxFormActionConfig`、`SchemxFormAction` | 内置提交 / 重置按钮配置。                                                                                  |
 
 除上述类型外，不要从 `@schemx/vue/src/*` 或 `@schemx/vue/dist/*` 深层导入。
 
@@ -1092,6 +1189,10 @@ Vue 根入口自有以下公开类型：
 | 表单组件        | `schemxForm`                        | 可安装的表单组件；与 `default` 指向同一对象。 |
 | 组件            | `Field`                             | 渲染字段 ViewSchema。                         |
 | 组件            | `Group`                             | 渲染分组 ViewSchema。                         |
+| 组件            | `Col`                               | 将布局元数据映射到已注册的 Col 组件。        |
+| 组件            | `Wrapper`                           | 提供 Renderer 的只读 / 禁用状态包装。        |
+| 组件            | `ConfigProvider`                    | 提供组件树级默认配置。                       |
+| 布局            | `registerCol`                       | 注册 Vue 全局 Col 组件。                     |
 | HOC             | `WithRemoteOptions`                 | 为 Renderer 接入 Dictionary。                 |
 | Registry        | `rendererRegistry`                  | Vue 全局 Renderer Registry。                  |
 | Registry        | `presetRuleRegistry`                | Vue 全局 PresetRuleRegistry。                 |
@@ -1122,12 +1223,17 @@ Vue 根入口自有以下公开类型：
 | Context 类型    | `ProvideFormContextOptions<TValues>` | `provideFormContext()` 的输入配置。           |
 | Context 类型    | `FormContextProps`                  | 兼容 API 使用的表单展示配置类型。             |
 | Runtime 类型    | `VueSchemxInstance`                 | 可在 Vue effect 中追踪读取的 Form Instance。  |
-| Dictionary 类型 | `SchemxDictionary`                  | 函数式选项源配置。                            |
+| Dictionary 类型 | `SchemxDictionary<TValues, TResponse, TOption>` | 函数式选项源配置。                       |
 | 插件类型        | `SchemxInstallOptions`              | 基于 Vue `SchemxVueConfig` 且包含 `colComponent` 的 App 默认配置安装选项。 |
 | Dictionary 类型 | `SchemxWithDictionary`              | 为 Props 增加 `dict`。                        |
-| Dictionary 类型 | `UseDictionaryReturn`               | `useDictionary()` 返回值。                    |
+| Dictionary 类型 | `UseDictionaryReturn<TOption>`      | `useDictionary()` 返回值。                    |
 | 表单类型        | `SchemxFormProps<TValues>`          | `<Schemx>` 组件 Props 类型。                  |
 | 字段类型        | `FieldInstance<TValues>`            | Vue Ref / Computed 桥接后的字段控制器类型。   |
+| 插槽类型        | `SchemxFieldSlotProps`、`SchemxFieldContentSlotProps`、`SchemxFieldErrorSlotProps`、`SchemxFieldSlotValue`、`SchemxFieldSlots` | Field 插槽参数和插槽映射。 |
+| 插槽类型        | `SchemxGroupSlotProps`、`SchemxGroupSlots` | Group 插槽参数和插槽映射。                 |
+| 组件类型        | `SchemxFieldProps`、`SchemxGroupProps`、`ConfigProviderProps<TValues>` | Field、Group 和 ConfigProvider Props。 |
+| 布局类型        | `SchemxVueBaseComponentProps`、`SchemxVueLayout`、`SchemxVueConfig`、`SchemxColComponent`、`SchemxColProps` | Vue Renderer、布局和配置类型。 |
+| 按钮类型        | `SchemxFormActionConfig`、`SchemxFormAction` | 内置提交 / 重置按钮配置。                 |
 | Selector 类型   | `UseFormSelectorOptions<TSelected>` | `useFormSelector` 的比较和刷新配置。          |
 
 根入口没有名为 `SchemxForm` 的命名导出。
@@ -1161,6 +1267,8 @@ Vue 根入口自有以下公开类型：
 | Schema 守卫   | `isFieldSchema`               | 判断原始普通字段。                           |
 | Schema 守卫   | `isGroupSchema`               | 判断原始 Group。                             |
 | Schema 守卫   | `isDependencySchema`          | 判断原始 Dependency。                        |
+| Schema 守卫   | `isDynamicSchema`              | 判断原始 Dynamic 数组字段。                   |
+| ViewSchema 守卫 | `isSchemxViewFieldSchema`、`isViewGroupSchema`、`isViewDynamicSchema` | 判断 ViewSchema 分支。 |
 | 路径          | `getByPath`                   | 读取嵌套路径。                               |
 | 路径          | `setByPath`                   | 写入嵌套路径。                               |
 | 路径          | `collectObjectPathsByLeaf`    | 收集叶子路径。                               |
@@ -1184,12 +1292,14 @@ Vue 根入口自有以下公开类型：
 | 表单               | `FormRegistryOptions`           | Renderer、Rule Registry 和 adapter 配置。 |
 | 表单               | `FormCallbackOptions`           | 提交、值变化和规则错误回调。              |
 | 表单               | `FormLifecycleOptions`          | Runtime 生命周期钩子。                    |
+| 表单               | `FormPerformanceOptions`        | Scheduler 与整表校验并发配置。            |
 | 表单               | `ResolvedCreateFormOptions`     | 已归一化的 Form 创建配置。                |
 | 表单               | `SchemxInstance`                | Core 表单实例接口。                       |
 | 基础               | `Values`                        | 表单值基础约束。                          |
 | 基础               | `Dynamic`                       | 静态值或同步 / 异步值函数。               |
 | 路径               | `NamePath`                      | 类型安全字段路径。                        |
 | 路径               | `FieldValue`                    | 从路径提取字段值。                        |
+| 值更新             | `SetValueAction`、`SetValuesAction` | `setFieldValue()` / `setFieldsValue()` 的值或 updater 类型。 |
 | 工具类型           | `DeepReadonly`                  | 深层只读类型。                            |
 | 工具类型           | `CSSProperties`                 | CSS 属性类型。                            |
 | Schema source      | `SchemxSchemas`                 | 可更新 Schema source。                    |
@@ -1198,6 +1308,7 @@ Vue 根入口自有以下公开类型：
 | 字段               | `SchemxFieldInstance`           | Core 字段控制器。                         |
 | 字段数组           | `FieldArrayItemValue`           | 数组字段行值类型。                        |
 | 字段数组           | `FieldArrayPath`                | 数组字段路径类型。                        |
+| 字段数组           | `FieldArrayChange`              | 数组结构变化的变更描述。                  |
 | 表单               | `SchemxFormApi`                 | 传递给动态 Schema 回调的表单 API。        |
 | 表单               | `SchemxFieldRulesMap`           | 按字段路径配置的规则映射。                |
 | Schema             | `SchemxBase`                    | 普通字段基础接口。                        |
@@ -1206,8 +1317,12 @@ Vue 根入口自有以下公开类型：
 | Schema             | `SchemxGroupField`              | 原始 Group Schema。                       |
 | Schema             | `SchemxDependencyField`         | 原始 Dependency Schema。                  |
 | Schema             | `SchemxField`                   | 全部原始 Schema 联合。                    |
+| Schema             | `SchemxDynamicField`、`SchemxDynamicArrayPath`、`SchemxDynamicNamePath` | Dynamic 数组 Schema 与路径类型。 |
+| Schema             | `SchemxDynamicItemSchema`、`SchemxDynamicItemGroup`、`SchemxDynamicItemDependency`、`SchemxDynamicItemDependencyRendererContext` | Dynamic 行模板类型。 |
 | Schema             | `SchemxBaseComponentProps`      | Core Renderer 公共 Props。                |
+| Schema             | `SchemxCoreBaseComponentProps`、`SchemxRendererPropsMap` | Core 公共 Props 与默认 Props 映射。 |
 | Schema             | `SchemxFormItemProps`           | Field 展示 Props。                        |
+| Schema             | `SchemxLayout`                  | Core 保留的布局元数据类型。               |
 | Schema             | `SchemxVueBaseComponentProps`   | Vue Renderer 公共 Props。                 |
 | Schema             | `SchemxComponentProps`          | Renderer 专属与公共 Props。               |
 | 扩展               | `SchemxComponentPropsDefinition` | Renderer 公共 Props 的声明合并扩展点。     |
@@ -1219,9 +1334,12 @@ Vue 根入口自有以下公开类型：
 | 依赖               | `SchemxDependencyDependencies`  | Dependency 容器的动态状态配置。           |
 | 依赖               | `SchemxContainerDependencies`   | Group/Dependency 容器动态状态配置。       |
 | 依赖               | `SchemxConditionFn`             | 动态属性条件函数。                        |
+| 依赖               | `SchemxDynamicDependencies`     | Dynamic 容器动态状态配置。                |
+| 依赖               | `SchemxFieldDependenciesConditionKey`、`SchemxFieldDependenciesStaticProps` | 字段依赖属性的键和值类型。 |
 | ViewSchema         | `SchemxViewDebugMeta`           | ViewSchema 诊断元数据。                   |
 | ViewSchema         | `SchemxViewFieldSchema`         | 字段渲染投影。                            |
 | ViewSchema         | `SchemxViewGroupSchema`         | Group 渲染投影。                          |
+| ViewSchema         | `SchemxViewDynamicItem`、`SchemxViewDynamicSchema` | Dynamic 数组行及容器渲染投影。            |
 | ViewSchema         | `SchemxViewSchema`              | 字段 / Group 投影联合。                   |
 | 配置               | `MergedSchemxConfig`            | 已合并且补齐 `schemaConfig` 默认值。      |
 | 配置               | `SchemxConfig`                  | Core 模块级和 Form/App 可继承配置。       |

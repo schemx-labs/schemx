@@ -1,6 +1,6 @@
 # @schemx/core
 
-`@schemx/core` 是框架无关的 Schema 表单运行时，负责表单状态、校验、动态 Schema、依赖计算与渲染投影。它不提供 UI；Vue 项目可配合 `@schemx/vue` 或 `@schemx/vant` 使用。
+`@schemx/core` 是框架无关的 Schema 表单运行时，负责表单状态、校验、动态 Schema、动态数组、依赖计算与渲染投影。它不提供 UI；Vue 项目可配合 `@schemx/vue` 或 `@schemx/vant` 使用。
 
 ## 安装
 
@@ -69,6 +69,7 @@ form.destroy()
 | `schemaConfig`                                         | 框架无关的字段默认值，如 `required`、`readonly`、`disabled`、`visible` 和校验触发方式；UI 适配层可通过 `SchemxSchemaConfigDefinition` 扩展。 |
 | `fieldRules`                                           | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先。                                     |
 | `rendererProps` / `rendererRegistry`                   | 按 `componentType` 配置默认 Props，或提供 Renderer Registry。Core 仅保存和解析 Renderer，不渲染它。 |
+| `defaultRendererType`                                  | Core 创建内部 Renderer Registry 时使用的回退类型；显式传入 `rendererRegistry` 后，由该 Registry 自身的 fallback 决定。 |
 | `presetRuleRegistry` / `validatorAdapters`             | 预设规则注册表和额外的第三方校验 adapter；async-validator 规则由 Core 内置支持。                    |
 | `onRuleError`                                          | 规则解析或执行异常时的回调。                                                                        |
 | `onFinish` / `onFinishFailed`                          | `submit()` 成功或失败后的回调。                                                                     |
@@ -79,7 +80,7 @@ form.destroy()
 
 ## Schema
 
-`SchemxField<TValues>` 有 3 种结构：普通字段、分组字段和动态依赖字段。
+`SchemxField<TValues>` 有 4 种结构：普通字段、分组字段、动态依赖字段和动态数组字段。
 
 ### 普通字段
 
@@ -105,6 +106,7 @@ const nickname: SchemxField = {
 | `componentProps`                                                                  | 透传给目标 Renderer 的专属 Props。                 |
 | `placeholder` / `readonlyPlaceholder`                                             | 普通或只读状态的占位提示。                         |
 | `initialValue`                                                                    | 字段挂载时写入的初始值，也是 `reset()` 的还原值。  |
+| `preserve`                                                                        | Schema 移除或字段改名时是否保留字段值和状态；默认保留，设为 `false` 时清理旧路径。 |
 | `required` / `showRequiredMark`                                                   | 必填校验配置与必填标记展示配置。                   |
 | `rules` / `validationTrigger`                                                     | 校验规则及其触发时机。                             |
 | `labelIcon`、`labelAlign`、`labelPosition`、`labelWidth`、`contentAlign`、`colon` | 标签和内容区域的展示配置。                         |
@@ -193,6 +195,64 @@ const accountFields: SchemxField<AccountValues> = {
 | `visible` / `readonly` / `disabled` | 动态子树的容器状态；隐藏不停止 `renderer` 对 `to` 的响应。                    |
 | `dependencies`                      | 基于表单值动态覆盖动态子树的容器状态。                                        |
 
+### 动态数组字段
+
+动态数组字段使用 `SchemxDynamicField` 描述对象数组的行模板。`key` 是必填的稳定模板标识，`name` 指向表单中的对象数组，`item` 描述每一行的相对字段。Core 负责数组行的增删、移动、索引路径更新和行状态复用，不负责新增、删除按钮或拖拽等 UI 行为。
+
+```ts
+import { createForm, type SchemxDynamicField } from "@schemx/core"
+
+type Member = {
+  name: string
+  role: "developer" | "designer"
+}
+
+type TeamValues = {
+  members: Member[]
+}
+
+const membersSchema: SchemxDynamicField<TeamValues, Member> = {
+  key: "members",
+  name: "members",
+  label: "团队成员",
+  item: [
+    {
+      key: "member",
+      label: "成员信息",
+      children: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          required: true,
+        },
+        {
+          name: "role",
+          label: "角色",
+          componentType: "text",
+        },
+      ],
+    },
+  ],
+}
+
+const form = createForm<TeamValues>({
+  initialValues: {
+    members: [{ name: "张三", role: "developer" }],
+  },
+  schemas: [membersSchema],
+})
+
+form.setFieldValue("members", (members) => [
+  ...(members ?? []),
+  { name: "李四", role: "designer" },
+])
+```
+
+`item` 中的普通字段和 Group 使用当前行的相对路径，例如 `name` 会展开为 `members.0.name`。普通字段和 Group 的 `dependencies.triggerFields` 会随行自动展开；行内 Dependency 的 `to` 按完整表单路径声明，`renderer` 返回的子 Schema 使用当前行相对路径。行内模板可以包含普通字段、Group 和 Dependency，但不能嵌套 Dynamic。Dynamic 容器支持 `visible`、`readonly`、`disabled` 及对应的 `dependencies`，状态会递归传递到每一行的后代字段。
+
+修改数组时建议使用 `setFieldValue(path, updater)`，这样 Core 能识别行结构并保持移动前后的字段值、校验和行身份对应。Dynamic 的 ViewSchema 保留 `items` 行边界，UI 适配层可据此渲染每一行。
+
 ## 表单实例 API
 
 `createForm()` 返回的 `SchemxInstance` 按以下类别提供 API。
@@ -228,6 +288,8 @@ stop()
 ## 校验
 
 原生 `ValidationRule` 的 `validate` 返回 `{ valid: true }` 或 `{ valid: false, issues }`。`ValidationResult` 使用 `valid` 作为判别字段：成功时包含 `values`，失败时包含字段或表单错误。
+
+异步校验在被更新的校验、规则替换、字段移除或表单销毁中止时，会返回 `valid: false`、`cancelled: true` 和空的 `errors`；这类结果不代表普通校验失败，`submit()` 也不会调用 `onFinishFailed`。
 
 ```ts
 import { createPresetRuleRegistry, type ValidationRule } from "@schemx/core"
@@ -321,12 +383,13 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 
 | 类别            | 导出                                                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema 判断     | `isFieldSchema`、`isGroupSchema`、`isDependencySchema`                                                                                                                    |
-| ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`                                                                                                                            |
+| Schema 判断     | `isFieldSchema`、`isGroupSchema`、`isDependencySchema`、`isDynamicSchema`                                                                                                  |
+| ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`、`isViewDynamicSchema`                                                                                                      |
 | 路径工具        | `getByPath`、`setByPath`、`collectObjectPathsByLeaf`                                                                                                                      |
-| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SchemxField`、`SchemxViewSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxFieldRulesMap`、`StandardSchemaV1` |
-| 适配层扩展类型  | `SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxFormItemProps`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点） |
-| 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`、`ValidationAdapter`、`ValidationAdapterOption`              |
+| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SetValueAction`、`SetValuesAction`、`SchemxField`、`SchemxViewSchema`、`SchemxViewDynamicItem`、`SchemxViewDynamicSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxFieldRulesMap`、`StandardSchemaV1` |
+| 动态数组类型    | `SchemxDynamicField`、`SchemxDynamicArrayPath`、`SchemxDynamicNamePath`、`SchemxDynamicItemSchema`、`SchemxDynamicItemGroup`、`SchemxDynamicItemDependency`、`SchemxDynamicItemDependencyRendererContext`、`SchemxDynamicDependencies`、`FieldArrayItemValue`、`FieldArrayChange`、`FieldArrayPath` |
+| 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxLayout`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点） |
+| 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor` |
 | `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter` 及表单状态快照相关类型，供 UI 适配层使用。                                                                             |
 
 所有公开 API 均从 `@schemx/core` 导入；UI 适配层专用能力从 `@schemx/core/adapter` 导入。
