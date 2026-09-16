@@ -5,11 +5,6 @@
  */
 
 /**
- * Vue App 安装配置。
- */
-export { provideSchemxAppConfig, getSchemxAppConfig } from "./appConfig"
-
-/**
  * Vue Form 配置合并。
  */
 export { mergeVueSchemxConfig } from "./vueConfig"

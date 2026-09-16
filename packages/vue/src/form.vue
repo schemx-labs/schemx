@@ -13,14 +13,13 @@
     defaultSchemxConfigKeys,
     getGlobalSchemxConfig,
     isSchemxSchemas,
-    mergeSchemxConfig,
+    mergeConfig,
     resolveSchemxConfig,
   } from "@schemx/core"
   import { pick } from "es-toolkit"
 
   import Button from "./components/Button"
   import SchemaList from "./components/SchemaList"
-  import { getSchemxAppConfig } from "./config"
   import {
     defaultVueSchemaConfig,
     defaultVueSchemaConfigKeys,
@@ -77,6 +76,7 @@
     disabled: undefined,
     colon: undefined,
     showRequiredMark: undefined,
+    bordered: undefined,
     colComponent: undefined,
   })
 
@@ -122,10 +122,7 @@
   // 当前组件显式传入的、待同步到 Core 的 schema 配置。
   const schemaConfigProps = computed(pickSchemaConfig)
 
-  // 当前 Vue App 的安装级配置快照。
-  const appConfig = getSchemxAppConfig()
-
-  // 当前组件树中最近 Provider 的响应式配置。
+  // 当前 App 或组件树中最近 Provider 的响应式配置。
   const providerConfig = useConfigProviderContextRef()
 
   /**
@@ -148,11 +145,10 @@
    */
   const mergedConfig = computed(() =>
     isExternalForm
-      ? mergeSchemxConfig({ schemaConfig: schemaConfigProps.value }, formFallbackConfig)
-      : mergeSchemxConfig(
+      ? mergeConfig({ schemaConfig: schemaConfigProps.value }, formFallbackConfig)
+      : mergeConfig(
           { schemaConfig: schemaConfigProps.value },
           (providerConfig?.value as SchemxConfig<TValues> | undefined) ?? {},
-          appConfig as SchemxConfig<TValues>,
           formFallbackConfig,
           coreConfig as SchemxConfig<TValues>
         )
@@ -170,7 +166,7 @@
    * 计算内部 Form 当前完整生效的配置，用于撤销局部覆盖和响应 Provider 变化。
    */
   const resolvedSchemaConfig = computed<SchemxSchemaConfig>(
-    () => resolveSchemxConfig(mergedConfig.value).schemaConfig
+    () => resolveSchemxConfig({ schemaConfig: contextSchemaConfig.value }).schemaConfig
   )
 
   /**
@@ -186,13 +182,12 @@
   ): boolean => Object.prototype.hasOwnProperty.call(config, key)
 
   /**
-   * 当前 Form 使用的 Col，按 Form、Provider、App、全局注册顺序解析。
+   * 当前 Form 使用的 Col，按 Form、Provider/App、全局注册顺序解析。
    */
   const resolvedColComponent = computed(
     () =>
       props.colComponent ??
       providerConfig?.value.colComponent ??
-      appConfig.colComponent ??
       registeredColComponent.value
   )
 

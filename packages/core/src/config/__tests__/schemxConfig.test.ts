@@ -78,7 +78,7 @@ describe("configureSchemx", () => {
     })
 
     const form = createForm<{ email: string }>({
-      validatorAdapters: [{ adapter: formAdapter, override: true }],
+      validatorAdapters: [formAdapter],
       schemas: [
         {
           name: "email",

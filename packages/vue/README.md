@@ -265,7 +265,7 @@ app.use(Schemx, {
 })
 ```
 
-安装配置属于当前 Vue App；不同 App 可以使用不同的 Registry、字段默认值、默认 renderer 类型和校验 adapter，适用于多应用和 SSR 隔离场景。配置优先级为表单显式配置、当前 App 安装配置、Vue 包默认 Registry、Core 模块级配置、Core 内置默认值。`validatorAdapters` 按该顺序累积；同 ID adapter 需要通过 `{ adapter, override: true }` 显式覆盖。`app.use()` 不会调用 Core 的模块级 `configureSchemx()`；该 API 仍可作为 Vue 与直接 `createForm()` 的低优先级基线。可安装组件还挂载了静态属性 `Schemx.Field`；`Group` 仅作为根入口命名导出，不是静态属性。
+安装配置属于当前 Vue App；不同 App 可以使用不同的 Registry、字段默认值、默认 renderer 类型和校验 adapter，适用于多应用和 SSR 隔离场景。配置优先级为表单显式配置、当前 App 安装配置、Vue 包默认 Registry、Core 模块级配置、Core 内置默认值。`validatorAdapters` 按该顺序合并，不同配置层的同 ID adapter 由高优先级配置覆盖，同一配置层内的重复 ID 仍需通过 `{ adapter, override: true }` 显式覆盖。`app.use()` 不会调用 Core 的模块级 `configureSchemx()`；该 API 仍可作为 Vue 与直接 `createForm()` 的低优先级基线。可安装组件还挂载了静态属性 `Schemx.Field`；`Group` 仅作为根入口命名导出，不是静态属性。
 
 `SchemxFormProps` 和 Vue 层 `FieldInstance` 也会从 `@schemx/vue` 根入口导出；业务代码通常仍可直接从组件或 Hook 调用处推导类型，不需要依赖深层路径。
 
@@ -1252,7 +1252,7 @@ Vue 根入口自有以下公开类型：
 | Watch         | `createDebouncedSignalWatch`  | 监听 signal source，并提供 debounce 控制器。 |
 | 配置          | `configureSchemx`             | 设置 Core 模块级默认配置。                   |
 | 配置          | `getGlobalSchemxConfig`       | 读取 Core 模块级默认配置。                   |
-| 配置          | `mergeSchemxConfig`           | 按优先级纯合并配置。                         |
+| 配置          | `mergeConfig`                 | 按优先级纯合并配置。                         |
 | 配置          | `resolveSchemxConfig`         | 补齐 `schemaConfig` 默认值。                 |
 | 配置          | `mergeAndResolveSchemxConfig` | 合并配置并补齐默认值。                       |
 | 配置          | `defaultSchemxConfig`         | Core 内置框架无关字段默认值；UI 展示默认值由 Vue 层提供。 |

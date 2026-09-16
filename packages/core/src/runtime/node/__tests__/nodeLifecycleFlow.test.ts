@@ -15,8 +15,8 @@ import { createNodeLifecycle, mountNodeResources } from "../resources"
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 import {
   createFieldRuntimeSignals,
-  resetFieldDynamicOverrides,
-  setFieldDynamicOverrides,
+  resetFieldDependencyOverrides,
+  setFieldDependencyOverrides,
 } from "./signalsTestUtils"
 
 import type { SchemxBaseField } from "../../../types"
@@ -112,7 +112,7 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "旧标签" }])
     const node = root.childNodes.value[0] as FieldNode
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       node,
       { visible: false },
       {
@@ -143,28 +143,40 @@ describe("node lifecycle flow", () => {
       "name"
     )
     expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.staticSchema.value.name
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.compiledSchema.value.name
     ).toBe("name")
     expect(updatedPreviousNode).not.toBe(updatedNode)
-    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.staticSchema).not.toBe(
-      updatedNode.staticSchema
+    expect(
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.compiledSchema
+    ).not.toBe(updatedNode.compiledSchema)
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.staticSchema).toBe(
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.compiledSchema
     )
     expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.dynamicOverrides
-    ).not.toBe(updatedNode.dynamicOverrides)
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.dependencyOverrides
+    ).not.toBe(updatedNode.dependencyOverrides)
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.dynamicOverrides).toBe(
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.dependencyOverrides
+    )
     expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.effectiveSchema
-    ).not.toBe(updatedNode.effectiveSchema)
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema
+    ).not.toBe(updatedNode.resolvedSchema)
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.effectiveSchema).toBe(
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema
+    )
+    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.validationSchema).toBe(
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.validationState
+    )
     expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.effectiveSchema.value
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema.value
     ).toMatchObject({ label: "旧标签", visible: false })
     expect(isFieldNode(updatedNode) && updatedNode.name.value).toBe("nickname")
-    expect(isFieldNode(updatedNode) && updatedNode.effectiveSchema.value).toMatchObject({
+    expect(isFieldNode(updatedNode) && updatedNode.resolvedSchema.value).toMatchObject({
       label: "新标签",
       visible: false,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       updatedNode,
       { visible: true },
       {
@@ -174,8 +186,7 @@ describe("node lifecycle flow", () => {
     )
 
     expect(
-      isFieldNode(updatedPreviousNode) &&
-        updatedPreviousNode.effectiveSchema.value.visible
+      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema.value.visible
     ).toBe(false)
     expect(nextConfigToken).not.toBe(previousConfigToken)
   })
@@ -203,7 +214,7 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldNode
 
-    expect(field.staticSchema).toBeDefined()
+    expect(field.compiledSchema).toBeDefined()
     expect(field.viewSchemas).not.toBeNull()
     expect(field.validationEffectScope).toBeDefined()
     expect(findFieldNode(root, "name" as any)).toBe(field)
@@ -211,7 +222,7 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [])
 
     expect(field.disposed.value).toBe(true)
-    expect(field.staticSchema).toBeDefined()
+    expect(field.compiledSchema).toBeDefined()
     expect(field.viewSchemas).toBeNull()
     expect(field.validationEffectScope).toBeNull()
     expect(findFieldNode(root, "name" as any)).toBeUndefined()
@@ -306,14 +317,14 @@ describe("字段删除和 scope 释放 (US3)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
       debug: true,
     })
 
-    resetFieldDynamicOverrides(state, "dispose")
+    resetFieldDependencyOverrides(state, "dispose")
 
     expect(readDiagnostics(state).lastUpdatedBy).toBe("dispose")
-    expect(state.dynamicOverrides.value).toEqual({})
+    expect(state.dependencyOverrides.value).toEqual({})
   })
 
   it("dispose 后不应再接受动态覆盖写入（调用方负责检查 scope）", () => {
@@ -323,14 +334,14 @@ describe("字段删除和 scope 释放 (US3)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
       debug: true,
     })
 
-    resetFieldDynamicOverrides(state, "dispose")
+    resetFieldDependencyOverrides(state, "dispose")
 
     // 即使尝试写入，diagnostics 仍标记为 dispose
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       { visible: false },
       {
@@ -343,17 +354,17 @@ describe("字段删除和 scope 释放 (US3)", () => {
     expect(readDiagnostics(state).lastUpdatedBy).toBe("dependencies")
   })
 
-  it("reset 后 dynamicOverrides 应清空", () => {
+  it("reset 后 dependencyOverrides 应清空", () => {
     const schema = createTestSchema({ visible: true })
 
     const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       { visible: false, disabled: true },
       {
@@ -362,10 +373,10 @@ describe("字段删除和 scope 释放 (US3)", () => {
       }
     )
 
-    resetFieldDynamicOverrides(state, "reset")
+    resetFieldDependencyOverrides(state, "reset")
 
-    expect(state.dynamicOverrides.value).toEqual({})
-    expect(state.effectiveSchema.value.visible).toBe(true)
-    expect(state.effectiveSchema.value.disabled).toBe(false)
+    expect(state.dependencyOverrides.value).toEqual({})
+    expect(state.resolvedSchema.value.visible).toBe(true)
+    expect(state.resolvedSchema.value.disabled).toBe(false)
   })
 })

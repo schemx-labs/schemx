@@ -19,21 +19,21 @@ import type {
 } from "../../../types"
 import type { FieldRules } from "../../../types/rule"
 import type {
-  FieldDynamicOverrideKey,
-  FieldDynamicOverrides,
-  FieldEffectiveSchema,
+  FieldDependencyOverrideKey,
+  FieldDependencyOverrides,
   FieldRuntimeDiagnostics,
-  FieldValidationSchema,
+  FieldValidationState,
   ParentNode,
-  PresentationDynamicOverrides,
-  PresentationStaticState,
+  PresentationDependencyOverrides,
+  PresentationState,
+  ResolvedFieldSchema,
   SchemaNode,
 } from "../types"
 
 /**
  * 写入测试用字段动态覆盖时附带的诊断信息。
  */
-interface DynamicOverrideMeta<TValues extends Values = Values> {
+interface DependencyOverrideMeta<TValues extends Values = Values> {
   readonly source: "dependencies"
   readonly triggerFields: readonly NamePath<TValues>[]
   readonly error?: Error | null
@@ -58,11 +58,11 @@ export interface CreateFieldRuntimeSignalsOptions<TValues extends Values = Value
   /**
    * Field 节点的静态 schema。
    */
-  readonly staticSchema: SchemxBaseField<TValues>
+  readonly compiledSchema: SchemxBaseField<TValues>
   /**
    * 可选的祖先有效呈现状态。
    */
-  readonly inheritedState?: ComputedSignal<PresentationStaticState>
+  readonly inheritedPresentationState?: ComputedSignal<PresentationState>
   /**
    * 是否创建 diagnostics Signal。
    */
@@ -80,19 +80,23 @@ export interface FieldRuntimeSignals<TValues extends Values = Values> {
   /**
    * 字段静态 schema Signal。
    */
+  readonly compiledSchema: Signal<SchemxBaseField<TValues>>
   readonly staticSchema: Signal<SchemxBaseField<TValues>>
   /**
    * 字段动态覆盖 Signal。
    */
-  readonly dynamicOverrides: Signal<FieldDynamicOverrides<TValues>>
+  readonly dependencyOverrides: Signal<FieldDependencyOverrides<TValues>>
+  readonly dynamicOverrides: Signal<FieldDependencyOverrides<TValues>>
   /**
    * 合并后的字段有效 schema。
    */
-  readonly effectiveSchema: ComputedSignal<FieldEffectiveSchema<TValues>>
+  readonly resolvedSchema: ComputedSignal<ResolvedFieldSchema<TValues>>
+  readonly effectiveSchema: ComputedSignal<ResolvedFieldSchema<TValues>>
   /**
    * Validator 使用的字段校验 schema。
    */
-  readonly validationSchema: ComputedSignal<FieldValidationSchema<TValues>>
+  readonly validationState: ComputedSignal<FieldValidationState<TValues>>
+  readonly validationSchema: ComputedSignal<FieldValidationState<TValues>>
   /**
    * 可选的字段运行时 diagnostics Signal。
    */
@@ -116,18 +120,18 @@ export function createFieldRuntimeSignals<TValues extends Values>(
 ): FieldRuntimeSignals<TValues> {
   const { key, name, nodeId } = options
 
-  const initialStaticSchema = options.staticSchema
+  const initialCompiledSchema = options.compiledSchema
 
-  const inheritedState =
-    options.inheritedState ?? createComputed(() => DEFAULT_PRESENTATION_STATE)
+  const inheritedPresentationState =
+    options.inheritedPresentationState ?? createComputed(() => DEFAULT_PRESENTATION_STATE)
 
-  const staticSchema = createSignal<SchemxBaseField<TValues>>(initialStaticSchema, {
-    name: `field:${nodeId}:staticSchema`,
+  const compiledSchema = createSignal<SchemxBaseField<TValues>>(initialCompiledSchema, {
+    name: `field:${nodeId}:compiledSchema`,
   })
 
-  const dynamicOverrides = createSignal<FieldDynamicOverrides<TValues>>(
+  const dependencyOverrides = createSignal<FieldDependencyOverrides<TValues>>(
     {},
-    { name: `field:${nodeId}:dynamicOverrides` }
+    { name: `field:${nodeId}:dependencyOverrides` }
   )
 
   const diagnostics =
@@ -141,99 +145,109 @@ export function createFieldRuntimeSignals<TValues extends Values>(
     name: `field:${nodeId}:name`,
   })
 
-  let previousValidationSchema: FieldValidationSchema<TValues> | undefined
+  let previousValidationState: FieldValidationState<TValues> | undefined
 
-  const validationSchema = createComputed<FieldValidationSchema<TValues>>(() => {
-    const base = staticSchema.value
+  const validationState = createComputed<FieldValidationState<TValues>>(() => {
+    const compiledSchemaValue = compiledSchema.value
 
-    const overrides = dynamicOverrides.value
+    const dependencyOverridesValue = dependencyOverrides.value
 
     const presentationState = resolvePresentationState(
-      base,
-      overrides,
-      inheritedState.value
+      compiledSchemaValue,
+      dependencyOverridesValue,
+      inheritedPresentationState.value
     )
 
-    const required = overrides.required ?? base.required ?? false
+    const required =
+      dependencyOverridesValue.required ?? compiledSchemaValue.required ?? false
 
-    const nextValidationSchema: FieldValidationSchema<TValues> = {
+    const nextValidationState: FieldValidationState<TValues> = {
       visible: presentationState.visible,
       disabled: presentationState.disabled,
       readonly: presentationState.readonly,
-      label: base.label || "",
+      label: compiledSchemaValue.label || "",
       required,
-      rules: overrides.rules ?? base.rules ?? [],
+      rules: dependencyOverridesValue.rules ?? compiledSchemaValue.rules ?? [],
     }
 
     if (
-      previousValidationSchema &&
-      isValidationSchemaEqual(previousValidationSchema, nextValidationSchema)
+      previousValidationState &&
+      isValidationStateEqual(previousValidationState, nextValidationState)
     ) {
-      return previousValidationSchema
+      return previousValidationState
     }
 
-    previousValidationSchema = nextValidationSchema
+    previousValidationState = nextValidationState
 
-    return nextValidationSchema
+    return nextValidationState
   })
 
-  const effectiveSchema = createComputed<FieldEffectiveSchema<TValues>>(() => {
-    const base = staticSchema.value
+  const resolvedSchema = createComputed<ResolvedFieldSchema<TValues>>(() => {
+    const compiledSchemaValue = compiledSchema.value
 
-    const overrides = dynamicOverrides.value
+    const dependencyOverridesValue = dependencyOverrides.value
 
-    const validation = validationSchema.value
+    const validationStateValue = validationState.value
 
-    const readonlyPlaceholder = overrides.readonlyPlaceholder ?? base.readonlyPlaceholder
+    const readonlyPlaceholder =
+      dependencyOverridesValue.readonlyPlaceholder ??
+      compiledSchemaValue.readonlyPlaceholder
 
-    const placeholder = overrides.placeholder ?? base.placeholder ?? ""
+    const placeholder =
+      dependencyOverridesValue.placeholder ?? compiledSchemaValue.placeholder ?? ""
 
     const showRequiredMark =
-      overrides.showRequiredMark ?? base.showRequiredMark ?? Boolean(validation.required)
+      dependencyOverridesValue.showRequiredMark ??
+      compiledSchemaValue.showRequiredMark ??
+      Boolean(validationStateValue.required)
 
-    const effectiveRendererProps: RendererEffectiveProps = {
-      disabled: validation.disabled,
-      readonly: validation.readonly,
+    const resolvedStateProps: RendererStateProps = {
+      disabled: validationStateValue.disabled,
+      readonly: validationStateValue.readonly,
       placeholder,
       readonlyPlaceholder,
     }
 
     const componentProps = resolveComponentProps({
-      staticProps: base.componentProps,
-      dynamicComponentProps: overrides.componentProps,
-      effectiveProps: effectiveRendererProps,
-      staticEffectiveProps: {
-        disabled: base.disabled ?? false,
-        readonly: base.readonly ?? false,
-        placeholder: base.placeholder ?? "",
-        readonlyPlaceholder: base.readonlyPlaceholder,
+      compiledProps: compiledSchemaValue.componentProps,
+      dependencyComponentProps: dependencyOverridesValue.componentProps,
+      resolvedStateProps,
+      compiledStateProps: {
+        disabled: compiledSchemaValue.disabled ?? false,
+        readonly: compiledSchemaValue.readonly ?? false,
+        placeholder: compiledSchemaValue.placeholder ?? "",
+        readonlyPlaceholder: compiledSchemaValue.readonlyPlaceholder,
       },
     })
 
     return {
       key,
       name: nameSignal.value,
-      componentType: base.componentType,
-      label: validation.label,
-      visible: validation.visible,
-      disabled: validation.disabled,
-      readonly: validation.readonly,
-      required: validation.required,
+      componentType: compiledSchemaValue.componentType,
+      label: validationStateValue.label,
+      visible: validationStateValue.visible,
+      disabled: validationStateValue.disabled,
+      readonly: validationStateValue.readonly,
+      required: validationStateValue.required,
       showRequiredMark,
       placeholder,
       readonlyPlaceholder,
       componentProps,
-      rules: validation.rules,
-      validationTrigger: base.validationTrigger,
+      rules: validationStateValue.rules,
+      validationTrigger: compiledSchemaValue.validationTrigger,
     }
   })
 
   return {
     name: nameSignal,
-    staticSchema,
-    dynamicOverrides,
-    effectiveSchema,
-    validationSchema,
+    compiledSchema,
+    staticSchema: compiledSchema,
+    dependencyOverrides,
+    dynamicOverrides: dependencyOverrides,
+    resolvedSchema,
+    effectiveSchema: resolvedSchema,
+    validationState,
+    validationSchema: validationState,
     diagnostics,
   }
 }
@@ -245,14 +259,14 @@ export function createFieldRuntimeSignals<TValues extends Values>(
  * @param node - 要更新的 Field 响应式状态。
  * @param config - 新的字段路径和静态 schema。
  */
-export function setFieldStaticSchema<TValues extends Values>(
+export function setFieldCompiledSchema<TValues extends Values>(
   node: FieldRuntimeSignals<TValues>,
   config: {
     readonly name: NamePath<TValues>
-    readonly staticSchema: SchemxBaseField<TValues>
+    readonly compiledSchema: SchemxBaseField<TValues>
   }
 ): void {
-  node.staticSchema.value = config.staticSchema
+  node.compiledSchema.value = config.compiledSchema
   node.name.value = config.name
   updateFieldDiagnostics(node, {
     lastUpdatedBy: "static-schema",
@@ -267,19 +281,19 @@ export function setFieldStaticSchema<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型。
  * @param node - 要更新的 Field 响应式状态。
- * @param overrides - 要写入的动态字段属性。
+ * @param dependencyOverrides - 要写入的动态字段属性。
  * @param meta - 本次覆盖的来源和诊断信息。
  */
-export function setFieldDynamicOverrides<TValues extends Values>(
+export function setFieldDependencyOverrides<TValues extends Values>(
   node: FieldRuntimeSignals<TValues>,
-  overrides: FieldDynamicOverrides<TValues>,
-  meta: DynamicOverrideMeta<TValues>
+  dependencyOverrides: FieldDependencyOverrides<TValues>,
+  meta: DependencyOverrideMeta<TValues>
 ): void {
-  node.dynamicOverrides.value = overrides
+  node.dependencyOverrides.value = dependencyOverrides
   updateFieldDiagnostics(node, {
     lastUpdatedBy: "dependencies",
     triggerFields: meta.triggerFields,
-    overriddenKeys: Object.keys(overrides) as FieldDynamicOverrideKey[],
+    overriddenKeys: Object.keys(dependencyOverrides) as FieldDependencyOverrideKey[],
     error: meta.error ?? null,
   })
 }
@@ -291,11 +305,11 @@ export function setFieldDynamicOverrides<TValues extends Values>(
  * @param node - 要重置的 Field 响应式状态。
  * @param reason - 触发重置的原因。
  */
-export function resetFieldDynamicOverrides<TValues extends Values>(
+export function resetFieldDependencyOverrides<TValues extends Values>(
   node: FieldRuntimeSignals<TValues>,
   reason: "reset" | "dispose" = "reset"
 ): void {
-  node.dynamicOverrides.value = {}
+  node.dependencyOverrides.value = {}
   updateFieldDiagnostics(node, {
     lastUpdatedBy: reason,
     triggerFields: [],
@@ -315,11 +329,11 @@ export interface CreatePresentationRuntimeSignalsOptions {
   /**
    * 读取容器静态呈现状态的函数。
    */
-  readonly getStaticState: () => PresentationStaticState
+  readonly getSchemaState: () => PresentationState
   /**
    * 祖先节点的有效呈现状态。
    */
-  readonly inheritedState: ComputedSignal<PresentationStaticState>
+  readonly inheritedPresentationState: ComputedSignal<PresentationState>
 }
 
 /**
@@ -329,11 +343,13 @@ export interface PresentationRuntimeSignals {
   /**
    * 容器节点的动态呈现覆盖 Signal。
    */
-  readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
+  readonly dependencyOverrides: Signal<PresentationDependencyOverrides>
+  readonly dynamicOverrides: Signal<PresentationDependencyOverrides>
   /**
    * 合并后的容器有效呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationStaticState>
+  readonly presentationState: ComputedSignal<PresentationState>
+  readonly effectiveState: ComputedSignal<PresentationState>
 }
 
 /**
@@ -345,22 +361,24 @@ export interface PresentationRuntimeSignals {
 export function createPresentationRuntimeSignals(
   options: CreatePresentationRuntimeSignalsOptions
 ): PresentationRuntimeSignals {
-  const dynamicOverrides = createSignal<PresentationDynamicOverrides>(
+  const dependencyOverrides = createSignal<PresentationDependencyOverrides>(
     {},
-    { name: `presentation:${options.nodeId}:dynamicOverrides` }
+    { name: `presentation:${options.nodeId}:dependencyOverrides` }
   )
 
-  const effectiveState = createComputed<PresentationStaticState>(() => {
+  const presentationState = createComputed<PresentationState>(() => {
     return resolvePresentationState(
-      options.getStaticState(),
-      dynamicOverrides.value,
-      options.inheritedState.value
+      options.getSchemaState(),
+      dependencyOverrides.value,
+      options.inheritedPresentationState.value
     )
   })
 
   return {
-    dynamicOverrides,
-    effectiveState,
+    dependencyOverrides,
+    dynamicOverrides: dependencyOverrides,
+    presentationState,
+    effectiveState: presentationState,
   }
 }
 
@@ -373,14 +391,14 @@ export function createPresentationRuntimeSignals(
  */
 export function createInheritedPresentationState<TValues extends Values>(
   getNode: () => SchemaNode<TValues>
-): ComputedSignal<PresentationStaticState> {
+): ComputedSignal<PresentationState> {
   return createComputed(() => readInheritedPresentationState(getNode().parent))
 }
 
 /**
  * 没有祖先容器时使用的默认呈现状态。
  */
-export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
+export const DEFAULT_PRESENTATION_STATE: PresentationState = {
   visible: true,
   readonly: false,
   disabled: false,
@@ -389,37 +407,43 @@ export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
 /**
  * 解析节点的最终呈现状态。
  *
- * @param staticState - 节点的静态呈现状态。
- * @param overrides - 节点的动态呈现覆盖。
- * @param inheritedState - 祖先节点传入的有效状态。
+ * @param schemaState - 节点的静态呈现状态。
+ * @param dependencyOverrides - 节点的动态呈现覆盖。
+ * @param inheritedPresentationState - 祖先节点传入的有效状态。
  * @returns 合并后的有效呈现状态。
  */
 export function resolvePresentationState(
-  staticState: Partial<PresentationStaticState>,
-  overrides: PresentationDynamicOverrides,
-  inheritedState: PresentationStaticState = DEFAULT_PRESENTATION_STATE
-): PresentationStaticState {
+  schemaState: Partial<PresentationState>,
+  dependencyOverrides: PresentationDependencyOverrides,
+  inheritedPresentationState: PresentationState = DEFAULT_PRESENTATION_STATE
+): PresentationState {
   const visible =
-    overrides.visible ?? staticState.visible ?? DEFAULT_PRESENTATION_STATE.visible
+    dependencyOverrides.visible ??
+    schemaState.visible ??
+    DEFAULT_PRESENTATION_STATE.visible
 
   const readonly =
-    overrides.readonly ?? staticState.readonly ?? DEFAULT_PRESENTATION_STATE.readonly
+    dependencyOverrides.readonly ??
+    schemaState.readonly ??
+    DEFAULT_PRESENTATION_STATE.readonly
 
   const disabled =
-    overrides.disabled ?? staticState.disabled ?? DEFAULT_PRESENTATION_STATE.disabled
+    dependencyOverrides.disabled ??
+    schemaState.disabled ??
+    DEFAULT_PRESENTATION_STATE.disabled
 
   return {
-    visible: inheritedState.visible && visible,
-    readonly: inheritedState.readonly || readonly,
-    disabled: inheritedState.disabled || disabled,
+    visible: inheritedPresentationState.visible && visible,
+    readonly: inheritedPresentationState.readonly || readonly,
+    disabled: inheritedPresentationState.disabled || disabled,
   }
 }
 
 /**
  * Renderer 与 Field 共同消费的最终展示属性。
  */
-type RendererEffectiveProps = Pick<
-  FieldEffectiveSchema,
+type RendererStateProps = Pick<
+  ResolvedFieldSchema,
   "disabled" | "readonly" | "placeholder" | "readonlyPlaceholder"
 >
 
@@ -427,10 +451,10 @@ type RendererEffectiveProps = Pick<
  * 合并最终 Renderer Props 所需的静态、动态与有效状态。
  */
 interface ResolveComponentPropsOptions<TValues extends Values> {
-  readonly staticProps: SchemxComponentProps<TValues> | undefined
-  readonly dynamicComponentProps: SchemxComponentProps<TValues> | undefined
-  readonly effectiveProps: RendererEffectiveProps
-  readonly staticEffectiveProps: RendererEffectiveProps
+  readonly compiledProps: SchemxComponentProps<TValues> | undefined
+  readonly dependencyComponentProps: SchemxComponentProps<TValues> | undefined
+  readonly resolvedStateProps: RendererStateProps
+  readonly compiledStateProps: RendererStateProps
 }
 
 /**
@@ -443,31 +467,35 @@ interface ResolveComponentPropsOptions<TValues extends Values> {
 function resolveComponentProps<TValues extends Values>(
   options: ResolveComponentPropsOptions<TValues>
 ): SchemxComponentProps<TValues> {
-  const { staticProps, dynamicComponentProps, effectiveProps, staticEffectiveProps } =
-    options
+  const {
+    compiledProps,
+    dependencyComponentProps,
+    resolvedStateProps,
+    compiledStateProps,
+  } = options
 
-  const hasEffectivePropsChanged =
-    effectiveProps.disabled !== staticEffectiveProps.disabled ||
-    effectiveProps.readonly !== staticEffectiveProps.readonly ||
-    effectiveProps.placeholder !== staticEffectiveProps.placeholder ||
-    effectiveProps.readonlyPlaceholder !== staticEffectiveProps.readonlyPlaceholder
+  const hasResolvedStateChanged =
+    resolvedStateProps.disabled !== compiledStateProps.disabled ||
+    resolvedStateProps.readonly !== compiledStateProps.readonly ||
+    resolvedStateProps.placeholder !== compiledStateProps.placeholder ||
+    resolvedStateProps.readonlyPlaceholder !== compiledStateProps.readonlyPlaceholder
 
-  if (!dynamicComponentProps && !hasEffectivePropsChanged) {
-    return staticProps ?? ({} as SchemxComponentProps<TValues>)
+  if (!dependencyComponentProps && !hasResolvedStateChanged) {
+    return compiledProps ?? ({} as SchemxComponentProps<TValues>)
   }
 
   const mergedProps = {
-    ...staticProps,
-    ...dynamicComponentProps,
+    ...compiledProps,
+    ...dependencyComponentProps,
   }
 
   return {
     ...mergedProps,
-    ...effectiveProps,
-    formInstance: staticProps?.formInstance,
+    ...resolvedStateProps,
+    formInstance: compiledProps?.formInstance,
     formItemProps: {
-      ...staticProps?.formItemProps,
-      ...effectiveProps,
+      ...compiledProps?.formItemProps,
+      ...resolvedStateProps,
     },
   } as SchemxComponentProps<TValues>
 }
@@ -480,9 +508,9 @@ function resolveComponentProps<TValues extends Values>(
  * @param next - 当前字段校验配置。
  * @returns 两份校验配置等价时返回 `true`。
  */
-function isValidationSchemaEqual<TValues extends Values>(
-  previous: FieldValidationSchema<TValues>,
-  next: FieldValidationSchema<TValues>
+function isValidationStateEqual<TValues extends Values>(
+  previous: FieldValidationState<TValues>,
+  next: FieldValidationState<TValues>
 ): boolean {
   return (
     previous.visible === next.visible &&
@@ -551,9 +579,9 @@ export function updateFieldDiagnostics<TValues extends Values>(
  */
 function readInheritedPresentationState<TValues extends Values>(
   parent: ParentNode<TValues> | null
-): PresentationStaticState {
+): PresentationState {
   if (isSchemaNode(parent)) {
-    return parent.effectiveState.value
+    return parent.presentationState.value
   }
 
   return DEFAULT_PRESENTATION_STATE

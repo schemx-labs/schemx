@@ -26,7 +26,7 @@ import {
   isParentNode,
 } from "./node/helper"
 
-import type { Compile } from "./compiler"
+import type { SchemaCompiler } from "./compiler"
 import type { NamePath, SchemxField, Values } from "../types"
 import type { NodeManager } from "./node/nodeManager"
 import type { NodeLifecycle } from "./node/resources"
@@ -71,7 +71,7 @@ export interface Reconciler<TValues extends Values = Values> {
 
 interface CreateReconcilerOptions<TValues extends Values> {
   // 负责将 Schema 编译为 detached Node。
-  readonly compiler: Compile<TValues>
+  readonly compiler: SchemaCompiler<TValues>
   // 负责维护当前 Node 树结构。
   readonly nodeManager: NodeManager<TValues>
   // 负责节点资源与生命周期事件。
@@ -806,7 +806,7 @@ export function createReconciler<TValues extends Values>(
    * @returns 字段未被其他活动字段或后代字段复用时返回 `true`。
    */
   function shouldRemoveFieldValue(node: ContainerNode<TValues>): boolean {
-    if (!isFieldNode(node) || node.staticSchema.peek().preserve !== false) {
+    if (!isFieldNode(node) || node.compiledSchema.peek().preserve !== false) {
       return false
     }
 

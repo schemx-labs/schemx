@@ -4,7 +4,7 @@
  * ViewSchema computed 挂在 runtime node 上，维护增删改查所需的投影图；
  * 读取 root viewSchemas 时直接取 root computed 的当前值。
  *
- * @module core/runtime/view/createViewSchemas
+ * @module core/runtime/view/viewProjection
  */
 
 import { createComputed } from "../../reactivity/computed"
@@ -27,10 +27,10 @@ import type { Values } from "../../types"
  *
  * @param root - root runtime 节点。
  */
-export function createRootRuntimeViewSchemas<TValues extends Values = Values>(
+export function attachRootViewSchemas<TValues extends Values = Values>(
   root: RootNode<TValues>
 ): void {
-  root.viewSchemas = createComputed(() => readChildrenViewSchemas(root.childNodes.value))
+  root.viewSchemas = createComputed(() => collectChildViewSchemas(root.childNodes.value))
 }
 
 /**
@@ -42,32 +42,32 @@ export function createRootRuntimeViewSchemas<TValues extends Values = Values>(
  * @param debug - 是否在 ViewSchema 中附加调试元数据。
  * @throws 当传入不支持的 schema Node 类型时抛出错误。
  */
-export function createRuntimeViewSchemas<TValues extends Values = Values>(
+export function attachNodeViewSchemas<TValues extends Values = Values>(
   node: SchemaNode<TValues>,
   debug = false
 ): void {
   if (isFieldNode(node)) {
     // 字段 View 直接由静态 schema 与有效字段状态投影，避免在 Field 状态中重复维护 ViewSchema。
     node.viewSchemas = createComputed(() => {
-      const staticSchema = node.staticSchema.value
+      const compiledSchema = node.compiledSchema.value
 
-      const effectiveSchema = node.effectiveSchema.value
+      const resolvedSchema = node.resolvedSchema.value
 
       const diagnostics = node.diagnostics?.value
 
-      const { dependencies: _dependencies, ...viewStaticSchema } = staticSchema
+      const { dependencies: _dependencies, ...viewBaseSchema } = compiledSchema
 
       return [
         {
-          ...viewStaticSchema,
-          ...effectiveSchema,
+          ...viewBaseSchema,
+          ...resolvedSchema,
           ...(debug
             ? {
                 debug: {
                   runtimeNodeId: node.id,
                   runtimeNodeType: "field",
                   hasRuntimeState: true,
-                  hasDependencyEffect: staticSchema.dependencies != null,
+                  hasDependencyEffect: compiledSchema.dependencies != null,
                   ...(diagnostics
                     ? {
                         lastUpdatedBy: diagnostics.lastUpdatedBy,
@@ -88,27 +88,27 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
   if (isGroupNode(node)) {
     // 分组 view 合并容器有效状态，并递归读取子节点 viewSchemas。
     node.viewSchemas = createComputed(() => {
-      const effective = node.effectiveState.value
+      const presentationState = node.presentationState.value
 
-      const staticSchema = node.staticSchema.value
+      const compiledSchema = node.compiledSchema.value
 
-      const { dependencies: _dependencies, ...viewStaticSchema } = staticSchema
+      const { dependencies: _dependencies, ...viewBaseSchema } = compiledSchema
 
       return [
         {
-          ...viewStaticSchema,
+          ...viewBaseSchema,
           key: node.key,
-          visible: effective.visible,
-          readonly: effective.readonly,
-          disabled: effective.disabled,
-          children: readChildrenViewSchemas(node.childNodes.value),
+          visible: presentationState.visible,
+          readonly: presentationState.readonly,
+          disabled: presentationState.disabled,
+          children: collectChildViewSchemas(node.childNodes.value),
           ...(debug
             ? {
                 debug: {
                   runtimeNodeId: node.id,
                   runtimeNodeType: "group",
                   hasRuntimeState: true,
-                  hasDependencyEffect: staticSchema.dependencies != null,
+                  hasDependencyEffect: compiledSchema.dependencies != null,
                 },
               }
             : {}),
@@ -122,15 +122,15 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
   if (isDynamicNode(node)) {
     // Dynamic 节点保留数组行边界，模板字段通过稳定行 key 分组投影。
     node.viewSchemas = createComputed(() => {
-      const staticSchema = node.staticSchema.value
+      const compiledSchema = node.compiledSchema.value
 
-      const effective = node.effectiveState.value
+      const presentationState = node.presentationState.value
 
       const {
         dependencies: _dependencies,
         item: _item,
-        ...viewStaticSchema
-      } = staticSchema
+        ...viewBaseSchema
+      } = compiledSchema
 
       const childNodes = node.childNodes.value
 
@@ -164,18 +164,18 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
 
       return [
         {
-          ...viewStaticSchema,
+          ...viewBaseSchema,
           key: node.key,
-          visible: effective.visible,
-          readonly: effective.readonly,
-          disabled: effective.disabled,
+          visible: presentationState.visible,
+          readonly: presentationState.readonly,
+          disabled: presentationState.disabled,
           items: node.dynamicRows.value.map((row) => {
             const rowChildren = childrenByRowKey.get(row.key) ?? []
 
             return {
               key: row.key,
               index: row.index,
-              children: readChildrenViewSchemas(rowChildren),
+              children: collectChildViewSchemas(rowChildren),
             }
           }),
           ...(debug
@@ -184,7 +184,7 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
                   runtimeNodeId: node.id,
                   runtimeNodeType: "dynamic",
                   hasRuntimeState: true,
-                  hasDependencyEffect: staticSchema.dependencies != null,
+                  hasDependencyEffect: compiledSchema.dependencies != null,
                 },
               }
             : {}),
@@ -198,7 +198,7 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
   if (isDependencyNode(node)) {
     // dependency 节点本身不产生 ViewSchema，直接透明展开子节点的 schema 数组。
     node.viewSchemas = createComputed(() =>
-      readChildrenViewSchemas(node.childNodes.value)
+      collectChildViewSchemas(node.childNodes.value)
     )
 
     return
@@ -214,7 +214,7 @@ export function createRuntimeViewSchemas<TValues extends Values = Values>(
  *
  * @param node - 要删除视图状态的运行时节点。
  */
-export function clearRuntimeViewSchemas<TValues extends Values = Values>(
+export function detachNodeViewSchemas<TValues extends Values = Values>(
   node: ContainerNode<TValues>
 ): void {
   node.viewSchemas = null
@@ -228,7 +228,7 @@ export function clearRuntimeViewSchemas<TValues extends Values = Values>(
  * @param children - 子运行时节点列表。
  * @returns 扁平化的 ViewSchema 数组。
  */
-function readChildrenViewSchemas<TValues extends Values>(
+function collectChildViewSchemas<TValues extends Values>(
   children: readonly SchemaNode<TValues>[]
 ): readonly SchemxViewSchema<TValues>[] {
   const result: SchemxViewSchema<TValues>[] = []

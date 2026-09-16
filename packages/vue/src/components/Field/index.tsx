@@ -253,7 +253,8 @@ const Field = defineComponent({
             "schemx-field-wrapper",
             props.class,
             attrs.class,
-            schemaRef.value.class
+            schemaRef.value.class,
+            schemaRef.value.bordered ? "is-bordered" : ""
           )}
           style={[attrs.style, props.style, schemaRef.value.style]}
         >

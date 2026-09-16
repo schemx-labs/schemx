@@ -9,8 +9,8 @@ import { describe, expect, it, vi } from "vitest"
 import { createSignal, createSignalEffect } from "../../../reactivity"
 import {
   createFieldRuntimeSignals,
-  setFieldDynamicOverrides,
-  setFieldStaticSchema,
+  setFieldCompiledSchema,
+  setFieldDependencyOverrides,
 } from "../../node/__tests__/signalsTestUtils"
 import { createScope } from "../../node/scope"
 import { createScheduler } from "../../scheduler"
@@ -25,7 +25,7 @@ interface TestValues {
 
 interface FieldConfig {
   readonly key: string
-  readonly staticSchema: SchemxBaseField<TestValues>
+  readonly compiledSchema: SchemxBaseField<TestValues>
 }
 
 const createSchema = (
@@ -43,7 +43,7 @@ const createSchema = (
 
 const createFieldConfig = (schema = createSchema()): FieldConfig => ({
   key: "field:0:field",
-  staticSchema: schema as SchemxBaseField<TestValues>,
+  compiledSchema: schema as SchemxBaseField<TestValues>,
 })
 
 const createFormConfigContext = () => {
@@ -82,8 +82,8 @@ describe("createValidationEffect", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -91,7 +91,7 @@ describe("createValidationEffect", () => {
     const validation = createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
@@ -118,8 +118,8 @@ describe("createValidationEffect", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -127,7 +127,7 @@ describe("createValidationEffect", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
@@ -149,8 +149,8 @@ describe("createValidationEffect", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -158,16 +158,16 @@ describe("createValidationEffect", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
     await scheduler.flush()
     controller.setFieldConfig.mockClear()
     controller.setFieldRules.mockClear()
 
-    setFieldStaticSchema(runtimeSignals, {
+    setFieldCompiledSchema(runtimeSignals, {
       name: "field",
-      staticSchema: { ...config.staticSchema, placeholder: "新的提示" },
+      compiledSchema: { ...config.compiledSchema, placeholder: "新的提示" },
     })
     await scheduler.flush()
 
@@ -186,8 +186,8 @@ describe("rule management", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -195,7 +195,7 @@ describe("rule management", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
@@ -212,8 +212,8 @@ describe("rule management", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -221,7 +221,7 @@ describe("rule management", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
@@ -238,8 +238,8 @@ describe("rule management", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const { context, validation: controller, scheduler } = createFormConfigContext()
@@ -247,7 +247,7 @@ describe("rule management", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
@@ -264,8 +264,8 @@ describe("rule management", () => {
     const runtimeSignals = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: config.key,
-      name: config.staticSchema.name,
-      staticSchema: config.staticSchema,
+      name: config.compiledSchema.name,
+      compiledSchema: config.compiledSchema,
     })
 
     const trigger = createSignal(0)
@@ -275,13 +275,13 @@ describe("rule management", () => {
     createValidationEffect({
       context,
       name: "field",
-      validationSchema: runtimeSignals.validationSchema,
+      validationState: runtimeSignals.validationState,
       scope,
     })
 
     const dispose = createSignalEffect(() => {
       if (trigger.value > 0) {
-        setFieldDynamicOverrides(
+        setFieldDependencyOverrides(
           runtimeSignals,
           {
             visible: false,
@@ -324,32 +324,32 @@ function createTestSchemaForUS2(
   } as SchemxBaseField<TestValues>
 }
 
-// validationEffect 从 effectiveSchema 读取 rules、visible/readonly/disabled 和 label 信息
-describe("validationEffect 读取 effectiveSchema (US2)", () => {
-  it("effectiveSchema 应包含 rules 信息供 validation 读取", () => {
+// validationEffect 从 resolvedSchema 读取 rules、visible/readonly/disabled 和 label 信息
+describe("validationEffect 读取 resolvedSchema (US2)", () => {
+  it("resolvedSchema 应包含 rules 信息供 validation 读取", () => {
     const schema = createTestSchemaForUS2({ required: true })
 
     const state = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    expect(state.effectiveSchema.value.required).toBe(true)
+    expect(state.resolvedSchema.value.required).toBe(true)
   })
 
-  it("dynamicOverrides 更新 rules 后 effectiveSchema 应反映新 rules", () => {
+  it("dependencyOverrides 更新 rules 后 resolvedSchema 应反映新 rules", () => {
     const schema = createTestSchemaForUS2({ required: true })
 
     const state = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       { rules: [{ min: 3 }] as any },
       {
@@ -358,10 +358,10 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
       }
     )
 
-    expect(state.effectiveSchema.value.rules).toEqual([{ min: 3 }])
+    expect(state.resolvedSchema.value.rules).toEqual([{ min: 3 }])
   })
 
-  it("effectiveSchema 应包含 visible/readonly/disabled 供 validation 判断", () => {
+  it("resolvedSchema 应包含 visible/readonly/disabled 供 validation 判断", () => {
     const schema = createTestSchemaForUS2({
       visible: true,
       readonly: false,
@@ -372,14 +372,14 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    expect(state.effectiveSchema.value.visible).toBe(true)
-    expect(state.effectiveSchema.value.readonly).toBe(false)
-    expect(state.effectiveSchema.value.disabled).toBe(false)
+    expect(state.resolvedSchema.value.visible).toBe(true)
+    expect(state.resolvedSchema.value.readonly).toBe(false)
+    expect(state.resolvedSchema.value.disabled).toBe(false)
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       { visible: false, readonly: true },
       {
@@ -388,20 +388,20 @@ describe("validationEffect 读取 effectiveSchema (US2)", () => {
       }
     )
 
-    expect(state.effectiveSchema.value.visible).toBe(false)
-    expect(state.effectiveSchema.value.readonly).toBe(true)
+    expect(state.resolvedSchema.value.visible).toBe(false)
+    expect(state.resolvedSchema.value.readonly).toBe(true)
   })
 
-  it("effectiveSchema 应包含 label 供 validation 错误消息使用", () => {
+  it("resolvedSchema 应包含 label 供 validation 错误消息使用", () => {
     const schema = createTestSchemaForUS2({ label: "邮箱地址" })
 
     const state = createFieldRuntimeSignals<TestValues>({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    expect(state.effectiveSchema.value.label).toBe("邮箱地址")
+    expect(state.resolvedSchema.value.label).toBe("邮箱地址")
   })
 })

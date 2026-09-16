@@ -259,10 +259,10 @@ export function createSchemas<TValues extends Values = Values>(
  *
  * @example
  * ```ts
- * const staticSchemas = [{ name: 'field', label: '字段', componentType: 'input' }]
- * const reactiveSchemas = createSchemas(staticSchemas)
+ * const sourceSchemas = [{ name: 'field', label: '字段', componentType: 'input' }]
+ * const reactiveSchemas = createSchemas(sourceSchemas)
  *
- * isSchemxSchemas(staticSchemas)   // => false（是数组）
+ * isSchemxSchemas(sourceSchemas)   // => false（是数组）
  * isSchemxSchemas(reactiveSchemas) // => true（是 SchemxSchemas）
  *
  * // 在 createForm 中使用

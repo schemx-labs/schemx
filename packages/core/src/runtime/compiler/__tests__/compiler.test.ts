@@ -1,18 +1,23 @@
 import { describe, expect, it } from "vitest"
 
-import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
-import { createCompile } from "../index"
+import {
+  isDependencyNode,
+  isDynamicNode,
+  isFieldNode,
+  isGroupNode,
+} from "../../node/helper"
+import { createCompile, createSchemaCompiler } from "../index"
 
 import type { SchemxField } from "../../../types"
 
 /**
  * 验证 compiler 直接创建节点，并保留配置 token 缓存语义。
  */
-describe("createCompile().createNode", () => {
+describe("createSchemaCompiler().createNode", () => {
   it("编译字段", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
-    const node = compile.createNode(
+    const node = compiler.createNode(
       { name: "email", label: "", componentType: "input" },
       "",
       0
@@ -23,13 +28,63 @@ describe("createCompile().createNode", () => {
       key: "field:email",
     })
 
-    expect(isFieldNode(node) && node.staticSchema.value.componentType).toBe("input")
+    expect(isFieldNode(node) && node.compiledSchema.value.componentType).toBe("input")
+  })
+
+  it("通用继承 schemaConfig 并保留字段显式配置", () => {
+    const compiler = createSchemaCompiler({
+      schemaConfig: {
+        visible: false,
+        readonly: true,
+        disabled: true,
+        required: true,
+        labelAlign: "right",
+        labelPosition: "top",
+        labelWidth: "160px",
+        contentAlign: "center",
+        colon: false,
+        showRequiredMark: false,
+        validationTrigger: "onChange",
+      },
+    })
+
+    const node = compiler.createNode(
+      {
+        name: "email",
+        label: "邮箱",
+        componentType: "input",
+        visible: true,
+        readonly: false,
+        disabled: undefined,
+        labelWidth: "",
+      },
+      "",
+      0
+    )
+
+    if (!isFieldNode(node)) {
+      throw new Error("expected field node")
+    }
+
+    expect(node.compiledSchema.value).toMatchObject({
+      visible: true,
+      readonly: false,
+      disabled: true,
+      required: true,
+      labelAlign: "right",
+      labelPosition: "top",
+      labelWidth: "",
+      contentAlign: "center",
+      colon: false,
+      showRequiredMark: false,
+      validationTrigger: ["change"],
+    })
   })
 
   it("按 Renderer 默认值、字段 Props 和 Core 受控状态编译组件 Props", () => {
     const formInstance = { id: "form" } as any
 
-    const compile = createCompile({
+    const compiler = createSchemaCompiler({
       formInstance,
       rendererProps: {
         input: {
@@ -41,7 +96,7 @@ describe("createCompile().createNode", () => {
       },
     })
 
-    const node = compile.createNode(
+    const node = compiler.createNode(
       {
         name: "email",
         label: "邮箱",
@@ -61,7 +116,7 @@ describe("createCompile().createNode", () => {
       throw new Error("expected field node")
     }
 
-    expect(node.staticSchema.value.componentProps).toMatchObject({
+    expect(node.compiledSchema.value.componentProps).toMatchObject({
       disabled: false,
       placeholder: "字段占位",
       readonly: true,
@@ -75,7 +130,7 @@ describe("createCompile().createNode", () => {
       },
     })
 
-    const topLevelNode = compile.createNode(
+    const topLevelNode = compiler.createNode(
       {
         name: "nickname",
         label: "昵称",
@@ -92,21 +147,21 @@ describe("createCompile().createNode", () => {
       throw new Error("expected field node")
     }
 
-    expect(topLevelNode.staticSchema.value.componentProps).toMatchObject({
+    expect(topLevelNode.compiledSchema.value.componentProps).toMatchObject({
       placeholder: "顶层字段占位",
       readonlyPlaceholder: "顶层字段空值",
     })
   })
 
   it("只按 Schema 的精确 componentType 读取 Renderer 默认 Props", () => {
-    const compile = createCompile({
+    const compiler = createSchemaCompiler({
       rendererProps: {
         text: { placeholder: "fallback 占位" },
         unknown: { placeholder: "精确占位" },
       },
     })
 
-    const node = compile.createNode(
+    const node = compiler.createNode(
       {
         name: "custom",
         label: "自定义",
@@ -120,19 +175,19 @@ describe("createCompile().createNode", () => {
       throw new Error("expected field node")
     }
 
-    expect(node.staticSchema.value.componentType).toBe("unknown")
-    expect(node.staticSchema.value.componentProps?.placeholder).toBe("精确占位")
+    expect(node.compiledSchema.value.componentType).toBe("unknown")
+    expect(node.compiledSchema.value.componentProps?.placeholder).toBe("精确占位")
   })
 
   it("编译 group 时不持有子树", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
     const schema = {
       label: "基本信息",
       children: [{ name: "name", label: "姓名", componentType: "input" }],
     } as SchemxField
 
-    const node = compile.createNode(schema, "", 0)
+    const node = compiler.createNode(schema, "", 0)
 
     expect(node.type).toBe("group")
     expect(node).not.toHaveProperty("children")
@@ -140,13 +195,13 @@ describe("createCompile().createNode", () => {
       throw new Error("expected group node")
     }
 
-    expect(node.staticSchema.value.children).toEqual([])
+    expect(node.compiledSchema.value.children).toEqual([])
   })
 
   it("编译 dependency 时封装 renderer 与触发字段", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
-    const node = compile.createNode(
+    const node = compiler.createNode(
       { to: ["mode"], renderer: () => [] } as SchemxField,
       "",
       0
@@ -157,11 +212,59 @@ describe("createCompile().createNode", () => {
       throw new Error("expected dependency node")
     }
 
-    expect(node.staticSchema.value.to).toEqual(["mode"])
+    expect(node.compiledSchema.value.to).toEqual(["mode"])
+  })
+
+  it("四类 Node 的 canonical 状态与弃用别名共享同一 Signal", () => {
+    const compiler = createSchemaCompiler()
+
+    const field = compiler.createNode(
+      { name: "field", label: "字段", componentType: "input" },
+      "",
+      0
+    )
+
+    const group = compiler.createNode({ label: "分组", children: [] }, "", 1)
+
+    const dependency = compiler.createNode(
+      { to: ["field"], renderer: () => [] } as SchemxField,
+      "",
+      2
+    )
+
+    const dynamic = compiler.createNode(
+      {
+        key: "items",
+        name: "items",
+        label: "数组",
+        item: [],
+      } as SchemxField,
+      "",
+      3
+    )
+
+    if (!isFieldNode(field) || !isGroupNode(group) || !isDependencyNode(dependency)) {
+      throw new Error("expected Field, Group and Dependency nodes")
+    }
+
+    if (!isDynamicNode(dynamic)) {
+      throw new Error("expected Dynamic node")
+    }
+
+    expect(field.staticSchema).toBe(field.compiledSchema)
+    expect(field.dynamicOverrides).toBe(field.dependencyOverrides)
+    expect(field.effectiveSchema).toBe(field.resolvedSchema)
+    expect(field.validationSchema).toBe(field.validationState)
+
+    for (const node of [group, dependency, dynamic]) {
+      expect(node.staticSchema).toBe(node.compiledSchema)
+      expect(node.dynamicOverrides).toBe(node.dependencyOverrides)
+      expect(node.effectiveState).toBe(node.presentationState)
+    }
   })
 
   it("相同 schema 与最终节点 key 复用配置 token但创建新节点", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
     const schema = {
       name: "email",
@@ -169,16 +272,16 @@ describe("createCompile().createNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.createNode(schema, "", 0)
+    const first = compiler.createNode(schema, "", 0)
 
-    const second = compile.createNode(schema, "", 0)
+    const second = compiler.createNode(schema, "", 0)
 
     expect(second).not.toBe(first)
     expect(second.configToken).toBe(first.configToken)
   })
 
   it("稳定 key 的字段重排后复用节点输入", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
     const schema = {
       key: "email",
@@ -187,16 +290,16 @@ describe("createCompile().createNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.createNode(schema, "", 0)
+    const first = compiler.createNode(schema, "", 0)
 
-    const second = compile.createNode(schema, "", 1)
+    const second = compiler.createNode(schema, "", 1)
 
     expect(second).not.toBe(first)
     expect(second.configToken).toBe(first.configToken)
   })
 
   it("失效缓存后生成新的配置 token", () => {
-    const compile = createCompile()
+    const compiler = createSchemaCompiler()
 
     const schema = {
       name: "email",
@@ -204,13 +307,33 @@ describe("createCompile().createNode", () => {
       componentType: "input",
     } as SchemxField
 
-    const first = compile.createNode(schema, "", 0)
+    const first = compiler.createNode(schema, "", 0)
 
-    compile.invalidate()
+    compiler.invalidateConfigCache()
 
-    const second = compile.createNode(schema, "", 0)
+    const second = compiler.createNode(schema, "", 0)
 
     expect(second).not.toBe(first)
+    expect(second.configToken).not.toBe(first.configToken)
+  })
+
+  it("保留 createCompile 和 invalidate 的兼容别名", () => {
+    expect(createCompile).toBe(createSchemaCompiler)
+
+    const compiler = createCompile()
+
+    const schema = {
+      name: "email",
+      label: "邮箱",
+      componentType: "input",
+    } as SchemxField
+
+    const first = compiler.createNode(schema, "", 0)
+
+    compiler.invalidate()
+
+    const second = compiler.createNode(schema, "", 0)
+
     expect(second.configToken).not.toBe(first.configToken)
   })
 })

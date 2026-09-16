@@ -108,7 +108,7 @@ describe("RuntimeReconciler + NodeManager", () => {
     commitSchemas(root, [])
 
     expect(field.disposed.value).toBe(true)
-    expect(field.staticSchema.value.name).toBe("name")
+    expect(field.compiledSchema.value.name).toBe("name")
     expect(field.parent).toBeNull()
   })
 
@@ -121,7 +121,7 @@ describe("RuntimeReconciler + NodeManager", () => {
     commitSchemas(root, [createDependencySchema(["mode"])])
 
     expect(root.childNodes.value[0]).toBe(dependency)
-    expect(isDependencyNode(dependency) && dependency.staticSchema.value.to).toEqual([
+    expect(isDependencyNode(dependency) && dependency.compiledSchema.value.to).toEqual([
       "mode",
     ])
   })

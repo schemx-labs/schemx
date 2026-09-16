@@ -277,12 +277,12 @@ export function createFormInstance<TValues extends Values>(
 
   const setFieldRules: SchemxInstance<TValues>["setFieldRules"] = (path, rules) => {
     // 外部只传入 rules；label/required 由 Runtime 的有效 Schema 内部补齐。
-    const effective = getRuntime()?.getEffectiveFieldSchema(path)
+    const ruleContext = getRuntime()?.getFieldRuleContext(path)
 
     const config: FieldValidationConfig<TValues, typeof path> = {
       name: path,
-      label: effective?.label ?? "",
-      required: (effective?.required ?? false) as FieldValidationConfig<
+      label: ruleContext?.label ?? "",
+      required: (ruleContext?.required ?? false) as FieldValidationConfig<
         TValues,
         typeof path
       >["required"],

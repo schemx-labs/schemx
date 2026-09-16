@@ -12,5 +12,7 @@ export {
 
 export {
   type DependencyEffectDependencies,
+  type DependencyResolverConfig,
   resolveDependencyProps,
-} from "./resolveDependencyProps"
+  resolveDependencyOverrides,
+} from "./resolveDependencyOverrides"

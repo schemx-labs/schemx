@@ -49,6 +49,57 @@ export function createValidationAdapterMap(
 }
 
 /**
+ * 按配置优先级合并多个 adapter 注册列表。
+ *
+ * 参数列表按高到低优先级排列，第一个列表优先级最高；更高优先级列表中已出现的 ID 会屏蔽后续列表中的
+ * 同 ID 注册项。同一列表内的重复项会原样保留，使 `createValidationAdapterMap` 仍可
+ * 按 `override` 规则校验它们。函数不会修改任何输入列表。
+ *
+ * @param adapterLists - 按高到低优先级排列的 adapter 注册列表集合；每个元素都可以是
+ * 只读或可写数组。
+ * @returns 按高到低优先级排列的合并结果；没有传入列表时返回 `undefined`。
+ *
+ * @example
+ * ```ts
+ * const adapters = mergeValidatorAdapters(
+ *   [formAdapter],
+ *   [globalAdapter],
+ * )
+ * ```
+ */
+export function mergeValidatorAdapters(
+  ...adapterLists: (readonly ValidationAdapterOption[] | ValidationAdapterOption[])[]
+): readonly ValidationAdapterOption[] | undefined {
+  // 已被更高优先级列表占用的 adapter ID。
+  const higherPriorityIds = new Set<ValidationAdapterID>()
+
+  // 保留同一列表内的原始注册顺序和重复项。
+  const mergedAdapters: ValidationAdapterOption[] = []
+
+  for (const adapterList of adapterLists) {
+    // 当前列表声明的 ID 在整层处理结束后才参与过滤，以保留列表内重复项。
+    const currentIds = new Set<ValidationAdapterID>()
+
+    for (const option of adapterList) {
+      // 注册包装对象与 adapter 简写统一映射到 adapter ID。
+      const id = getValidationAdapterOptionId(option)
+
+      if (!higherPriorityIds.has(id)) {
+        mergedAdapters.push(option)
+      }
+
+      currentIds.add(id)
+    }
+
+    for (const id of currentIds) {
+      higherPriorityIds.add(id)
+    }
+  }
+
+  return adapterLists.length === 0 ? undefined : mergedAdapters
+}
+
+/**
  * 归一化简写 adapter 与带覆盖选项的完整写法。
  *
  * @param option - 单个 adapter 或 `{ adapter, override }` 注册项。
@@ -63,6 +114,18 @@ function normalizeValidationAdapterOption(option: ValidationAdapterOption): {
   }
 
   return { adapter: option, override: false }
+}
+
+/**
+ * 读取 adapter 简写或注册包装对象的 ID。
+ *
+ * @param option - adapter 或带覆盖选项的注册项。
+ * @returns 用于跨配置层合并的 adapter ID。
+ */
+function getValidationAdapterOptionId(
+  option: ValidationAdapterOption
+): ValidationAdapterID {
+  return "adapter" in option ? option.adapter.id : option.id
 }
 
 /**

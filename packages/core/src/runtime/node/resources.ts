@@ -27,10 +27,7 @@ import {
   unmountPresentationResources,
   updatePresentationResources,
 } from "../presentation"
-import {
-  clearRuntimeViewSchemas,
-  createRuntimeViewSchemas,
-} from "../view/createViewSchemas"
+import { attachNodeViewSchemas, detachNodeViewSchemas } from "../view/viewProjection"
 
 import {
   isDependencyNode,
@@ -200,7 +197,7 @@ export function mountNodeResources<TValues extends Values>(
   }
 
   mountDomainResources(node, context)
-  createRuntimeViewSchemas(node, context.debug)
+  attachNodeViewSchemas(node, context.debug)
   context.lifecycle.emitMounted(node)
 }
 
@@ -225,48 +222,87 @@ export function updateNodeResources<TValues extends Values>(
   let previousNode: SchemaNode<TValues>
 
   if (isFieldNode(node)) {
-    const effectiveSchema = node.effectiveSchema.peek()
+    const resolvedSchemaSnapshot = node.resolvedSchema.peek()
 
-    const validationSchema = node.validationSchema.peek()
+    const validationStateSnapshot = node.validationState.peek()
 
     const diagnostics = node.diagnostics?.peek()
+
+    const compiledSchema = createSignal(node.compiledSchema.peek())
+
+    const dependencyOverrides = createSignal(node.dependencyOverrides.peek())
+
+    const resolvedSchema = createComputed(() => resolvedSchemaSnapshot)
+
+    const validationState = createComputed(() => validationStateSnapshot)
 
     previousNode = {
       ...node,
       name: createSignal(node.name.peek()),
-      staticSchema: createSignal(node.staticSchema.peek()),
-      dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
-      effectiveSchema: createComputed(() => effectiveSchema),
-      validationSchema: createComputed(() => validationSchema),
+      compiledSchema,
+      staticSchema: compiledSchema,
+      dependencyOverrides,
+      dynamicOverrides: dependencyOverrides,
+      resolvedSchema,
+      effectiveSchema: resolvedSchema,
+      validationState,
+      validationSchema: validationState,
       diagnostics: diagnostics === undefined ? undefined : createSignal(diagnostics),
     }
   } else if (isGroupNode(node)) {
-    const effectiveState = node.effectiveState.peek()
+    const presentationState = node.presentationState.peek()
+
+    const compiledSchema = createSignal(node.compiledSchema.peek())
+
+    const dependencyOverrides = createSignal(node.dependencyOverrides.peek())
+
+    const presentationStateSignal = createComputed(() => presentationState)
 
     previousNode = {
       ...node,
-      staticSchema: createSignal(node.staticSchema.peek()),
-      dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
-      effectiveState: createComputed(() => effectiveState),
+      compiledSchema,
+      staticSchema: compiledSchema,
+      dependencyOverrides,
+      dynamicOverrides: dependencyOverrides,
+      presentationState: presentationStateSignal,
+      effectiveState: presentationStateSignal,
     }
   } else if (isDynamicNode(node)) {
-    const effectiveState = node.effectiveState.peek()
+    const presentationState = node.presentationState.peek()
+
+    const compiledSchema = createSignal(node.compiledSchema.peek())
+
+    const dependencyOverrides = createSignal(node.dependencyOverrides.peek())
+
+    const presentationStateSignal = createComputed(() => presentationState)
 
     previousNode = {
       ...node,
-      staticSchema: createSignal(node.staticSchema.peek()),
-      dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
-      effectiveState: createComputed(() => effectiveState),
+      compiledSchema,
+      staticSchema: compiledSchema,
+      dependencyOverrides,
+      dynamicOverrides: dependencyOverrides,
+      presentationState: presentationStateSignal,
+      effectiveState: presentationStateSignal,
       dynamicRows: createSignal(node.dynamicRows.peek()),
     }
   } else {
-    const effectiveState = node.effectiveState.peek()
+    const presentationState = node.presentationState.peek()
+
+    const compiledSchema = createSignal(node.compiledSchema.peek())
+
+    const dependencyOverrides = createSignal(node.dependencyOverrides.peek())
+
+    const presentationStateSignal = createComputed(() => presentationState)
 
     previousNode = {
       ...node,
-      staticSchema: createSignal(node.staticSchema.peek()),
-      dynamicOverrides: createSignal(node.dynamicOverrides.peek()),
-      effectiveState: createComputed(() => effectiveState),
+      compiledSchema,
+      staticSchema: compiledSchema,
+      dependencyOverrides,
+      dynamicOverrides: dependencyOverrides,
+      presentationState: presentationStateSignal,
+      effectiveState: presentationStateSignal,
     }
   }
 
@@ -300,7 +336,7 @@ export function unmountNodeResources<TValues extends Values>(
     return
   }
 
-  clearRuntimeViewSchemas(node)
+  detachNodeViewSchemas(node)
   unmountDomainResources(node, context)
 
   if (isFieldNode(node) && options.isRemoveFieldValue === true) {
@@ -430,7 +466,7 @@ function applyNode<TValues extends Values>(
   if (isFieldNode(node) && isFieldNode(desired)) {
     node.configToken = desired.configToken
     node.name.value = desired.name.peek()
-    node.staticSchema.value = desired.staticSchema.peek()
+    node.compiledSchema.value = desired.compiledSchema.peek()
     updateFieldDiagnostics(node, {
       lastUpdatedBy: "static-schema",
       triggerFields: [],
@@ -443,7 +479,7 @@ function applyNode<TValues extends Values>(
 
   if (isGroupNode(node) && isGroupNode(desired)) {
     node.configToken = desired.configToken
-    node.staticSchema.value = desired.staticSchema.peek()
+    node.compiledSchema.value = desired.compiledSchema.peek()
 
     return
   }
@@ -451,14 +487,14 @@ function applyNode<TValues extends Values>(
   if (isDependencyNode(node) && isDependencyNode(desired)) {
     node.configToken = desired.configToken
     node.rendererContextKey = desired.rendererContextKey
-    node.staticSchema.value = desired.staticSchema.peek()
+    node.compiledSchema.value = desired.compiledSchema.peek()
 
     return
   }
 
   if (isDynamicNode(node) && isDynamicNode(desired)) {
     node.configToken = desired.configToken
-    node.staticSchema.value = desired.staticSchema.peek()
+    node.compiledSchema.value = desired.compiledSchema.peek()
 
     return
   }

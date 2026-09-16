@@ -7,6 +7,7 @@
  */
 
 export {
+  FIELD_DEPENDENCY_OVERRIDE_KEYS,
   FIELD_DYNAMIC_OVERRIDE_KEYS,
   createFieldDependenciesEffect,
   type CreateFieldDependenciesEffectOptions,

@@ -46,7 +46,7 @@ describe("commitSchemas", () => {
     commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "新标签" }])
 
     expect(root.childNodes.value[0]).toBe(field)
-    expect(isFieldNode(field) && field.staticSchema.value.label).toBe("新标签")
+    expect(isFieldNode(field) && field.compiledSchema.value.label).toBe("新标签")
   })
 
   it("同 key 不同类型会替换节点并释放旧节点", () => {

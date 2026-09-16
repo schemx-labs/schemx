@@ -14,7 +14,7 @@ import type {
   SchemxGroupField,
   Values,
 } from "../../types"
-import type { FieldDynamicOverrideKey } from "../node"
+import type { FieldDependencyOverrideKey } from "../node"
 
 /**
  * 对联合类型逐项执行 Omit。
@@ -59,7 +59,7 @@ export interface SchemxViewDebugMeta {
   /**
    * 最近一次动态覆盖涉及的字段属性 key 列表
    */
-  readonly overriddenKeys?: readonly FieldDynamicOverrideKey[]
+  readonly overriddenKeys?: readonly FieldDependencyOverrideKey[]
   /**
    * 最近一次解析错误信息，无错误时为 null
    */

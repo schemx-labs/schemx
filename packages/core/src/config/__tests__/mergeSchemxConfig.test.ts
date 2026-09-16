@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest"
 import { createPresetRuleRegistry, createRendererRegistry } from "../../registry"
 import {
   mergeAndResolveSchemxConfig,
+  mergeConfig,
   mergeSchemxConfig,
   resolveSchemxConfig,
 } from "../mergeSchemxConfig"
 
-describe("mergeSchemxConfig", () => {
+import type { ValidationTrigger } from "../../types"
+
+describe("mergeConfig", () => {
   it("按从后到前的优先级合并标量配置和 Registry", () => {
     // 高优先级 Renderer Registry。
     const highPriorityRendererRegistry = createRendererRegistry()
@@ -21,7 +24,7 @@ describe("mergeSchemxConfig", () => {
     // 低优先级校验规则 Registry。
     const lowPriorityRuleRegistry = createPresetRuleRegistry()
 
-    const result = mergeSchemxConfig(
+    const result = mergeConfig(
       {
         defaultRendererType: "high",
         rendererRegistry: highPriorityRendererRegistry,
@@ -42,7 +45,7 @@ describe("mergeSchemxConfig", () => {
   })
 
   it("保留 schemaConfig 中高优先级显式 undefined", () => {
-    const result = mergeSchemxConfig(
+    const result = mergeConfig(
       { schemaConfig: { readonly: undefined, labelWidth: "120px" } },
       { schemaConfig: { readonly: true, disabled: true, labelWidth: "80px" } }
     )
@@ -52,6 +55,19 @@ describe("mergeSchemxConfig", () => {
       disabled: true,
       labelWidth: "120px",
     })
+  })
+
+  it("以高优先级 schemaConfig 属性整体替换数组值", () => {
+    // 高优先级触发器数组应由结果直接引用，而不是与低优先级数组按索引合并。
+    const highPriorityTriggers = ["submit"] satisfies ValidationTrigger[]
+
+    const result = mergeConfig(
+      { schemaConfig: { validationTrigger: highPriorityTriggers } },
+      { schemaConfig: { validationTrigger: ["blur", "change"] } }
+    )
+
+    expect(result.schemaConfig?.validationTrigger).toBe(highPriorityTriggers)
+    expect(result.schemaConfig?.validationTrigger).toEqual(["submit"])
   })
 
   it("按 Renderer 浅合并 Props 并保留高优先级显式 undefined", () => {
@@ -85,7 +101,7 @@ describe("mergeSchemxConfig", () => {
       },
     }
 
-    const result = mergeSchemxConfig(
+    const result = mergeConfig(
       { rendererProps: highPriorityRendererProps as never },
       { rendererProps: lowPriorityRendererProps as never }
     )
@@ -129,24 +145,43 @@ describe("mergeSchemxConfig", () => {
     })
   })
 
-  it("按低到高优先级排列 validatorAdapters，且不修改输入数组", () => {
-    // 低优先级 adapter 列表。
-    const lowPriorityAdapters = [{ id: "low" }]
+  it("按 ID 合并 validatorAdapters，并按高到低优先级排列", () => {
+    // 低优先级同 ID adapter 应被高优先级配置替换。
+    const lowPrioritySharedAdapter = { id: "shared", source: "low" }
 
-    // 高优先级 adapter 列表。
-    const highPriorityAdapters = [{ id: "high" }]
+    // 高优先级同 ID adapter 应保留在最终列表中。
+    const highPrioritySharedAdapter = { id: "shared", source: "high" }
 
-    const result = mergeSchemxConfig(
+    // 不冲突的 adapter 按各配置层内的原始顺序保留。
+    const lowPriorityAdapter = { id: "low" }
+
+    // 高优先级独有 adapter 排在低优先级 adapter 之前。
+    const highPriorityAdapter = { id: "high" }
+
+    // 高优先级配置层内的 adapter 顺序。
+    const highPriorityAdapters = [highPrioritySharedAdapter, highPriorityAdapter]
+
+    // 低优先级配置层内的 adapter 顺序。
+    const lowPriorityAdapters = [lowPrioritySharedAdapter, lowPriorityAdapter]
+
+    const result = mergeConfig(
       { validatorAdapters: highPriorityAdapters as never },
       { validatorAdapters: lowPriorityAdapters as never }
     )
 
     expect(result.validatorAdapters).toEqual([
-      ...lowPriorityAdapters,
-      ...highPriorityAdapters,
+      highPrioritySharedAdapter,
+      highPriorityAdapter,
+      lowPriorityAdapter,
     ])
     expect(result.validatorAdapters).not.toBe(lowPriorityAdapters)
     expect(result.validatorAdapters).not.toBe(highPriorityAdapters)
+  })
+})
+
+describe("mergeSchemxConfig", () => {
+  it("作为 mergeConfig 的弃用兼容名称", () => {
+    expect(mergeSchemxConfig).toBe(mergeConfig)
   })
 })
 

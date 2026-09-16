@@ -1,7 +1,7 @@
 /**
  * dependencies 动态属性解析器。
  *
- * @module core/runtime/dependencyScheduler/resolveDependencyProps
+ * @module core/runtime/dependencyScheduler/resolveDependencyOverrides
  */
 
 import type { NamePath, SchemxConditionFn, SchemxFormApi, Values } from "../../types"
@@ -11,7 +11,7 @@ import type { NamePath, SchemxConditionFn, SchemxFormApi, Values } from "../../t
  *
  * @typeParam TValues - 当前表单值类型。
  */
-export interface DependencyEffectDependencies<TValues extends Values = Values> {
+export interface DependencyResolverConfig<TValues extends Values = Values> {
   /**
    * 重新计算动态属性与执行副作用时监听的字段路径。
    */
@@ -24,6 +24,12 @@ export interface DependencyEffectDependencies<TValues extends Values = Values> {
    */
   readonly trigger?: SchemxConditionFn<TValues, void>
 }
+
+/**
+ * @deprecated 请改用 {@link DependencyResolverConfig}。
+ */
+export type DependencyEffectDependencies<TValues extends Values = Values> =
+  DependencyResolverConfig<TValues>
 
 /**
  * 解析当前表单快照中所有已配置的动态属性。
@@ -39,11 +45,11 @@ export interface DependencyEffectDependencies<TValues extends Values = Values> {
  * @param schemaLabel - 当前 dependencies 所属 schema 的展示标识。
  * @returns 仅包含成功且非空结果的动态属性覆盖。
  */
-export async function resolveDependencyProps<
+export async function resolveDependencyOverrides<
   TValues extends Values,
   TProps extends object,
 >(
-  dependencies: DependencyEffectDependencies<TValues>,
+  dependencies: DependencyResolverConfig<TValues>,
   propKeys: readonly string[],
   formApi: SchemxFormApi<TValues>,
   schemaLabel: string
@@ -52,7 +58,7 @@ export async function resolveDependencyProps<
   const values = formApi.getFieldsValue() as TValues
 
   // 将可扩展的依赖对象转换为按属性键读取的记录。
-  const dependencyRecord = dependencies as DependencyEffectDependencies<TValues> &
+  const dependencyRecord = dependencies as DependencyResolverConfig<TValues> &
     Record<string, unknown>
 
   // 并行解析各动态属性，并同步启动可选副作用。
@@ -84,6 +90,12 @@ export async function resolveDependencyProps<
 }
 
 /**
+ * @deprecated 请改用 {@link resolveDependencyOverrides}。
+ */
+export const resolveDependencyProps: typeof resolveDependencyOverrides =
+  resolveDependencyOverrides
+
+/**
  * 执行 dependencies 配置中的可选副作用。
  *
  * @typeParam TValues - 当前表单值类型。
@@ -94,7 +106,7 @@ export async function resolveDependencyProps<
  * @returns 副作用结束后完成的 Promise。
  */
 async function runTrigger<TValues extends Values>(
-  dependencies: DependencyEffectDependencies<TValues>,
+  dependencies: DependencyResolverConfig<TValues>,
   values: TValues,
   formApi: SchemxFormApi<TValues>,
   schemaLabel: string

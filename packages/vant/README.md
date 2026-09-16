@@ -1141,7 +1141,7 @@ Renderer 类型的逐项用途见 [类型参考](#类型参考)，工具类型�
 | Watch         | `createDebouncedSignalWatch`  | 监听 signal source，并提供 debounce 控制器。 |
 | 配置          | `configureSchemx`             | 设置后续 Form 使用的全局默认配置。           |
 | 配置          | `getGlobalSchemxConfig`       | 读取 Core 模块级默认配置。                   |
-| 配置          | `mergeSchemxConfig`           | 按优先级纯合并配置。                         |
+| 配置          | `mergeConfig`                 | 按优先级纯合并配置。                         |
 | 配置          | `resolveSchemxConfig`         | 补齐 `schemaConfig` 默认值。                 |
 | 配置          | `mergeAndResolveSchemxConfig` | 合并配置并补齐默认值。                       |
 | 配置          | `defaultSchemxConfig`         | Core 内置框架无关字段默认值；UI 展示默认值由 Vue 层提供。 |

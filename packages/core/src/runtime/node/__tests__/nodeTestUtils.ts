@@ -61,8 +61,8 @@ export function createFieldNode<TValues extends Values = Values>(
     nodeId: options.id,
     key: options.key,
     name: options.name,
-    staticSchema: options.staticSchema,
-    inheritedState: createInheritedPresentationState(() => node),
+    compiledSchema: options.compiledSchema,
+    inheritedPresentationState: createInheritedPresentationState(() => node),
     debug: options.debug,
   })
 
@@ -75,6 +75,7 @@ export function createFieldNode<TValues extends Values = Values>(
     disposed: createSignal(false),
     configToken: options.configToken,
     ...signals,
+    staticSchema: signals.compiledSchema,
     viewSchemas: null,
     validationEffectScope: null,
     dependenciesEffectScope: null,
@@ -93,16 +94,16 @@ export function createFieldNode<TValues extends Values = Values>(
 export function createGroupNode<TValues extends Values = Values>(
   options: CreateGroupNodeOptions<TValues>
 ): GroupNode<TValues> {
-  const staticSchema = createSignal(options.staticSchema)
+  const compiledSchema = createSignal(options.compiledSchema)
 
   const signals = createPresentationRuntimeSignals({
     nodeId: options.id,
-    getStaticState: () => ({
-      visible: staticSchema.value.visible ?? true,
-      readonly: staticSchema.value.readonly ?? false,
-      disabled: staticSchema.value.disabled ?? false,
+    getSchemaState: () => ({
+      visible: compiledSchema.value.visible ?? true,
+      readonly: compiledSchema.value.readonly ?? false,
+      disabled: compiledSchema.value.disabled ?? false,
     }),
-    inheritedState: createInheritedPresentationState(() => node),
+    inheritedPresentationState: createInheritedPresentationState(() => node),
   })
 
   const node: GroupNode<TValues> = {
@@ -113,7 +114,8 @@ export function createGroupNode<TValues extends Values = Values>(
     scope: options.scope ?? createScope(),
     disposed: createSignal(false),
     configToken: options.configToken,
-    staticSchema,
+    compiledSchema,
+    staticSchema: compiledSchema,
     ...signals,
     viewSchemas: null,
     presentationEffectScope: null,
@@ -133,16 +135,16 @@ export function createGroupNode<TValues extends Values = Values>(
 export function createDependencyNode<TValues extends Values = Values>(
   options: CreateDependencyNodeOptions<TValues>
 ): DependencyNode<TValues> {
-  const staticSchema = createSignal(options.staticSchema)
+  const compiledSchema = createSignal(options.compiledSchema)
 
   const signals = createPresentationRuntimeSignals({
     nodeId: options.id,
-    getStaticState: () => ({
-      visible: staticSchema.value.visible ?? true,
-      readonly: staticSchema.value.readonly ?? false,
-      disabled: staticSchema.value.disabled ?? false,
+    getSchemaState: () => ({
+      visible: compiledSchema.value.visible ?? true,
+      readonly: compiledSchema.value.readonly ?? false,
+      disabled: compiledSchema.value.disabled ?? false,
     }),
-    inheritedState: createInheritedPresentationState(() => node),
+    inheritedPresentationState: createInheritedPresentationState(() => node),
   })
 
   const node: DependencyNode<TValues> = {
@@ -153,7 +155,8 @@ export function createDependencyNode<TValues extends Values = Values>(
     scope: options.scope ?? createScope(),
     disposed: createSignal(false),
     configToken: options.configToken,
-    staticSchema,
+    compiledSchema,
+    staticSchema: compiledSchema,
     ...signals,
     viewSchemas: null,
     rendererEffect: null,

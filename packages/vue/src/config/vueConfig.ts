@@ -4,13 +4,11 @@
  * @module config/vueConfig
  */
 
-import { mergeSchemxConfig } from "@schemx/core"
+import { mergeConfig } from "@schemx/core"
 
 import { useConfigProviderContext } from "../context/configProviderContext"
 import { presetRuleRegistry as globalPresetRuleRegistry } from "../utils/presetRuleProvider"
 import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
-
-import { getSchemxAppConfig } from "./appConfig"
 
 import type { SchemxConfig, Values } from "@schemx/core"
 
@@ -36,10 +34,9 @@ export function mergeVueSchemxConfig<TValues extends Values = Values>(
 ): SchemxConfig<TValues> {
   const providerConfig = useConfigProviderContext()
 
-  return mergeSchemxConfig(
+  return mergeConfig(
     localConfig,
     (providerConfig as SchemxConfig<TValues> | undefined) ?? {},
-    getSchemxAppConfig() as SchemxConfig<TValues>,
     fallbackConfig,
     {
       rendererRegistry: globalRendererRegistry,

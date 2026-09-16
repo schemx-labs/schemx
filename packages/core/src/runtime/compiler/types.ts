@@ -1,7 +1,7 @@
 /**
  * Schema compiler 类型定义。
  *
- * 定义 Compile 门面接口、编译选项和编译错误类型。
+ * 定义 SchemaCompiler 门面接口、编译选项和编译错误类型。
  *
  * @module core/runtime/compiler/types
  */
@@ -14,7 +14,7 @@ import type {
   SchemxSchemaConfig,
   Values,
 } from "../../types"
-import type { SchemaNode, Scope } from "../node"
+import type { NodeId, SchemaNode, Scope } from "../node"
 
 /**
  * 编译器选项。
@@ -23,7 +23,7 @@ import type { SchemaNode, Scope } from "../node"
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface CompileOptions<TValues extends Values> {
+export interface SchemaCompilerOptions<TValues extends Values> {
   /**
    * 表单级默认配置。
    *
@@ -34,7 +34,9 @@ export interface CompileOptions<TValues extends Values> {
    * 按 Renderer 类型配置的静态默认 Props。
    */
   rendererProps?: SchemxRendererPropsMap<TValues>
-  /** 当前 Form 实例，注入到 Renderer 的公共 Props。 */
+  /**
+   * 当前 Form 实例，注入到 Renderer 的公共 Props。
+   */
   formInstance: SchemxInstance<TValues>
   /**
    * 是否为 Node 创建 diagnostics Signal。
@@ -43,17 +45,84 @@ export interface CompileOptions<TValues extends Values> {
 }
 
 /**
+ * @deprecated 请改用 {@link SchemaCompilerOptions}。
+ */
+export type CompileOptions<TValues extends Values> = SchemaCompilerOptions<TValues>
+
+/**
+ * 创建 Compiler 时可覆盖的配置。
+ *
+ * `schemaConfig` 省略时由 Compiler 补齐 Core 默认值，其余选项保持可选。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export type CreateSchemaCompilerOptions<TValues extends Values = Values> = Partial<
+  Omit<SchemaCompilerOptions<TValues>, "schemaConfig">
+> & {
+  readonly schemaConfig?: SchemxSchemaConfig
+}
+
+/**
+ * @deprecated 请改用 {@link CreateSchemaCompilerOptions}。
+ */
+export type CreateCompileOptions<TValues extends Values = Values> =
+  CreateSchemaCompilerOptions<TValues>
+
+/**
+ * 单类 Schema Node 工厂共享的编译输入。
+ *
+ * Compiler 负责分配节点身份和配置令牌；具体 Node 工厂只负责建立对应运行态。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TSchema - 当前工厂接受的具体 Schema 类型。
+ */
+export interface SchemaNodeFactoryOptions<TValues extends Values, TSchema> {
+  /**
+   * Compiler 分配的节点 id。
+   */
+  readonly id: NodeId
+  /**
+   * Compiler 解析出的稳定节点 key。
+   */
+  readonly key: string
+  /**
+   * 用于判断节点配置是否变化的身份令牌。
+   */
+  readonly configToken: symbol
+  /**
+   * 当前节点对应的具体 Schema。
+   */
+  readonly schema: TSchema
+  /**
+   * 当前 Compiler 共享的配置。
+   */
+  readonly compilerOptions: SchemaCompilerOptions<TValues>
+  /**
+   * 节点资源作用域；省略时由工厂创建。
+   */
+  readonly scope?: Scope
+}
+
+/**
+ * @deprecated 请改用 {@link SchemaNodeFactoryOptions}。
+ */
+export type CreateCompiledNodeOptions<
+  TValues extends Values,
+  TSchema,
+> = SchemaNodeFactoryOptions<TValues, TSchema>
+
+/**
  * Schema compiler 门面。
  *
  * 封装节点配置 token 缓存；缓存生命周期是 compiler 私有实现。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface Compile<TValues extends Values = Values> {
+export interface SchemaCompiler<TValues extends Values = Values> {
   /**
    * 编译单个 schema 并创建一个尚未挂载的 SchemaNode。
    *
-   * @param schema - 要编译的字段、分组或 dependency schema。
+   * @param schema - 要编译的 Field、Group、Dependency 或 Dynamic Schema。
    * @param parentKey - 父节点的稳定 key。
    * @param index - schema 在父节点 children 中的位置。
    * @param scope - 可选的节点资源作用域；省略时由 compiler 创建。
@@ -70,8 +139,18 @@ export interface Compile<TValues extends Values = Values> {
    *
    * 下次编译同一 schema 时会重新生成配置 token。
    */
+  invalidateConfigCache(): void
+
+  /**
+   * @deprecated 请改用 {@link SchemaCompiler.invalidateConfigCache}。
+   */
   invalidate(): void
 }
+
+/**
+ * @deprecated 请改用 {@link SchemaCompiler}。
+ */
+export type Compile<TValues extends Values = Values> = SchemaCompiler<TValues>
 
 /**
  * 编译错误类。

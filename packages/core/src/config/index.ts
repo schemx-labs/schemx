@@ -7,6 +7,7 @@ export {
 export type { ExcludeSchemxConfigKeys, SchemxConfigKey } from "./defaultSchemxConfig"
 
 export {
+  mergeConfig,
   mergeAndResolveSchemxConfig,
   mergeSchemxConfig,
   resolveSchemxConfig,

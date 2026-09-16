@@ -53,17 +53,17 @@ describe("呈现状态运行时链路", () => {
 
     const field = expectField(dependency.childNodes.value[0])
 
-    expect(group.effectiveState.value).toEqual({
+    expect(group.presentationState.value).toEqual({
       visible: true,
       readonly: true,
       disabled: false,
     })
-    expect(dependency.effectiveState.value).toEqual({
+    expect(dependency.presentationState.value).toEqual({
       visible: true,
       readonly: true,
       disabled: true,
     })
-    expect(field.effectiveSchema.value).toMatchObject({
+    expect(field.resolvedSchema.value).toMatchObject({
       visible: true,
       readonly: true,
       disabled: true,
@@ -98,13 +98,13 @@ describe("呈现状态运行时链路", () => {
 
     const field = expectField(group.childNodes.value[0])
 
-    expect(field.effectiveSchema.value.visible).toBe(true)
+    expect(field.resolvedSchema.value.visible).toBe(true)
 
     formApi.setFieldValue("show", false)
     await flushRuntimeGraph(scheduler)
 
-    expect(group.effectiveState.value.visible).toBe(false)
-    expect(field.effectiveSchema.value.visible).toBe(false)
+    expect(group.presentationState.value.visible).toBe(false)
+    expect(field.resolvedSchema.value.visible).toBe(false)
     expect(context.validation.removeField).toHaveBeenCalledWith("name")
   })
 
@@ -203,7 +203,7 @@ describe("呈现状态运行时链路", () => {
 
     expect(dependency.rendererEffect).toBe(firstEffect)
     expect(dependency.childNodes.value[0]).toBe(firstChild)
-    expect(firstChild.effectiveSchema.value.readonly).toBe(true)
+    expect(firstChild.resolvedSchema.value.readonly).toBe(true)
 
     formApi.setFieldValue("status", "deleted")
     await flushRuntimeGraph(scheduler)
@@ -211,13 +211,13 @@ describe("呈现状态运行时链路", () => {
     expect(dependency.rendererEffect).toBe(firstEffect)
     expect(dependency.childNodes.value[0]).toBe(firstChild)
     expect(renderer).toHaveBeenCalledTimes(initialRenderCount)
-    expect(firstChild.effectiveSchema.value.visible).toBe(false)
+    expect(firstChild.resolvedSchema.value.visible).toBe(false)
 
     formApi.setFieldValue("mode", "personal")
     await flushRuntimeGraph(scheduler)
 
     expect(renderer.mock.calls.length).toBeGreaterThan(initialRenderCount)
-    expect(dependency.effectiveState.value.visible).toBe(false)
+    expect(dependency.presentationState.value.visible).toBe(false)
   })
 
   it("Dependency renderer 变化时应重建结构 effect", async () => {
@@ -285,7 +285,7 @@ describe("呈现状态运行时链路", () => {
 
     const group = expectGroup(root.childNodes.value[0])
 
-    expect(group.effectiveState.value.visible).toBe(false)
+    expect(group.presentationState.value.visible).toBe(false)
 
     commitSchemas(root, [
       {
@@ -297,8 +297,8 @@ describe("呈现状态运行时链路", () => {
     await flushRuntimeGraph(scheduler)
 
     expect(root.childNodes.value[0]).toBe(group)
-    expect(group.dynamicOverrides.value).toEqual({})
-    expect(group.effectiveState.value.visible).toBe(true)
+    expect(group.dependencyOverrides.value).toEqual({})
+    expect(group.presentationState.value.visible).toBe(true)
   })
 
   it("容器 dependencies 引用未变化时应复用状态 effect", async () => {
@@ -342,7 +342,7 @@ describe("呈现状态运行时链路", () => {
 
     expect(group.presentationEffectScope).toBe(firstEffectScope)
     expect(visible).toHaveBeenCalledTimes(initialCallCount)
-    expect(group.effectiveState.value).toMatchObject({
+    expect(group.presentationState.value).toMatchObject({
       visible: false,
       readonly: true,
     })
@@ -370,7 +370,7 @@ describe("呈现状态运行时链路", () => {
 
     const group = expectGroup(root.childNodes.value[0])
 
-    expect(group.effectiveState.value.visible).toBe(false)
+    expect(group.presentationState.value.visible).toBe(false)
 
     commitSchemas(root, [
       {
@@ -387,13 +387,13 @@ describe("呈现状态运行时链路", () => {
       },
     ] as SchemxField[])
 
-    expect(group.effectiveState.value.visible).toBe(false)
+    expect(group.presentationState.value.visible).toBe(false)
 
     await vi.waitFor(() => expect(resolveNext).toEqual(expect.any(Function)))
     resolveNext(true)
     await flushRuntimeGraph(scheduler)
 
-    expect(group.effectiveState.value.visible).toBe(true)
+    expect(group.presentationState.value.visible).toBe(true)
   })
 
   it("容器异步 dependencies 的旧结果不能覆盖最新状态", async () => {
@@ -437,7 +437,7 @@ describe("呈现状态运行时链路", () => {
 
     const group = expectGroup(root.childNodes.value[0])
 
-    expect(group.effectiveState.value.visible).toBe(true)
+    expect(group.presentationState.value.visible).toBe(true)
   })
 })
 

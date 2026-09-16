@@ -6,7 +6,7 @@
 
 import {
   createDependencySchedulerEffect,
-  resolveDependencyProps,
+  resolveDependencyOverrides,
 } from "../dependencyScheduler"
 
 import type { Values } from "../../types"
@@ -15,7 +15,7 @@ import type {
   DependencyNode,
   DynamicNode,
   GroupNode,
-  PresentationDynamicOverrides,
+  PresentationDependencyOverrides,
   Scope,
 } from "../node"
 
@@ -27,11 +27,16 @@ type StatefulPresentationNode<TValues extends Values> =
  *
  * 容器只覆盖呈现状态，不解析字段专属的 `componentProps`、`rules` 等属性。
  */
-export const PRESENTATION_DYNAMIC_OVERRIDE_KEYS = [
+export const PRESENTATION_DEPENDENCY_OVERRIDE_KEYS = [
   "visible",
   "readonly",
   "disabled",
 ] as const
+
+/**
+ * @deprecated 请改用 {@link PRESENTATION_DEPENDENCY_OVERRIDE_KEYS}。
+ */
+export const PRESENTATION_DYNAMIC_OVERRIDE_KEYS = PRESENTATION_DEPENDENCY_OVERRIDE_KEYS
 
 /**
  * 创建容器 dependencies effect 的配置。
@@ -82,27 +87,27 @@ export function createPresentationDependenciesEffect<TValues extends Values>(
 ): void {
   const { context, taskId, node, schemaLabel, scope } = options
 
-  const dependencies = node.staticSchema.value.dependencies
+  const dependencies = node.compiledSchema.value.dependencies
 
   if (!dependencies) {
     return
   }
 
-  createDependencySchedulerEffect<TValues, PresentationDynamicOverrides>({
+  createDependencySchedulerEffect<TValues, PresentationDependencyOverrides>({
     context,
     triggerFields: dependencies.triggerFields,
     taskId,
     scope,
     run: () =>
-      resolveDependencyProps<TValues, PresentationDynamicOverrides>(
+      resolveDependencyOverrides<TValues, PresentationDependencyOverrides>(
         dependencies,
-        PRESENTATION_DYNAMIC_OVERRIDE_KEYS,
+        PRESENTATION_DEPENDENCY_OVERRIDE_KEYS,
         context.formApi,
         schemaLabel
       ),
-    onSuccess: (overrides) => {
+    onSuccess: (dependencyOverrides) => {
       // 使用最新 dependencies 解析结果替换容器动态覆盖。
-      node.dynamicOverrides.value = overrides
+      node.dependencyOverrides.value = dependencyOverrides
     },
     onError: (error) => {
       console.error(`[schemx] ${schemaLabel} dependencies 执行错误`, error)

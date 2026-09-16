@@ -98,7 +98,7 @@ export type NodeId = number
 /**
  * Group、Dependency、Dynamic 和 Field 共享的有效呈现状态。
  */
-export interface PresentationStaticState {
+export interface PresentationState {
   /**
    * 当前节点及其后代是否可见。
    */
@@ -114,14 +114,24 @@ export interface PresentationStaticState {
 }
 
 /**
+ * @deprecated 请改用 {@link PresentationState}。
+ */
+export type PresentationStaticState = PresentationState
+
+/**
  * 容器 dependencies 解析出的动态呈现覆盖。
  */
-export type PresentationDynamicOverrides = Partial<PresentationStaticState>
+export type PresentationDependencyOverrides = Partial<PresentationState>
+
+/**
+ * @deprecated 请改用 {@link PresentationDependencyOverrides}。
+ */
+export type PresentationDynamicOverrides = PresentationDependencyOverrides
 
 /**
  * 字段 dependencies 可以覆盖的字段属性。
  */
-export type FieldDynamicOverrideKey =
+export type FieldDependencyOverrideKey =
   | "componentProps"
   | "placeholder"
   | "readonlyPlaceholder"
@@ -133,13 +143,24 @@ export type FieldDynamicOverrideKey =
   | "rules"
 
 /**
+ * @deprecated 请改用 {@link FieldDependencyOverrideKey}。
+ */
+export type FieldDynamicOverrideKey = FieldDependencyOverrideKey
+
+/**
  * 字段 dependencies 解析出的动态覆盖集合。
  *
  * @typeParam TValues - 表单值类型。
  */
-export type FieldDynamicOverrides<TValues extends Values = Values> = Partial<
-  Pick<SchemxBaseField<TValues>, FieldDynamicOverrideKey>
+export type FieldDependencyOverrides<TValues extends Values = Values> = Partial<
+  Pick<SchemxBaseField<TValues>, FieldDependencyOverrideKey>
 >
+
+/**
+ * @deprecated 请改用 {@link FieldDependencyOverrides}。
+ */
+export type FieldDynamicOverrides<TValues extends Values = Values> =
+  FieldDependencyOverrides<TValues>
 
 /**
  * 字段动态配置更新的诊断信息。
@@ -162,7 +183,7 @@ export interface FieldRuntimeDiagnostics<TValues extends Values = Values> {
   /**
    * 最近一次被动态覆盖的字段属性。
    */
-  readonly overriddenKeys: readonly FieldDynamicOverrideKey[]
+  readonly overriddenKeys: readonly FieldDependencyOverrideKey[]
   /**
    * 最近一次动态解析或执行产生的错误。
    */
@@ -174,7 +195,7 @@ export interface FieldRuntimeDiagnostics<TValues extends Values = Values> {
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface FieldEffectiveSchema<TValues extends Values = Values> {
+export interface ResolvedFieldSchema<TValues extends Values = Values> {
   /**
    * Node 使用的稳定 key。
    */
@@ -234,13 +255,19 @@ export interface FieldEffectiveSchema<TValues extends Values = Values> {
 }
 
 /**
+ * @deprecated 请改用 {@link ResolvedFieldSchema}。
+ */
+export type FieldEffectiveSchema<TValues extends Values = Values> =
+  ResolvedFieldSchema<TValues>
+
+/**
  * Validator 消费的字段校验配置切片。
  *
  * 该切片不包含 Renderer Props 等与校验无关的展示配置。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface FieldValidationSchema<TValues extends Values = Values> {
+export interface FieldValidationState<TValues extends Values = Values> {
   /**
    * 字段是否可见。
    */
@@ -266,6 +293,12 @@ export interface FieldValidationSchema<TValues extends Values = Values> {
    */
   readonly rules: FieldRules<TValues, NamePath<TValues>>
 }
+
+/**
+ * @deprecated 请改用 {@link FieldValidationState}。
+ */
+export type FieldValidationSchema<TValues extends Values = Values> =
+  FieldValidationState<TValues>
 
 /**
  * 所有 Node 共享的结构字段。
@@ -366,22 +399,42 @@ export interface FieldNode<TValues extends Values = Values> extends BaseNode<TVa
   /**
    * 编译后的字段静态配置。
    */
+  readonly compiledSchema: Signal<SchemxBaseField<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link FieldNode.compiledSchema}。
+   */
   readonly staticSchema: Signal<SchemxBaseField<TValues>>
 
   /**
    * 字段 dependencies 产生的动态覆盖结果。
    */
-  readonly dynamicOverrides: Signal<FieldDynamicOverrides<TValues>>
+  readonly dependencyOverrides: Signal<FieldDependencyOverrides<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link FieldNode.dependencyOverrides}。
+   */
+  readonly dynamicOverrides: Signal<FieldDependencyOverrides<TValues>>
 
   /**
    * 字段合并静态配置、动态覆盖和祖先状态后的最终配置。
    */
-  readonly effectiveSchema: ComputedSignal<FieldEffectiveSchema<TValues>>
+  readonly resolvedSchema: ComputedSignal<ResolvedFieldSchema<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link FieldNode.resolvedSchema}。
+   */
+  readonly effectiveSchema: ComputedSignal<ResolvedFieldSchema<TValues>>
 
   /**
    * Validator 消费的校验配置切片。
    */
-  readonly validationSchema: ComputedSignal<FieldValidationSchema<TValues>>
+  readonly validationState: ComputedSignal<FieldValidationState<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link FieldNode.validationState}。
+   */
+  readonly validationSchema: ComputedSignal<FieldValidationState<TValues>>
 
   /**
    * 字段运行时诊断信息；未开启 debug 时为 `undefined`。
@@ -425,17 +478,32 @@ export interface GroupNode<TValues extends Values = Values> extends BaseNode<TVa
   /**
    * 编译后的分组静态配置。
    */
+  readonly compiledSchema: Signal<SchemxGroupField<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link GroupNode.compiledSchema}。
+   */
   readonly staticSchema: Signal<SchemxGroupField<TValues>>
 
   /**
    * 分组 dependencies 产生的动态呈现覆盖。
    */
-  readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
+  readonly dependencyOverrides: Signal<PresentationDependencyOverrides>
+
+  /**
+   * @deprecated 请改用 {@link GroupNode.dependencyOverrides}。
+   */
+  readonly dynamicOverrides: Signal<PresentationDependencyOverrides>
 
   /**
    * 分组继承祖先状态并合并自身配置后的呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationStaticState>
+  readonly presentationState: ComputedSignal<PresentationState>
+
+  /**
+   * @deprecated 请改用 {@link GroupNode.presentationState}。
+   */
+  readonly effectiveState: ComputedSignal<PresentationState>
 
   /**
    * 分组呈现 effect 使用的资源作用域。
@@ -477,6 +545,11 @@ export interface DependencyNode<
   /**
    * 编译后的 dependency 静态配置。
    */
+  readonly compiledSchema: Signal<SchemxDependencyField<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link DependencyNode.compiledSchema}。
+   */
   readonly staticSchema: Signal<SchemxDependencyField<TValues>>
 
   /**
@@ -489,12 +562,22 @@ export interface DependencyNode<
   /**
    * 依赖节点呈现 dependencies 产生的动态覆盖。
    */
-  readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
+  readonly dependencyOverrides: Signal<PresentationDependencyOverrides>
+
+  /**
+   * @deprecated 请改用 {@link DependencyNode.dependencyOverrides}。
+   */
+  readonly dynamicOverrides: Signal<PresentationDependencyOverrides>
 
   /**
    * 依赖节点继承祖先状态并合并自身配置后的呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationStaticState>
+  readonly presentationState: ComputedSignal<PresentationState>
+
+  /**
+   * @deprecated 请改用 {@link DependencyNode.presentationState}。
+   */
+  readonly effectiveState: ComputedSignal<PresentationState>
 
   /**
    * 动态 renderer 的执行状态与资源作用域。
@@ -539,17 +622,32 @@ export interface DynamicNode<TValues extends Values = Values> extends BaseNode<T
   /**
    * 编译后的 Dynamic 静态配置。
    */
+  readonly compiledSchema: Signal<SchemxDynamicField<TValues>>
+
+  /**
+   * @deprecated 请改用 {@link DynamicNode.compiledSchema}。
+   */
   readonly staticSchema: Signal<SchemxDynamicField<TValues>>
 
   /**
    * Dynamic dependencies 产生的动态呈现覆盖。
    */
-  readonly dynamicOverrides: Signal<PresentationDynamicOverrides>
+  readonly dependencyOverrides: Signal<PresentationDependencyOverrides>
+
+  /**
+   * @deprecated 请改用 {@link DynamicNode.dependencyOverrides}。
+   */
+  readonly dynamicOverrides: Signal<PresentationDependencyOverrides>
 
   /**
    * Dynamic 继承祖先状态并合并自身配置后的呈现状态。
    */
-  readonly effectiveState: ComputedSignal<PresentationStaticState>
+  readonly presentationState: ComputedSignal<PresentationState>
+
+  /**
+   * @deprecated 请改用 {@link DynamicNode.presentationState}。
+   */
+  readonly effectiveState: ComputedSignal<PresentationState>
 
   /**
    * Dynamic 呈现 dependencies effect 使用的资源作用域。
@@ -654,7 +752,7 @@ export interface CreateFieldNodeOptions<TValues extends Values = Values> {
   /**
    * 编译后的字段静态配置。
    */
-  staticSchema: SchemxBaseField<TValues>
+  compiledSchema: SchemxBaseField<TValues>
   /**
    * 是否创建字段 diagnostics Signal。
    */
@@ -686,7 +784,7 @@ export interface CreateGroupNodeOptions<TValues extends Values = Values> {
   /**
    * 编译后的分组静态配置。
    */
-  staticSchema: SchemxGroupField<TValues>
+  compiledSchema: SchemxGroupField<TValues>
   /**
    * 分组节点使用的资源作用域；省略时创建独立作用域。
    */
@@ -714,7 +812,7 @@ export interface CreateDependencyNodeOptions<TValues extends Values = Values> {
   /**
    * 编译后的 dependency 静态配置。
    */
-  staticSchema: SchemxDependencyField<TValues>
+  compiledSchema: SchemxDependencyField<TValues>
   /**
    * 依赖节点使用的资源作用域；省略时创建独立作用域。
    */

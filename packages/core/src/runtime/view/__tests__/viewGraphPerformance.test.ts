@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   createFieldRuntimeSignals,
-  setFieldDynamicOverrides,
+  setFieldDependencyOverrides,
 } from "../../node/__tests__/signalsTestUtils"
 
 import type { SchemxBaseField } from "../../../types"
@@ -42,22 +42,22 @@ describe("computed viewSchemas 性能边界 (US3)", () => {
       nodeId: 1,
       key: "field-a",
       name: "fieldA" as any,
-      staticSchema: schema1,
+      compiledSchema: schema1,
     })
 
     const state2 = createFieldRuntimeSignals({
       nodeId: 2,
       key: "field-b",
       name: "fieldB" as any,
-      staticSchema: schema2,
+      compiledSchema: schema2,
     })
 
-    const effective1Before = state1.effectiveSchema.value
+    const effective1Before = state1.resolvedSchema.value
 
-    const effective2Before = state2.effectiveSchema.value
+    const effective2Before = state2.resolvedSchema.value
 
     // 只修改字段A
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state1,
       { visible: false },
       {
@@ -66,9 +66,9 @@ describe("computed viewSchemas 性能边界 (US3)", () => {
       }
     )
 
-    const effective1After = state1.effectiveSchema.value
+    const effective1After = state1.resolvedSchema.value
 
-    const effective2After = state2.effectiveSchema.value
+    const effective2After = state2.resolvedSchema.value
 
     expect(effective1After.visible).toBe(false)
     expect(effective1After).not.toBe(effective1Before)
@@ -84,13 +84,13 @@ describe("computed viewSchemas 性能边界 (US3)", () => {
       nodeId: 1,
       key: "field-1",
       name: "field" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
       debug: true,
     })
 
     // 多次写入
     for (let i = 0; i < 100; i++) {
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: i % 2 === 0 },
         {
@@ -101,7 +101,7 @@ describe("computed viewSchemas 性能边界 (US3)", () => {
     }
 
     // 最终状态正确
-    expect(state.effectiveSchema.value.visible).toBe(false)
+    expect(state.resolvedSchema.value.visible).toBe(false)
     expect(readDiagnostics(state).version).toBe(100)
   })
 
@@ -112,14 +112,14 @@ describe("computed viewSchemas 性能边界 (US3)", () => {
       nodeId: 1,
       key: "field-1",
       name: "field" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
       debug: true,
     })
 
     const versions: number[] = []
 
     for (let i = 0; i < 10; i++) {
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { disabled: i % 2 === 0 },
         {

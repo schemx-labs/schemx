@@ -11,8 +11,8 @@ import { describe, expect, it, vi } from "vitest"
 import createForm from "../../../createForm"
 import { createFieldNode } from "../../node/__tests__/nodeTestUtils"
 import { createNodeManager } from "../../node/nodeManager"
-import { createRootRuntimeViewSchemas } from "../createViewSchemas"
 import { subscribeViewSchemas } from "../subscribeViewSchemas"
+import { attachRootViewSchemas } from "../viewProjection"
 
 import type { RootNode } from "../../node"
 
@@ -24,7 +24,7 @@ function createRootWithViewSchemas(): {
 
   const root = manager.getRoot()
 
-  createRootRuntimeViewSchemas(root)
+  attachRootViewSchemas(root)
 
   return { root, manager }
 }
@@ -59,7 +59,7 @@ describe("subscribeViewSchemas", () => {
     form.destroy()
   })
 
-  it("dependencies 更新 visible 时 ViewSchema 应读取 effectiveSchema", async () => {
+  it("dependencies 更新 visible 时 ViewSchema 应读取 resolvedSchema", async () => {
     const form = createForm<{ country: string; province?: string }>({
       schemas: [
         {
@@ -129,7 +129,7 @@ describe("subscribeViewSchemas", () => {
         key: "field:name",
         configToken: Symbol("field:name"),
         name: "name",
-        staticSchema: {
+        compiledSchema: {
           name: "name",
           componentType: "input",
         } as never,

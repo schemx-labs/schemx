@@ -32,6 +32,11 @@ export const defaultVueSchemaConfig = Object.freeze({
    * 表单级必填标记默认值。
    */
   showRequiredMark: undefined as boolean | undefined,
+
+  /**
+   * 是否在 field schema 后显示底部边框。
+   */
+  bordered: true,
 } as const)
 
 /**

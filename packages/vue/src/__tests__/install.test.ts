@@ -1,4 +1,5 @@
 import { defineComponent, effectScope, h, markRaw, nextTick } from "vue"
+import type { ComputedRef } from "vue"
 
 import {
   configureSchemx,
@@ -12,6 +13,7 @@ import {
 import { mount, type VueWrapper } from "@vue/test-utils"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import ConfigProvider from "../components/ConfigProvider"
 import Schemx from "../form"
 import { useForm } from "../hooks/useForm"
 import { rendererRegistry as vueRendererRegistry } from "../utils/rendererProvider"
@@ -136,14 +138,15 @@ describe("Schemx Vue 插件安装", () => {
     })
 
     expect(app.component).toHaveBeenCalledWith("SchemxForm", expect.any(Object))
-    expect(app.provide).toHaveBeenCalledWith(
-      expect.any(Symbol),
-      expect.objectContaining({
-        defaultRendererType: "configured",
-        rendererRegistry,
-        schemaConfig: { readonly: true },
-      })
-    )
+    expect(app.provide).toHaveBeenCalledWith(expect.any(Symbol), expect.any(Object))
+
+    const providedConfig = app.provide.mock.calls[0]?.[1] as ComputedRef<SchemxConfig>
+
+    expect(providedConfig.value).toMatchObject({
+      defaultRendererType: "configured",
+      rendererRegistry,
+      schemaConfig: { readonly: true },
+    })
     expect(getGlobalSchemxConfig().rendererRegistry).toBeUndefined()
   })
 
@@ -171,6 +174,59 @@ describe("Schemx Vue 插件安装", () => {
 
     expect(form.getRenderer("configured")).toBe(ConfiguredRenderer)
     expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true })
+
+    wrapper.unmount()
+  })
+
+  it("ConfigProvider 在 App 配置基础上合并局部配置", () => {
+    let form: SchemxInstance | undefined
+
+    const Host = defineComponent({
+      name: "ConfigProviderAppHost",
+      setup() {
+        form = useForm({
+          schemas: [
+            {
+              name: "name",
+              label: "姓名",
+              componentType: "input",
+            },
+          ],
+        })
+
+        return () => h("div")
+      },
+    })
+
+    const wrapper = mount(ConfigProvider, {
+      props: {
+        schemaConfig: { disabled: true },
+      },
+      slots: {
+        default: () => h(Host),
+      },
+      global: {
+        plugins: [
+          [
+            Schemx,
+            {
+              schemaConfig: { readonly: true, labelAlign: "left" },
+            },
+          ],
+        ],
+      },
+    })
+
+    if (form === undefined) {
+      wrapper.unmount()
+      throw new Error("测试宿主未创建 Form 实例")
+    }
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      disabled: true,
+      labelAlign: "left",
+    })
 
     wrapper.unmount()
   })
@@ -415,9 +471,9 @@ describe("Schemx Vue 插件安装", () => {
 
     Schemx.install(app as never, { rendererProps: rendererProps as never })
 
-    const providedConfig = app.provide.mock.calls[0]?.[1] as SchemxConfig
+    const providedConfig = app.provide.mock.calls[0]?.[1] as ComputedRef<SchemxConfig>
 
-    const normalizedRendererProps = providedConfig.rendererProps as
+    const normalizedRendererProps = providedConfig.value.rendererProps as
       Record<string, Record<string, unknown>> | undefined
 
     const normalizedConfiguredProps = normalizedRendererProps?.configured

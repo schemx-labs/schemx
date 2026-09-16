@@ -6,28 +6,29 @@
 
 import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../utils"
 
-import type { CompileOptions } from "./types"
+import type { SchemaCompilerOptions } from "./types"
 import type {
   NamePath,
   SchemxBaseComponentProps,
   SchemxBaseField,
   SchemxComponentProps,
   SchemxField,
+  SchemxSchemaConfig,
   ValidationTrigger,
   Values,
 } from "../../types"
 import type {
-  FieldEffectiveSchema,
   FieldRuntimeDiagnostics,
-  FieldValidationSchema,
-  PresentationDynamicOverrides,
-  PresentationStaticState,
+  FieldValidationState,
+  PresentationDependencyOverrides,
+  PresentationState,
+  ResolvedFieldSchema,
 } from "../node/types"
 
 /**
  * 没有祖先容器时使用的默认呈现状态。
  */
-export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
+export const DEFAULT_PRESENTATION_STATE: PresentationState = {
   visible: true,
   readonly: false,
   disabled: false,
@@ -36,7 +37,33 @@ export const DEFAULT_PRESENTATION_STATE: PresentationStaticState = {
 type LegacyRendererAlignmentProps = Pick<SchemxBaseComponentProps, "align">
 
 /**
- * 合并字段 Schema 与全局默认值，生成编译后的静态字段配置。
+ * 将表单级默认配置应用到字段未显式赋值的属性。
+ *
+ * 字段中的 `false`、空字符串等有效值必须保留；只有 `null` 或 `undefined` 才继承
+ * `schemaConfig`，从而与原有逐字段 `??` 合并语义保持一致。
+ *
+ * @param schema - 待应用默认值的字段 Schema。
+ * @param schemaConfig - 当前 Form 已解析的字段默认配置。
+ * @returns 包含表单级默认值的新字段 Schema。
+ */
+function applyFieldSchemaDefaults<TValues extends Values>(
+  schema: SchemxBaseField<TValues>,
+  schemaConfig: SchemxSchemaConfig
+): SchemxBaseField<TValues> {
+  const inheritedEntries = Object.entries(schemaConfig).filter(([key]) => {
+    const value = Reflect.get(schema, key)
+
+    return value === undefined || value === null
+  })
+
+  return {
+    ...schema,
+    ...Object.fromEntries(inheritedEntries),
+  } as SchemxBaseField<TValues>
+}
+
+/**
+ * 合并字段 Schema 与表单级默认值，生成编译后的静态字段配置。
  *
  * 字段自身配置优先于 Renderer 默认 Props 和表单级默认配置；只保留编译阶段需要的
  * 静态配置，动态 dependencies 由 Node 单独处理。
@@ -47,32 +74,20 @@ type LegacyRendererAlignmentProps = Pick<SchemxBaseComponentProps, "align">
  * @param options - 表单级默认配置、Renderer Props 和表单实例。
  * @returns 编译后的字段静态配置。
  */
-export function buildFieldStaticSchema<TValues extends Values>(
+export function compileFieldSchema<TValues extends Values>(
   schema: SchemxBaseField<TValues>,
   key: string,
-  options: CompileOptions<TValues>
+  options: SchemaCompilerOptions<TValues>
 ): SchemxBaseField<TValues> {
   const { schemaConfig, formInstance } = options
 
   const {
-    contentAlign,
-    labelIcon,
-    labelAlign,
-    labelPosition,
-    labelWidth,
-    colon,
     componentProps,
-    visible,
-    readonly,
     readonlyPlaceholder,
-    disabled,
-    required,
-    rules,
-    showRequiredMark,
     validationTrigger,
     dependencies: _dependencies,
     ...rest
-  } = schema
+  } = applyFieldSchemaDefaults(schema, schemaConfig)
 
   const rendererComponentProps = options.rendererProps?.[schema.componentType]
 
@@ -87,9 +102,7 @@ export function buildFieldStaticSchema<TValues extends Values>(
     ...componentProps,
   } as SchemxComponentProps<TValues>
 
-  const mergedReadonly = readonly ?? schemaConfig.readonly
-
-  const mergedContentAlign = contentAlign ?? schemaConfig.contentAlign
+  const mergedReadonly = rest.readonly
 
   const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
 
@@ -100,30 +113,16 @@ export function buildFieldStaticSchema<TValues extends Values>(
 
   const mergedAlign =
     legacyComponentProps?.align ??
-    contentAlign ??
+    schema.contentAlign ??
     legacyRendererComponentProps?.align ??
-    schemaConfig.contentAlign
+    rest.contentAlign
 
   const normalizedSchema = {
     ...rest,
     key,
-    visible: visible ?? schemaConfig.visible,
-    readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
-    disabled: disabled ?? schemaConfig.disabled,
-    required: required ?? schemaConfig.required,
     placeholder: mergedPlaceholder,
-    showRequiredMark: showRequiredMark ?? schemaConfig.showRequiredMark,
-    labelIcon: labelIcon ?? schemaConfig.labelIcon,
-    labelAlign: labelAlign ?? schemaConfig.labelAlign,
-    labelPosition: labelPosition ?? schemaConfig.labelPosition,
-    labelWidth: labelWidth ?? schemaConfig.labelWidth,
-    contentAlign: mergedContentAlign,
-    colon: colon ?? schemaConfig.colon,
-    rules,
-    validationTrigger: normalizeTrigger(
-      validationTrigger ?? schemaConfig.validationTrigger ?? "blur"
-    ),
+    validationTrigger: normalizeTrigger(validationTrigger ?? "blur"),
   } as SchemxBaseField<TValues>
 
   if (mergedReadonly) {
@@ -136,7 +135,7 @@ export function buildFieldStaticSchema<TValues extends Values>(
     align: mergedReadonly ? "right" : mergedAlign,
     readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
-    disabled: disabled ?? schemaConfig.disabled,
+    disabled: rest.disabled,
     placeholder: mergedPlaceholder,
     formItemProps: { ...normalizedSchema },
     formInstance,
@@ -144,6 +143,11 @@ export function buildFieldStaticSchema<TValues extends Values>(
 
   return normalizedSchema
 }
+
+/**
+ * @deprecated 请改用 {@link compileFieldSchema}。
+ */
+export const buildFieldStaticSchema: typeof compileFieldSchema = compileFieldSchema
 
 /**
  * 根据显式 key 或节点路径生成稳定的运行时节点 key。
@@ -191,47 +195,53 @@ export function createNodeKey<TValues extends Values>(
  * 当前节点的 visible 受祖先状态共同约束，readonly 和 disabled 则沿祖先链继承为
  * 单调增强状态。
  *
- * @param staticState - Schema 编译出的静态状态。
- * @param overrides - dependencies 产生的动态覆盖。
- * @param inheritedState - 父节点传入的有效状态。
+ * @param schemaState - Schema 编译出的基础状态。
+ * @param dependencyOverrides - dependencies 产生的动态覆盖。
+ * @param inheritedPresentationState - 父节点传入的有效状态。
  * @returns 当前节点及其后代使用的有效呈现状态。
  */
 export function resolvePresentationState(
-  staticState: Partial<PresentationStaticState>,
-  overrides: PresentationDynamicOverrides,
-  inheritedState: PresentationStaticState = DEFAULT_PRESENTATION_STATE
-): PresentationStaticState {
+  schemaState: Partial<PresentationState>,
+  dependencyOverrides: PresentationDependencyOverrides,
+  inheritedPresentationState: PresentationState = DEFAULT_PRESENTATION_STATE
+): PresentationState {
   const visible =
-    overrides.visible ?? staticState.visible ?? DEFAULT_PRESENTATION_STATE.visible
+    dependencyOverrides.visible ??
+    schemaState.visible ??
+    DEFAULT_PRESENTATION_STATE.visible
 
   const readonly =
-    overrides.readonly ?? staticState.readonly ?? DEFAULT_PRESENTATION_STATE.readonly
+    dependencyOverrides.readonly ??
+    schemaState.readonly ??
+    DEFAULT_PRESENTATION_STATE.readonly
 
   const disabled =
-    overrides.disabled ?? staticState.disabled ?? DEFAULT_PRESENTATION_STATE.disabled
+    dependencyOverrides.disabled ??
+    schemaState.disabled ??
+    DEFAULT_PRESENTATION_STATE.disabled
 
   return {
-    visible: inheritedState.visible && visible,
-    readonly: inheritedState.readonly || readonly,
-    disabled: inheritedState.disabled || disabled,
+    visible: inheritedPresentationState.visible && visible,
+    readonly: inheritedPresentationState.readonly || readonly,
+    disabled: inheritedPresentationState.disabled || disabled,
   }
 }
 
 // Renderer 与 Field 共同消费的最终展示属性。
-type RendererEffectiveProps = Pick<
-  FieldEffectiveSchema,
+type RendererStateProps = Pick<
+  ResolvedFieldSchema,
   "disabled" | "readonly" | "placeholder" | "readonlyPlaceholder"
 >
 
 interface ResolveComponentPropsOptions<TValues extends Values> {
   // 编译阶段生成的静态 component Props。
-  readonly staticProps: SchemxComponentProps<TValues> | undefined
+  readonly compiledProps: SchemxComponentProps<TValues> | undefined
   // dependencies 生成的动态 component Props。
-  readonly dynamicComponentProps: SchemxComponentProps<TValues> | undefined
+  readonly dependencyComponentProps: SchemxComponentProps<TValues> | undefined
   // 当前节点最终生效的展示属性。
-  readonly effectiveProps: RendererEffectiveProps
+  readonly resolvedStateProps: RendererStateProps
   // 静态配置对应的展示属性，用于判断是否可以复用静态 Props。
-  readonly staticEffectiveProps: RendererEffectiveProps
+  readonly compiledStateProps: RendererStateProps
 }
 
 /**
@@ -244,27 +254,31 @@ interface ResolveComponentPropsOptions<TValues extends Values> {
 export function resolveComponentProps<TValues extends Values>(
   options: ResolveComponentPropsOptions<TValues>
 ): SchemxComponentProps<TValues> {
-  const { staticProps, dynamicComponentProps, effectiveProps, staticEffectiveProps } =
-    options
+  const {
+    compiledProps,
+    dependencyComponentProps,
+    resolvedStateProps,
+    compiledStateProps,
+  } = options
 
-  const hasEffectivePropsChanged =
-    effectiveProps.disabled !== staticEffectiveProps.disabled ||
-    effectiveProps.readonly !== staticEffectiveProps.readonly ||
-    effectiveProps.placeholder !== staticEffectiveProps.placeholder ||
-    effectiveProps.readonlyPlaceholder !== staticEffectiveProps.readonlyPlaceholder
+  const hasResolvedStateChanged =
+    resolvedStateProps.disabled !== compiledStateProps.disabled ||
+    resolvedStateProps.readonly !== compiledStateProps.readonly ||
+    resolvedStateProps.placeholder !== compiledStateProps.placeholder ||
+    resolvedStateProps.readonlyPlaceholder !== compiledStateProps.readonlyPlaceholder
 
-  if (!dynamicComponentProps && !hasEffectivePropsChanged) {
-    return staticProps ?? ({} as SchemxComponentProps<TValues>)
+  if (!dependencyComponentProps && !hasResolvedStateChanged) {
+    return compiledProps ?? ({} as SchemxComponentProps<TValues>)
   }
 
   return {
-    ...staticProps,
-    ...dynamicComponentProps,
-    ...effectiveProps,
-    formInstance: staticProps?.formInstance,
+    ...compiledProps,
+    ...dependencyComponentProps,
+    ...resolvedStateProps,
+    formInstance: compiledProps?.formInstance,
     formItemProps: {
-      ...staticProps?.formItemProps,
-      ...effectiveProps,
+      ...compiledProps?.formItemProps,
+      ...resolvedStateProps,
     },
   } as SchemxComponentProps<TValues>
 }
@@ -277,9 +291,9 @@ export function resolveComponentProps<TValues extends Values>(
  * @param next - 当前校验配置切片。
  * @returns 两个校验切片语义相同时返回 `true`。
  */
-export function isValidationSchemaEqual<TValues extends Values>(
-  previous: FieldValidationSchema<TValues>,
-  next: FieldValidationSchema<TValues>
+export function isValidationStateEqual<TValues extends Values>(
+  previous: FieldValidationState<TValues>,
+  next: FieldValidationState<TValues>
 ): boolean {
   if (
     previous.visible !== next.visible ||
@@ -304,6 +318,12 @@ export function isValidationSchemaEqual<TValues extends Values>(
     previousRules.every((rule, index) => rule === nextRules[index])
   )
 }
+
+/**
+ * @deprecated 请改用 {@link isValidationStateEqual}。
+ */
+export const isValidationSchemaEqual: typeof isValidationStateEqual =
+  isValidationStateEqual
 
 /**
  * 创建 debug 模式使用的初始 diagnostics。

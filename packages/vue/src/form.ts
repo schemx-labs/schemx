@@ -10,7 +10,7 @@
 import type { App } from "vue"
 
 import Field from "./components/Field"
-import { provideSchemxAppConfig } from "./config"
+import { provideSchemxAppConfig } from "./context/configProviderContext"
 import SchemxForm from "./formRuntime.js"
 
 import type { SchemxVueConfig } from "./types/layout"

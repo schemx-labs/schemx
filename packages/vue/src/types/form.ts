@@ -89,6 +89,11 @@ interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
    * 是否显示必填视觉标记；不改变实际校验规则。
    */
   showRequiredMark?: boolean
+
+  /**
+   * 是否在字段底部显示边框。
+   */
+  bordered?: boolean
 }
 
 /**

@@ -133,6 +133,49 @@ describe("SchemxForm 配置与外部值同步", () => {
     wrapper.unmount()
   })
 
+  it("将 Vue 字段默认配置编译到 ViewSchema 并保留字段覆盖", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(InputRenderer))
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        rendererRegistry,
+        schemas: [
+          { name: "name", label: "姓名", componentType: "input" },
+          {
+            name: "email",
+            label: "邮箱",
+            componentType: "input",
+            bordered: true,
+          },
+        ],
+      },
+    })
+
+    const form = wrapper.vm as unknown as SchemxInstance<{
+      name?: string
+      email?: string
+    }>
+
+    expect(form.getViewSchemas()).toMatchObject([
+      { name: "name", bordered: true },
+      { name: "email", bordered: true },
+    ])
+
+    await wrapper.setProps({ bordered: false })
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    expect(form.getViewSchemas()).toMatchObject([
+      { name: "name", bordered: false },
+      { name: "email", bordered: true },
+    ])
+    expect(wrapper.findAll(".schemx-field-wrapper.is-bordered")).toHaveLength(1)
+
+    wrapper.unmount()
+  })
+
   it("外部 Form 挂载时应用非空 modelValue 且不重复回写", async () => {
     const form = createForm<Values>({
       initialValues: { name: "Alice" },

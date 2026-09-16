@@ -7,9 +7,9 @@
  * @module core/runtime/createSchemaRuntime
  */
 
-import { defaultSchemxConfigKeys, mergeAndResolveSchemxConfig } from "../config"
+import { mergeAndResolveSchemxConfig } from "../config"
 
-import { createCompile } from "./compiler"
+import { createSchemaCompiler } from "./compiler"
 import { createNodeLifecycleEmitter } from "./lifecycle"
 import { createNodeLifecycle, createScope } from "./node"
 import { findFieldNode } from "./node/helper"
@@ -17,7 +17,7 @@ import { createNodeManager } from "./node/nodeManager"
 import { createReconciler } from "./reconciler"
 import { createScheduler } from "./scheduler"
 import { subscribeViewSchemas } from "./view"
-import { createRootRuntimeViewSchemas } from "./view/createViewSchemas"
+import { attachRootViewSchemas } from "./view/viewProjection"
 
 import type { ContainerNode, RootNode } from "./node"
 import type { SchemxSchemas } from "../createSchemas"
@@ -115,10 +115,16 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   updateSchemaConfig(partial: Partial<SchemxSchemaConfig>): void
   /**
-   * 获取字段当前生效的 label 与 required 配置。
+   * 获取字段用于规则注册的 label 与 required 配置。
    *
    * @param name - 要查询的字段路径。
-   * @returns 字段已编译时的有效配置；字段不存在时返回 `undefined`。
+   * @returns 字段规则上下文；字段不存在时返回 `undefined`。
+   */
+  getFieldRuleContext(
+    name: NamePath<TValues>
+  ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined
+  /**
+   * @deprecated 请改用 {@link SchemaRuntime.getFieldRuleContext}。
    */
   getEffectiveFieldSchema(
     name: NamePath<TValues>
@@ -205,7 +211,7 @@ export function createSchemaRuntime<TValues extends Values>(
   })
 
   // 编译 Schema 并保留当前 Form 实例引用。
-  const compile = createCompile({
+  const compiler = createSchemaCompiler({
     schemaConfig,
     rendererProps: options.rendererProps,
     formInstance: options.instance,
@@ -242,12 +248,12 @@ export function createSchemaRuntime<TValues extends Values>(
   const runtimeNodeLifecycle = createNodeLifecycle(context)
 
   const reconciler = createReconciler<TValues>({
-    compiler: compile,
+    compiler,
     nodeManager,
     lifecycle: runtimeNodeLifecycle,
   })
 
-  createRootRuntimeViewSchemas(root)
+  attachRootViewSchemas(root)
 
   /**
    * 将最新 Schema 提交给根节点协调。
@@ -288,31 +294,25 @@ export function createSchemaRuntime<TValues extends Values>(
       return
     }
 
-    const schemaConfigPatch = Object.fromEntries(
-      defaultSchemxConfigKeys
-        .filter((key) => Object.prototype.hasOwnProperty.call(partial, key))
-        .map((key) => [key, partial[key]])
-    ) as Partial<SchemxSchemaConfig>
-
     Object.assign(
       context.schemaConfig,
       mergeAndResolveSchemxConfig(
-        { schemaConfig: schemaConfigPatch },
+        { schemaConfig: partial },
         { schemaConfig: context.schemaConfig }
       ).schemaConfig
     )
 
-    compile.invalidate()
+    compiler.invalidateConfigCache()
     reconciler.refresh()
   }
 
   /**
-   * 读取字段当前的动态生效配置。
+   * 读取字段用于规则注册的上下文。
    */
-  const getEffectiveFieldSchema = (
+  const getFieldRuleContext = (
     name: NamePath<TValues>
   ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined => {
-    return findFieldNode(root, name)?.effectiveSchema.value
+    return findFieldNode(root, name)?.resolvedSchema.value
   }
 
   /**
@@ -374,7 +374,8 @@ export function createSchemaRuntime<TValues extends Values>(
     root,
     mount,
     updateSchemaConfig,
-    getEffectiveFieldSchema,
+    getFieldRuleContext,
+    getEffectiveFieldSchema: getFieldRuleContext,
     getViewSchemas,
     subscribeViewSchemas: subscribeRuntimeViewSchemas,
     waitForIdle,

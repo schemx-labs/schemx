@@ -1,9 +1,9 @@
 /**
  * FieldRuntimeSignals 的单元测试。
  *
- * 覆盖 runtimeSignals 的创建、staticSchema/dynamicOverrides/effectiveSchema
- * 三层合并，以及 setFieldStaticSchema、setFieldDynamicOverrides、
- * resetFieldDynamicOverrides 等操作。
+ * 覆盖 runtimeSignals 的创建、compiledSchema/dependencyOverrides/resolvedSchema
+ * 三层合并，以及 setFieldCompiledSchema、setFieldDependencyOverrides、
+ * resetFieldDependencyOverrides 等操作。
  *
  * @module core/runtime/field/__tests__/runtimeSignals.test
  */
@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest"
 
 import {
   createFieldRuntimeSignals,
-  resetFieldDynamicOverrides,
-  setFieldDynamicOverrides,
-  setFieldStaticSchema,
+  resetFieldDependencyOverrides,
+  setFieldCompiledSchema,
+  setFieldDependencyOverrides,
 } from "../../node/__tests__/signalsTestUtils"
 
 import type { SchemxBaseField } from "../../../types"
@@ -53,13 +53,13 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
         debug: true,
       })
 
-      expect(state.staticSchema).toBeDefined()
-      expect(state.dynamicOverrides).toBeDefined()
-      expect(state.effectiveSchema).toBeDefined()
+      expect(state.compiledSchema).toBeDefined()
+      expect(state.dependencyOverrides).toBeDefined()
+      expect(state.resolvedSchema).toBeDefined()
       expect(state.diagnostics).toBeDefined()
     })
 
@@ -68,7 +68,7 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
         debug: true,
       })
 
@@ -80,35 +80,35 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
       })
 
       expect(state.diagnostics).toBeUndefined()
     })
 
-    it("初始 staticSchema 应该等于传入的静态 schema", () => {
+    it("初始 compiledSchema 应该等于传入的静态 schema", () => {
       const schema = createTestSchema({ label: "用户名" })
 
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
       })
 
-      expect(state.staticSchema.value).toMatchObject(schema)
-      expect(state.staticSchema.value.dependencies).toBeUndefined()
+      expect(state.compiledSchema.value).toMatchObject(schema)
+      expect(state.compiledSchema.value.dependencies).toBeUndefined()
     })
 
-    it("初始 dynamicOverrides 应该为空对象", () => {
+    it("初始 dependencyOverrides 应该为空对象", () => {
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
       })
 
-      expect(state.dynamicOverrides.value).toEqual({})
+      expect(state.dependencyOverrides.value).toEqual({})
     })
 
     it("初始 diagnostics 来源应为 static-schema", () => {
@@ -116,7 +116,7 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "username" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
         debug: true,
       })
 
@@ -125,7 +125,7 @@ describe("FieldRuntimeSignals", () => {
     })
   })
 
-  describe("effectiveSchema", () => {
+  describe("resolvedSchema", () => {
     it("应该合并静态 schema 和默认值", () => {
       const schema = createTestSchema({
         label: "邮箱",
@@ -138,11 +138,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
         debug: true,
       })
 
-      const effective = state.effectiveSchema.value
+      const effective = state.resolvedSchema.value
 
       expect(effective.label).toBe("邮箱")
       expect(effective.visible).toBe(true)
@@ -157,11 +157,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
         debug: true,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false, disabled: true },
         {
@@ -170,7 +170,7 @@ describe("FieldRuntimeSignals", () => {
         }
       )
 
-      const effective = state.effectiveSchema.value
+      const effective = state.resolvedSchema.value
 
       expect(effective.visible).toBe(false)
       expect(effective.disabled).toBe(true)
@@ -181,10 +181,10 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema({ required: true }),
+        compiledSchema: createTestSchema({ required: true }),
       })
 
-      expect(state.effectiveSchema.value.showRequiredMark).toBe(true)
+      expect(state.resolvedSchema.value.showRequiredMark).toBe(true)
     })
 
     it("静态 showRequiredMark=false 应隐藏标记但保留 required", () => {
@@ -192,11 +192,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema({ required: true, showRequiredMark: false }),
+        compiledSchema: createTestSchema({ required: true, showRequiredMark: false }),
       })
 
-      expect(state.effectiveSchema.value.showRequiredMark).toBe(false)
-      expect(state.effectiveSchema.value.required).toBe(true)
+      expect(state.resolvedSchema.value.showRequiredMark).toBe(false)
+      expect(state.resolvedSchema.value.required).toBe(true)
     })
 
     it("未配置 showRequiredMark 时应该跟随动态 required", () => {
@@ -204,18 +204,18 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema({ required: false }),
+        compiledSchema: createTestSchema({ required: false }),
       })
 
-      expect(state.effectiveSchema.value.showRequiredMark).toBe(false)
+      expect(state.resolvedSchema.value.showRequiredMark).toBe(false)
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { required: { message: "请输入邮箱" } },
         { source: "dependencies", triggerFields: ["country" as any] }
       )
 
-      expect(state.effectiveSchema.value.showRequiredMark).toBe(true)
+      expect(state.resolvedSchema.value.showRequiredMark).toBe(true)
     })
 
     it("动态 showRequiredMark 应覆盖标记但不改变 required", () => {
@@ -223,17 +223,17 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema({ required: true }),
+        compiledSchema: createTestSchema({ required: true }),
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { showRequiredMark: false },
         { source: "dependencies", triggerFields: ["country" as any] }
       )
 
-      expect(state.effectiveSchema.value.showRequiredMark).toBe(false)
-      expect(state.effectiveSchema.value.required).toBe(true)
+      expect(state.resolvedSchema.value.showRequiredMark).toBe(false)
+      expect(state.resolvedSchema.value.required).toBe(true)
     })
 
     it("部分动态覆盖不应影响未覆盖的静态属性", () => {
@@ -243,11 +243,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
         debug: true,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { disabled: true },
         {
@@ -256,7 +256,7 @@ describe("FieldRuntimeSignals", () => {
         }
       )
 
-      const effective = state.effectiveSchema.value
+      const effective = state.resolvedSchema.value
 
       expect(effective.visible).toBe(true) // 未覆盖
       expect(effective.disabled).toBe(true) // 已覆盖
@@ -264,56 +264,56 @@ describe("FieldRuntimeSignals", () => {
     })
   })
 
-  describe("setFieldStaticSchema", () => {
-    it("应该更新 staticSchema", () => {
+  describe("setFieldCompiledSchema", () => {
+    it("应该更新 compiledSchema", () => {
       const schema = createTestSchema({ label: "旧标签" })
 
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
       })
 
       const newSchema = createTestSchema({ label: "新标签" })
 
-      setFieldStaticSchema(state, {
+      setFieldCompiledSchema(state, {
         name: "email" as any,
-        staticSchema: newSchema,
+        compiledSchema: newSchema,
       })
 
-      expect(state.staticSchema.value.label).toBe("新标签")
+      expect(state.compiledSchema.value.label).toBe("新标签")
     })
 
-    it("应该更新 effectiveSchema.name", () => {
+    it("应该更新 resolvedSchema.name", () => {
       const schema = createTestSchema({ label: "旧标签" })
 
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "oldName" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
       })
 
-      setFieldStaticSchema(state, {
+      setFieldCompiledSchema(state, {
         name: "newName" as any,
-        staticSchema: createTestSchema({ label: "新标签" }),
+        compiledSchema: createTestSchema({ label: "新标签" }),
       })
 
-      expect(state.effectiveSchema.value.name).toBe("newName")
+      expect(state.resolvedSchema.value.name).toBe("newName")
     })
 
-    it("更新 staticSchema 不应清空 dynamicOverrides", () => {
+    it("更新 compiledSchema 不应清空 dependencyOverrides", () => {
       const schema = createTestSchema({ visible: true })
 
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -324,15 +324,15 @@ describe("FieldRuntimeSignals", () => {
 
       const newSchema = createTestSchema({ visible: true, label: "新标签" })
 
-      setFieldStaticSchema(state, {
+      setFieldCompiledSchema(state, {
         name: "email" as any,
-        staticSchema: newSchema,
+        compiledSchema: newSchema,
       })
 
-      // dynamicOverrides 应保留
-      expect(state.dynamicOverrides.value.visible).toBe(false)
-      // staticSchema 应更新
-      expect(state.staticSchema.value.label).toBe("新标签")
+      // dependencyOverrides 应保留
+      expect(state.dependencyOverrides.value.visible).toBe(false)
+      // compiledSchema 应更新
+      expect(state.compiledSchema.value.label).toBe("新标签")
     })
 
     it("应该更新 diagnostics", () => {
@@ -342,15 +342,15 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
         debug: true,
       })
 
       const prevVersion = readDiagnostics(state).version
 
-      setFieldStaticSchema(state, {
+      setFieldCompiledSchema(state, {
         name: "email" as any,
-        staticSchema: createTestSchema({ label: "新" }),
+        compiledSchema: createTestSchema({ label: "新" }),
       })
 
       expect(readDiagnostics(state).lastUpdatedBy).toBe("static-schema")
@@ -358,16 +358,16 @@ describe("FieldRuntimeSignals", () => {
     })
   })
 
-  describe("setFieldDynamicOverrides", () => {
+  describe("setFieldDependencyOverrides", () => {
     it("应该写入动态覆盖", () => {
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { placeholder: "动态占位" },
         {
@@ -376,7 +376,7 @@ describe("FieldRuntimeSignals", () => {
         }
       )
 
-      expect(state.dynamicOverrides.value.placeholder).toBe("动态占位")
+      expect(state.dependencyOverrides.value.placeholder).toBe("动态占位")
     })
 
     it("应该更新 diagnostics 记录来源和触发字段", () => {
@@ -384,11 +384,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
         debug: true,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -409,10 +409,10 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -420,7 +420,7 @@ describe("FieldRuntimeSignals", () => {
           triggerFields: ["country" as any],
         }
       )
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         {},
         {
@@ -429,20 +429,20 @@ describe("FieldRuntimeSignals", () => {
         }
       )
 
-      expect(state.dynamicOverrides.value).toEqual({})
+      expect(state.dependencyOverrides.value).toEqual({})
     })
   })
 
-  describe("resetFieldDynamicOverrides", () => {
-    it("应该清空 dynamicOverrides", () => {
+  describe("resetFieldDependencyOverrides", () => {
+    it("应该清空 dependencyOverrides", () => {
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -450,9 +450,9 @@ describe("FieldRuntimeSignals", () => {
           triggerFields: ["country" as any],
         }
       )
-      resetFieldDynamicOverrides(state, "reset")
+      resetFieldDependencyOverrides(state, "reset")
 
-      expect(state.dynamicOverrides.value).toEqual({})
+      expect(state.dependencyOverrides.value).toEqual({})
     })
 
     it("应该更新 diagnostics", () => {
@@ -460,11 +460,11 @@ describe("FieldRuntimeSignals", () => {
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: createTestSchema(),
+        compiledSchema: createTestSchema(),
         debug: true,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -472,22 +472,22 @@ describe("FieldRuntimeSignals", () => {
           triggerFields: ["country" as any],
         }
       )
-      resetFieldDynamicOverrides(state, "dispose")
+      resetFieldDependencyOverrides(state, "dispose")
 
       expect(readDiagnostics(state).lastUpdatedBy).toBe("dispose")
     })
 
-    it("不应修改 staticSchema", () => {
+    it("不应修改 compiledSchema", () => {
       const schema = createTestSchema({ label: "原始标签" })
 
       const state = createFieldRuntimeSignals({
         nodeId: 1,
         key: "field-1",
         name: "email" as any,
-        staticSchema: schema,
+        compiledSchema: schema,
       })
 
-      setFieldDynamicOverrides(
+      setFieldDependencyOverrides(
         state,
         { visible: false },
         {
@@ -495,15 +495,15 @@ describe("FieldRuntimeSignals", () => {
           triggerFields: ["country" as any],
         }
       )
-      resetFieldDynamicOverrides(state)
+      resetFieldDependencyOverrides(state)
 
-      expect(state.staticSchema.value.label).toBe("原始标签")
+      expect(state.compiledSchema.value.label).toBe("原始标签")
     })
   })
 })
 
-// effectiveSchema 合并逻辑：静态 schema、动态覆盖与默认值的多层合并
-describe("effectiveSchema 合并逻辑 (US1)", () => {
+// resolvedSchema 合并逻辑：静态 schema、动态覆盖与默认值的多层合并
+describe("resolvedSchema 合并逻辑 (US1)", () => {
   it("应该合并静态 schema、动态覆盖和默认值", () => {
     const formatRule = { validate: () => ({ valid: true }) as const }
 
@@ -522,10 +522,10 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    const effective = state.effectiveSchema.value
+    const effective = state.resolvedSchema.value
 
     expect(effective.key).toBe("field-1")
     expect(effective.name).toBe("email")
@@ -552,10 +552,10 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       { rules: [dynamicRule] },
       {
@@ -564,7 +564,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       }
     )
 
-    expect(state.effectiveSchema.value.rules).toEqual([dynamicRule])
+    expect(state.resolvedSchema.value.rules).toEqual([dynamicRule])
   })
 
   it("动态覆盖 componentProps 应覆盖静态 componentProps", () => {
@@ -589,10 +589,10 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       {
         componentProps: {
@@ -607,7 +607,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       }
     )
 
-    expect(state.effectiveSchema.value.componentProps).toMatchObject({
+    expect(state.resolvedSchema.value.componentProps).toMatchObject({
       size: "large",
       formInstance,
       disabled: false,
@@ -648,10 +648,10 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       state,
       {
         disabled: true,
@@ -665,7 +665,7 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
       }
     )
 
-    expect(state.effectiveSchema.value.componentProps).toMatchObject({
+    expect(state.resolvedSchema.value.componentProps).toMatchObject({
       disabled: true,
       readonly: true,
       placeholder: "动态占位",
@@ -679,22 +679,26 @@ describe("effectiveSchema 合并逻辑 (US1)", () => {
     })
   })
 
-  it("effectiveSchema 应反映动态覆盖的合并结果", () => {
+  it("resolvedSchema 应反映动态覆盖的合并结果", () => {
     const schema = createTestSchema({ visible: true, label: "原始" })
 
     const state = createFieldRuntimeSignals({
       nodeId: 1,
       key: "field-1",
       name: "email" as any,
-      staticSchema: schema,
+      compiledSchema: schema,
     })
 
-    setFieldDynamicOverrides(state, { visible: false, label: "动态" as any } as never, {
-      source: "dependencies",
-      triggerFields: ["country" as any],
-    })
+    setFieldDependencyOverrides(
+      state,
+      { visible: false, label: "动态" as any } as never,
+      {
+        source: "dependencies",
+        triggerFields: ["country" as any],
+      }
+    )
 
-    const effective = state.effectiveSchema.value
+    const effective = state.resolvedSchema.value
 
     expect(effective.visible).toBe(false)
     // label 不是动态覆盖 key，应保持静态值

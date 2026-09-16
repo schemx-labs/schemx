@@ -129,7 +129,7 @@ function createFieldNodeOptions(key: string) {
     key,
     configToken: Symbol(key),
     name: key,
-    staticSchema: { name: key, componentType: "input" } as never,
+    compiledSchema: { name: key, componentType: "input" } as never,
   }
 }
 
@@ -137,7 +137,7 @@ function createGroupNodeOptions(key: string) {
   return {
     key,
     configToken: Symbol(key),
-    staticSchema: {
+    compiledSchema: {
       label: key,
       children: [],
       visible: true,

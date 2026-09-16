@@ -14,7 +14,7 @@ import type { ComputedSignal } from "../../reactivity/computed"
 import type { PresetRuleFactoryContext } from "../../registry"
 import type { SchemxBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { FieldValidationSchema, Scope } from "../node"
+import type { FieldValidationState, Scope } from "../node"
 
 /**
  * 创建 ValidationEffect 的配置选项。
@@ -41,7 +41,7 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
    *
    * 它的变化会重新计算字段是否应注册校验规则。
    */
-  validationSchema: ComputedSignal<FieldValidationSchema<TValues>>
+  validationState: ComputedSignal<FieldValidationState<TValues>>
 
   /**
    * 关联的 scope。
@@ -121,7 +121,7 @@ function resolveFieldRules(
  * @example
  * ```ts
  * const effectScope = createScope()
- * const effect = createValidationEffect({ context, name, validationSchema, scope: effectScope })
+ * const effect = createValidationEffect({ context, name, validationState, scope: effectScope })
  *
  * // 由专用 Scope 的拥有者在字段卸载时调用。
  * effect.dispose()
@@ -130,7 +130,7 @@ function resolveFieldRules(
 export function createValidationEffect<TValues extends Values = Values>(
   options: CreateValidationEffectOptions<TValues>
 ): ValidationEffect {
-  const { context, name, validationSchema, scope } = options
+  const { context, name, validationState, scope } = options
 
   const taskScheduler = context.scheduler
 
@@ -141,36 +141,40 @@ export function createValidationEffect<TValues extends Values = Values>(
   /**
    * 读取参与规则注册决策的响应式字段呈现态。
    *
-   * 直接读取 validationSchema，避免订阅纯展示字段。
+   * 直接读取 validationState，避免订阅纯展示字段。
    */
-  const readValidationProps = (): ValidationRegistrationSnapshot<TValues> => {
-    const effective = validationSchema.value
+  const resolveValidationRegistrationSnapshot =
+    (): ValidationRegistrationSnapshot<TValues> => {
+      const validationStateValue = validationState.value
 
-    const fieldRules =
-      Array.isArray(effective.rules) && effective.rules.length === 0
-        ? undefined
-        : effective.rules
+      const fieldRules =
+        Array.isArray(validationStateValue.rules) &&
+        validationStateValue.rules.length === 0
+          ? undefined
+          : validationStateValue.rules
 
-    const fallbackRules = resolveFieldRules(context.fieldRules[name], {
-      name,
-      label: effective.label,
-      required: Boolean(effective.required),
-    }) as SchemxBaseField<TValues>["rules"] | undefined
+      const fallbackRules = resolveFieldRules(context.fieldRules[name], {
+        name,
+        label: validationStateValue.label,
+        required: Boolean(validationStateValue.required),
+      }) as SchemxBaseField<TValues>["rules"] | undefined
 
-    return {
-      visible: effective.visible,
-      readonly: effective.readonly,
-      disabled: effective.disabled,
-      label: effective.label,
-      required: effective.required,
-      rules: fieldRules ?? fallbackRules ?? [],
+      return {
+        visible: validationStateValue.visible,
+        readonly: validationStateValue.readonly,
+        disabled: validationStateValue.disabled,
+        label: validationStateValue.label,
+        required: validationStateValue.required,
+        rules: fieldRules ?? fallbackRules ?? [],
+      }
     }
-  }
 
   /**
    * 根据当前字段呈现态注册或注销校验规则。
    */
-  const applyRegistration = (snapshot: ValidationRegistrationSnapshot<TValues>): void => {
+  const applyValidationRegistration = (
+    snapshot: ValidationRegistrationSnapshot<TValues>
+  ): void => {
     const { visible, readonly, disabled, label, required, rules } = snapshot
 
     if (!visible || readonly || disabled || (!required && !hasRules(rules))) {
@@ -188,7 +192,7 @@ export function createValidationEffect<TValues extends Values = Values>(
    *
    * @param snapshot - 当前字段用于注册校验的配置快照。
    */
-  const scheduleRegistration = (
+  const scheduleValidationRegistration = (
     snapshot: ValidationRegistrationSnapshot<TValues>
   ): void => {
     if (lastScheduledSnapshot === snapshot) {
@@ -208,7 +212,7 @@ export function createValidationEffect<TValues extends Values = Values>(
           return
         }
 
-        applyRegistration(snapshot)
+        applyValidationRegistration(snapshot)
       },
     })
   }
@@ -220,7 +224,7 @@ export function createValidationEffect<TValues extends Values = Values>(
   })
 
   const disposeEffect = createSignalEffect(() => {
-    scheduleRegistration(readValidationProps())
+    scheduleValidationRegistration(resolveValidationRegistrationSnapshot())
   })
 
   scope.add(disposeEffect)

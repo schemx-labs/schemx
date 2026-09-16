@@ -137,7 +137,7 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
     SchemxField<TValues>[]
   >({
     context,
-    triggerFields: node.staticSchema.value.to,
+    triggerFields: node.compiledSchema.value.to,
     taskId: `dependency:${node.id}:renderer`,
     scope: resourceScope,
     shouldRun: () => {
@@ -147,7 +147,7 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
     run: async (signal) => {
       // 每次任务读取节点上的最新 renderer，避免使用过期配置。
       return await Promise.resolve(
-        node.staticSchema.value.renderer(formApi.getFieldsValue(), formApi, {
+        node.compiledSchema.value.renderer(formApi.getFieldsValue(), formApi, {
           abortSignal: signal,
         })
       )

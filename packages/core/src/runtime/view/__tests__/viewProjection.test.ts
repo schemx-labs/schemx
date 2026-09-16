@@ -1,9 +1,9 @@
 /**
- * createViewSchemas 单元测试。
+ * viewProjection 单元测试。
  *
  * 覆盖 root、field、group、dependency 节点的 ViewSchema 创建、组合与清理。
  *
- * @module core/runtime/view/__tests__/createViewSchemas.test
+ * @module core/runtime/view/__tests__/viewProjection.test
  */
 
 import { describe, expect, it } from "vitest"
@@ -14,23 +14,23 @@ import {
   createGroupNode,
   createRootNode,
 } from "../../node/__tests__/nodeTestUtils"
-import { setFieldDynamicOverrides } from "../../node/__tests__/signalsTestUtils"
+import { setFieldDependencyOverrides } from "../../node/__tests__/signalsTestUtils"
 import { createNodeManager } from "../../node/nodeManager"
 import { createScope } from "../../node/scope"
-import {
-  clearRuntimeViewSchemas,
-  createRootRuntimeViewSchemas,
-  createRuntimeViewSchemas,
-} from "../createViewSchemas"
 import { isSchemxViewFieldSchema } from "../helper"
+import {
+  attachNodeViewSchemas,
+  attachRootViewSchemas,
+  detachNodeViewSchemas,
+} from "../viewProjection"
 
 import type { SchemxBaseField, SchemxDependencyField } from "../../../types"
-// 验证 createViewSchemas 对各类 Node 的 ViewSchema 创建、更新与清理。
-describe("createViewSchemas", () => {
+// 验证 viewProjection 对各类 Node 的 ViewSchema 创建、更新与清理。
+describe("viewProjection", () => {
   it("为 root 创建并注册 root viewSchemas", () => {
     const root = createRootNode({ scope: createScope() })
 
-    createRootRuntimeViewSchemas(root)
+    attachRootViewSchemas(root)
 
     expect(root.viewSchemas).not.toBeNull()
   })
@@ -44,14 +44,14 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRuntimeViewSchemas(node)
+    attachNodeViewSchemas(node)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
     expect(node.viewSchemas?.value[0]?.key).toBe("field:name")
     expect(node.viewSchemas?.value[0]).not.toHaveProperty("dependencies")
   })
 
-  it("field viewSchemas 跟随 effectiveSchema computed 更新", () => {
+  it("field viewSchemas 跟随 resolvedSchema computed 更新", () => {
     const nodeOptions = createFieldNodeOptions({ label: "姓名", visible: true })
 
     const node = createFieldNode({
@@ -60,11 +60,11 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRuntimeViewSchemas(node)
+    attachNodeViewSchemas(node)
 
     expect(node.viewSchemas?.value[0]?.visible).toBe(true)
 
-    setFieldDynamicOverrides(
+    setFieldDependencyOverrides(
       node,
       { visible: false },
       { source: "dependencies", triggerFields: ["name" as never] }
@@ -88,7 +88,7 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRuntimeViewSchemas(node)
+    attachNodeViewSchemas(node)
 
     const viewSchema = node.viewSchemas?.value[0]
 
@@ -111,7 +111,7 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRuntimeViewSchemas(node)
+    attachNodeViewSchemas(node)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
     expect(node.viewSchemas?.value[0]?.key).toBe("group:0")
@@ -125,7 +125,7 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRuntimeViewSchemas(node, true)
+    attachNodeViewSchemas(node, true)
 
     expect(node.viewSchemas?.value[0]?.debug).toMatchObject({
       runtimeNodeId: 1,
@@ -156,11 +156,11 @@ describe("createViewSchemas", () => {
       scope: createScope(),
     })
 
-    createRootRuntimeViewSchemas(root)
-    createRuntimeViewSchemas(group)
-    createRuntimeViewSchemas(dependency)
+    attachRootViewSchemas(root)
+    attachNodeViewSchemas(group)
+    attachNodeViewSchemas(dependency)
 
-    createRuntimeViewSchemas(field)
+    attachNodeViewSchemas(field)
 
     nodeManager.insert(group, root.id)
     nodeManager.insert(dependency, group.id)
@@ -181,14 +181,14 @@ describe("createViewSchemas", () => {
 
     node.viewSchemas = {} as never
 
-    clearRuntimeViewSchemas(node)
+    detachNodeViewSchemas(node)
 
     expect(node.viewSchemas).toBeNull()
   })
 })
 
 function createFieldNodeOptions(overrides: Partial<SchemxBaseField> = {}) {
-  const staticSchema = {
+  const compiledSchema = {
     name: "name",
     componentType: "input",
     label: "姓名",
@@ -207,7 +207,7 @@ function createFieldNodeOptions(overrides: Partial<SchemxBaseField> = {}) {
     key: "field:name",
     configToken: Symbol("field:name"),
     name: "name",
-    staticSchema,
+    compiledSchema,
   }
 }
 
@@ -215,7 +215,7 @@ function createGroupNodeOptions() {
   return {
     key: "group:0",
     configToken: Symbol("group:0"),
-    staticSchema: {
+    compiledSchema: {
       label: "分组",
       children: [],
       visible: true,
@@ -229,7 +229,7 @@ function createDependencyNodeOptions() {
   return {
     key: "dependency:0",
     configToken: Symbol("dependency:0"),
-    staticSchema: {
+    compiledSchema: {
       to: ["type"],
       renderer: () => [],
     } as SchemxDependencyField,

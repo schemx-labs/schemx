@@ -65,6 +65,11 @@ declare module "@schemx/core" {
      * 是否在标签后显示冒号。
      */
     colon?: boolean
+
+    /**
+     * 是否在 field schema 后显示底部边框。
+     */
+    bordered?: boolean
   }
 
   /**
@@ -180,6 +185,11 @@ declare module "@schemx/core" {
      * 表单级必填标记默认值。
      */
     showRequiredMark?: boolean
+
+    /**
+     * 表单级字段底部边框默认值。
+     */
+    bordered?: boolean
   }
 
   /**

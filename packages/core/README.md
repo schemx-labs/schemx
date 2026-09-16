@@ -371,7 +371,7 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `configureSchemx(config)`                                                 | 设置后续 `createForm()` 的模块级默认配置；采用替换语义。SSR 或多应用场景应使用实例配置。 |
 | `getGlobalSchemxConfig()`                                                 | 获取当前模块级配置。                                                                     |
-| `mergeSchemxConfig`、`resolveSchemxConfig`、`mergeAndResolveSchemxConfig` | 供适配层合并、解析配置。                                                                 |
+| `mergeConfig`、`resolveSchemxConfig`、`mergeAndResolveSchemxConfig`         | 供适配层合并、解析配置。                                                                 |
 | `defaultSchemxConfig`、`defaultSchemxConfigKeys`、`excludeSchemxConfigKeys` | Core 内置默认配置及其键列表；`excludeSchemxConfigKeys` 用于识别不属于 Schema 配置的选项。 |
 | `createSignalEffect(fn)`                                                  | 创建底层响应式副作用，返回清理函数。                                                     |
 | `runSignalUntracked(fn)`                                                  | 在不收集依赖的上下文执行函数。                                                           |

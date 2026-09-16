@@ -801,7 +801,7 @@ describe("字段规则注册上下文 单元测试", () => {
     })
     expect(mounted.mock.calls[0][0]).toMatchObject({
       name: { value: "name" },
-      staticSchema: { value: { name: "name", componentType: "input" } },
+      compiledSchema: { value: { name: "name", componentType: "input" } },
     })
 
     form.destroy()

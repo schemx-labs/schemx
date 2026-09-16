@@ -10,7 +10,7 @@ import { vi } from "vitest"
 
 import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createSignal } from "../../../reactivity"
-import { type Compile, createCompile } from "../../compiler"
+import { createSchemaCompiler, type SchemaCompiler } from "../../compiler"
 import { type SchemaRuntimeContext } from "../../context"
 import { createNodeLifecycleEmitter, type NodeLifecycleHooks } from "../../lifecycle"
 import { createReconciler } from "../../reconciler"
@@ -26,7 +26,7 @@ import type { ContainerNode, ParentNode, RootNode } from "../types"
  */
 export interface RuntimeGraphTestHarness<TValues extends Values = Values> {
   readonly context: SchemaRuntimeContext<TValues>
-  readonly compiler: Compile<TValues>
+  readonly compiler: SchemaCompiler<TValues>
   readonly root: RootNode
   readonly scheduler: Scheduler
   readonly commitSchemas: (
@@ -179,7 +179,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     setInitialValues: instance.setInitialValues,
   }
 
-  const compile = createCompile<TValues>({
+  const compiler = createSchemaCompiler<TValues>({
     schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
     formInstance: instance as any,
   })
@@ -202,7 +202,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   const runtimeNodeLifecycle = createNodeLifecycle(context)
 
   const reconciler = createReconciler({
-    compiler: compile,
+    compiler,
     nodeManager,
     lifecycle: runtimeNodeLifecycle,
   })
@@ -221,7 +221,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
   return {
     context,
-    compiler: compile,
+    compiler,
     root: root as unknown as RootNode,
     scheduler,
     commitSchemas,

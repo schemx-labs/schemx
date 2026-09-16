@@ -49,19 +49,19 @@ export function updatePresentationResources<TValues extends Values>(
   previousNode: StatefulPresentationNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  const previousDynamicConfig = previousNode.staticSchema.peek().dependencies
+  const previousDependencies = previousNode.compiledSchema.peek().dependencies
 
-  const dynamicConfig = node.staticSchema.peek().dependencies
+  const nextDependencies = node.compiledSchema.peek().dependencies
 
-  if (hasSameDynamicConfig(previousDynamicConfig, dynamicConfig)) {
+  if (hasSameDependencies(previousDependencies, nextDependencies)) {
     return
   }
 
-  if (!dynamicConfig) {
+  if (!nextDependencies) {
     node.presentationEffectScope?.dispose()
     node.presentationEffectScope = null
     // 清空容器动态覆盖，使其回退到静态状态。
-    node.dynamicOverrides.value = {}
+    node.dependencyOverrides.value = {}
 
     return
   }
@@ -97,7 +97,7 @@ function recreatePresentationEffect<TValues extends Values>(
   // 先释放旧 effect，避免同一节点存在多个依赖订阅。
   node.presentationEffectScope?.dispose()
 
-  if (!node.staticSchema.value.dependencies) {
+  if (!node.compiledSchema.value.dependencies) {
     node.presentationEffectScope = null
 
     return
@@ -149,7 +149,7 @@ function getPresentationNodeType<TValues extends Values>(
  * @param next - 最新容器 dependencies 配置。
  * @returns dependencies 与触发字段均未变化时返回 `true`。
  */
-function hasSameDynamicConfig<TValues extends Values>(
+function hasSameDependencies<TValues extends Values>(
   previous: SchemxContainerDependencies<TValues> | undefined,
   next: SchemxContainerDependencies<TValues> | undefined
 ): boolean {

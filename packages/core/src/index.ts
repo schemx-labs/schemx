@@ -44,6 +44,7 @@ export type {
 export {
   configureSchemx,
   getGlobalSchemxConfig,
+  mergeConfig,
   mergeAndResolveSchemxConfig,
   mergeSchemxConfig,
   resolveSchemxConfig,

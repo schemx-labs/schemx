@@ -70,22 +70,22 @@ export function updateFieldResources<TValues extends Values>(
     recreateValidationEffect(node, context)
   }
 
-  const previousDynamicConfig = previousNode.staticSchema.peek().dependencies
+  const previousDependencies = previousNode.compiledSchema.peek().dependencies
 
-  const dynamicConfig = node.staticSchema.peek().dependencies
+  const nextDependencies = node.compiledSchema.peek().dependencies
 
-  if (shouldRecreateDependenciesEffect(previousDynamicConfig, dynamicConfig)) {
+  if (shouldRecreateDependenciesEffect(previousDependencies, nextDependencies)) {
     if (
-      dynamicConfig?.triggerFields == null ||
-      dynamicConfig.triggerFields.length === 0
+      nextDependencies?.triggerFields == null ||
+      nextDependencies.triggerFields.length === 0
     ) {
-      node.dynamicOverrides.value = {}
+      node.dependencyOverrides.value = {}
     }
 
     recreateDependenciesEffect(node, context)
   }
 
-  if (nameChanged && previousNode.staticSchema.peek().preserve === false) {
+  if (nameChanged && previousNode.compiledSchema.peek().preserve === false) {
     return previousName
   }
 
@@ -152,7 +152,7 @@ function recreateValidationEffect<TValues extends Values>(
   createValidationEffect({
     context,
     name: node.name.value,
-    validationSchema: node.validationSchema,
+    validationState: node.validationState,
     scope: validationEffectScope,
   })
 
@@ -216,7 +216,7 @@ function shouldRecreateDependenciesEffect<TValues extends Values>(
 /**
  * 写入字段初始值。
  *
- * 如果 node.staticSchema 中定义了 initialValue 且当前字段值
+ * 如果 node.compiledSchema 中定义了 initialValue 且当前字段值
  * 尚未设置，则写入该初始值。仅在首次挂载时生效。
  *
  * @typeParam TValues - 表单值类型
@@ -227,9 +227,9 @@ function applyFieldInitialValue<TValues extends Values>(
   node: FieldNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  const staticSchema = node.staticSchema.value
+  const compiledSchema = node.compiledSchema.value
 
-  if (!Object.hasOwn(staticSchema, "initialValue")) {
+  if (!Object.hasOwn(compiledSchema, "initialValue")) {
     return
   }
 
@@ -239,7 +239,7 @@ function applyFieldInitialValue<TValues extends Values>(
     return
   }
 
-  const initialValue = staticSchema.initialValue as never
+  const initialValue = compiledSchema.initialValue as never
 
   const initialValues = {} as Partial<TValues>
 

@@ -242,19 +242,25 @@ export function mergeCreateFormOptions<TValues extends Values>(
     getGlobalSchemxConfig() as SchemxConfig<TValues>
   )
 
+  const {
+    rendererRegistry,
+    defaultRendererType,
+    presetRuleRegistry,
+    schemaConfig,
+    rendererProps,
+    validatorAdapters,
+  } = configuredOptions
+
   return {
     schemas,
     initialValues,
-    rendererRegistry:
-      configuredOptions.rendererRegistry ??
-      createRendererRegistry(configuredOptions.defaultRendererType),
-    presetRuleRegistry:
-      configuredOptions.presetRuleRegistry ?? createPresetRuleRegistry(),
-    schemaConfig: configuredOptions.schemaConfig,
+    rendererRegistry: rendererRegistry ?? createRendererRegistry(defaultRendererType),
+    presetRuleRegistry: presetRuleRegistry ?? createPresetRuleRegistry(),
+    schemaConfig: schemaConfig,
     fieldRules: options.fieldRules,
-    rendererProps: configuredOptions.rendererProps,
-    defaultRendererType: configuredOptions.defaultRendererType,
-    validatorAdapters: configuredOptions.validatorAdapters ?? [],
+    rendererProps: rendererProps,
+    defaultRendererType: defaultRendererType,
+    validatorAdapters: validatorAdapters ?? [],
     onRuleError,
     onFinish: options.onFinish,
     onFinishFailed: options.onFinishFailed,

@@ -170,7 +170,7 @@ describe("dependency renderer effect", () => {
 
     const firstConfigToken = firstChild?.configToken
 
-    compiler.invalidate()
+    compiler.invalidateConfigCache()
 
     formApi.setFieldValue("mode" as any, "b")
     await flushRuntimeGraph(scheduler)

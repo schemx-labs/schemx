@@ -1,8 +1,8 @@
 /**
  * Field dependencies - 字段级动态呈现态派生。
  *
- * 根据 staticSchema 中的依赖配置监听 triggerFields，并把解析结果写入
- * FieldNode.dynamicOverrides。
+ * 根据 compiledSchema 中的依赖配置监听 triggerFields，并把解析结果写入
+ * FieldNode.dependencyOverrides。
  * 该模块不修改 descriptor/schema。
  *
  * @module core/runtime/field/dependenciesEffect
@@ -10,15 +10,15 @@
 
 import {
   createDependencySchedulerEffect,
-  resolveDependencyProps,
+  resolveDependencyOverrides,
 } from "../dependencyScheduler"
 import { updateFieldDiagnostics } from "../node/helper"
 
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type {
-  FieldDynamicOverrideKey,
-  FieldDynamicOverrides,
+  FieldDependencyOverrideKey,
+  FieldDependencyOverrides,
   FieldNode,
   Scope,
 } from "../node"
@@ -29,7 +29,7 @@ import type {
  * 这些属性可以在运行时根据 trigger 字段值动态计算，
  * 覆盖静态 schema 中对应的值。
  */
-export const FIELD_DYNAMIC_OVERRIDE_KEYS = [
+export const FIELD_DEPENDENCY_OVERRIDE_KEYS = [
   "componentProps",
   "placeholder",
   "required",
@@ -42,13 +42,18 @@ export const FIELD_DYNAMIC_OVERRIDE_KEYS = [
 ] as const
 
 /**
+ * @deprecated 请改用 {@link FIELD_DEPENDENCY_OVERRIDE_KEYS}。
+ */
+export const FIELD_DYNAMIC_OVERRIDE_KEYS = FIELD_DEPENDENCY_OVERRIDE_KEYS
+
+/**
  * 获取当前 dependencies 中需要解析的属性键。
  *
  * Core 内置属性保留固定类型；由适配层通过 Definition 声明合并增加的动态属性
  * 通过运行时键自动纳入解析，不需要 Core 认识具体字段名。
  */
-function getFieldDynamicOverrideKeys(dependencies: object): readonly string[] {
-  const keys = new Set<string>(FIELD_DYNAMIC_OVERRIDE_KEYS)
+function getFieldDependencyOverrideKeys(dependencies: object): readonly string[] {
+  const keys = new Set<string>(FIELD_DEPENDENCY_OVERRIDE_KEYS)
 
   for (const key of Object.keys(dependencies)) {
     if (key !== "triggerFields" && key !== "trigger") {
@@ -102,7 +107,7 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
   const { context, taskId, node, scope } = options
 
   // 字段 dependencies 配置。
-  const dependencies = node.staticSchema.value.dependencies
+  const dependencies = node.compiledSchema.value.dependencies
 
   // 当前动态属性 effect 明确订阅的字段列表。
   const triggerFields = dependencies?.triggerFields
@@ -113,25 +118,25 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
 
   createDependencySchedulerEffect<
     TValues,
-    FieldDynamicOverrides<TValues> & Record<string, unknown>
+    FieldDependencyOverrides<TValues> & Record<string, unknown>
   >({
     context,
     triggerFields,
     taskId,
     scope,
     run: () =>
-      resolveDependencyProps<TValues, FieldDynamicOverrides<TValues>>(
+      resolveDependencyOverrides<TValues, FieldDependencyOverrides<TValues>>(
         dependencies,
-        getFieldDynamicOverrideKeys(dependencies),
+        getFieldDependencyOverrideKeys(dependencies),
         context.formApi,
         `字段 "${String(node.name.value)}"`
       ),
-    onSuccess: (resolvedProps) => {
-      node.dynamicOverrides.value = resolvedProps
+    onSuccess: (dependencyOverrides) => {
+      node.dependencyOverrides.value = dependencyOverrides
       updateFieldDiagnostics(node, {
         lastUpdatedBy: "dependencies",
         triggerFields,
-        overriddenKeys: Object.keys(resolvedProps) as FieldDynamicOverrideKey[],
+        overriddenKeys: Object.keys(dependencyOverrides) as FieldDependencyOverrideKey[],
         error: null,
       })
     },

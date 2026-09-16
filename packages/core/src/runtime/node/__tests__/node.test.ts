@@ -12,7 +12,7 @@ const createFieldNodeOptions = (key: string) => ({
   key,
   configToken: Symbol(key),
   name: key,
-  staticSchema: {
+  compiledSchema: {
     name: key,
     label: key,
     componentType: "input",
@@ -22,7 +22,7 @@ const createFieldNodeOptions = (key: string) => ({
 const createDependencyNodeOptions = (key: string) => ({
   key,
   configToken: Symbol(key),
-  staticSchema: {
+  compiledSchema: {
     to: [key],
     renderer: () => [],
   },
@@ -53,7 +53,7 @@ describe("node child helpers", () => {
     })
 
     expect(field.name.value).toBe("name")
-    expect(field.staticSchema.value.componentType).toBe("input")
+    expect(field.compiledSchema.value.componentType).toBe("input")
     expect(field.viewSchemas).toBeNull()
     expect(field.validationEffectScope).toBeNull()
   })
@@ -66,7 +66,7 @@ describe("node child helpers", () => {
       parent: root,
     })
 
-    expect(dependency.staticSchema.value.to).toEqual(["mode"])
+    expect(dependency.compiledSchema.value.to).toEqual(["mode"])
     expect(dependency.rendererEffect).toBeNull()
   })
 })

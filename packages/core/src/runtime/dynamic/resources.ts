@@ -72,9 +72,9 @@ export function updateDynamicResources<TValues extends Values>(
   previousNode: DynamicNode<TValues>,
   context: SchemaRuntimeContext<TValues>
 ): void {
-  const previousSchema = previousNode.staticSchema.peek()
+  const previousSchema = previousNode.compiledSchema.peek()
 
-  const currentSchema = node.staticSchema.peek()
+  const currentSchema = node.compiledSchema.peek()
 
   if (
     createFieldKey(previousSchema.name) === createFieldKey(currentSchema.name) &&
@@ -116,7 +116,7 @@ function recreateDynamicEffect<TValues extends Values>(
 
   node.dynamicEffectScope = dynamicEffectScope
 
-  const schema = node.staticSchema.value
+  const schema = node.compiledSchema.value
 
   const arrayStructure = context.store.getArrayStructureHandle(
     schema.name as FieldArrayPath<TValues>

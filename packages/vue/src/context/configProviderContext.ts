@@ -5,15 +5,64 @@
  */
 
 import { computed, getCurrentInstance, inject, provide } from "vue"
-import type { ComputedRef, InjectionKey } from "vue"
+import type { App, ComputedRef, InjectionKey } from "vue"
 
-import { mergeSchemxConfig } from "@schemx/core"
+import { mergeConfig } from "@schemx/core"
 
 import type { SchemxVueConfig } from "../types"
+import type { SchemxRendererPropsMap } from "@schemx/core"
 
 const SCHEMX_CONFIG_PROVIDER_KEY: InjectionKey<ComputedRef<SchemxVueConfig>> = Symbol(
   "schemx:config-provider"
 )
+
+/**
+ * 将安装选项复制为与调用方输入隔离的只读配置快照。
+ */
+function normalizeSchemxAppConfig(config: SchemxVueConfig): SchemxVueConfig {
+  const schemaConfig = Object.freeze({ ...(config.schemaConfig ?? {}) })
+
+  const validatorAdapters = Object.freeze([...(config.validatorAdapters ?? [])])
+
+  return Object.freeze({
+    schemaConfig,
+    rendererProps: normalizeRendererProps(config.rendererProps),
+    validatorAdapters,
+    defaultRendererType: config.defaultRendererType,
+    rendererRegistry: config.rendererRegistry,
+    presetRuleRegistry: config.presetRuleRegistry,
+    colComponent: config.colComponent,
+  })
+}
+
+/**
+ * 复制 Renderer Props Map 外层及每个 Renderer 的 Props 对象。
+ */
+function normalizeRendererProps(
+  source: SchemxRendererPropsMap | undefined
+): SchemxRendererPropsMap | undefined {
+  if (source === undefined) {
+    return undefined
+  }
+
+  const entries = Object.entries(source).map(([type, props]) => {
+    return [type, props === undefined ? undefined : Object.freeze({ ...props })]
+  })
+
+  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
+}
+
+/**
+ * 将安装配置作为当前 Vue App 的根配置上下文。
+ */
+export function provideSchemxAppConfig(app: App, config: SchemxVueConfig = {}): void {
+  const normalizedConfig = normalizeSchemxAppConfig(config)
+
+  app.provide(
+    SCHEMX_CONFIG_PROVIDER_KEY,
+    computed<SchemxVueConfig>(() => normalizedConfig)
+  )
+}
 
 /**
  * 创建并注入合并后的组件树级配置上下文。
@@ -22,7 +71,7 @@ export function createConfigProviderContext(config: ComputedRef<SchemxVueConfig>
   const parentConfig = inject(SCHEMX_CONFIG_PROVIDER_KEY, undefined)
 
   const mergedConfig = computed<SchemxVueConfig>(() => {
-    const mergedCoreConfig = mergeSchemxConfig(config.value, parentConfig?.value ?? {})
+    const mergedCoreConfig = mergeConfig(config.value, parentConfig?.value ?? {})
 
     return {
       ...mergedCoreConfig,
