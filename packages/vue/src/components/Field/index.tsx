@@ -180,17 +180,13 @@ const Field = defineComponent({
       (): SchemxComponentProps<Values> => {
         const currentComponentProps = schemaRef.value.componentProps ?? {}
 
+        console.log(" > ~ schemaRef.value:", schemaRef.value)
+
         return {
           ...currentComponentProps,
           align: schemaRef.value.readonly
             ? "right"
             : (currentComponentProps.align ?? schemaRef.value.contentAlign),
-          readonly: schemaRef.value.readonly,
-          disabled: schemaRef.value.disabled,
-          placeholder: currentComponentProps.placeholder ?? schemaRef.value.placeholder,
-          readonlyPlaceholder:
-            currentComponentProps.readonlyPlaceholder ??
-            schemaRef.value.readonlyPlaceholder,
           value: field.value.value,
           onChange: handleChange,
           onBlur: handleBlur,
@@ -223,8 +219,7 @@ const Field = defineComponent({
       // 整体插槽替换默认内容，但保留稳定的 Field wrapper。
       const fieldSlot = resolveSlot(slots, normalizeNameKey(schemaRef.value.name))
 
-      const labelPosition =
-        schemaRef.value.labelPosition || formContext.schemaConfig.labelPosition
+      const labelPosition = schemaRef.value.labelPosition
 
       const fieldContent = fieldSlot ? (
         fieldSlot(createSlotProps())

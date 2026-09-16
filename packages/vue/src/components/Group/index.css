@@ -6,8 +6,12 @@
   position: relative;
   margin-bottom: var(--schemx-padding-sm);
   background-color: var(--schemx-background-color);
-  padding: 0 var(--schemx-padding-md);
+  padding-inline: var(--schemx-padding-md);
   border-radius: var(--schemx-border-radius-md);
+}
+
+.schemx-group-wrapper .schemx-group-wrapper {
+  padding-inline: var(--schemx-padding-sm);
 }
 
 .schemx > .schemx-group-wrapper:last-child,

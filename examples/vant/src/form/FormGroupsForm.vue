@@ -24,8 +24,8 @@
     regionOptions,
   } from "./options"
 
-  import type { SchemxField, SchemxInstance } from "@schemx/vant"
   import type { FormGroupsValues } from "./types"
+  import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   /** 表单实例引用，统一管理合并示例的所有功能 Group。 */
   const formRef = ref<SchemxInstance<FormGroupsValues>>()
@@ -50,6 +50,7 @@
               componentType: "text",
               required: true,
               componentProps: { placeholder: "请输入用户名" },
+              disabled: true,
             },
             {
               name: "basic.website",
@@ -423,6 +424,7 @@
   const moveLastMemberToFirst = (): void => {
     formRef.value?.setFieldValue("dynamicArray.members", (members) => {
       const next = [...(members ?? [])]
+
       const moved = next.pop()
 
       if (moved) {
