@@ -1,13 +1,11 @@
 /**
- * Vant 默认渲染器注册
+ * Vant 默认渲染器注册。
  *
- * 导入 @schemx/vue 的全局 rendererRegistry 实例，
- * 将所有 Vant 渲染器注册进去。
+ * `config/defaultConfig` 将该映射注册到 `@schemx/vue` 的模块级 Registry，
+ * 因此两个包共用同一个 Renderer Registry。
  *
  * @module renderers/defaultRenderers
  */
-
-import { rendererRegistry } from "@schemx/vue"
 
 import {
   CalendarRenderer,
@@ -30,7 +28,8 @@ import {
   UploadRenderer,
 } from "../renderers"
 
-rendererRegistry.registerAll({
+/** 按 Schemx Renderer key 映射到 Vant 组件的默认集合。 */
+export const defaultRenderers = {
   input: InputRenderer,
   text: TextRenderer,
   textarea: TextAreaRenderer,
@@ -49,4 +48,4 @@ rendererRegistry.registerAll({
   stepper: StepperRenderer,
   upload: UploadRenderer,
   cascader: CascaderRenderer,
-})
+}

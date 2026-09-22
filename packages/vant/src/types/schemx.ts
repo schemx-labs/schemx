@@ -49,3 +49,16 @@ declare module "@schemx/core" {
     cascader: SchemxWithDictionary<CascaderRendererProps>
   }
 }
+
+declare module "@schemx/vue" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface SchemxColDefinition<TValues extends Values = Values> {
+    tag?: keyof HTMLElementTagNameMap
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface SchemxRowDefinition<TValues extends Values = Values> {
+    tag?: keyof HTMLElementTagNameMap
+    wrap?: boolean
+  }
+}

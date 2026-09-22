@@ -1,3 +1,4 @@
+@use "./variables.scss" as *;
 @use "../renderers/CalendarRenderer/index.scss" as *;
 @use "../renderers/CascaderRenderer/index.scss" as *;
 @use "../renderers/CheckboxRenderer/index.scss" as *;
@@ -15,3 +16,85 @@
 @use "../renderers/TextAreaRenderer/index.scss" as *;
 @use "../renderers/TextRenderer/index.scss" as *;
 @use "../renderers/UploadRenderer/index.scss" as *;
+
+.schemx {
+  padding-bottom: var(--schemx-form-padding-bottom);
+}
+
+.schemx .schemx-schemas {
+  padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);
+  border-radius: var(--schemx-border-radius-lg);
+  background-color: var(--schemx-background-color);
+}
+
+.schemx .schemx-schemas-title {
+  padding-bottom: var(--schemx-padding-xs);
+  padding-left: var(--schemx-padding-md);
+}
+
+.schemx .schemx-field-wrapper {
+  padding-inline: var(--schemx-padding-md);
+  padding-block: var(--schemx-padding-sm);
+  background-color: var(--schemx-background-color);
+
+  .schemx-renderer {
+    .van-cell {
+      padding: 0;
+    }
+  }
+}
+
+.schemx .schemx-field-wrapper.is-bordered::after {
+  right: var(--schemx-padding-sm);
+  left: var(--schemx-padding-sm);
+}
+
+.schemx .schemx-field-wrapper--first {
+  border-top-left-radius: var(--schemx-border-radius-md);
+  border-top-right-radius: var(--schemx-border-radius-md);
+}
+
+.schemx .schemx-field-wrapper--last {
+  border-bottom-left-radius: var(--schemx-border-radius-md);
+  border-bottom-right-radius: var(--schemx-border-radius-md);
+  margin-bottom: var(--schemx-padding-sm);
+}
+
+.schemx .schemx-field--label-left > .schemx-field__content {
+  max-width: 80%;
+}
+
+.schemx .schemx-row > .schemx-col {
+  &:last-child {
+    .is-bordered::after {
+      display: none;
+    }
+  }
+}
+
+.schemx
+  > .schemx-row:has(+ .schemx-actions)
+  > .schemx-col:last-child
+  > .schemx-field-wrapper--last,
+.schemx
+  > .schemx-row:has(+ .schemx-actions)
+  > .schemx-col:last-child
+  > .schemx-group-wrapper,
+.schemx > .schemx-row:has(+ .schemx-actions) > .schemx-group-wrapper:last-child {
+  margin-bottom: 0;
+}
+
+.schemx .schemx-group-wrapper {
+  margin-block: 0 var(--schemx-padding-sm);
+  padding-inline: var(--schemx-padding-md);
+  border-radius: var(--schemx-border-radius-md);
+  background-color: var(--schemx-background-color);
+}
+
+.schemx .schemx-group-wrapper .schemx-group-wrapper {
+  padding-inline: var(--schemx-padding-sm);
+}
+
+.schemx .schemx-group__header {
+  padding-block: var(--schemx-padding-md);
+}

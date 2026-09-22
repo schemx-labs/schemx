@@ -88,7 +88,6 @@
       readonly: _readonly,
       readonlyPlaceholder: _readonlyPlaceholder,
       placeholder: _placeholder,
-      align: _align,
       formItemProps: _formItemProps,
       formInstance: _formInstance,
       ...rest
@@ -114,6 +113,8 @@
 
   /**
    * 处理开关值变化
+   *
+   * @param value - 用户选择的最新开关值。
    */
   const handleChange = async (value: SwitchValue): Promise<void> => {
     if (props.readonly || props.disabled) return

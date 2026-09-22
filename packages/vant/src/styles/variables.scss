@@ -1,0 +1,38 @@
+/** Vant 移动端适配层的 Schemx CSS 变量。 */
+
+.schemx,
+.schemx-calendar-popup-renderer,
+.schemx-cascader-popup-renderer,
+.schemx-date-popup-renderer,
+.schemx-picker-popup-renderer,
+.schemx-select-picker-popup-renderer {
+  --schemx-primary-color: var(--van-primary-color, #1989fa);
+  --schemx-primary-color-light: var(--van-blue-1, #ecf9ff);
+  --schemx-text-color: var(--van-text-color, #323233);
+  --schemx-text-color-secondary: var(--van-text-color-2, #646566);
+  --schemx-text-color-placeholder: var(--van-text-color-3, #969799);
+  --schemx-readonly-color: var(--van-text-color-3, #969799);
+  --schemx-disabled-color: var(--van-text-color-3, #969799);
+  --schemx-disabled-opacity: var(--van-disabled-opacity, 0.5);
+  --schemx-background-color: var(--van-background-2, #ffffff);
+  --schemx-background-color-light: var(--van-background, #f7f8fa);
+  --schemx-border-color: var(--van-border-color, #ebedf0);
+  --schemx-danger-color: var(--van-danger-color, #ee0a24);
+  --schemx-success-color: var(--van-success-color, #07c160);
+  --schemx-warning-color: var(--van-warning-color, #ff976a);
+  --schemx-padding-base: var(--van-padding-base, 4px);
+  --schemx-padding-xs: var(--van-padding-xs, 8px);
+  --schemx-padding-sm: var(--van-padding-sm, 12px);
+  --schemx-padding-md: var(--van-padding-md, 16px);
+  --schemx-padding-lg: var(--van-padding-lg, 24px);
+  --schemx-font-size-xs: var(--van-font-size-xs, 10px);
+  --schemx-font-size-sm: var(--van-font-size-sm, 12px);
+  --schemx-font-size-md: var(--van-font-size-md, 14px);
+  --schemx-font-size-lg: var(--van-font-size-lg, 16px);
+  --schemx-border-radius-xs: var(--van-radius-sm, 2px);
+  --schemx-border-radius-sm: var(--van-radius-md, 4px);
+  --schemx-border-radius-md: var(--van-radius-lg, 8px);
+  --schemx-border-radius-lg: var(--van-radius-lg, 8px);
+  --schemx-field-label-color: var(--van-text-color-2, #646566);
+  --schemx-component-size: var(--van-cell-line-height, 24px);
+}

@@ -6,7 +6,7 @@
 
 import type { RateProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 export type RateValue = RateProps["modelValue"]
 
@@ -18,7 +18,7 @@ export type RateValue = RateProps["modelValue"]
 export interface RateRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<RateProps, "modelValue" | "onUpdate:modelValue" | "onChange">> {
   /** 当前评分值 */

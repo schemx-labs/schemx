@@ -1,14 +1,12 @@
 /**
- * Vant 默认 Col 注册。
+ * Vant 默认 Col 定义。
  *
- * 导入 @schemx/vant 后，将 Vant Col 设置为 @schemx/vue 的全局布局列组件。
- * Vue 层提供通用 flex 行容器，因此本适配只需注册 Col。
+ * 由 `config/defaultConfig` 设置为 Vant 适配包的模块级默认列组件；行布局由 VantRow 提供。
  *
  * @module layout/defaultCol
  */
 
 import { Col as VanCol } from "vant"
 
-import { registerCol } from "@schemx/vue"
-
-registerCol(VanCol)
+/** 供 Vant 全局配置使用的默认 Col 组件。 */
+export const VantCol = VanCol

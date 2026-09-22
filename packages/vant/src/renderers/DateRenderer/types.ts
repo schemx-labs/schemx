@@ -5,7 +5,7 @@
  */
 import type { DatePickerProps, FieldProps, PopupProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 export type DateValue = string | string[] | Date
 
@@ -17,7 +17,7 @@ export type DateValue = string | string[] | Date
 export interface DateRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<DatePickerProps, "modelValue" | "onUpdate:modelValue">> {
   /** 当前值，支持字符串、字符串数组或 Date 对象 */
@@ -67,8 +67,8 @@ export interface DateRendererProps
   /**
    * 关闭回调
    *
-   * 用户点击遮罩层或 Cascader 关闭按钮时触发，
-   * 区别于 onConfirm（仅在选择完成时触发）。
+   * Popup 关闭时触发，包括确认、取消或点击遮罩层；区别于 `onConfirm`，
+   * 后者只在用户确认选择时触发。
    */
   onClose?: () => void
 }

@@ -6,7 +6,7 @@
 
 import type { CheckboxProps, FieldProps, PopupProps, RadioProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 export type SelectPickerPrimitiveValue = RadioProps["name"] | CheckboxProps["name"]
 export type SelectPickerValue = SelectPickerPrimitiveValue | SelectPickerPrimitiveValue[]
@@ -41,7 +41,7 @@ export interface SelectPickerConfirmEventParams {
  * 使用 Vant Field + Popup + Checkbox/Radio 组合实现单选/多选弹窗。
  */
 export interface SelectPickerRendererProps extends Omit<
-  SchemxVueBaseComponentProps,
+  SchemxBaseComponentProps,
   "onChange" | "onBlur" | "value" | "onUpdate:value"
 > {
   /** 当前值 */

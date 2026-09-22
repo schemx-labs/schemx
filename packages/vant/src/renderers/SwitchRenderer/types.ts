@@ -6,7 +6,7 @@
 
 import type { SwitchProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 export type SwitchValue = boolean | string | number
 
@@ -18,7 +18,7 @@ export type SwitchValue = boolean | string | number
 export interface SwitchRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<
       Omit<
@@ -34,7 +34,12 @@ export interface SwitchRendererProps
     > {
   /** 当前值 */
   value?: SwitchValue
-  /** 值变化回调，支持异步返回值以更新表单字段 */
+  /**
+   * 值变化回调；支持异步返回新值，返回 `void` 时使用传入值。
+   *
+   * @param value - 用户选择的开关值。
+   * @returns 要写入字段的新值；未返回时保留 `value`。
+   */
   onChange?: (value: SwitchValue) => void | Promise<SwitchValue | void>
   /** 自定义 CSS 类名 */
   className?: string

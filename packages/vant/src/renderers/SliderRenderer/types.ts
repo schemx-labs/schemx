@@ -6,7 +6,7 @@
 
 import type { SliderProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 export type SliderValue = SliderProps["modelValue"]
 
@@ -18,7 +18,7 @@ export type SliderValue = SliderProps["modelValue"]
 export interface SliderRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<SliderProps, "modelValue" | "onUpdate:modelValue" | "onChange">> {
   /** 当前值，支持单值或范围值 */

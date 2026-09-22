@@ -6,7 +6,7 @@
 
 import type { ImagePreviewOptions, UploaderFileListItem, UploaderProps } from "vant"
 
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 /** UploadRenderer 对外读写的文件列表值。 */
 export type UploadValue = UploadFile[]
@@ -70,7 +70,7 @@ export interface UploadDisplayFile {
 export interface UploadRendererProps
   /* @vue-ignore */
   extends
-    Omit<SchemxVueBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<UploaderProps, "modelValue" | "onUpdate:modelValue" | "imageFit">> {
   /** 已上传的文件列表 */

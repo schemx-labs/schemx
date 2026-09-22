@@ -84,7 +84,6 @@
       className: _className,
       readonlyPlaceholder: _readonlyPlaceholder,
       placeholder: _placeholder,
-      align: _align,
       formItemProps: _formItemProps,
       formInstance: _formInstance,
       ...rest
