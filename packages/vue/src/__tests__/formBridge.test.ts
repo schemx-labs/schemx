@@ -111,14 +111,14 @@ describe("Vue Form Instance", () => {
 
     const acquired = acquireVueFormRuntime(form)
 
-    const coreForm = acquired.runtime.core
+    const formInstance = acquired.runtime.instance
 
     acquired.release()
 
-    coreForm.setFieldValue("name", "Grace")
-    coreForm.setFieldErrors("name", ["无效名称"])
-    coreForm.setFieldTouched("name", true)
-    coreForm.setFieldPending("name", true, "保存中")
+    formInstance.setFieldValue("name", "Grace")
+    formInstance.setFieldErrors("name", ["无效名称"])
+    formInstance.setFieldTouched("name", true)
+    formInstance.setFieldPending("name", true, "保存中")
     await nextTick()
 
     expect(values).toEqual(["Ada", "Grace"])
@@ -161,17 +161,17 @@ describe("Vue Form Instance", () => {
 
     const acquired = acquireVueFormRuntime(form)
 
-    const coreForm = acquired.runtime.core
+    const formInstance = acquired.runtime.instance
 
     acquired.release()
 
-    coreForm.setFieldValue("age", 21)
+    formInstance.setFieldValue("age", 21)
     await nextTick()
 
     expect(allValuesReads).toBe(2)
 
-    coreForm.setFieldTouched("name", true)
-    coreForm.setFieldPending("name", true, "保存中")
+    formInstance.setFieldTouched("name", true)
+    formInstance.setFieldPending("name", true, "保存中")
     await nextTick()
 
     expect(touched).toEqual([false, true])
@@ -208,17 +208,17 @@ describe("Vue Form Instance", () => {
 
     const acquired = acquireVueFormRuntime(form)
 
-    const coreForm = acquired.runtime.core
+    const formInstance = acquired.runtime.instance
 
     acquired.release()
 
-    coreForm.setFieldValue("age", 21)
+    formInstance.setFieldValue("age", 21)
     await nextTick()
 
     expect(selectedFieldReads).toBe(1)
     expect(snapshotReads).toBe(1)
 
-    coreForm.setFieldValue("name", "Grace")
+    formInstance.setFieldValue("name", "Grace")
     await nextTick()
 
     expect(selectedFieldReads).toBe(2)

@@ -1,41 +1,20 @@
 /**
  * Schema 栅格布局基础样式。
  *
- * Row 由 Vue 层提供，Col 的宽度和偏移由已注册的 UI 组件负责；该规则只保证
- * 未提供 Row 的 UI 组件仍能作为 flex 子项换行排列。
+ * Row、Col 均由 Vue 层提供基础实现；注册 UI 组件后，组件仍保留这些 class 以便
+ * 框架级间距和末项样式继续生效。
  */
 .schemx-row {
   display: flex;
   flex-wrap: wrap;
-  width: 100%;
+  box-sizing: border-box;
 }
 
 .schemx-col {
   box-sizing: border-box;
   min-width: 0;
-}
-
-/**
- * Row 包装后保持原有根级 Field/Group 的末项间距行为。
- */
-.schemx
-  > .schemx-row:has(+ .schemx-actions)
-  > .schemx-col:last-child
-  > .schemx-field-wrapper--last,
-.schemx
-  > .schemx-row:has(+ .schemx-actions)
-  > .schemx-col:last-child
-  > .schemx-group-wrapper {
-  margin-bottom: 0;
-}
-
-/**
- * Row 包装后保持 Group 子项最后一个字段的底部分隔线规则。
- */
-.schemx-group__body
-  > .schemx-row
-  > .schemx-col:last-child
-  > .schemx-field-wrapper
-  .schemx-field:after {
-  display: none;
+  padding-top: var(--schemx-gutter-top, 0px);
+  padding-right: var(--schemx-gutter-right, 0px);
+  padding-bottom: var(--schemx-gutter-bottom, 0px);
+  padding-left: var(--schemx-gutter-left, 0px);
 }

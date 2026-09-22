@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 /**
  * Group 容器行为测试。
  *
@@ -8,14 +10,44 @@
 
 import { h } from "vue"
 
-import { mount } from "@vue/test-utils"
+import { mount as mountComponent } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
-import Group from "../index"
+import Group, { type SchemxGroupProps } from "../index"
 
-import type { SchemxViewGroupSchema } from "@schemx/core"
+import type { SchemxViewGroupSchema, SchemxViewSchema } from "@schemx/core"
+
+type GroupMountSlots = NonNullable<Parameters<typeof mountComponent>[1]>["slots"]
+
+interface GroupMountOptions {
+  props: Pick<SchemxGroupProps, "schema"> & Partial<Omit<SchemxGroupProps, "schema">>
+  slots?: GroupMountSlots
+}
+
+const mount = (_component: typeof Group, options: GroupMountOptions) =>
+  mountComponent(Group, {
+    ...options,
+    props: {
+      ...options.props,
+      renderChildren: options.props.renderChildren ?? (() => null),
+    },
+  })
 
 describe("Group", () => {
+  it("将完整 children 交给 SchemaList 渲染回调", () => {
+    const schema = createSchema({
+      children: [createSchema({ key: "child", label: "子分组" })],
+    })
+
+    const renderChildren = vi.fn(() => null)
+
+    mountComponent(Group, {
+      props: { schema, renderChildren },
+    })
+
+    expect(renderChildren).toHaveBeenCalledWith(schema.children)
+  })
+
   it("visible=false 时不渲染 Group DOM", () => {
     const wrapper = mount(Group, {
       props: { schema: createSchema({ visible: false }) },
@@ -169,6 +201,14 @@ describe("Group", () => {
           destroyOnCollapse: false,
           children: [createSchema({ key: "nested", label: "嵌套分组" })],
         }),
+        renderChildren: (schemas: readonly SchemxViewSchema[]) =>
+          schemas.map((schema) =>
+            h(Group, {
+              key: schema.key,
+              schema: schema as SchemxViewGroupSchema,
+              renderChildren: () => null,
+            })
+          ),
       },
     })
 

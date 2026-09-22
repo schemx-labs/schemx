@@ -16,7 +16,6 @@
  */
 .schemx {
   box-sizing: border-box;
-  padding-bottom: var(--schemx-form-padding-bottom);
 }
 
 /**
@@ -30,17 +29,9 @@
   padding: var(--schemx-padding-md) 0;
 }
 
-.schemx-schemas {
-  background-color: var(--schemx-background-color);
-  padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);
-  border-radius: var(--schemx-border-radius-lg);
-}
-
 .schemx-schemas-title {
   display: flex;
   align-items: center;
-  padding-left: var(--schemx-padding-md);
-  padding-bottom: var(--schemx-padding-xs);
 }
 
 .schemx-schemas-title-icon {
@@ -57,11 +48,11 @@
   cursor: default;
 }
 
-.is-disabled {
-  opacity: 0.6;
+.schemx .is-disabled {
+  opacity: var(--schemx-disabled-opacity);
 }
 
-.is-readonly,
-.is-disabled .is-disabled {
+.schemx .is-readonly,
+.schemx .is-disabled .is-disabled {
   opacity: 1;
 }

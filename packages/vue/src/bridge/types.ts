@@ -1,8 +1,8 @@
 /**
  * Vue Runtime 的内部状态类型。
  *
- * 公开层只保留 `VueSchemxInstance`；Runtime 和各类 State 均由 bridge
- * 内部统一管理，不向消费端暴露缓存或生命周期细节。
+ * Runtime 和各类 State 均由 bridge 内部统一管理，不向消费端暴露缓存或
+ * 生命周期细节。
  *
  * @module vue/bridge/types
  */
@@ -19,11 +19,9 @@ import type {
 import type { FormStateAdapter } from "@schemx/core/adapter"
 
 /**
- * 可在 Vue effect 中直接读取 Form 方法的结构兼容实例类型。
+ * Vue 可追踪的表单实例旧类型名。
  *
- * Instance 与 Core Form 不是同一引用，但保留完整的 `SchemxInstance` API。
- *
- * @typeParam TValues - Form 的值类型。
+ * @deprecated 请改用 {@link SchemxInstance}。
  */
 export type VueSchemxInstance<TValues extends Values = Values> = SchemxInstance<TValues>
 
@@ -145,13 +143,13 @@ export interface VueFormRuntime<TValues extends Values = Values> {
   /**
    * 原始 Core Form 实例。
    *
-   * @deprecated 请使用 `instance`；该字段仅为兼容旧版 Runtime 消费者保留。
+   * @deprecated 请使用 {@link VueFormRuntime.instance}；该字段仅为兼容旧版 Runtime 消费者保留。
    */
   readonly core: SchemxInstance<TValues>
   /**
    * 对外提供的 Vue 响应式 Form Instance。
    */
-  readonly instance: VueSchemxInstance<TValues>
+  readonly instance: SchemxInstance<TValues>
   /**
    * 增加一个资源 owner，并返回对应的释放函数。
    */

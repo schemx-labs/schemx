@@ -17,7 +17,7 @@ import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
 import {
-  type FormContextProps,
+  type FormConfigContextValue,
   SCHEMX_FORM_CONFIG_KEY,
   SCHEMX_FORM_INSTANCE_KEY,
 } from "@/context/formContext"
@@ -29,12 +29,14 @@ import type {
   SchemxFieldContentSlotProps,
   SchemxFieldSlotValue,
 } from "../../../types/field"
-import type { SchemxBaseField } from "@schemx/core"
+import type { RendererPropsTransformer, SchemxBaseField } from "@schemx/core"
 
 /**
  * 创建最小化的 FormContext 配置
  */
-function createFormContext(overrides?: Partial<FormContextProps>): FormContextProps {
+function createFormContext(
+  overrides?: Partial<FormConfigContextValue>
+): FormConfigContextValue {
   return {
     schemaConfig: {
       labelPosition: "left",
@@ -71,6 +73,22 @@ const ControlledRenderer = defineComponent({
         onInput: (event: Event) => {
           emit("update:value", (event.target as HTMLInputElement).value)
         },
+      })
+  },
+})
+
+const TransformRenderer = defineComponent({
+  name: "TransformRenderer",
+  props: {
+    value: String,
+    placeholder: String,
+  },
+  setup(props) {
+    return () =>
+      h("input", {
+        "data-testid": "transform-renderer",
+        value: props.value,
+        placeholder: props.placeholder,
       })
   },
 })
@@ -135,13 +153,108 @@ const DictionaryRenderer = defineComponent({
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("Field 集成测试", () => {
-  it("字段整体插槽应接收并更新当前字段值", async () => {
+  it("在创建 Renderer 前使用 transformProps 返回最终 Props", () => {
+    const form = createForm({
+      initialValues: { name: "Schemx" },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input" as any,
+          placeholder: "请输入姓名",
+        } as any,
+      ],
+    })
+
+    const transformProps = vi.fn<RendererPropsTransformer>((props, context) => {
+      expect(props.placeholder).toBe("请输入姓名")
+      expect(context.form).toBe(form)
+      expect(context.schema.name).toBe("name")
+
+      return { placeholder: "转换后的占位符" }
+    })
+
+    form.registerRenderer("input", {
+      component: TransformRenderer,
+      transformProps,
+    })
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    const input = wrapper.get<HTMLInputElement>('[data-testid="transform-renderer"]')
+
+    expect(input.attributes("placeholder")).toBe("转换后的占位符")
+    expect(input.attributes("value")).toBeUndefined()
+    expect(transformProps).toHaveBeenCalled()
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("在字段响应式 Props 变化后重新执行 transformProps", async () => {
+    const form = createForm({
+      initialValues: { name: "one" },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input" as any,
+          placeholder: "请输入姓名",
+        } as any,
+      ],
+    })
+
+    const transformProps: RendererPropsTransformer = (props) => ({
+      ...props,
+      placeholder: `${props.placeholder}:${props.value}`,
+    })
+
+    form.registerRenderer("input", {
+      component: TransformRenderer,
+      transformProps,
+    })
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    expect(
+      wrapper.get('[data-testid="transform-renderer"]').attributes("placeholder")
+    ).toBe("请输入姓名:one")
+
+    form.setFieldValue("name", "two")
+    await nextTick()
+
+    expect(
+      wrapper.get('[data-testid="transform-renderer"]').attributes("placeholder")
+    ).toBe("请输入姓名:two")
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("字段整体插槽应更新当前字段值，并保留扩展区和默认错误区", async () => {
     const schema: SchemxBaseField = {
       name: "website",
       label: "个人网站",
       componentType: "input" as any,
       class: "schema-website",
       style: { color: "red" },
+      contentAlign: "left",
     }
 
     const form = createForm({
@@ -161,8 +274,10 @@ describe("Field 集成测试", () => {
         "data-testid": "website-wrapper",
       },
       slots: {
+        websiteBefore: () => h("span", { "data-testid": "before-slot" }),
         website: (slotProps: SchemxFieldSlotValue) =>
           h("span", { "data-testid": "website-slot" }, String(slotProps.value ?? "")),
+        websiteAfter: () => h("span", { "data-testid": "after-slot" }),
       },
       global: {
         provide: {
@@ -179,19 +294,35 @@ describe("Field 集成测试", () => {
     expect(fieldWrapper.classes()).toContain("schema-website")
     expect(fieldWrapper.attributes("style")).toContain("color: red")
     expect(fieldWrapper.attributes("style")).toContain("margin-top: 4px")
+    expect(fieldWrapper.attributes("style")).toContain("--schemx-content-align: left")
+    expect(fieldWrapper.attributes("style")).toContain("--schemx-error-align: left")
     expect(wrapper.find(".schemx-field").exists()).toBe(false)
     expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schemx.dev")
+    expect(wrapper.find(".schemx-field__error").exists()).toBe(false)
 
     form.setFieldValue("website", "schema-form.dev")
+    form.setFieldErrors("website", ["网址格式错误", "第二条错误"])
     await nextTick()
 
     expect(wrapper.get('[data-testid="website-slot"]').text()).toBe("schema-form.dev")
+    expect(wrapper.get(".schemx-field__error").text()).toBe("网址格式错误")
+    expect(Array.from(fieldWrapper.element.children)).toEqual([
+      wrapper.get('[data-testid="before-slot"]').element,
+      wrapper.get('[data-testid="website-slot"]').element,
+      wrapper.get(".schemx-field__error").element,
+      wrapper.get('[data-testid="after-slot"]').element,
+    ])
+
+    form.clearFieldErrors("website")
+    await nextTick()
+
+    expect(wrapper.find(".schemx-field__error").exists()).toBe(false)
 
     wrapper.unmount()
     form.destroy()
   })
 
-  it("应渲染字段各区域插槽", () => {
+  it.each(["left", "top"] as const)("应按顺序渲染字段各区域插槽（标签在 %s）", (labelPosition) => {
     const slotProps: Record<string, SchemxFieldSlotValue> = {}
 
     const form = createForm({
@@ -200,6 +331,9 @@ describe("Field 集成测试", () => {
         {
           name: "profile.name",
           label: "名称",
+          labelPosition,
+          labelWidth: 96.5,
+          labelAlign: "right",
           componentType: "input",
         } as any,
       ],
@@ -257,6 +391,21 @@ describe("Field 集成测试", () => {
 
     expect((slotProps.content as SchemxFieldContentSlotProps).columnElement).toBeDefined()
     expect((slotProps.error as { errors: readonly string[] }).errors).toEqual([])
+    expect(wrapper.get(".schemx-field__label > [data-testid='label-slot']").exists()).toBe(true)
+    expect(wrapper.get(".schemx-field__content > [data-testid='content-slot']").exists()).toBe(true)
+    expect(wrapper.get(".schemx-field__error > [data-testid='error-slot']").exists()).toBe(true)
+    expect(wrapper.get<HTMLElement>(".schemx-field__label").element.style.width).toBe(
+      labelPosition === "top" ? "100%" : "96.5px"
+    )
+    expect(wrapper.get<HTMLElement>(".schemx-field__label").element.style.textAlign).toBe(
+      labelPosition === "top" ? "left" : "right"
+    )
+    expect(Array.from(wrapper.get(".schemx-field-wrapper").element.children)).toEqual([
+      wrapper.get('[data-testid="before-slot"]').element,
+      wrapper.get(".schemx-field").element,
+      wrapper.get(".schemx-field__error").element,
+      wrapper.get('[data-testid="after-slot"]').element,
+    ])
 
     wrapper.unmount()
     form.destroy()
@@ -300,6 +449,7 @@ describe("Field 集成测试", () => {
     expect(itemWrapper.attributes("style")).toContain("color: red")
     expect(itemWrapper.attributes("style")).toContain("margin-top: 4px")
     expect(wrapper.find(".schemx-field").classes()).not.toContain("schema-item")
+    expect(wrapper.get('.schemx-field__content > [data-testid="input-renderer"]').exists()).toBe(true)
 
     wrapper.unmount()
     form.destroy()
@@ -698,7 +848,7 @@ describe("Field 集成测试", () => {
 
     expect(input.attributes("data-readonly")).toBe("true")
     expect(input.attributes("data-disabled")).toBe("false")
-    expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
+    expect(wrapper.find(".is-required").exists()).toBe(false)
     expect(wrapper.find(".schemx-field.is-readonly").exists()).toBe(true)
 
     await input.setValue("")
@@ -741,7 +891,7 @@ describe("Field 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
+    expect(wrapper.find(".is-required").exists()).toBe(false)
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
@@ -833,6 +983,46 @@ describe("Field 集成测试", () => {
     form.destroy()
   })
 
+  it("标签图标支持直接传入 Vue Component", async () => {
+    const LabelIcon = defineComponent({
+      name: "LabelIcon",
+      setup() {
+        return () => h("i", { "data-testid": "label-icon-component" }, "icon")
+      },
+    })
+
+    const form = createForm({
+      schemas: [
+        {
+          name: "title",
+          label: "标题",
+          labelIcon: LabelIcon,
+          colon: false,
+          componentType: "input" as any,
+        },
+      ],
+    })
+
+    form.registerRenderer("input" as any, InputRenderer)
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    await nextTick()
+
+    expect(wrapper.find("[data-testid='label-icon-component']").exists()).toBe(true)
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
   it("required=false 且 showRequiredMark=true 时显示星号，但不会触发 required 校验", async () => {
     const schema: SchemxBaseField = {
       name: "title",
@@ -863,14 +1053,17 @@ describe("Field 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-field__required").exists()).toBe(true)
+    const labelText = wrapper.get(".schemx-field__label-text")
+
+    expect(labelText.classes()).toContain("is-required")
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
     await input.setValue("")
     await input.trigger("blur")
 
-    expect(validateSpy).not.toHaveBeenCalled()
+    expect(validateSpy).toHaveBeenCalledTimes(2)
+    expect(form.getFieldErrors("title")).toEqual([])
 
     wrapper.unmount()
     form.destroy()
@@ -906,7 +1099,7 @@ describe("Field 集成测试", () => {
 
       await nextTick()
 
-      expect(wrapper.find(".schemx-field__required").exists()).toBe(false)
+      expect(wrapper.find(".is-required").exists()).toBe(false)
 
       wrapper.unmount()
       form.destroy()
@@ -944,7 +1137,7 @@ describe("Field 集成测试", () => {
 
     await nextTick()
 
-    expect(wrapper.find(".schemx-field__required").exists()).toBe(expected)
+    expect(wrapper.find(".is-required").exists()).toBe(expected)
 
     wrapper.unmount()
     form.destroy()

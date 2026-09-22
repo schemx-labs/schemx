@@ -6,10 +6,13 @@
  * @module components/Field/slot
  */
 
-import { h } from "vue"
-import type { ShallowRef, Slots, VNodeChild } from "vue"
+import { computed, h } from "vue"
+import type { Component, ShallowRef, Slots, VNodeChild } from "vue"
+
+import classnames from "classnames"
 
 import { extractChildSlots, normalizeNameKey, resolveSlot } from "../../utils"
+import Icon from "../Icon"
 
 import type { FormConfigContextValue } from "../../context/formContext"
 import type { FieldInstance } from "../../types/field"
@@ -53,7 +56,8 @@ interface FieldSlotRendererOptions<TValues extends Values = Values> {
 /**
  * 创建 Field 各区域的插槽渲染函数。
  *
- * `Before`、`Content`、`After` 依次包裹 Renderer；`Error` 位于控件之后。
+ * 字段依次渲染 Before、主体（Label + Content）、Error、After。
+ * Label 和 Error 插槽只替换各自容器内的内容。
  *
  * @param options - Field 插槽渲染所需的响应式状态和 Vue 插槽集合。
  * @returns 各字段区域的插槽渲染函数及统一 Slot Props 构造器。
@@ -69,24 +73,24 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
 ) {
   const { schemaRef, field, form, formContext, componentProps, slots } = options
 
-  /**
-   * 渲染 required 星号。
-   *
-   * `showRequiredMark` 未设置时回退到 `required`；该展示开关不参与校验逻辑。
-   * 禁用或只读字段始终不显示星号。
-   *
-   * @returns 星号 VNode 或空片段
-   */
-  const renderRequired = (): VNodeChild => {
-    const showRequiredMark =
-      schemaRef.value.showRequiredMark ?? Boolean(schemaRef.value.required)
-
-    if (!showRequiredMark || schemaRef.value.disabled || schemaRef.value.readonly) {
-      return null
+  const labelWidth = computed(() => {
+    if (schemaRef.value.labelPosition === "top") {
+      return "100%"
     }
 
-    return <span class="schemx-field__required">*</span>
-  }
+    // 数值和纯数字字符串使用 px，保留带单位的 CSS 宽度。
+    const width = schemaRef.value.labelWidth ?? "auto"
+
+    return /^\d+(?:\.\d+)?$/.test(String(width)) ? `${width}px` : width
+  })
+
+  const labelAlign = computed(() => {
+    if (schemaRef.value.labelPosition === "top") {
+      return "left"
+    }
+
+    return schemaRef.value.labelAlign
+  })
 
   /**
    * 构造各字段插槽共用的规范上下文参数。
@@ -123,35 +127,51 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
   const renderLabel = (): VNodeChild => {
     const labelSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Label`)
 
-    if (labelSlot) {
-      return labelSlot(createSlotProps())
-    }
-
-    const labelAlign = schemaRef.value.labelAlign || formContext.schemaConfig.labelAlign
-
-    const labelWidth = schemaRef.value.labelWidth || formContext.schemaConfig.labelWidth
-
     const colon = schemaRef.value.colon ?? formContext.schemaConfig.colon
+
+    // 必填标记使用 label-text 的伪类渲染，不再额外创建 DOM 节点。
+    const showRequiredMark =
+      (schemaRef.value.showRequiredMark ?? Boolean(schemaRef.value.required)) &&
+      !schemaRef.value.disabled &&
+      !schemaRef.value.readonly
 
     return (
       <label
         class="schemx-field__label"
-        style={{ width: labelWidth, textAlign: labelAlign }}
+        style={{
+          width: labelWidth.value,
+          textAlign: labelAlign.value,
+          marginLeft: labelAlign.value === "right" ? "auto" : "",
+        }}
       >
-        {renderRequired()}
-        {schemaRef.value.labelIcon ? (
-          <span class="schemx-field__label-icon">{schemaRef.value.labelIcon}</span>
-        ) : null}
-        <span class="schemx-field__label-text">
-          {schemaRef.value.label}
-          {colon ? ":" : ""}
-        </span>
+        {labelSlot ? (
+          labelSlot(createSlotProps())
+        ) : (
+          <>
+            {schemaRef.value.labelIcon && (
+              <span class="schemx-field__label-icon">
+                <Icon
+                  icon={schemaRef.value.labelIcon}
+                  component={formContext.iconComponent}
+                />
+              </span>
+            )}
+            <span
+              class={classnames("schemx-field__label-text", {
+                "is-required": showRequiredMark,
+              })}
+            >
+              {schemaRef.value.label}
+              {colon ? ":" : ""}
+            </span>
+          </>
+        )}
       </label>
     )
   }
 
   /**
-   * 渲染 Renderer 前的 `{name}Before` 插槽。
+   * 渲染字段主体前的 `{name}Before` 插槽。
    */
   const renderBefore = (): VNodeChild => renderFieldSlot("Before")
 
@@ -159,9 +179,9 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
    * 渲染控件区域，优先使用 `{name}Content` 插槽。
    */
   const renderContent = (): VNodeChild => {
-    const component = form.getRenderer(schemaRef.value.componentType)
+    const rendererEntry = form.getRendererEntry(schemaRef.value.componentType)
 
-    if (!component) {
+    if (!rendererEntry) {
       throw new Error(
         `[schemx] Can not find component renderer of "${schemaRef.value.componentType}".`
       )
@@ -169,26 +189,42 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
 
     const childSlots = extractChildSlots(normalizeNameKey(schemaRef.value.name), slots)
 
-    const columnElement = h(component, componentProps.value, childSlots)
+    const transformedProps = rendererEntry.transformProps
+      ? rendererEntry.transformProps(componentProps.value, {
+          schema: schemaRef.value,
+          form,
+        })
+      : componentProps.value
+
+    const columnElement = h(
+      rendererEntry.component as Component,
+      transformedProps,
+      childSlots
+    )
 
     const contentSlot = resolveSlot(
       slots,
       `${normalizeNameKey(schemaRef.value.name)}Content`
     )
 
-    if (contentSlot) {
-      return contentSlot(
-        createSlotProps({
-          columnElement,
-        })
-      )
-    }
-
-    return <div class="schemx-field__control">{columnElement}</div>
+    return (
+      <div
+        class="schemx-field__content"
+        style={{ textAlign: schemaRef.value.contentAlign }}
+      >
+        {contentSlot
+          ? contentSlot(
+              createSlotProps({
+                columnElement,
+              })
+            )
+          : columnElement}
+      </div>
+    )
   }
 
   /**
-   * 渲染 Renderer 后的 `{name}After` 插槽。
+   * 渲染字段错误区域后的 `{name}After` 插槽。
    */
   const renderAfter = (): VNodeChild => renderFieldSlot("After")
 
@@ -198,19 +234,25 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
   const renderError = (): VNodeChild => {
     const errorSlot = resolveSlot(slots, `${normalizeNameKey(schemaRef.value.name)}Error`)
 
-    if (errorSlot) {
-      return errorSlot(
-        createSlotProps({
-          errors: field.errors.value,
-        })
-      )
-    }
-
-    if (field.errors.value.length === 0) {
+    if (!errorSlot && field.errors.value.length === 0) {
       return null
     }
 
-    return <div class="schemx-field__error">{field.errors.value[0]}</div>
+    return (
+      <div
+        class="schemx-field__error"
+        style={{
+          marginLeft:
+            schemaRef.value?.labelPosition === "top"
+              ? "8px"
+              : `calc(${labelWidth.value} + var(--schemx-field-gap))`,
+        }}
+      >
+        {errorSlot
+          ? errorSlot(createSlotProps({ errors: field.errors.value }))
+          : field.errors.value[0]}
+      </div>
+    )
   }
 
   return {

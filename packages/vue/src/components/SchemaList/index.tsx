@@ -1,8 +1,8 @@
 /**
  * SchemaList - 统一递归渲染 ViewSchema 列表。
  *
- * 负责在 Form、Group 和 Dynamic 的每个同级 Schema 列表上建立 Row，并将每个节点
- * 交给 Col 包装；未解析到 Col 组件时保持原有透明渲染。
+ * 负责遍历同级 ViewSchema，将节点分发给 Field、Group 和 Dynamic，并为当前列表
+ * 建立 Row 包裹；Col 由 Field、Group 和 Dynamic 的布局路径负责。
  *
  * @module components/SchemaList
  */
@@ -10,20 +10,18 @@
 import { defineComponent, h, type PropType } from "vue"
 import type { ClassValue, VNodeChild } from "vue"
 
-import {
-  isSchemxViewFieldSchema,
-  isViewDynamicSchema,
-  isViewGroupSchema,
-} from "@schemx/core"
+import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 
 import { normalizeNameKey } from "../../utils"
-import Col from "../Col"
 import Dynamic from "../Dynamic"
 import Field from "../Field"
 import Group from "../Group"
+import Row from "../Row"
 
-import type { SchemxColComponent } from "../../types/layout"
+import type { SchemxRowConfig } from "../../types/layout"
 import type { SchemxViewFieldSchema, SchemxViewSchema, Values } from "@schemx/core"
+
+import "./index.css"
 
 /**
  * SchemaList 的公开属性。
@@ -38,9 +36,9 @@ export interface SchemxSchemaListProps<TValues extends Values = Values> {
    */
   viewSchemas: readonly SchemxViewSchema<TValues>[]
   /**
-   * 当前 Form 解析出的 Col 实现；为空时不创建布局包装。
+   * 当前 Form 或父级容器继承的 Row 配置。
    */
-  colComponent?: SchemxColComponent
+  rowConfig?: SchemxRowConfig
   /**
    * 根级 Field wrapper 的 class 解析器。
    */
@@ -60,8 +58,8 @@ const SchemaList = defineComponent({
       type: Array as PropType<readonly SchemxViewSchema[]>,
       required: true,
     },
-    colComponent: {
-      type: [Object, Function] as PropType<SchemxColComponent>,
+    rowConfig: {
+      type: Object as PropType<SchemxRowConfig>,
       required: false,
       default: undefined,
     },
@@ -83,39 +81,29 @@ const SchemaList = defineComponent({
       `${schema.key}:${normalizeNameKey(schema.name)}`
 
     /**
-     * 根据节点类型生成稳定的 Schema 渲染 key。
-     *
-     * @param schema - 当前节点 ViewSchema。
-     * @returns 用于 Col 或子组件的稳定渲染 key。
-     */
-    const getSchemaRenderKey = (schema: SchemxViewSchema): string => {
-      if (isSchemxViewFieldSchema(schema)) {
-        return getFieldRenderKey(schema)
-      }
-
-      return schema.key
-    }
-
-    /**
-     * 递归创建子级 SchemaList，并复用当前 Form 的根级配置。
+     * 递归创建子级 SchemaList，并复用当前 Form 的布局与字段渲染配置。
      *
      * @param schemas - 当前子级 ViewSchema 列表。
      * @returns 子级 SchemaList 的 VNode。
      */
-    const renderChildren = (schemas: readonly SchemxViewSchema[]): VNodeChild => {
+    const renderChildren = (
+      schemas: readonly SchemxViewSchema[],
+      rowConfig: SchemxRowConfig | undefined = props.rowConfig
+    ): VNodeChild => {
       return h(
         SchemaList,
         {
           schemas,
           viewSchemas: props.viewSchemas,
-          colComponent: props.colComponent,
+          rowConfig,
+          fieldClassResolver: props.fieldClassResolver,
         },
         slots
       )
     }
 
     /**
-     * 将单个 ViewSchema 渲染为 Field、Group、Dynamic 或 Col。
+     * 将单个 ViewSchema 分发为 Field、Group 或 Dynamic。
      *
      * @param schema - 当前待渲染的 ViewSchema。
      * @returns 当前 Schema 对应的 VNode。
@@ -132,6 +120,7 @@ const SchemaList = defineComponent({
           <Group
             key={schema.key}
             schema={schema}
+            rowConfig={props.rowConfig}
             renderChildren={renderChildren}
             v-slots={slots}
           />
@@ -141,7 +130,7 @@ const SchemaList = defineComponent({
           <Dynamic
             key={schema.key}
             schema={schema}
-            viewSchemas={props.viewSchemas}
+            rowConfig={props.rowConfig}
             renderChildren={renderChildren}
             v-slots={slots}
           />
@@ -157,29 +146,15 @@ const SchemaList = defineComponent({
         )
       }
 
-      if (!props.colComponent) {
-        return content
-      }
-
-      return (
-        <Col
-          key={getSchemaRenderKey(schema)}
-          component={props.colComponent}
-          layout={schema.layout}
-        >
-          {content}
-        </Col>
-      )
+      return content
     }
 
     return (): VNodeChild => {
-      const children = props.schemas.map(renderSchema)
-
-      if (!props.colComponent) {
-        return children
-      }
-
-      return <div class="schemx-row">{children}</div>
+      return (
+        <Row row={props.rowConfig} class="schemx-schema-list">
+          {props.schemas.map(renderSchema)}
+        </Row>
+      )
     }
   },
 })

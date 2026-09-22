@@ -26,9 +26,9 @@
   } from "./config/defaultVueSchemaConfig"
   import { provideFormContext, useConfigProviderContextRef } from "./context"
   import { useForm, useFormSelector, useViewSchemas } from "./hooks"
-  import { registeredColComponent } from "./utils/colProvider"
   import { getSectionPosition } from "./utils/helpers"
 
+  import type { SchemxIconComponent } from "./types/icon"
   import type { SchemxFormActionConfig, SchemxFormProps } from "./types/index"
   import type {
     SchemxConfig,
@@ -77,7 +77,11 @@
     colon: undefined,
     showRequiredMark: undefined,
     bordered: undefined,
+    col: undefined,
     colComponent: undefined,
+    iconComponent: undefined,
+    row: undefined,
+    rowComponent: undefined,
   })
 
   /**
@@ -126,7 +130,7 @@
   const providerConfig = useConfigProviderContextRef()
 
   /**
-   * Core 全局配置只在内部 Form 创建时取快照，后续变更不影响已有实例。
+   * 读取 setup 时的 Core 模块级配置快照；后续全局配置变更不影响当前 Form。
    */
   const coreConfig = getGlobalSchemxConfig()
 
@@ -145,8 +149,11 @@
    */
   const mergedConfig = computed(() =>
     isExternalForm
-      ? mergeConfig({ schemaConfig: schemaConfigProps.value }, formFallbackConfig)
-      : mergeConfig(
+      ? mergeConfig<TValues>(
+          { schemaConfig: schemaConfigProps.value },
+          formFallbackConfig
+        )
+      : mergeConfig<TValues>(
           { schemaConfig: schemaConfigProps.value },
           (providerConfig?.value as SchemxConfig<TValues> | undefined) ?? {},
           formFallbackConfig,
@@ -186,10 +193,45 @@
    */
   const resolvedColComponent = computed(
     () =>
-      props.colComponent ??
-      providerConfig?.value.colComponent ??
-      registeredColComponent.value
+      props.colComponent ?? providerConfig?.value.colComponent ?? coreConfig.colComponent
   )
+
+  /**
+   * 当前 Form 使用的 Row，按 Form、Provider/App、全局注册顺序解析。
+   */
+  const resolvedRowComponent = computed(
+    () =>
+      props.rowComponent ?? providerConfig?.value.rowComponent ?? coreConfig.rowComponent
+  )
+
+  /**
+   * 当前 Form 使用的 Icon Adapter，按 Form、Provider/App、Core 全局配置顺序解析。
+   */
+  const resolvedIconComponent = computed<SchemxIconComponent | undefined>(
+    () =>
+      props.iconComponent ??
+      providerConfig?.value.iconComponent ??
+      coreConfig.iconComponent
+  )
+
+  /**
+   * 当前 Form 的 Row 配置，局部 Form 配置覆盖 Provider 或 App 默认值。
+   */
+  const resolvedRowConfig = computed(() => {
+    const schemaConfigRow = resolvedSchemaConfig.value.row
+
+    const inheritedRowConfig =
+      providerConfig?.value.row ?? coreConfig.row ?? schemaConfigRow
+
+    if (inheritedRowConfig === undefined && props.row === undefined) {
+      return undefined
+    }
+
+    return {
+      ...inheritedRowConfig,
+      ...props.row,
+    }
+  })
 
   /**
    * 获取或创建表单实例
@@ -225,9 +267,9 @@
         /**
          * 转发提交失败回调。
          *
-         * @param errors - 提交失败时的字段错误集合。
+         * @param failure - 提交失败结果，包含本次表单值和校验错误。
          */
-        onFinishFailed: (errors) => props.onFinishFailed?.(errors),
+        onFinishFailed: (failure) => props.onFinishFailed?.(failure),
         /**
          * 转发完整表单重置回调。
          */
@@ -274,6 +316,15 @@
     form: providedForm,
     get schemaConfig() {
       return contextSchemaConfig.value
+    },
+    get iconComponent() {
+      return resolvedIconComponent.value
+    },
+    get colComponent() {
+      return resolvedColComponent.value
+    },
+    get rowComponent() {
+      return resolvedRowComponent.value
     },
   })
 
@@ -512,7 +563,7 @@
   }
 
   /**
-   * 将外部 Form 的组件级配置增量同步到 Context 和 Core。
+   * 将外部 Form 的组件级配置增量同步到 Core；Context 从响应式 props 配置派生。
    *
    * @param nextSchemaConfig - 当前组件显式配置。
    * @param previousSchemaConfig - 上一次组件显式配置，用于清理已移除的 key。
@@ -565,7 +616,8 @@
     <SchemaList
       :schemas="viewSchemas as SchemxViewSchema[]"
       :view-schemas="viewSchemas as SchemxViewSchema[]"
-      :col-component="resolvedColComponent"
+      :row-component="resolvedRowComponent"
+      :row-config="resolvedRowConfig"
       :field-class-resolver="getFieldClass"
     >
       <template v-for="(_, slotName) in fieldSlots" #[slotName]="slotProps">

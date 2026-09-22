@@ -5,20 +5,18 @@
  */
 
 /**
- * createFormContext - 表单实例上下文注入与消费。
+ * Form Context 的 provide/inject API。
  */
 export {
-  createFormConfigContext,
-  createFormContext,
   provideFormContext,
-  useFormConfigContext,
-  useFormContext,
   useFormContextValue,
+  useFormContext,
+  useFormConfigContext,
   useFormRuntimeContext,
   type FormConfigContextValue,
-  type FormContextProps,
   type FormContextValue,
-  type ProvideFormContextOptions,
+  createFormContext,
+  createFormConfigContext,
 } from "./formContext"
 
 /**

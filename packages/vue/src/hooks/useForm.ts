@@ -3,32 +3,23 @@
  *
  * 负责创建由当前 Vue effect scope 持有的 SchemxInstance，并在 scope 销毁时
  * 自动释放实例。该模块不负责 provide/inject；表单上下文统一由
- * createFormContext() 注册，避免外部传入 form 时跳过上下文注册。
+ * provideFormContext() 注册，避免外部传入 form 时跳过上下文注册。
  *
  * @module hooks/useForm
  */
 import { onScopeDispose } from "vue"
 
-import { createForm, type SchemxConfig } from "@schemx/core"
+import { createForm } from "@schemx/core"
 
-import { useVueFormRuntime, type VueSchemxInstance } from "../bridge"
+import { useVueFormRuntime } from "../bridge"
 import { mergeVueSchemxConfig } from "../config"
 
-import type { CreateFormOptions, NamePath, Values } from "@schemx/core"
-
-/**
- * useForm 配置选项。
- *
- * 当前与 core 层 CreateFormOptions 保持一致，并在 Vue 层自动补充默认的
- * rendererRegistry 和 presetRuleRegistry。保留独立类型用于后续扩展
- * Vue 专属配置，而不污染 core 层接口。
- *
- * @typeParam TValues - 表单值类型
- */
-export interface UseFormOptions<TValues extends Values> extends CreateFormOptions<
-  TValues,
-  NamePath<TValues>
-> {}
+import type {
+  CreateFormOptions,
+  SchemxConfig,
+  SchemxInstance,
+  Values,
+} from "@schemx/core"
 
 /**
  * 创建由当前 Vue effect scope 持有的表单实例。
@@ -39,7 +30,7 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  * 3. 在当前 effect scope 销毁时调用 instance.destroy()。
  *
  * useForm 不再自动调用 provide()。需要向后代组件暴露实例时，应由
- * <SchemxForm> 或其他 Provider 组件显式调用 createFormContext(form)。
+ * <SchemxForm> 或其他 Provider 组件显式调用 provideFormContext({ form, schemaConfig })。
  * 这样无论实例是内部创建还是通过 props.form 外部传入，都能走同一条
  * 上下文注册路径，并保持清晰的实例所有权：谁创建，谁销毁。
  *
@@ -69,14 +60,17 @@ export interface UseFormOptions<TValues extends Values> extends CreateFormOption
  * ```ts
  * // Provider 组件中统一注册上下文。
  * const form = props.form ?? useForm(options)
- * createFormContext(form)
+ * provideFormContext({ form, schemaConfig: {} })
  * ```
  */
 export function useForm<TValues extends Values = Values>(
-  options: UseFormOptions<TValues> = {}
-): VueSchemxInstance<TValues> {
+  options: CreateFormOptions<TValues> = {}
+): SchemxInstance<TValues> {
   // 按表单、App、Vue 包默认值的优先级解析可继承配置。
-  const configuredOptions = mergeVueSchemxConfig<TValues>(getUseFormSchemxConfig(options))
+  const configuredOptions = mergeVueSchemxConfig<TValues>(
+    getUseFormSchemxConfig(options),
+    {}
+  )
 
   // 将已合并配置写入 Form 创建选项，避免 Core 再按较低优先级覆盖 Vue 结果。
   const mergedOptions: CreateFormOptions<TValues> = {
@@ -104,7 +98,7 @@ export function useForm<TValues extends Values = Values>(
  * @returns 仅包含调用方实际提供字段的 SchemxConfig。
  */
 function getUseFormSchemxConfig<TValues extends Values>(
-  options: UseFormOptions<TValues>
+  options: CreateFormOptions<TValues>
 ): SchemxConfig<TValues> {
   const {
     schemaConfig = {},

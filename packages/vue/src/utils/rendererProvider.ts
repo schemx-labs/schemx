@@ -8,9 +8,7 @@
  * @module utils/rendererProvider
  */
 
-import { createRendererRegistry, type RendererRegistry } from "@schemx/core/adapter"
-
-import type { SchemxRendererKey } from "@schemx/core"
+import { createRendererRegistry } from "@schemx/core/adapter"
 
 /**
  * 全局渲染器注册实例
@@ -25,5 +23,4 @@ import type { SchemxRendererKey } from "@schemx/core"
  * // props 传入的 rendererRegistry 优先级更高
  * ```
  */
-export const rendererRegistry: RendererRegistry<SchemxRendererKey> =
-  createRendererRegistry<SchemxRendererKey>("input")
+export const rendererRegistry = createRendererRegistry("input")

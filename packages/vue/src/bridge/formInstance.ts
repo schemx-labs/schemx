@@ -7,13 +7,13 @@
  * @module vue/bridge/formInstance
  */
 
-import type { VueFieldDependency, VueFormDependency, VueSchemxInstance } from "./types"
+import type { VueFieldDependency, VueFormDependency } from "./types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
 /**
  * 创建 Instance 所需的 Runtime 追踪能力。
  */
-export interface VueFormInstanceDependencies<TValues extends Values> {
+interface VueFormInstanceDependencies<TValues extends Values> {
   /**
    * 追踪单个字段的指定状态依赖。
    */
@@ -50,7 +50,7 @@ export interface VueFormInstanceDependencies<TValues extends Values> {
 export function createVueFormInstance<TValues extends Values>(
   form: SchemxInstance<TValues>,
   dependencies: VueFormInstanceDependencies<TValues>
-): VueSchemxInstance<TValues> {
+): SchemxInstance<TValues> {
   let destroyed = false
 
   const getFieldValue: SchemxInstance<TValues>["getFieldValue"] = (name) => {

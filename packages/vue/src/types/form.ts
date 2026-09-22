@@ -6,7 +6,14 @@
 
 import type { ClassValue, StyleValue } from "vue"
 
-import type { SchemxVueConfig } from "./layout"
+import type { SchemxIconComponent, SchemxIconValue } from "./icon"
+import type {
+  SchemxColComponent,
+  SchemxColConfig,
+  SchemxLayout,
+  SchemxRowComponent,
+  SchemxRowConfig,
+} from "./layout"
 import type { SchemxButtonProps } from "../components/Button"
 import type {
   DefinedFieldValue,
@@ -15,6 +22,7 @@ import type {
   FormPerformanceOptions,
   NamePath,
   RequiredConfig,
+  SchemxConfig,
   SchemxFieldRulesMap,
   SchemxInstance,
   SchemxSchemasInput,
@@ -51,9 +59,36 @@ interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
   visible?: boolean
 
   /**
-   * 字段标签图标标识。
+   * 当前 Form 使用的 Col 实现；单独声明以便 Vue SFC 编译器生成运行时 Props。
    */
-  labelIcon?: string
+  readonly colComponent?: SchemxColComponent
+
+  /**
+   * 当前 Form 使用的 Row 实现；单独声明以便 Vue SFC 编译器生成运行时 Props。
+   */
+  readonly rowComponent?: SchemxRowComponent
+
+  /**
+   * 当前 Form 使用的 Icon Adapter；单独声明以便 Vue SFC 编译器生成运行时 Props。
+   */
+  readonly iconComponent?: SchemxIconComponent
+
+  /**
+   * 字段默认 Col 配置。
+   */
+  col?: SchemxColConfig
+
+  /**
+   * 字段在 24 栅格布局容器中的旧静态布局配置。
+   *
+   * @deprecated 请改用 {@link SchemxColConfig} 与 `col` 字段。
+   */
+  layout?: SchemxLayout
+
+  /**
+   * 字段标签图标名称或 Vue 图标组件。
+   */
+  labelIcon?: SchemxIconValue
 
   /**
    * 字段标签的水平对齐方式。
@@ -68,12 +103,17 @@ interface SchemxFormSchemaConfigProps<TValues extends Values = Values> {
   /**
    * 字段标签宽度。
    */
-  labelWidth?: string
+  labelWidth?: string | number
 
   /**
    * 字段内容区域的水平对齐方式。
    */
   contentAlign?: "left" | "center" | "right"
+
+  /**
+   * 字段校验错误的水平对齐方式。
+   */
+  errorAlign?: "left" | "center" | "right"
 
   /**
    * 字段校验触发时机。
@@ -129,7 +169,7 @@ export type SchemxFormAction = boolean | SchemxFormActionConfig
  */
 export interface SchemxFormProps<TValues extends Values = Values>
   extends
-    Omit<SchemxVueConfig<TValues>, "schemaConfig">,
+    Omit<SchemxConfig<TValues>, "schemaConfig">,
     FormCallbackOptions<TValues>,
     FormLifecycleOptions<TValues>,
     FormPerformanceOptions,
@@ -158,6 +198,11 @@ export interface SchemxFormProps<TValues extends Values = Values>
    * 外部传入的表单实例；传入后由组件复用该实例。
    */
   form?: SchemxInstance<TValues>
+
+  /**
+   * 当前 Form 根级 Row 的配置。
+   */
+  row?: SchemxRowConfig
 
   /**
    * 覆盖内置操作区展示的提交状态；不改变 Core 的真实提交状态。

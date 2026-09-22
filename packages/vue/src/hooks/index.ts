@@ -9,9 +9,7 @@
  */
 export { useForm } from "./useForm"
 
-/**
- * Vue Form Instance - 在 Vue effect 中可追踪的 Form 实例。
- */
+/** Vue 兼容用的表单实例类型。 */
 export type { VueSchemxInstance } from "../bridge"
 
 /**
@@ -27,7 +25,11 @@ export { useWatch, useWatchField, useWatchFields, useWatchAll } from "./useWatch
 /**
  * useDictionary - 字典选项加载
  */
-export { useDictionary, type UseDictionaryReturn } from "./useDictionary"
+export {
+  useDictionary,
+  type UseDictionaryReturn,
+  type UseDictOptionsReturn,
+} from "./useDictionary"
 
 /**
  * useStableRef - 引用稳定化的 shallowRef

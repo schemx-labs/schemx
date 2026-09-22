@@ -7,9 +7,9 @@
 import type { ComputedRef, Ref, VNodeChild } from "vue"
 
 import type {
-  SchemxCoreBaseComponentProps as CoreSchemxBaseComponentProps,
   FieldValue,
   NamePath,
+  SchemxBaseComponentProps,
   SchemxComponentProps,
   SchemxFieldInstance,
   SchemxInstance,
@@ -19,45 +19,18 @@ import type {
 } from "@schemx/core"
 
 /**
- * Vue Renderer 的公共 Props。
+ * Vue Renderer 的旧版公共 Props 类型。
  *
- * 该类型属于 Vue 适配层；Core 仅通过 `SchemxComponentPropsDefinition`
- * 接收它的声明合并结果。
- *
+ * @deprecated 请改用 {@link SchemxBaseComponentProps}。
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 当前字段路径类型。
  * @typeParam TValue - 当前字段值类型。
  */
-export interface SchemxVueBaseComponentProps<
+export type SchemxVueBaseComponentProps<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TValue = FieldValue<TValues, TName>,
-> extends CoreSchemxBaseComponentProps<TValues> {
-  /**
-   * Vue Renderer 内容区域对齐方式。
-   */
-  align?: "left" | "center" | "right"
-
-  /**
-   * Vue v-model 更新事件。
-   */
-  "onUpdate:value"?: (value: TValue) => void
-
-  /**
-   * 当前字段值。
-   */
-  value?: TValue
-
-  /**
-   * Renderer 值变化处理。
-   */
-  onChange?: (value: TValue) => void
-
-  /**
-   * Renderer 失焦处理。
-   */
-  onBlur?: (value: TValue) => void
-}
+> = SchemxBaseComponentProps<TValues, TName, TValue>
 
 /**
  * Vue 层字段控制器实例

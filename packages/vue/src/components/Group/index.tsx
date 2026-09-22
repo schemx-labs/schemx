@@ -2,23 +2,25 @@
  * Group - 分组字段组件
  *
  * 用于渲染包含 children 的 Group ViewSchema。
- * 支持可折叠的分组容器，内部递归渲染子字段和子分组。
+ * 支持可折叠的分组容器，并将子级 Row 配置传给 SchemaList。
  *
  * @module components/Group
  */
 
-import { computed, defineComponent, getCurrentInstance, PropType, ref, watch } from "vue"
-import type { ClassValue, SlotsType, StyleValue, VNodeChild } from "vue"
+import { computed, defineComponent, getCurrentInstance, ref, watch } from "vue"
+import type { ClassValue, PropType, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
 import { normalizeId, normalizeNameKey } from "../../utils"
+import Col from "../Col"
 import Field from "../Field"
 
 import { createGroupSlotRenderers } from "./slot"
 
 import type { SchemxGroupSlots } from "../../types/field"
+import type { SchemxRowConfig } from "../../types/layout"
 import type { SchemxViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
 /**
@@ -30,6 +32,10 @@ export interface SchemxGroupProps {
    */
   schema: SchemxViewGroupSchema
   /**
+   * 从 Form 或父级 Schema 继承的 Row 配置。
+   */
+  rowConfig?: SchemxRowConfig
+  /**
    * 父级传入的 class，会与内部和 Schema class 合并。
    */
   class?: ClassValue
@@ -38,9 +44,15 @@ export interface SchemxGroupProps {
    */
   style?: StyleValue
   /**
-   * 内部 SchemaList 递归渲染子节点的回调；未提供时使用 Group 自身的兼容渲染器。
+   * 可选的子级 Schema 渲染回调；省略时 Group 递归渲染默认子级。
+   *
+   * @param schemas - 当前 Group 的子级 ViewSchema。
+   * @param rowConfig - 当前 Group 子级使用的合并 Row 配置。
    */
-  renderChildren?: (schemas: readonly SchemxViewSchema[]) => VNodeChild
+  renderChildren?: (
+    schemas: readonly SchemxViewSchema[],
+    rowConfig?: SchemxRowConfig
+  ) => VNodeChild
 }
 
 const Group = defineComponent({
@@ -51,6 +63,11 @@ const Group = defineComponent({
     schema: {
       type: Object as PropType<SchemxViewGroupSchema>,
       required: true,
+    },
+    rowConfig: {
+      type: Object as PropType<SchemxRowConfig>,
+      required: false,
+      default: undefined,
     },
     class: {
       type: [String, Object, Array, Boolean] as PropType<ClassValue>,
@@ -71,7 +88,15 @@ const Group = defineComponent({
 
   slots: Object as SlotsType<SchemxGroupSlots>,
 
-  setup(props, { attrs, slots }) {
+  /**
+   * 组合 Group 的折叠状态、子级渲染和插槽内容。
+   *
+   * @param props - 当前 Group Schema、布局和兼容渲染回调。
+   * @param setupContext - 父级透传属性与 Group 插槽。
+   */
+  setup(props, setupContext) {
+    const { attrs, slots } = setupContext
+
     const internalCollapsed = ref(Boolean(props.schema.defaultCollapsed))
 
     const collapsed = computed(() => props.schema.collapsed ?? internalCollapsed.value)
@@ -125,11 +150,11 @@ const Group = defineComponent({
 
       const bodyId = `${idBase}-body`
 
+      const rowConfig =
+        props.rowConfig || schema.row ? { ...props.rowConfig, ...schema.row } : undefined
+
       /**
-       * 递归渲染 Group 的子字段、子分组和 Dynamic。
-       *
-       * @param child - 当前 Group 的子 ViewSchema。
-       * @returns 对应子节点的 VNode。
+       * 按需渲染 Group 的默认子级内容；Content 插槽存在时由插槽接管布局。
        */
       const renderChild = (child: SchemxViewSchema): VNodeChild => {
         if (isViewDynamicSchema(child)) {
@@ -137,9 +162,7 @@ const Group = defineComponent({
             return null
           }
 
-          return child.items.map((item) =>
-            item.children.map((itemChild) => renderChild(itemChild))
-          )
+          return child.items.map((item) => item.children.map(renderChild))
         }
 
         if (isViewGroupSchema(child)) {
@@ -163,6 +186,16 @@ const Group = defineComponent({
         )
       }
 
+      const renderGroupChildren = (): VNodeChild => {
+        if (!props.renderChildren) {
+          return schema.children.map(renderChild)
+        }
+
+        return rowConfig === undefined
+          ? props.renderChildren(schema.children)
+          : props.renderChildren(schema.children, rowConfig)
+      }
+
       const { hasHeader, renderBodyContent, renderHeaderContent } =
         createGroupSlotRenderers({
           schema,
@@ -172,10 +205,7 @@ const Group = defineComponent({
           readonly: Boolean(schema.readonly),
           toggle,
           slots,
-          renderChildren: () =>
-            props.renderChildren
-              ? props.renderChildren(schema.children)
-              : schema.children.map(renderChild),
+          renderChildren: renderGroupChildren,
         })
 
       const body = (
@@ -191,7 +221,7 @@ const Group = defineComponent({
         </div>
       )
 
-      return (
+      const groupWrapper = (
         <div
           {...attrs}
           class={classnames(
@@ -237,6 +267,12 @@ const Group = defineComponent({
           </div>
         </div>
       )
+
+      if (!schema.layout) {
+        return groupWrapper
+      }
+
+      return <Col col={schema.layout}>{groupWrapper}</Col>
     }
   },
 })

@@ -11,9 +11,9 @@ import { computed } from "vue"
 
 import { createField } from "@schemx/core"
 
-import { type VueFieldState, type VueSchemxInstance } from "../bridge"
 import { useFormContext, useFormRuntimeContext } from "../context/formContext"
 
+import type { VueFieldState } from "../bridge"
 import type { FieldInstance } from "../types/field"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
@@ -22,7 +22,7 @@ import type { NamePath, SchemxInstance, Values } from "@schemx/core"
  *
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 当前字段路径类型。
- * @param form - 当前 Vue Form Instance。
+ * @param form - 当前响应式表单实例。
  * @param coreForm - 用于创建 Core 字段控制器的原始 Form。
  * @param name - 当前字段路径。
  * @param fieldState - 当前字段的共享 Vue 状态。
@@ -32,7 +32,7 @@ function createFieldHook<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 >(
-  form: VueSchemxInstance<TValues>,
+  form: SchemxInstance<TValues>,
   coreForm: SchemxInstance<TValues>,
   name: TName,
   fieldState: VueFieldState<TValues, TName>

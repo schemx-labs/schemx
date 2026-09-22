@@ -14,13 +14,12 @@ describe("@schemx/vue 根入口", () => {
       useViewSchemas: expect.any(Function),
       presetRuleRegistry: expect.any(Object),
       createPresetRuleRegistry: expect.any(Function),
-      PresetRuleRegistry: expect.any(Function),
-      RendererRegistry: expect.any(Function),
       Field: expect.any(Object),
       Group: expect.any(Object),
       Col: expect.any(Object),
+      Row: expect.any(Object),
+      Icon: expect.any(Object),
       Wrapper: expect.any(Object),
-      registerCol: expect.any(Function),
       ConfigProvider: expect.any(Object),
     })
 
@@ -28,6 +27,8 @@ describe("@schemx/vue 根入口", () => {
     expect("Cell" in vuePackage).toBe(false)
     expect("useFieldArray" in vuePackage).toBe(false)
     expect("createFieldArrayHook" in vuePackage).toBe(false)
+    expect("PresetRuleRegistry" in vuePackage).toBe(false)
+    expect("RendererRegistry" in vuePackage).toBe(false)
     expect(["validator", "Registry"].join("") in vuePackage).toBe(false)
     expect(["create", "Validators", "Registry"].join("") in vuePackage).toBe(false)
   })

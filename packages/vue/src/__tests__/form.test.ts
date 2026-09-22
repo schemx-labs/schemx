@@ -1051,8 +1051,8 @@ describe("SchemxForm 动态 schemas", () => {
 
     const root = wrapper.get(".schemx").element
 
-    const directItemWrappers = Array.from(root.children).filter((element) =>
-      element.classList.contains("schemx-field-wrapper")
+    const directItemWrappers = Array.from(
+      root.querySelectorAll(":scope > .schemx-row > .schemx-col > .schemx-field-wrapper")
     )
 
     expect(directItemWrappers).toHaveLength(2)
@@ -1123,8 +1123,8 @@ describe("SchemxForm 动态 schemas", () => {
 
     const root = wrapper.get(".schemx").element
 
-    const directItemWrappers = Array.from(root.children).filter((element) =>
-      element.classList.contains("schemx-field-wrapper")
+    const directItemWrappers = Array.from(
+      root.querySelectorAll(":scope > .schemx-row > .schemx-col > .schemx-field-wrapper")
     )
 
     expect(directItemWrappers).toHaveLength(2)

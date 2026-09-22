@@ -1,5 +1,6 @@
 import type {
   FieldInstance,
+  SchemxComponentProps,
   SchemxField,
   SchemxFieldContentSlotProps,
   SchemxFieldErrorSlotProps,
@@ -9,7 +10,6 @@ import type {
   SchemxFormProps,
   SchemxGroupSlotProps,
   SchemxGroupSlots,
-  SchemxVueBaseComponentProps,
 } from "../../index"
 
 interface FormValues {
@@ -25,11 +25,12 @@ const vueSchema: SchemxField<FormValues> = {
   name: "name",
   label: "姓名",
   componentType: "input",
-  layout: { span: 12, offset: 1 },
+  col: { span: 12, offset: 1 },
   labelAlign: "right",
   labelPosition: "top",
   labelWidth: "120px",
   contentAlign: "center",
+  errorAlign: "left",
   colon: false,
   placeholder: "请输入姓名",
   onChange: (value, form) => {
@@ -43,10 +44,13 @@ const vueSchema: SchemxField<FormValues> = {
   },
 }
 
-const vueRendererProps: SchemxVueBaseComponentProps<FormValues> = {
-  align: "center",
+const vueRendererProps: SchemxComponentProps<FormValues> = {
   placeholder: "请输入姓名",
   readonlyPlaceholder: "-",
+}
+
+const legacyVueRendererProps: SchemxComponentProps<FormValues> = {
+  align: "center",
 }
 
 const invalidComponentProps: SchemxFormProps<FormValues> = {
@@ -80,6 +84,7 @@ const invalidActionProps: SchemxFormProps<FormValues> = {
 void componentProps
 void vueSchema
 void vueRendererProps
+void legacyVueRendererProps
 void invalidComponentProps
 void actionProps
 void invalidActionProps

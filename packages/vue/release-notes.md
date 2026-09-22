@@ -1,5 +1,14 @@
 # Release Notes — 1.0.1
 
+## Unreleased
+
+### @schemx/vue
+
+- 统一 `<Schemx>` 中 Group 与 Dynamic 的子级 ViewSchema 渲染链路：由 SchemaList 的 `renderChildren` 回调处理布局；直接挂载 Group 时保留兼容递归渲染。
+- 基础样式收敛为 UI 无关的结构、布局和状态契约，移动端卡片、间距和末项分隔线改由 Vant 适配包提供。
+- 调整默认对齐方向：标签右对齐、普通字段内容左对齐，只读字段内容右对齐。
+- 新增 Icon 组件配置、全局注册和 `string | Component` 类型的 `labelIcon`，支持通过 Form、ConfigProvider、App 或全局配置 Icon Adapter。
+
 ## 版本信息
 
 - 目标版本：1.0.1
@@ -35,7 +44,7 @@
 
 - <a id="change-7675652d7368617265642d72756e74696d65"></a>Vue bridge 通过共享 VueFormRuntime 和状态适配器复用响应式资源；useField、useFormSelector、useViewSchemas 与 useWatch 的订阅会随 Vue scope owner 自动释放，旧 Runtime 消费者仍可读取兼容的 core 字段。（影响范围：同一表单同时使用多个 Vue 状态 Hook，或在组件卸载与重建期间反复创建桥接状态的项目，可减少重复资源和残留订阅。）
 
-- <a id="change-7675652d616461707465722d747970652d636f6e747261637473"></a>新增 SchemxVueBaseComponentProps、SchemxVueLayout、SchemxFieldSlots、SchemxFieldSlotValue 和 SchemxGroupSlots，并通过声明合并把 Vue 展示属性和 Renderer Props 接入 Core。（影响范围：自定义 Vue Renderer、Field/Group 插槽和栅格布局可以复用字段名、值、错误和布局的 TypeScript 契约。）
+- <a id="change-7675652d616461707465722d747970652d636f6e747261637473"></a>新增 SchemxBaseComponentProps、SchemxFieldSlots、SchemxFieldSlotValue 和 SchemxGroupSlots，并通过声明合并把 Vue 展示属性和 Renderer Props 接入 Core。（影响范围：自定义 Vue Renderer、Field/Group 插槽和栅格布局可以复用字段名、值、错误和布局的 TypeScript 契约。）
 
 ## Documentation
 

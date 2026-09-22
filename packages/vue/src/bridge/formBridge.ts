@@ -22,7 +22,6 @@ import type {
   VueFormDependency,
   VueFormResources,
   VueFormRuntime,
-  VueSchemxInstance,
 } from "./types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
@@ -38,7 +37,7 @@ const runtimeCache = new WeakMap<object, VueFormRuntime<Values>>()
  * 释放该 owner；最后一个 owner 释放后，字段和表单级响应式资源才会回收。
  *
  * @typeParam TValues - 表单值类型。
- * @param form - 要桥接的 Core Form 或 Vue Form Instance。
+ * @param form - 要桥接或复用 Runtime 的表单实例。
  * @returns 当前 Form 对应的共享 Runtime。
  * @throws 当前没有活动的 Vue effect scope 时抛出错误。
  *
@@ -70,7 +69,7 @@ export function useVueFormRuntime<TValues extends Values = Values>(
  * 释放后只销毁响应式资源，Runtime 和 Instance 身份保持稳定。
  *
  * @typeParam TValues - 表单值类型。
- * @param form - 要桥接的 Core Form 或 Vue Form Instance。
+ * @param form - 要桥接或复用 Runtime 的表单实例。
  * @returns 共享 Runtime 及与当前 owner 对应的释放函数。
  *
  * @example
@@ -84,7 +83,7 @@ export function useVueFormRuntime<TValues extends Values = Values>(
  * ```
  */
 export function acquireVueFormRuntime<TValues extends Values = Values>(
-  form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
+  form: SchemxInstance<TValues>
 ): {
   runtime: VueFormRuntime<TValues>
   release: () => void
@@ -102,13 +101,13 @@ export function acquireVueFormRuntime<TValues extends Values = Values>(
 /**
  * 获取已有 Runtime，或为输入的 Core Form 创建 Runtime。
  *
- * Core Form 和桥接后的 Vue Instance 都会映射到同一个 Runtime，避免同一表单
- * 因不同入口重复创建状态订阅。
+ * 原始实例和桥接后的响应式实例都会映射到同一个 Runtime，避免同一表单因
+ * 不同入口重复创建状态订阅。
  *
  * @param form - 要查找或创建 Runtime 的 Form Instance。
  */
 function getOrCreateVueFormRuntime<TValues extends Values>(
-  form: SchemxInstance<TValues> | VueSchemxInstance<TValues>
+  form: SchemxInstance<TValues>
 ): VueFormRuntime<TValues> {
   const cachedByCore = runtimeCache.get(form as object)
 
@@ -116,7 +115,7 @@ function getOrCreateVueFormRuntime<TValues extends Values>(
     return cachedByCore as VueFormRuntime<TValues>
   }
 
-  const runtime = createVueFormRuntime(form as SchemxInstance<TValues>)
+  const runtime = createVueFormRuntime(form)
 
   runtimeCache.set(form as object, runtime as VueFormRuntime<Values>)
   runtimeCache.set(runtime.instance as object, runtime as VueFormRuntime<Values>)

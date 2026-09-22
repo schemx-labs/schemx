@@ -10,10 +10,16 @@ import { computed, defineComponent, type PropType } from "vue"
 
 import { createConfigProviderContext } from "../../context"
 
-import type { SchemxColComponent, SchemxVueConfig } from "../../types"
+import type {
+  SchemxColComponent,
+  SchemxIconComponent,
+  SchemxRowComponent,
+  SchemxRowConfig,
+} from "../../types"
 import type {
   PresetRuleRegistry,
   RendererRegistry,
+  SchemxConfig,
   SchemxRendererKey,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
@@ -28,8 +34,7 @@ import type {
  *
  * @typeParam TValues - 表单值类型。
  */
-export type ConfigProviderProps<TValues extends Values = Values> =
-  SchemxVueConfig<TValues>
+export type ConfigProviderProps<TValues extends Values = Values> = SchemxConfig<TValues>
 
 const ConfigProvider = defineComponent({
   name: "SchemxConfigProvider",
@@ -64,10 +69,30 @@ const ConfigProvider = defineComponent({
       type: [Object, Function] as PropType<SchemxColComponent>,
       default: undefined,
     },
+    rowComponent: {
+      type: [Object, Function] as PropType<SchemxRowComponent>,
+      default: undefined,
+    },
+    iconComponent: {
+      type: [Object, Function] as PropType<SchemxIconComponent>,
+      default: undefined,
+    },
+    row: {
+      type: Object as PropType<SchemxRowConfig>,
+      default: undefined,
+    },
   },
 
-  setup(props, { slots }) {
-    const config = computed<SchemxVueConfig>(() => ({
+  /**
+   * 合并 Props 与 fallthrough attrs，并向后代提供配置上下文。
+   *
+   * @param props - 当前 ConfigProvider 的 Schemx 配置。
+   * @param setupContext - 父级传入的默认插槽与额外配置属性。
+   */
+  setup(props, setupContext) {
+    const { slots, attrs } = setupContext
+
+    const config = computed<SchemxConfig>(() => ({
       schemaConfig: props.schemaConfig,
       rendererProps: props.rendererProps,
       validatorAdapters: props.validatorAdapters,
@@ -75,6 +100,10 @@ const ConfigProvider = defineComponent({
       rendererRegistry: props.rendererRegistry,
       presetRuleRegistry: props.presetRuleRegistry,
       colComponent: props.colComponent,
+      rowComponent: props.rowComponent,
+      iconComponent: props.iconComponent,
+      row: props.row,
+      ...attrs,
     }))
 
     createConfigProviderContext(config)

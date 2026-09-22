@@ -33,14 +33,14 @@ describe("provide/inject context hooks", () => {
   it("在缺少表单配置上下文时提供 setup 指引", () => {
     expect(() => mountConsumer(useFormConfigContext)).toThrow(
       "[schemx] useFormConfigContext() must be called inside a <SchemxForm> descendant. " +
-        "Ensure createFormConfigContext(props) is called synchronously during setup()."
+        "Ensure provideFormContext({ form, schemaConfig }) is called synchronously during setup()."
     )
   })
 
   it("在缺少表单实例上下文时提供 setup 指引", () => {
     expect(() => mountConsumer(useFormContext)).toThrow(
       "[schemx] useFormContext() must be called inside a <SchemxForm> descendant. " +
-        "Ensure createFormContext(form) is called synchronously during setup()."
+        "Ensure provideFormContext({ form, schemaConfig }) is called synchronously during setup()."
     )
   })
 

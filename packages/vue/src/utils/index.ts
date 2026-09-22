@@ -34,6 +34,11 @@ export { resolveSlot, extractChildSlots } from "./slot"
 export { getSectionPosition, normalizeId, normalizeNameKey } from "./helpers"
 
 /**
+ * 布局间距工具。
+ */
+export { normalizeSchemxGutter, type SchemxNormalizedGutter } from "./layout"
+
+/**
  * 对象差异工具。
  */
 export { diff } from "./diff"

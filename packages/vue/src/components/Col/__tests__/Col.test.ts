@@ -1,94 +1,45 @@
-import { type Component, defineComponent, h } from "vue"
+// @vitest-environment happy-dom
+
+import { h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { afterEach, describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 
-import { registerCol, registeredColComponent } from "../../../utils/colProvider"
 import Col from "../index"
 
-const TestCol = defineComponent({
-  name: "TestCol",
-  props: {
-    span: Number,
-    offset: Number,
-  },
-  setup(props, { attrs, slots }) {
-    return () =>
-      h(
-        "div",
-        {
-          ...attrs,
-          "data-testid": "test-col",
-          "data-span": String(props.span),
-          "data-offset": String(props.offset),
-        },
-        slots.default?.()
-      )
-  },
-})
-
-const GlobalCol = defineComponent({
-  name: "GlobalCol",
-  setup(_, { slots }) {
-    return () => h("div", { "data-testid": "global-col" }, slots.default?.())
-  },
-})
-
-afterEach(() => {
-  registeredColComponent.value = undefined
-})
-
 describe("Col", () => {
-  it("未注册组件时保持透明渲染", () => {
+  it("未注册组件时使用内置 Col 实现", () => {
     const wrapper = mount(Col, {
-      props: { layout: { span: 12 } },
+      props: { col: { span: 12 } },
       slots: { default: () => h("span", { "data-testid": "content" }, "内容") },
     })
 
+    expect(wrapper.find(".schemx-col").exists()).toBe(true)
+    expect(wrapper.get(".schemx-col").attributes("style")).toContain("flex-basis: 50%")
     expect(wrapper.find("[data-testid='content']").exists()).toBe(true)
     expect(wrapper.find("[data-testid='test-col']").exists()).toBe(false)
   })
 
-  it("将 layout 的 span 和 offset 传给注册组件", () => {
-    registerCol(TestCol)
-
-    const wrapper = mount(Col, {
-      props: { layout: { span: 12, offset: 2 } },
-      slots: { default: () => h("span", { "data-testid": "content" }, "内容") },
-    })
-
-    const col = wrapper.get("[data-testid='test-col']")
-
-    expect(col.attributes("data-span")).toBe("12")
-    expect(col.attributes("data-offset")).toBe("2")
-    expect(col.find("[data-testid='content']").exists()).toBe(true)
-  })
-
   it("block 覆盖 span 和 offset 并映射为满宽列", () => {
-    const component: Component = TestCol
-
     const wrapper = mount(Col, {
       props: {
-        component,
-        layout: { span: 6, offset: 4, block: true },
+        col: { span: 6, offset: 4, block: true },
       },
     })
 
-    const col = wrapper.get("[data-testid='test-col']")
-
-    expect(col.attributes("data-span")).toBe("24")
-    expect(col.attributes("data-offset")).toBe("0")
-    expect(col.attributes("fullline")).toBeUndefined()
+    expect(wrapper.get(".schemx-col").attributes("style")).toContain("flex-basis: 100%")
   })
 
-  it("Col 显式 component 优先于全局注册", () => {
-    registerCol(GlobalCol)
-
+  it("兼容旧 layout，并由 col 优先于 layout", () => {
     const wrapper = mount(Col, {
-      props: { component: TestCol },
+      props: {
+        col: { span: 8 },
+        layout: { span: 4 },
+      },
     })
 
-    expect(wrapper.find("[data-testid='test-col']").exists()).toBe(true)
-    expect(wrapper.find("[data-testid='global-col']").exists()).toBe(false)
+    expect(wrapper.get(".schemx-col").attributes("style")).toContain(
+      "flex-basis: 33.33333333333333%"
+    )
   })
 })

@@ -6,6 +6,8 @@
 
 import "./definition"
 
+export type { SchemxVueTypeAugmentations } from "./definition"
+
 export * from "./dictionary"
 
 export * from "./form"
@@ -13,3 +15,5 @@ export * from "./form"
 export * from "./field"
 
 export * from "./layout"
+
+export * from "./icon"

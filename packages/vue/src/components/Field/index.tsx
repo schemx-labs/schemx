@@ -26,6 +26,7 @@ import {
   resolveSlot,
   shouldValidateOn,
 } from "../../utils"
+import Col from "../Col"
 
 import { createFieldSlotRenderers } from "./slot"
 
@@ -84,11 +85,12 @@ const Field = defineComponent({
   /**
    * 初始化字段上下文，并组合响应式 schema、校验处理器与插槽渲染器。
    *
-   * @param props - 当前字段项的 schema 属性。
-   * @param attrs - Vue setup 上下文提供的透传属性。
-   * @param slots - Vue setup 上下文提供的插槽集合。
+   * @param props - 当前字段项的 Schema、class 和 style。
+   * @param setupContext - Vue setup 上下文，包含透传属性和字段插槽。
    */
-  setup(props, { attrs, slots }) {
+  setup(props, setupContext) {
+    const { attrs, slots } = setupContext
+
     const formContext = useFormContextValue<Values>()
 
     const form = formContext.form
@@ -130,11 +132,9 @@ const Field = defineComponent({
         !schemaRef.value.readonly &&
         !schemaRef.value.disabled
 
-      const rules = schemaRef.value.rules
-
-      const hasRules = Array.isArray(rules) ? rules?.length > 0 : !!schemaRef.value.rules
-
-      return isOperate && (Boolean(schemaRef.value.required) || hasRules)
+      // Core 负责判断当前字段是否有 Schema、兜底或手动规则；ViewSchema
+      // 只包含声明规则，不能据此判断 fieldRules/setFieldRules 的存在。
+      return isOperate
     })
 
     /**
@@ -180,13 +180,8 @@ const Field = defineComponent({
       (): SchemxComponentProps<Values> => {
         const currentComponentProps = schemaRef.value.componentProps ?? {}
 
-        console.log(" > ~ schemaRef.value:", schemaRef.value)
-
         return {
           ...currentComponentProps,
-          align: schemaRef.value.readonly
-            ? "right"
-            : (currentComponentProps.align ?? schemaRef.value.contentAlign),
           value: field.value.value,
           onChange: handleChange,
           onBlur: handleBlur,
@@ -216,7 +211,7 @@ const Field = defineComponent({
         return null
       }
 
-      // 整体插槽替换默认内容，但保留稳定的 Field wrapper。
+      // 整体插槽只替换标签和控件主体，Before、Error、After 仍由 wrapper 渲染。
       const fieldSlot = resolveSlot(slots, normalizeNameKey(schemaRef.value.name))
 
       const labelPosition = schemaRef.value.labelPosition
@@ -231,17 +226,11 @@ const Field = defineComponent({
           })}
         >
           {renderLabel()}
-
-          <div class="schemx-field__content">
-            {renderBefore()}
-            {renderContent()}
-            {renderAfter()}
-            {renderError()}
-          </div>
+          {renderContent()}
         </div>
       )
 
-      return (
+      const fieldWrapper = (
         <div
           {...attrs}
           class={classnames(
@@ -251,11 +240,27 @@ const Field = defineComponent({
             schemaRef.value.class,
             schemaRef.value.bordered ? "is-bordered" : ""
           )}
-          style={[attrs.style, props.style, schemaRef.value.style]}
+          style={[
+            attrs.style,
+            props.style,
+            schemaRef.value.style,
+            {
+              "--schemx-content-align": schemaRef.value.contentAlign,
+              "--schemx-error-align":
+                schemaRef.value.errorAlign ??
+                formContext.schemaConfig.errorAlign ??
+                "left",
+            },
+          ]}
         >
+          {renderBefore()}
           {fieldContent}
+          {renderError()}
+          {renderAfter()}
         </div>
       )
+
+      return <Col col={schemaRef.value.col ?? schemaRef.value.layout}>{fieldWrapper}</Col>
     }
   },
 })

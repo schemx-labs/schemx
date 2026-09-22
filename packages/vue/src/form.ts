@@ -13,7 +13,7 @@ import Field from "./components/Field"
 import { provideSchemxAppConfig } from "./context/configProviderContext"
 import SchemxForm from "./formRuntime.js"
 
-import type { SchemxVueConfig } from "./types/layout"
+import type { SchemxConfig } from "@schemx/core"
 
 /**
  * SchemxForm 插件安装选项
@@ -30,7 +30,7 @@ import type { SchemxVueConfig } from "./types/layout"
  * })
  * ```
  */
-export interface SchemxInstallOptions extends SchemxVueConfig {}
+export interface SchemxInstallOptions extends SchemxConfig {}
 
 /**
  * 为组件挂载静态属性并保留原始类型

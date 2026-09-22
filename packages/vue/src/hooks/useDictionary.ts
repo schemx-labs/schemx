@@ -55,7 +55,7 @@ export interface UseDictionaryReturn<TOption = unknown> {
 /**
  * useDictionary 返回值的旧类型别名。
  *
- * @deprecated 请使用 `UseDictionaryReturn`。
+ * @deprecated 请改用 {@link UseDictionaryReturn}。
  * @typeParam TOption - 格式化后的字典选项类型。
  */
 export type UseDictOptionsReturn<TOption = unknown> = UseDictionaryReturn<TOption>
