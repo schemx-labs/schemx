@@ -2,13 +2,12 @@
   "schemaVersion": 1,
   "language": "zh-CN",
   "monorepo": {
-    "packageRoots": [
-      "packages"
-    ],
+    "packageRoots": ["packages"],
     "publishPackages": [
       "@schemx/core",
       "@schemx/vue",
-      "@schemx/vant"
+      "@schemx/vant",
+      "@schemx/element-plus"
     ],
     "includeIndirectPackages": "public-api-only",
     "tagPattern": "{packageName}@{version}"
@@ -33,17 +32,8 @@
     "publicDependencyChangesOnly": true
   },
   "automation": {
-    "collectContext": [
-      "node",
-      "{skillRoot}/scripts/collect-context.mjs"
-    ],
-    "validateData": [
-      "node",
-      "{skillRoot}/scripts/validate-release-data.mjs"
-    ],
-    "renderNotes": [
-      "node",
-      "{skillRoot}/scripts/render-release-notes.mjs"
-    ]
+    "collectContext": ["node", "{skillRoot}/scripts/collect-context.mjs"],
+    "validateData": ["node", "{skillRoot}/scripts/validate-release-data.mjs"],
+    "renderNotes": ["node", "{skillRoot}/scripts/render-release-notes.mjs"]
   }
 }

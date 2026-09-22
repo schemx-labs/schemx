@@ -9,6 +9,9 @@ export interface DynamicArrayMember {
 }
 
 export interface FormGroupsValues {
+  test: string
+  test1: string
+  test2: string
   basic: {
     username: string
     website: string

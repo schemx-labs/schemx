@@ -69,6 +69,7 @@
     "schemx",
     "dynamic-form",
     "vant",
+    "element-plus",
     "json-schema"
   ],
   "license": "MIT",

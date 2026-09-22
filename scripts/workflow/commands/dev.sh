@@ -16,7 +16,7 @@ dev_usage() {
 用法：
   bash scripts/workflow.sh dev [target]
 
-target：examples/vant 或 examples/uniapp-vant；非交互环境必须显式提供
+target：examples/vant、examples/element-plus 或 examples/uniapp-vant；非交互环境必须显式提供
 USAGE
 }
 

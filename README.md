@@ -23,6 +23,7 @@ schemx focuses on the parts of dynamic forms that are most likely to become diff
 | [`@schemx/core`](./packages/core)           | Framework-agnostic headless form engine | Build form runtimes, field dependencies, validation, and ViewSchemas |
 | [`@schemx/vue`](./packages/vue)             | Vue 3 adapter                  | Render ViewSchemas as Vue component trees            |
 | [`@schemx/vant`](./packages/vant)           | Vant renderer adapter           | Quickly build mobile dynamic forms with Vant 4     |
+| [`@schemx/element-plus`](./packages/element-plus) | Element Plus renderer adapter | Build dynamic forms with Element Plus              |
 
 ## Quick Start
 
@@ -43,6 +44,9 @@ pnpm add @schemx/vue vue
 
 # Use the built-in Vant Renderer
 pnpm add @schemx/vant vant vue
+
+# Use the built-in Element Plus Renderer
+pnpm add @schemx/element-plus element-plus @element-plus/icons-vue vue
 ```
 
 See the documentation for each package for complete examples, style import instructions, and API details:
@@ -50,6 +54,7 @@ See the documentation for each package for complete examples, style import instr
 - [`@schemx/core` guide](./packages/core/README.md)
 - [`@schemx/vue` guide](./packages/vue/README.md)
 - [`@schemx/vant` guide](./packages/vant/README.md)
+- [`@schemx/element-plus` guide](./packages/element-plus/README.md)
 
 Core validation uses the `required` field, a named rule Registry, and a flat result discriminated by the `valid` field:
 
@@ -97,7 +102,7 @@ raw schemas
 
 `@schemx/vue` only adapts the form to a Vue component tree and does not bind to a specific component library. Business code can use `rendererRegistry` to connect its own inputs, selectors, upload components, or design-system components.
 
-`@schemx/vant` is a collection of Vant 4 renderers for mobile form scenarios. It reuses the capabilities of `@schemx/core` and `@schemx/vue`, and automatically registers the default renderers at the package entry point.
+`@schemx/vant` is a collection of Vant 4 renderers for mobile form scenarios. It reuses the capabilities of `@schemx/core` and `@schemx/vue`, registers default renderers in its exported Registry, and requires Forms to receive that Registry explicitly.
 
 `@schemx/core` includes async-validator descriptor support as a built-in capability. `@schemx/vue` and `@schemx/vant` install their required Schemx lower-layer packages automatically; Vue and Vant remain peer dependencies and must be declared by business projects when used.
 
@@ -142,11 +147,12 @@ const schemas = [
 
 Dependency's `to` only rebuilds the dynamic subtree; container `dependencies.triggerFields` only updates presentation state. They can observe the same field, but must be declared separately. Container dependencies support only `visible`, `readonly`, and `disabled`; side-effect-based `trigger` is not supported.
 
-You can interact with Group and Dependency container state in the [Vant example project](./examples/vant).
+You can interact with Group and Dependency container state in the [Vant example project](./examples/vant) or the [Element Plus example project](./examples/element-plus).
 
 ## Examples
 
 - [Vant Example](./examples/vant/README.md): covers built-in Renderers, validation, dependencies, dynamic Schemas, container state, and slots.
+- [Element Plus Example](./examples/element-plus): covers the Element Plus Renderer set and native form controls.
 - [uni-app + Vant Example](./examples/uniapp-vant): validates integration across H5 and multiple mini-program build targets.
 
 ## Local Development
@@ -162,6 +168,7 @@ You can also bypass interactive selection and run a specific workspace directly:
 
 ```bash
 pnpm --filter vant-demo dev
+pnpm --filter element-plus-demo dev
 ```
 
 | Command               | Description                                                                                  |
@@ -215,7 +222,7 @@ Release is an independent command domain that uses the `release:*` prefix.
 
 ## Release Scripts
 
-Release scripts are all run through `pnpm release:*`. Commands involving package targets support `all`, `core`, `vue`, and `vant`:
+Release scripts are all run through `pnpm release:*`. Commands involving package targets support `all`, `core`, `vue`, `vant`, and `element-plus`:
 
 - When `release:publish` receives no arguments, it sequentially selects the release channel, release target, and version baseline action; release targets support space-separated multi-selection.
 - `release:pack` targets `all` by default.

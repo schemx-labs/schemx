@@ -97,6 +97,7 @@ build/Release
 !packages/core/.env
 !packages/vue/.env
 !packages/vant/.env
+!packages/element-plus/.env
 .env.local
 .env.*.local
 

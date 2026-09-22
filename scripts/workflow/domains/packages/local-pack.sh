@@ -77,12 +77,16 @@ packages__pack_expand_packages() {
   local emitted=$'\n'
 
   # 缺失的内部 workspace 依赖包需先补齐；已经显式选择的目标则保留用户的选择顺序。
-  # vue/vant 均依赖 @schemx/core，选中任一但未显式选 core 时补齐。
-  if [[ "$selected" == *$'\nvue\n'* || "$selected" == *$'\nvant\n'* ]] && [[ "$selected" != *$'\ncore\n'* ]]; then
+  # vue/vant/element-plus 均依赖 @schemx/core，选中任一但未显式选 core 时补齐。
+  if [[ "$selected" == *$'\nvue\n'* || "$selected" == *$'\nvant\n'* || "$selected" == *$'\nelement-plus\n'* ]] && [[ "$selected" != *$'\ncore\n'* ]]; then
     printf '%s\n' core
     emitted+="core"$'\n'
   fi
   if [[ "$selected" == *$'\nvant\n'* ]] && [[ "$selected" != *$'\nvue\n'* ]]; then
+    printf '%s\n' vue
+    emitted+="vue"$'\n'
+  fi
+  if [[ "$selected" == *$'\nelement-plus\n'* ]] && [[ "$selected" != *$'\nvue\n'* ]]; then
     printf '%s\n' vue
     emitted+="vue"$'\n'
   fi

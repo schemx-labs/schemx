@@ -3,14 +3,16 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["packages/vue/src/*", "packages/vant/src/*"],
+      "@/*": ["packages/vue/src/*", "packages/vant/src/*", "packages/element-plus/src/*"],
       "@plugins/*": ["plugins/*/index.mjs"],
       "@schemx/core": ["packages/core/src/index.ts"],
       "@schemx/core/*": ["packages/core/src/*"],
       "@schemx/vue": ["packages/vue/src/index.ts"],
       "@schemx/vue/*": ["packages/vue/src/*"],
       "@schemx/vant": ["packages/vant/src/index.ts"],
-      "@schemx/vant/*": ["packages/vant/src/*"]
+      "@schemx/vant/*": ["packages/vant/src/*"],
+      "@schemx/element-plus": ["packages/element-plus/src/index.ts"],
+      "@schemx/element-plus/*": ["packages/element-plus/src/*"]
     },
     "noEmit": true
   },

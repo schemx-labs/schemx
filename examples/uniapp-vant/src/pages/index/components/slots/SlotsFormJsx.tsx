@@ -1,7 +1,7 @@
 /**
  * 插槽系统 JSX 写法示例
  *
- * 演示在 TSX 中通过 v-slots 使用 Schemx 的完整插槽体系。
+ * 演示在 TSX 中通过插槽对象使用 Schemx 的完整插槽体系。
  * 与 SlotsForm.vue 功能对等，展示 JSX 下的等价写法。
  *
  * @remarks
@@ -43,7 +43,8 @@ const schemas: SchemxField[] = [
   {
     name: "email",
     label: "邮箱",
-    componentType: "text",
+    labelPosition: "top",
+    componentType: "input",
     required: true,
     rules: z.string().email("请输入有效的邮箱地址"),
     validationTrigger: "onChange",
@@ -52,17 +53,18 @@ const schemas: SchemxField[] = [
   {
     name: "phone",
     label: "手机号",
-    componentType: "text",
+    componentType: "input",
     componentProps: { placeholder: "请输入手机号", maxlength: 11 },
     rules: z
       .string()
       .min(11, "手机号至少11位")
       .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号"),
   },
-  // 5. kebab-case 插槽演示 — "user-levelLabel"（紫色）
+  // 5. kebab-case 插槽演示 — "user-level-label"（紫色）
   {
     name: "user-level",
     label: "用户等级",
+    labelPosition: "top",
     componentType: "number",
     componentProps: { min: 1, max: 10 },
   },
@@ -82,12 +84,16 @@ const schemas: SchemxField[] = [
   {
     key: "slot-label-group",
     label: "Label 插槽分组",
-    children: [{ name: "labelGroupNote", label: "Label 分组说明", componentType: "text" }],
+    children: [
+      { name: "labelGroupNote", label: "Label 分组说明", componentType: "text" },
+    ],
   },
   {
     key: "slot-content-group",
     label: "Content 插槽分组",
-    children: [{ name: "contentGroupNote", label: "Content 分组说明", componentType: "text" }],
+    children: [
+      { name: "contentGroupNote", label: "Content 分组说明", componentType: "text" },
+    ],
   },
 ]
 
@@ -129,8 +135,8 @@ export default defineComponent({
       <div class="example-container">
         <h2>插槽系统示例（JSX 写法）</h2>
         <p class="description">
-          演示在 TSX 中通过 v-slots 使用 Schemx 的完整插槽体系。 所有插槽名均支持
-          camelCase 和 kebab-case 两种格式。
+          演示在 TSX 中通过插槽对象使用 Schemx 的完整插槽体系。 所有插槽名均支持 camelCase
+          和 kebab-case 两种格式。
         </p>
 
         <Schemx
@@ -146,9 +152,9 @@ export default defineComponent({
           {{
             /**
              * 1. 整体插槽 #{name}
-             * 接管 Field wrapper 内的内容，使用规范字段上下文
+             * 替换标签和控件主体，保留 Before / Error / After
              */
-            username: ({ schema, value }: any) => (
+            username: ({ schema, value, componentProps }: any) => (
               <div class="slot-demo slot-demo--item">
                 <div class="slot-demo__header">
                   <span class="slot-badge slot-badge--blue">整体插槽（JSX）</span>
@@ -161,18 +167,19 @@ export default defineComponent({
                   </label>
                   <input
                     value={value ?? ""}
+                    disabled={componentProps.disabled}
+                    readonly={componentProps.readonly}
                     placeholder="由整体插槽接管内容"
                     class="slot-demo__input"
                     onInput={(e: Event) =>
-                      formRef.value?.setFieldValue(
-                        "username",
-                        (e.target as HTMLInputElement).value
-                      )
+                      componentProps.onChange?.((e.target as HTMLInputElement).value)
                     }
+                    onBlur={() => componentProps.onBlur?.(value)}
                   />
                 </div>
                 <p class="slot-demo__note">
-                  JSX 中通过 children 对象的 key 定义插槽名，value 为渲染函数
+                  整体插槽替换标签和控件主体；Before、Error、After 继续渲染。 通过
+                  componentProps.onChange / onBlur 同步值并触发配置的校验。
                 </p>
               </div>
             ),
@@ -182,13 +189,13 @@ export default defineComponent({
              * 仅替换标签区域，使用规范字段上下文
              */
             emailLabel: ({ schema }: any) => (
-              <div class="slot-demo slot-demo--label">
+              <span class="slot-demo slot-demo--label">
                 <span class="slot-badge slot-badge--green">Label 插槽（JSX）</span>
-                <label class="slot-demo__custom-label">
+                <span class="slot-demo__custom-label">
                   {schema.required && <span class="slot-demo__star">*</span>}
                   📧 {schema.label}
-                </label>
-              </div>
+                </span>
+              </span>
             ),
 
             emailBefore: ({ schema, value }: any) => (
@@ -242,11 +249,11 @@ export default defineComponent({
              * 5. kebab-case 格式的 Label 插槽
              * JSX 中 kebab-case 插槽名需用引号包裹作为对象 key
              */
-            "user-levelLabel": () => (
-              <div class="slot-demo slot-demo--label">
+            "user-level-label": () => (
+              <span class="slot-demo slot-demo--label">
                 <span class="slot-badge slot-badge--purple">kebab-case Label（JSX）</span>
                 <span class="slot-demo__custom-label">🏷️ 用户等级</span>
-              </div>
+              </span>
             ),
 
             /**
@@ -265,10 +272,13 @@ export default defineComponent({
             "slot-groupHeader": ({ schema, collapsed, toggle }: any) => (
               <span class="slot-demo__group-header">
                 <strong>{schema.label}</strong>
-                <button type="button" onClick={(event: MouseEvent) => {
-                  event.stopPropagation()
-                  toggle()
-                }}>
+                <button
+                  type="button"
+                  onClick={(event: MouseEvent) => {
+                    event.stopPropagation()
+                    toggle()
+                  }}
+                >
                   {collapsed ? "展开" : "收起"}
                 </button>
               </span>

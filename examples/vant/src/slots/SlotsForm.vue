@@ -18,10 +18,10 @@
       <!--
         ╔══════════════════════════════════════════════╗
         ║  1. 整体插槽 #{name}                         ║
-        ║  接管 Field wrapper 内的内容，参数为规范字段上下文 ║
+        ║  替换标签和控件主体，保留 Before / Error / After ║
         ╚══════════════════════════════════════════════╝
       -->
-      <template #username="{ schema, value }">
+      <template #username="{ schema, value, componentProps }">
         <div class="slot-demo slot-demo--item">
           <div class="slot-demo__header">
             <span class="slot-badge slot-badge--blue">整体插槽</span>
@@ -34,14 +34,19 @@
             </label>
             <input
               :value="value"
+              :disabled="componentProps.disabled"
+              :readonly="componentProps.readonly"
               placeholder="由整体插槽接管内容"
               class="slot-demo__input"
-              @input="handleUsernameInput"
+              @input="
+                componentProps.onChange?.(($event.target as HTMLInputElement).value)
+              "
+              @blur="componentProps.onBlur?.(value)"
             />
           </div>
           <p class="slot-demo__note">
-            整体插槽替换 Field wrapper 内的默认内容，label / error / content
-            均由插槽自行处理
+            整体插槽替换标签和控件主体；Before、Error、After 继续渲染。 通过
+            componentProps.onChange / onBlur 同步值并触发配置的校验。
           </p>
         </div>
       </template>
@@ -53,13 +58,13 @@
         ╚══════════════════════════════════════════════╝
       -->
       <template #emailLabel="{ schema }">
-        <div class="slot-demo slot-demo--label">
+        <span class="slot-demo slot-demo--label">
           <span class="slot-badge slot-badge--green">Label 插槽</span>
-          <label class="slot-demo__custom-label">
+          <span class="slot-demo__custom-label">
             <span v-if="schema.required" class="slot-demo__star">*</span>
             📧 {{ schema.label }}
-          </label>
-        </div>
+          </span>
+        </span>
       </template>
 
       <template #emailBefore="{ schema, value }">
@@ -98,7 +103,7 @@
             </span>
           </div>
           <div class="slot-demo__renderer-wrap">
-            <component :is="() => columnElement" />
+            <component :is="columnElement" />
           </div>
           <p class="slot-demo__note">
             Content 插槽可以在渲染器前后添加自定义内容，同时保留原始渲染器
@@ -118,11 +123,11 @@
         ║  字段名含连字符时，插槽名自动支持 kebab-case    ║
         ╚══════════════════════════════════════════════╝
       -->
-      <template #user-levelLabel>
-        <div class="slot-demo slot-demo--label">
+      <template #user-level-label>
+        <span class="slot-demo slot-demo--label">
           <span class="slot-badge slot-badge--purple">kebab-case Label</span>
-          <label class="slot-demo__custom-label">🏷️ 用户等级</label>
-        </div>
+          <span class="slot-demo__custom-label">🏷️ 用户等级</span>
+        </span>
       </template>
 
       <!--
@@ -178,7 +183,7 @@
         <div class="slot-reference__card slot-reference__card--blue">
           <div class="slot-reference__title">整体插槽</div>
           <code class="slot-reference__code">#{ name }</code>
-          <div class="slot-reference__desc">替换 Field 内部内容</div>
+          <div class="slot-reference__desc">替换标签和控件主体，保留扩展区与错误区</div>
           <div class="slot-reference__params">
             参数: schema / componentProps / value / field / form
           </div>
@@ -186,7 +191,7 @@
         <div class="slot-reference__card slot-reference__card--green">
           <div class="slot-reference__title">Label 插槽</div>
           <code class="slot-reference__code">#{ name }Label</code>
-          <div class="slot-reference__desc">替换标签区域</div>
+          <div class="slot-reference__desc">替换标签容器内的内容，保留宽度和对齐</div>
           <div class="slot-reference__params">
             参数: schema / componentProps / value / field / form
           </div>
@@ -206,7 +211,7 @@
         <div class="slot-reference__card slot-reference__card--green">
           <div class="slot-reference__title">Before / After 插槽</div>
           <code class="slot-reference__code">#{ name }Before / After</code>
-          <div class="slot-reference__desc">渲染器前后扩展内容</div>
+          <div class="slot-reference__desc">Before 位于主体前，After 位于错误区后</div>
           <div class="slot-reference__params">
             参数: schema / componentProps / value / field / form
           </div>
@@ -231,7 +236,7 @@
         </div>
         <div class="slot-reference__card slot-reference__card--purple">
           <div class="slot-reference__title">kebab-case 插槽</div>
-          <code class="slot-reference__code">#user-levelLabel</code>
+          <code class="slot-reference__code">#user-level-label</code>
           <div class="slot-reference__desc">连字符字段名插槽</div>
           <div class="slot-reference__params">
             参数: schema / componentProps / value / field / form
@@ -250,6 +255,7 @@
 
 <script setup lang="ts">
   import { ref } from "vue"
+
   import { Button } from "vant"
 
   import "./slots.css"
@@ -264,17 +270,6 @@
 
   /** 表单数据，通过 v-model 双向绑定实时同步 */
   const formData = ref<Record<string, any>>({})
-
-  /**
-   * 处理 username 输入事件
-   *
-   * 整体插槽完全接管渲染后，需手动同步输入值到表单状态。
-   *
-   * @param e - 原生 input 事件
-   */
-  const handleUsernameInput = (e: Event) => {
-    formRef.value?.setFieldValue("username", (e.target as HTMLInputElement).value)
-  }
 
   /**
    * 表单 Schema 配置
@@ -304,7 +299,8 @@
     {
       name: "email",
       label: "邮箱",
-      componentType: "text",
+      labelPosition: "top",
+      componentType: "input",
       required: true,
       rules: z.string().email("请输入有效的邮箱地址"),
       validationTrigger: "onChange",
@@ -313,7 +309,7 @@
     {
       name: "phone",
       label: "手机号",
-      componentType: "text",
+      componentType: "input",
       componentProps: {
         placeholder: "请输入手机号",
         maxlength: 11,
@@ -323,10 +319,11 @@
         .min(11, "手机号至少11位")
         .regex(/^1[3-9]\d{9}$/, "请输入正确的手机号"),
     },
-    // 5. kebab-case 插槽演示 — #user-levelLabel（紫色）
+    // 5. kebab-case 插槽演示 — #user-level-label（紫色）
     {
       name: "user-level",
       label: "用户等级",
+      labelPosition: "top",
       componentType: "number",
       componentProps: {
         min: 1,

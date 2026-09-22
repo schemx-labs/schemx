@@ -1,5 +1,5 @@
 import type { Values } from "@schemx/core"
-import type { SchemxVueBaseComponentProps } from "@schemx/vue"
+import type { SchemxBaseComponentProps } from "@schemx/vue"
 
 /** 自定义联系人 Renderer 的字段值。 */
 export interface ContactCardValue {
@@ -14,7 +14,7 @@ export interface ContactCardValue {
  * 内部可以自由组合多个 Vant 子控件。
  */
 export interface ContactCardRendererProps<TValues extends Values = Values> extends Omit<
-  SchemxVueBaseComponentProps<TValues>,
+  SchemxBaseComponentProps<TValues>,
   "value" | "onChange" | "onBlur" | "onUpdate:value"
 > {
   value?: ContactCardValue

@@ -26,10 +26,10 @@ assert_equals "$(versions_baseline 0.2.3 minor)" '0.3.0'
 assert_equals "$(versions_release_version beta 1.0.0 2)" '1.0.0-beta.2'
 assert_equals "$(SCHEMX_RELEASE_TIMESTAMP=20260730120000 SCHEMX_RELEASE_SHA=abc1234 versions_release_version dev 1.0.0)" '1.0.0-dev.20260730120000.abc1234'
 assert_equals "$(targets_resolve vue,core)" $'core\nvue'
-assert_equals "$(targets_resolve all)" $'core\nvant\nvue\nvite-plugin-package-resolution-compat\nvite-plugin-realpath-fallback\nvite-plugin-workspace-source'
+assert_equals "$(targets_resolve all)" $'core\nelement-plus\nvant\nvue\nvite-plugin-package-resolution-compat\nvite-plugin-realpath-fallback\nvite-plugin-workspace-source'
 assert_equals "$(targets_package_dir vite-plugin-realpath-fallback)" 'plugins/vite-plugin-realpath-fallback'
 assert_equals "$(targets_package_name vite-plugin-realpath-fallback)" '@schemx/vite-plugin-realpath-fallback'
-assert_equals "$(targets_grouped_options)" $'group:::packages:::Packages\npackages:::core:::@schemx/core · packages/core\npackages:::vant:::@schemx/vant · packages/vant\npackages:::vue:::@schemx/vue · packages/vue\ngroup:::plugins:::Plugins\nplugins:::vite-plugin-package-resolution-compat:::@schemx/vite-plugin-package-resolution-compat · plugins/vite-plugin-package-resolution-compat\nplugins:::vite-plugin-realpath-fallback:::@schemx/vite-plugin-realpath-fallback · plugins/vite-plugin-realpath-fallback\nplugins:::vite-plugin-workspace-source:::@schemx/vite-plugin-workspace-source · plugins/vite-plugin-workspace-source'
+assert_equals "$(targets_grouped_options)" $'group:::packages:::Packages\npackages:::core:::@schemx/core · packages/core\npackages:::element-plus:::@schemx/element-plus · packages/element-plus\npackages:::vant:::@schemx/vant · packages/vant\npackages:::vue:::@schemx/vue · packages/vue\ngroup:::plugins:::Plugins\nplugins:::vite-plugin-package-resolution-compat:::@schemx/vite-plugin-package-resolution-compat · plugins/vite-plugin-package-resolution-compat\nplugins:::vite-plugin-realpath-fallback:::@schemx/vite-plugin-realpath-fallback · plugins/vite-plugin-realpath-fallback\nplugins:::vite-plugin-workspace-source:::@schemx/vite-plugin-workspace-source · plugins/vite-plugin-workspace-source'
 targets_has_script vite-plugin-realpath-fallback type-check
 if targets_has_script vite-plugin-realpath-fallback lint; then
   printf '断言失败：未定义 lint script 的插件不应进入 lint 检查。\n' >&2

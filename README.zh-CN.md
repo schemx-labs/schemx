@@ -23,6 +23,7 @@ schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、�
 | [`@schemx/core`](./packages/core)           | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas     |
 | [`@schemx/vue`](./packages/vue)             | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树                 |
 | [`@schemx/vant`](./packages/vant)           | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单               |
+| [`@schemx/element-plus`](./packages/element-plus) | Element Plus Renderer 适配包 | 使用 Element Plus 构建动态表单               |
 
 ## 快速开始
 
@@ -43,6 +44,9 @@ pnpm add @schemx/vue vue
 
 # 使用内置 Vant Renderer
 pnpm add @schemx/vant vant vue
+
+# 使用内置 Element Plus Renderer
+pnpm add @schemx/element-plus element-plus @element-plus/icons-vue vue
 ```
 
 各入口的完整示例、样式导入方式和 API 说明见对应的包文档：
@@ -50,6 +54,7 @@ pnpm add @schemx/vant vant vue
 - [`@schemx/core` 使用说明](./packages/core/README.md)
 - [`@schemx/vue` 使用说明](./packages/vue/README.md)
 - [`@schemx/vant` 使用说明](./packages/vant/README.md)
+- [`@schemx/element-plus` 使用说明](./packages/element-plus/README.md)
 
 Core 校验使用 `required` 字段、命名规则 Registry，以及以 `valid` 为判别字段的扁平结果：
 
@@ -97,7 +102,7 @@ raw schemas
 
 `@schemx/vue` 只负责 Vue 组件树的适配，不绑定具体组件库。业务可以通过 `rendererRegistry` 接入自己的输入框、选择器、上传组件或设计系统组件。
 
-`@schemx/vant` 是基于 Vant 4 的 renderer 集合，面向移动端表单场景。它复用 `@schemx/core` 和 `@schemx/vue` 的能力，并在包入口自动注册默认 renderer。
+`@schemx/vant` 是基于 Vant 4 的 renderer 集合，面向移动端表单场景。它复用 `@schemx/core` 和 `@schemx/vue` 的能力，并将默认 renderer 注册到包级 Registry，使用时通过 Form Props 或 `ConfigProvider` 显式传入。
 
 `@schemx/core` 内置 async-validator 规则支持。`@schemx/vue` 和 `@schemx/vant` 会自动安装必需的 Schemx 下层包；Vue 和 Vant 仍是 peer dependencies，使用时需由业务项目显式声明。
 
@@ -142,11 +147,12 @@ const schemas = [
 
 Dependency 的 `to` 只负责重建动态子树；容器 `dependencies.triggerFields` 只负责更新呈现状态。两者可以监听同一字段，但需要分别声明。容器 dependencies 只支持 `visible`、`readonly`、`disabled`，不支持副作用型 `trigger`。
 
-可在 [Vant 示例项目](./examples/vant) 中直接操作 Group 和 Dependency 的容器状态。
+可在 [Vant 示例项目](./examples/vant) 或 [Element Plus 示例项目](./examples/element-plus) 中直接操作 Group 和 Dependency 的容器状态。
 
 ## 示例项目
 
 - [Vant 示例](./examples/vant/README.md)：覆盖内置 Renderer、校验、联动、动态 Schema、容器状态和插槽。
+- [Element Plus 示例](./examples/element-plus)：覆盖 Element Plus Renderer 和原生表单控件。
 - [uni-app + Vant 示例](./examples/uniapp-vant)：验证 H5 与多种小程序构建目标下的集成方式。
 
 ## 本地开发
@@ -162,6 +168,7 @@ pnpm dev
 
 ```bash
 pnpm --filter vant-demo dev
+pnpm --filter element-plus-demo dev
 ```
 
 | 命令                  | 作用                                                                                  |
@@ -227,7 +234,7 @@ JSONL 生命周期事件；相邻 UI 输出块之间保持 1 条带前置 `│` 
 
 ## 发布脚本
 
-发布脚本统一通过 `pnpm release:*` 执行。涉及包目标的命令都支持 `all`、`core`、`vue`、`vant`：
+发布脚本统一通过 `pnpm release:*` 执行。涉及包目标的命令都支持 `all`、`core`、`vue`、`vant`、`element-plus`：
 
 - `release:publish` 不传参数时会依次选择发布通道、发布目标和版本基线动作；发布目标支持空格多选。
 - `release:pack` 默认目标为 `all`。

@@ -36,6 +36,28 @@
   /** 合并表单 Schema，覆盖全部内置 Renderer、Dynamic 和 Dependency 能力。 */
   const schemas: SchemxField<FormGroupsValues>[] = [
     {
+      name: "test",
+      label: "用户名（text）",
+      componentType: "text",
+      required: true,
+      componentProps: { placeholder: "请输入用户名" },
+      labelPosition: "top",
+    },
+    {
+      name: "test1",
+      label: "用户名（text）",
+      componentType: "text",
+      required: true,
+      componentProps: { placeholder: "请输入用户名" },
+    },
+    {
+      name: "test2",
+      label: "用户名（text）",
+      componentType: "text",
+      required: true,
+      componentProps: { placeholder: "请输入用户名" },
+    },
+    {
       key: "basic-group",
       label: "基础表单 · 全部 Renderer",
       collapsible: true,
@@ -50,7 +72,6 @@
               componentType: "text",
               required: true,
               componentProps: { placeholder: "请输入用户名" },
-              disabled: true,
             },
             {
               name: "basic.website",

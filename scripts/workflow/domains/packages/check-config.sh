@@ -145,6 +145,7 @@ packages_check_config() {
   for package_file in \
     packages/vue/package.json \
     packages/vant/package.json \
+    packages/element-plus/package.json \
     packages/core/package.json; do
     packages__config_require_package_file "$package_file"
   done
@@ -152,10 +153,13 @@ packages_check_config() {
     packages__config_validate_internal_dependency packages/vue/package.json @schemx/core
     packages__config_validate_internal_dependency packages/vant/package.json @schemx/core
     packages__config_validate_internal_dependency packages/vant/package.json @schemx/vue
+    packages__config_validate_internal_dependency packages/element-plus/package.json @schemx/core
+    packages__config_validate_internal_dependency packages/element-plus/package.json @schemx/vue
     for package_file in \
       packages/core/package.json \
       packages/vue/package.json \
-      packages/vant/package.json; do
+      packages/vant/package.json \
+      packages/element-plus/package.json; do
       packages__config_validate_vite_scripts "$package_file"
     done
   fi
@@ -163,6 +167,7 @@ packages_check_config() {
   packages__config_validate_required_text packages/core/.env VITE_ANALYZE=
   packages__config_validate_required_text packages/vue/.env VITE_USE_SOURCE= VITE_ANALYZE=
   packages__config_validate_required_text packages/vant/.env VITE_USE_SOURCE= VITE_ANALYZE=
+  packages__config_validate_required_text packages/element-plus/.env VITE_USE_SOURCE= VITE_ANALYZE=
   packages__config_validate_forbidden_text packages/vant/package.json standalone normalize-vant-dts '--mode standalone'
   packages__config_validate_forbidden_text packages/vant/.env VITE_BUILD_STANDALONE
   packages__config_validate_forbidden_text .gitignore packages/vant/.env.standalone

@@ -43,7 +43,7 @@ release_usage() {
   bash scripts/workflow.sh release execute <plan-file>
 
 channel：dev、alpha、beta、rc、next、latest
-target：all、core、vue、vant，或以英文逗号分隔的多个包
+target：all、core、vue、vant、element-plus，或以英文逗号分隔的多个包
 version-action：patch、minor、major、current（仅 latest）或精确 x.y.z
 USAGE
 }
