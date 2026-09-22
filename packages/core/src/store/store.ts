@@ -96,6 +96,14 @@ function resolveSetValuesAction<TValues extends Values>(
   )
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false
+
+  const prototype = Object.getPrototypeOf(value)
+
+  return prototype === Object.prototype || prototype === null
+}
+
 // Store 的唯一状态实现，统一管理值、路径状态、数组结构和快照。
 class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   // 管理唯一值树、字段级 revision 和 touched/pending 状态。
@@ -107,6 +115,10 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   private readonly formRevision = createSignal(0)
   // 任意初始值变更都会递增的初始值版本。
   private readonly initialFormRevision = createSignal(0)
+  // 每次当前值写入或显式重置都会递增，即使新旧值相等。
+  private mutationRevision = 0
+  private resetRevision = 0
+  private readonly resetListeners = new Set<() => void>()
   // 快照对应的当前值版本。
   private snapshotRevision = -1
   // 当前版本缓存的独立全表快照。
@@ -213,6 +225,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     path: TName,
     action: SetValueAction<TValues, TName>
   ): void {
+    this.mutationRevision += 1
     batchUpdates(() => {
       const previousValue = this.fieldStates.peekFieldValue(path)
 
@@ -226,7 +239,10 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
         return
       }
 
+      const previousArrayValues = this.captureNestedArrayValues(path)
+
       this.fieldStates.setFieldValue(path, nextValue)
+      this.syncNestedArrayStates(previousArrayValues, path)
     })
   }
 
@@ -236,6 +252,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @param path - 要删除的字段路径；不会修改初始值。
    */
   removeFieldValue<TName extends NamePath<TValues>>(path: TName): void {
+    this.mutationRevision += 1
     batchUpdates(() => {
       const arrayState = this.arrays.get(createFieldKey(path))
 
@@ -258,6 +275,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @param action - 要合并写入的字段值对象或基于当前值计算下一值的 updater。
    */
   setFieldsValue(action: SetValuesAction<TValues>): void {
+    this.mutationRevision += 1
     const values = resolveSetValuesAction(
       action,
       this.fieldStates.peekFieldValue("" as NamePath<TValues>) as TValues
@@ -274,7 +292,10 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
         if (arrayState) {
           this.updateArrayRoot(arrayState, value)
         } else {
+          const previousArrayValues = this.captureNestedArrayValues(path)
+
           this.fieldStates.setFieldValue(path, value)
+          this.syncNestedArrayStates(previousArrayValues, path)
         }
       }
     })
@@ -535,7 +556,12 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   ): void {
     batchUpdates(() => {
       this.fieldStates.setFieldPending(path, pending, message)
+      if (!pending) this.fieldStates.clearFieldPendingErrors(path)
     })
+  }
+
+  clearFieldPendingErrors(path: NamePath<TValues>): void {
+    this.fieldStates.clearFieldPendingErrors(path)
   }
 
   /**
@@ -715,6 +741,9 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @param path - 要重置的字段路径。
    */
   resetField<TName extends NamePath<TValues>>(path: TName): void {
+    this.mutationRevision += 1
+    this.resetRevision += 1
+    this.notifyResetListeners()
     batchUpdates(() => {
       const arrayState = this.arrays.get(createFieldKey(path))
 
@@ -728,6 +757,15 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
 
       this.fieldStates.setFieldValue(path, this.fieldStates.peekFieldInitialValue(path))
       this.fieldStates.clearFieldTransientState(path)
+      for (const state of this.fieldStates.getFieldStates()) {
+        if (
+          createFieldKey(state.path) === createFieldKey(path) ||
+          isDescendantFieldPath(state.path, path)
+        ) {
+          this.fieldStates.clearFieldErrors(state.path)
+        }
+      }
+
       this.rebuildNestedArrayKeys(path, previousArrayLengths)
     })
   }
@@ -738,6 +776,9 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @param paths - 要重置的字段路径列表。
    */
   resetFields<TName extends NamePath<TValues>>(paths: TName[]): void {
+    this.mutationRevision += 1
+    this.resetRevision += 1
+    this.notifyResetListeners()
     batchUpdates(() => {
       for (const path of paths) {
         this.resetField(path)
@@ -754,6 +795,9 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @param values - 可选的新完整初始值；省略时恢复现有初始值。
    */
   reset(values?: Partial<TValues>): void {
+    this.mutationRevision += 1
+    this.resetRevision += 1
+    this.notifyResetListeners()
     const nextInitialValues =
       values === undefined
         ? (cloneDeep(
@@ -810,13 +854,99 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     this.fieldStates.invalidateFieldArrayErrors(path, change)
   }
 
+  getMutationRevision(): number {
+    return this.mutationRevision
+  }
+
+  getResetRevision(): number {
+    return this.resetRevision
+  }
+
+  subscribeResets(listener: () => void): () => void {
+    this.resetListeners.add(listener)
+    let active = true
+
+    return () => {
+      if (!active) return
+      active = false
+      this.resetListeners.delete(listener)
+    }
+  }
+
   // 清理值树、路径状态、数组结构和快照缓存，使 Store 回到空状态。
   destroy(): void {
+    this.notifyResetListeners()
+    this.resetListeners.clear()
     this.fieldStates.destroy()
 
     this.arrays.clear()
     this.snapshotCache = undefined
     this.snapshotRevision = -1
+  }
+
+  private notifyResetListeners(): void {
+    for (const listener of [...this.resetListeners]) listener()
+  }
+
+  private captureNestedArrayValues(path: NamePath<TValues>): Map<FieldKey, unknown> {
+    const values = new Map<FieldKey, unknown>()
+
+    for (const state of this.arrays.values()) {
+      if (
+        isDescendantFieldPath(state.path, path) ||
+        isDescendantFieldPath(path, state.path)
+      ) {
+        values.set(
+          createFieldKey(state.path),
+          this.fieldStates.peekFieldValue(state.path)
+        )
+      }
+    }
+
+    return values
+  }
+
+  private syncNestedArrayStates(
+    previousValues: ReadonlyMap<FieldKey, unknown>,
+    changedPath?: NamePath<TValues>
+  ): void {
+    for (const state of this.arrays.values()) {
+      const key = createFieldKey(state.path)
+
+      if (!previousValues.has(key)) continue
+
+      const previousValue = previousValues.get(key)
+
+      const nextValue = this.fieldStates.peekFieldValue(state.path)
+
+      const previousItems = Array.isArray(previousValue) ? previousValue : []
+
+      const nextItems = Array.isArray(nextValue) ? nextValue : []
+
+      const previousKeys = [...state.keys.peek()]
+
+      const isNestedItemWrite =
+        changedPath !== undefined && isDescendantFieldPath(changedPath, state.path)
+
+      const nextKeys =
+        isNestedItemWrite && previousItems.length === nextItems.length
+          ? previousKeys
+          : this.reconcileArrayKeys(state, previousItems, nextItems, previousKeys)
+
+      const ranges = this.createKeyChangeRanges(previousKeys, nextKeys)
+
+      if (this.areKeysEqual(previousKeys, nextKeys)) continue
+
+      const change: FieldArrayChange = {
+        previousLength: previousItems.length,
+        nextLength: nextItems.length,
+        ranges,
+      }
+
+      state.keys.value = nextKeys
+      this.fieldStates.notifyFieldArrayChange(state.path, change)
+      state.change.value = change
+    }
   }
 
   /**
@@ -862,7 +992,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       for (const [key, value] of Object.entries(object)) {
         const path = (prefix ? `${prefix}.${key}` : key) as NamePath<TValues>
 
-        if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+        if (isPlainObject(value)) {
           collectPaths(value, String(path))
           continue
         }

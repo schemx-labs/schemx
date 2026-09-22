@@ -25,6 +25,11 @@ import type { FieldNode } from "../node"
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
  * @param context - 运行时上下文
+ *
+ * @example
+ * ```ts
+ * mountFieldResources(fieldNode, runtimeContext)
+ * ```
  */
 export function mountFieldResources<TValues extends Values>(
   node: FieldNode<TValues>,
@@ -45,6 +50,12 @@ export function mountFieldResources<TValues extends Values>(
  * @param node - 目标字段运行时节点
  * @param previousNode - 更新前的字段运行时节点快照
  * @param context - 运行时上下文
+ * @returns 仅当路径变化且旧字段设置 `preserve: false` 时返回旧路径。
+ *
+ * @example
+ * ```ts
+ * const removedPath = updateFieldResources(fieldNode, previousNode, runtimeContext)
+ * ```
  */
 export function updateFieldResources<TValues extends Values>(
   node: FieldNode<TValues>,
@@ -100,6 +111,11 @@ export function updateFieldResources<TValues extends Values>(
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
  * @param context - 运行时上下文
+ *
+ * @example
+ * ```ts
+ * unmountFieldResources(fieldNode, runtimeContext)
+ * ```
  */
 export function unmountFieldResources<TValues extends Values>(
   node: FieldNode<TValues>,
@@ -154,6 +170,7 @@ function recreateValidationEffect<TValues extends Values>(
     name: node.name.value,
     validationState: node.validationState,
     scope: validationEffectScope,
+    placeholder: () => node.resolvedSchema.peek().placeholder,
   })
 
   validationEffectScope.add(() => {
@@ -241,13 +258,14 @@ function applyFieldInitialValue<TValues extends Values>(
 
   const initialValue = compiledSchema.initialValue as never
 
-  const initialValues = {} as Partial<TValues>
+  if (store.setInitialValue) {
+    store.setInitialValue(node.name.value, initialValue)
+  } else {
+    const initialValues = {} as Partial<TValues>
 
-  setByPath<TValues, NamePath<TValues>, never>(
-    initialValues,
-    node.name.value,
-    initialValue
-  )
-  store.setInitialValues(initialValues)
+    setByPath(initialValues, node.name.value, initialValue)
+    store.setInitialValues(initialValues)
+  }
+
   store.setFieldValue(node.name.value, initialValue)
 }

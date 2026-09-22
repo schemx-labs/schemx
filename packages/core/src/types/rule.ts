@@ -17,9 +17,9 @@ import type { ValidationRule } from "../validator/types"
  *
  * @example
  * ```ts
- * const required: RequiredOptions<string> = {
- *   message: "请输入姓名",
- *   isEmpty: (value) => !value?.trim(),
+ * const required: RequiredOptions<string[]> = {
+ *   message: "请选择至少一项",
+ *   isEmpty: (value) => value == null || value.length === 0,
  * }
  * ```
  */

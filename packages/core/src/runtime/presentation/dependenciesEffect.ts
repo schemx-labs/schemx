@@ -6,6 +6,7 @@
 
 import {
   createDependencySchedulerEffect,
+  createGuardedFormApi,
   resolveDependencyOverrides,
 } from "../dependencyScheduler"
 
@@ -79,6 +80,17 @@ export interface CreatePresentationDependenciesEffectOptions<
  * @typeParam TValues - 当前表单值类型。
  * @param options - 容器 Node 和资源作用域。
  *
+ * @example
+ * ```ts
+ * createPresentationDependenciesEffect({
+ *   context,
+ *   taskId,
+ *   node,
+ *   schemaLabel,
+ *   scope,
+ * })
+ * ```
+ *
  * @remarks
  * 具体的字段订阅、异步竞态和 `trigger` 执行由通用依赖 effect 负责。
  */
@@ -98,11 +110,11 @@ export function createPresentationDependenciesEffect<TValues extends Values>(
     triggerFields: dependencies.triggerFields,
     taskId,
     scope,
-    run: () =>
+    run: (signal) =>
       resolveDependencyOverrides<TValues, PresentationDependencyOverrides>(
         dependencies,
         PRESENTATION_DEPENDENCY_OVERRIDE_KEYS,
-        context.formApi,
+        createGuardedFormApi(context.formApi, signal),
         schemaLabel
       ),
     onSuccess: (dependencyOverrides) => {

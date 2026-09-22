@@ -174,16 +174,26 @@ export function collectObjectPathsByLeaf<
     const value = obj[key]
 
     if (Array.isArray(value)) {
+      if (value.length === 0) {
+        paths.push(path as TName)
+        continue
+      }
+
       value.forEach((item: unknown, index: number) => {
         const itemPath = `${path}[${index}]` as TName
 
-        if (item !== null && typeof item === "object") {
+        if (isPlainObject(item) && Object.keys(item).length > 0) {
           paths.push(...(collectObjectPathsByLeaf(item, itemPath as string) as TName[]))
         } else {
           paths.push(itemPath)
         }
       })
-    } else if (value !== null && typeof value === "object") {
+    } else if (isPlainObject(value)) {
+      if (Object.keys(value).length === 0) {
+        paths.push(path as TName)
+        continue
+      }
+
       paths.push(...(collectObjectPathsByLeaf(value, path) as TName[]))
     } else {
       paths.push(path as TName)
@@ -191,6 +201,14 @@ export function collectObjectPathsByLeaf<
   }
 
   return paths
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false
+
+  const prototype = Object.getPrototypeOf(value)
+
+  return prototype === Object.prototype || prototype === null
 }
 
 /**

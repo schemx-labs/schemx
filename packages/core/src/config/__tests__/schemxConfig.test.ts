@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createForm } from "../../createForm"
 import { createRendererRegistry } from "../../registry"
-import { configureSchemx } from "../schemxConfig"
+import { configureSchemx, getGlobalSchemxConfig } from "../schemxConfig"
 
 import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
 import type { SchemxRendererPropsMap, Values } from "../../types"
@@ -46,6 +46,14 @@ function findField<TValues extends Values>(
 }
 
 describe("configureSchemx", () => {
+  it("无参数调用会重置模块级全局配置", () => {
+    configureSchemx({ schemaConfig: { readonly: true } })
+
+    configureSchemx()
+
+    expect(getGlobalSchemxConfig().schemaConfig).toMatchObject({})
+  })
+
   it("仅影响之后创建的 Form，并由 Form adapter 覆盖同 id 全局 adapter", async () => {
     const globalAdapter = createTestAdapter("test", () => [
       {

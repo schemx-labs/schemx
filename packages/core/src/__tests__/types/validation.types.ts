@@ -1,10 +1,17 @@
-import { createForm, createPresetRuleRegistry } from "../../index"
+import {
+  createForm,
+  createPresetRuleRegistry,
+  createValidationCancelled,
+  createValidationFailure,
+  createValidationSuccess,
+} from "../../index"
 
 import type {
   AdapterRule,
   AsyncValidatorDescriptor,
   AsyncValidatorRule,
   FieldRules,
+  FieldValidationError,
   FormSchemaOptions,
   PresetRuleEntry,
   PresetRuleFactory,
@@ -20,8 +27,11 @@ import type {
   ValidationAdapter,
   ValidationAdapterRule,
   ValidationAdapterV1,
+  ValidationCancelled,
   ValidationError,
+  ValidationFailure,
   ValidationResult,
+  ValidationSuccess,
 } from "../../index"
 
 type CoreExports = typeof import("../../index")
@@ -246,7 +256,7 @@ registry.registerAll({
 const stableContextFactory: PresetRuleFactory<string> = (context) => {
   const label: string = context.label
 
-  const required: boolean = context.required
+  const required: RequiredConfig = context.required
 
   void label
   void required
@@ -326,8 +336,10 @@ const inferredFieldResult: Promise<ValidationResult<FormValues, "email">> =
 declare const fieldErrors: ReturnType<typeof typedForm.getFieldErrors>
 // @ts-expect-error 字段错误快照是只读数组。
 fieldErrors.push("外部修改")
-if (!result.valid) {
-  const error: ValidationError<"email"> = result.errors[0]
+if (!result.cancelled && !result.valid) {
+  const error = result.errors[0]
+
+  if (error === undefined) throw new Error("缺少校验错误")
 
   if (error.scope === "field") {
     const name: "email" = error.name
@@ -355,3 +367,78 @@ void inferredFieldResult
 void externalAdapter
 void versionedExternalAdapter
 void versionedRuleInput
+
+// 仅为完整校验结果提供工厂，保留具体分支和字段字面量。
+const helperValues = { email: "invalid", age: 18, files: [] }
+
+const helperFieldError: FieldValidationError<"email"> = {
+  scope: "field",
+  name: "email",
+  issues: [{ message: "邮箱格式错误", code: "email" }],
+}
+
+const helperSuccess: ValidationSuccess<FormValues> = createValidationSuccess(helperValues)
+
+const helperCancelled: ValidationCancelled<FormValues> =
+  createValidationCancelled(helperValues)
+
+const helperFailure: ValidationFailure<FormValues, "email"> = createValidationFailure(
+  helperValues,
+  [helperFieldError, { scope: "form", issues: [{ message: "无法提交表单" }] }]
+)
+
+createValidationFailure(helperValues, [
+  {
+    scope: "field",
+    // @ts-expect-error 失败结果不能包含表单类型中不存在的字段路径。
+    name: "missing",
+    issues: [{ message: "字段不存在" }],
+  },
+])
+const emptyFailure: ValidationFailure<FormValues> = {
+  valid: false,
+  values: helperValues,
+  errors: [],
+}
+
+const cancelledSuccess: ValidationSuccess<FormValues> = {
+  valid: true,
+  // @ts-expect-error 成功结果不能同时标记为取消。
+  cancelled: true,
+  values: helperValues,
+  errors: [],
+}
+
+const successWithErrors: ValidationSuccess<FormValues> = {
+  valid: true,
+  values: helperValues,
+  // @ts-expect-error 成功结果不能携带错误。
+  errors: [helperFieldError],
+}
+
+const cancelledWithErrors: ValidationCancelled<FormValues> = {
+  valid: false,
+  cancelled: true,
+  values: helperValues,
+  // @ts-expect-error 取消结果不能携带过期错误。
+  errors: [helperFieldError],
+}
+
+// 允许先排除取消状态，普通失败分支的首个错误确定存在。
+if (result.cancelled) {
+  const cancelledErrors: readonly [] = result.errors
+
+  void cancelledErrors
+} else if (!result.valid) {
+  const firstError: ValidationError<"email"> = result.errors[0]
+
+  void firstError
+}
+
+void helperSuccess
+void helperCancelled
+void helperFailure
+void emptyFailure
+void cancelledSuccess
+void successWithErrors
+void cancelledWithErrors

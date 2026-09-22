@@ -6,7 +6,12 @@
  * @module types/instance
  */
 
-import type { PresetRuleEntry, RegistryOptions } from "../registry"
+import type {
+  PresetRuleEntry,
+  RegistryOptions,
+  RendererDescriptor,
+  RendererEntry,
+} from "../registry"
 import type { SchemxViewSchema } from "../runtime/view"
 import type { StorePending } from "../store"
 import type { ValidationResult } from "../validator"
@@ -614,6 +619,19 @@ export interface SchemxInstance<TValues extends Values = Values> {
   getRenderer: (type: SchemxRendererKey) => unknown | undefined
 
   /**
+   * 获取指定类型的规范化 Renderer 条目。
+   *
+   * 与 `getRenderer` 一样在未命中时使用 Registry fallback；除组件外，条目还包含
+   * 可选的 `transformProps`。
+   *
+   * @param type - 渲染器类型标识
+   * @returns Renderer 条目，未找到时返回 undefined
+   */
+  getRendererEntry: <TKey extends SchemxRendererKey<TValues>>(
+    type: TKey
+  ) => RendererEntry<unknown, TValues, TKey> | undefined
+
+  /**
    * 注册渲染器组件
    *
    * 将渲染器组件注册到内部的 RendererRegistry，
@@ -627,7 +645,18 @@ export interface SchemxInstance<TValues extends Values = Values> {
    * form.registerRenderer('input', InputComponent)
    * ```
    */
-  registerRenderer: (type: SchemxRendererKey, renderer: unknown) => void
+  registerRenderer: {
+    <TKey extends SchemxRendererKey<TValues>>(
+      type: TKey,
+      renderer: RendererDescriptor<unknown, TValues, TKey>,
+      options?: RegistryOptions
+    ): void
+    <TKey extends SchemxRendererKey<TValues>>(
+      type: TKey,
+      renderer: unknown,
+      options?: RegistryOptions
+    ): void
+  }
 
   /**
    * 检查指定类型的渲染器是否已注册

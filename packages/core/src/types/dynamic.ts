@@ -299,17 +299,13 @@ export interface SchemxDynamicField<
 
   /**
    * 展示名称。
-   *
-   * @deprecated Dynamic 展示配置由 UI 适配层拥有；兼容期间仍保留。
    */
   label?: string
 
   /**
-   * Dynamic 容器在 24 栅格布局容器中的静态布局配置。
+   * Dynamic 容器的旧版静态布局配置。
    *
-   * Core 会将该配置透传到 Dynamic ViewSchema；具体的布局组件由适配层解释。
-   *
-   * @deprecated 请从 UI 适配层使用 Dynamic 布局定义。
+   * @deprecated 请改用 UI 适配层的 {@link import("@schemx/vue").SchemxRowConfig}。
    */
   layout?: SchemxLayout
 

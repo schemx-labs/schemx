@@ -7,19 +7,34 @@
  * @module core
  */
 
-export {
-  createPresetRuleRegistry,
-  createRendererRegistry,
+import type { Values } from "./types/form"
+
+/**
+ * Schemx Config 的适配层扩展接口。
+ *
+ * 适配层可通过声明合并增加框架专属的配置字段。
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxConfigDefinition<TValues extends Values = Values> {}
+
+export { createPresetRuleRegistry, createRendererRegistry } from "./registry"
+
+export type {
   PresetRuleRegistry,
   RendererRegistry,
-  type PresetRuleFactoryContext,
-  type PresetRuleFactory,
-  type PresetRuleEntry,
-  type PresetRuleMap,
-  type PresetRuleRegistryChange,
-  type PresetRuleRegistryListener,
-  type RegistryOptions,
-  type RendererMap,
+  PresetRuleFactoryContext,
+  PresetRuleFactory,
+  PresetRuleEntry,
+  PresetRuleMap,
+  PresetRuleRegistryChange,
+  PresetRuleRegistryListener,
+  RegistryOptions,
+  RendererDescriptor,
+  RendererEntry,
+  RendererMap,
+  RendererPropsTransformer,
+  RendererRegistration,
+  RendererTransformContext,
 } from "./registry"
 
 export {
@@ -198,3 +213,9 @@ export type {
   ValidationCancelled,
   ValidationResult,
 } from "./validator/types"
+
+export {
+  createValidationSuccess,
+  createValidationFailure,
+  createValidationCancelled,
+} from "./validator/result"

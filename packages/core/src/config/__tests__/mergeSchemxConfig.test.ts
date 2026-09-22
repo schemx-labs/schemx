@@ -81,7 +81,6 @@ describe("mergeConfig", () => {
 
     const lowPriorityRendererProps = {
       input: {
-        align: "left",
         disabled: false,
         options: lowPriorityOptions,
         placeholder: "低优先级",
@@ -108,7 +107,6 @@ describe("mergeConfig", () => {
 
     expect(result.rendererProps).toEqual({
       input: {
-        align: "left",
         disabled: true,
         options: highPriorityOptions,
         placeholder: undefined,
@@ -131,7 +129,6 @@ describe("mergeConfig", () => {
       highPriorityOptions
     )
     expect(lowPriorityRendererProps.input).toEqual({
-      align: "left",
       disabled: false,
       options: lowPriorityOptions,
       placeholder: "低优先级",

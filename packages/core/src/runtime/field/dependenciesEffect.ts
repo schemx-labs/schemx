@@ -10,6 +10,7 @@
 
 import {
   createDependencySchedulerEffect,
+  createGuardedFormApi,
   resolveDependencyOverrides,
 } from "../dependencyScheduler"
 import { updateFieldDiagnostics } from "../node/helper"
@@ -124,11 +125,11 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
     triggerFields,
     taskId,
     scope,
-    run: () =>
+    run: (signal) =>
       resolveDependencyOverrides<TValues, FieldDependencyOverrides<TValues>>(
         dependencies,
         getFieldDependencyOverrideKeys(dependencies),
-        context.formApi,
+        createGuardedFormApi(context.formApi, signal),
         `字段 "${String(node.name.value)}"`
       ),
     onSuccess: (dependencyOverrides) => {

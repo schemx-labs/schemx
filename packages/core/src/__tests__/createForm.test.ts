@@ -11,9 +11,14 @@ import fc from "fast-check"
 import { describe, expect, it, vi } from "vitest"
 
 import { createFormStateAdapter } from "../adapter"
+import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
-import { createPresetRuleRegistry, createRendererRegistry } from "../registry"
+import {
+  createPresetRuleRegistry,
+  createRendererRegistry,
+  type RendererPropsTransformer,
+} from "../registry"
 import { isFieldNode } from "../runtime/node/helper"
 
 interface StudentFormValues {
@@ -66,6 +71,123 @@ describe("字段初始值", () => {
     form.reset()
 
     expect(form.getFieldValue("name")).toBe("Alice")
+    form.destroy()
+  })
+})
+
+describe("校验与赋值一致性回归", () => {
+  it("值变化后取消旧异步校验并拒绝旧错误回写", async () => {
+    let resolveRule:
+      ((result: { valid: false; issues: [{ message: string }] }) => void) | undefined
+
+    let started: () => void = () => undefined
+
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve
+    })
+
+    const rulePromise = new Promise<{ valid: false; issues: [{ message: string }] }>(
+      (resolve) => {
+        resolveRule = resolve
+      }
+    )
+
+    const form = createForm({
+      initialValues: { name: "before" },
+      schemas: [
+        {
+          name: "name",
+          label: "名称",
+          componentType: "input",
+          rules: [
+            {
+              validate: () => {
+                started()
+
+                return rulePromise
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    const validation = form.validateField("name")
+
+    await startedPromise
+    form.setFieldValue("name", "after")
+    resolveRule?.({ valid: false, issues: [{ message: "旧错误" }] })
+
+    await expect(validation).resolves.toMatchObject({ cancelled: true, errors: [] })
+    expect(form.getFieldErrors("name")).toEqual([])
+    form.destroy()
+  })
+
+  it("pending 结束后清除 pending 错误并允许再次校验", async () => {
+    const form = createForm({
+      initialValues: { avatar: "ok" },
+      schemas: [{ name: "avatar", label: "头像", componentType: "input" }],
+    })
+
+    form.setFieldPending("avatar", true, "上传中")
+    await expect(form.validate()).resolves.toMatchObject({ valid: false })
+    form.setFieldPending("avatar", false)
+
+    await expect(form.validate()).resolves.toMatchObject({ valid: true })
+    expect(form.getFieldErrors("avatar")).toEqual([])
+    form.destroy()
+  })
+
+  it("数组父路径赋值同步新增行并参与校验", async () => {
+    const form = createForm({
+      initialValues: { profile: { users: [{ name: "Ada" }] } },
+      schemas: [
+        {
+          key: "users",
+          name: "profile.users",
+          item: [{ name: "name", label: "姓名", componentType: "input", required: true }],
+        },
+      ],
+    })
+
+    form.setFieldValue("profile", { users: [{ name: "Bob" }, { name: "" }] } as never)
+    await form.waitForDependencies()
+
+    expect(form.getViewSchemas()[0]).toMatchObject({ items: [{}, {}] })
+    await expect(form.validate()).resolves.toMatchObject({ valid: false })
+    form.destroy()
+  })
+
+  it("字段初始值按路径更新，不覆盖数组其他行", () => {
+    const form = createForm({
+      initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
+    })
+
+    createField(form, "users.0.name").setInitialValue("Changed")
+    form.reset()
+
+    expect(form.getFieldsValue()).toEqual({
+      users: [{ name: "Changed" }, { name: "Grace" }],
+    })
+    form.destroy()
+  })
+
+  it("等待依赖期间显式 reset 会立即取消校验", async () => {
+    const form = createForm({
+      initialValues: { mode: "async" },
+      schemas: [
+        {
+          to: ["mode"],
+          renderer: () => new Promise<never>(() => undefined),
+        },
+      ] as any,
+    })
+
+    const validation = form.validate()
+
+    form.reset()
+
+    await expect(validation).resolves.toMatchObject({ cancelled: true, errors: [] })
     form.destroy()
   })
 })
@@ -146,13 +268,13 @@ describe("表单提交", () => {
       initialValues: { email: "" },
       schemas: [{ name: "email", label: "邮箱", componentType: "input" }],
       fieldRules: {
-        email: ({ name, label, required }) => ({
+        email: ({ name, label, placeholder, required }) => ({
           validate: () => ({
             valid: false,
             issues: [
               {
                 type: "validation",
-                message: `${String(name)}:${label}:${required}`,
+                message: `${String(name)}:${label}:${placeholder}:${required}`,
               },
             ],
           }),
@@ -164,7 +286,7 @@ describe("表单提交", () => {
 
     expect(result.valid).toBe(false)
     if (!result.valid && !result.cancelled) {
-      expect(result.errors[0]?.issues[0]?.message).toBe("email:邮箱:false")
+      expect(result.errors[0]?.issues[0]?.message).toBe("email:邮箱:请输入邮箱:false")
     }
 
     form.destroy()
@@ -466,7 +588,7 @@ describe("表单提交", () => {
       ],
     })
     expect(onFinish).not.toHaveBeenCalled()
-    expect(onFinishFailed).not.toHaveBeenCalled()
+    expect(onFinishFailed).toHaveBeenCalledTimes(1)
 
     form.destroy()
     vi.useRealTimers()
@@ -672,6 +794,26 @@ import type { StandardSchemaV1 } from "../types"
 
 // 单元测试：验证 createForm 返回对象包含 getRenderer/registerRenderer/hasRenderer 方法
 describe("渲染器注册中心下沉 单元测试", () => {
+  it("form 保留 Renderer 组件查询兼容性并暴露规范化条目", () => {
+    const form = createForm({})
+
+    const renderer = { name: "InputRenderer" }
+
+    const transformProps: RendererPropsTransformer = (props) => ({
+      placeholder: props.placeholder,
+    })
+
+    form.registerRenderer("input", { component: renderer, transformProps })
+
+    expect(form.getRenderer("input")).toBe(renderer)
+    expect(form.getRendererEntry("input")).toEqual({
+      component: renderer,
+      transformProps,
+    })
+
+    form.destroy()
+  })
+
   it("所有 Schema 注入路径共享 createForm 返回的同一个实例", () => {
     const form = createForm({
       schemas: [
@@ -1157,7 +1299,6 @@ describe("字段规则注册上下文 单元测试", () => {
       readonly: undefined,
       disabled: undefined,
       visible: undefined,
-      labelIcon: undefined,
       labelAlign: undefined,
       labelPosition: undefined,
       labelWidth: undefined,

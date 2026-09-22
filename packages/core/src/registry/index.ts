@@ -11,13 +11,18 @@ export { type RegistryOptions } from "./types"
 
 export {
   createRendererRegistry,
-  RendererRegistry,
+  type RendererRegistry,
+  type RendererDescriptor,
+  type RendererEntry,
   type RendererMap,
+  type RendererPropsTransformer,
+  type RendererRegistration,
+  type RendererTransformContext,
 } from "./rendererRegistry"
 
 export {
   createPresetRuleRegistry,
-  PresetRuleRegistry,
+  type PresetRuleRegistry,
   type PresetRuleFactoryContext,
   type PresetRuleFactory,
   type PresetRuleEntry,

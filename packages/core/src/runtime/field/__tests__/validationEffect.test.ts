@@ -103,6 +103,7 @@ describe("createValidationEffect", () => {
     expect(controller.setFieldConfig).toHaveBeenCalledWith({
       name: "field",
       label: "字段",
+      placeholder: "",
       required: true,
     })
     expect(controller.setFieldRules).toHaveBeenCalledWith("field", [])
@@ -136,6 +137,7 @@ describe("createValidationEffect", () => {
     expect(controller.setFieldConfig).toHaveBeenCalledWith({
       name: "field",
       label: "字段",
+      placeholder: "",
       required: true,
     })
     expect(controller.setFieldRules).toHaveBeenCalledWith("field", [])

@@ -26,8 +26,6 @@
  * ```
  */
 
-import { setByPath } from "./utils"
-
 import type { FieldValue, NamePath, SchemxInstance, Values } from "./types"
 import type { FieldRules } from "./types/rule"
 import type { ValidationResult } from "./validator"
@@ -249,10 +247,7 @@ export function createField<
    * 以字段路径构造局部 initialValues 并交给表单合并。
    */
   const setInitialValue = (value: FieldValue<TValues, TName>): void => {
-    const result = {} as Partial<TValues>
-
-    setByPath<TValues, TName, FieldValue<TValues, TName>>(result, name, value)
-    form.setInitialValues(result)
+    form.setInitialValue(name, value)
   }
 
   /**

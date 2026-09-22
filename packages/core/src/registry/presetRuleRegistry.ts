@@ -1,6 +1,8 @@
+import { createRequiredValidationRule } from "../validator/built-in.rules"
+
 import type { RegistryOptions } from "./types"
 import type { AsyncValidatorDescriptor } from "../types/asyncValidator"
-import type { PresetRuleDefinition } from "../types/rule"
+import type { PresetRuleDefinition, RequiredConfig } from "../types/rule"
 import type { StandardSchemaV1 } from "../types/standardSchema"
 import type { ValidationRule } from "../validator/types"
 
@@ -14,7 +16,7 @@ type DeclaredPresetRuleName = Extract<keyof PresetRuleDefinition, string>
  */
 type PresetRuleKey = [DeclaredPresetRuleName] extends [never]
   ? string
-  : DeclaredPresetRuleName
+  : DeclaredPresetRuleName | "required"
 
 /**
  * 根据规则名称映射到对应的字段值类型。
@@ -27,12 +29,13 @@ type PresetRuleValue<TKey extends PresetRuleKey> = TKey extends DeclaredPresetRu
  * 规则注册表中已经解析、可直接执行的规则条目。
  */
 type ResolvedPresetRuleEntry<TValue> =
-  StandardSchemaV1<TValue, unknown> | ValidationRule<TValue> | AsyncValidatorDescriptor
+  ValidationRule<TValue> | StandardSchemaV1<TValue, unknown> | AsyncValidatorDescriptor
 
 /**
  * 命名规则工厂可读取的字段元数据。
  *
  * @typeParam TName - 字段路径类型。
+ * @typeParam TFieldValue - 字段值类型，用于约束 required 配置。
  *
  * @example
  * ```ts
@@ -40,7 +43,10 @@ type ResolvedPresetRuleEntry<TValue> =
  *   context.required ? requiredRule : optionalRule
  * ```
  */
-export interface PresetRuleFactoryContext<TName extends PropertyKey = string> {
+export interface PresetRuleFactoryContext<
+  TName extends PropertyKey = string,
+  TFieldValue = unknown,
+> {
   /**
    * 要创建规则的字段路径。
    */
@@ -52,7 +58,11 @@ export interface PresetRuleFactoryContext<TName extends PropertyKey = string> {
   /**
    * 字段是否已声明为必填。
    */
-  readonly required: boolean
+  readonly required: RequiredConfig<TFieldValue>
+  /**
+   * 用于规则提示的字段占位文本。
+   */
+  readonly placeholder: string
 }
 
 /**
@@ -77,7 +87,7 @@ export type PresetRuleFactory<TValue = unknown> = {
    * 根据字段元数据创建规则。
    *
    * @typeParam TName - 字段路径类型。
-   * @param context - 当前字段的路径、标签和必填状态。
+   * @param context - 当前字段的路径、标签、占位文本和必填配置。
    * @returns 可供 Validator 执行的原生规则或 Standard Schema。
    */
   <TName extends PropertyKey>(
@@ -123,22 +133,30 @@ export interface PresetRuleRegistryChange {
 
 /**
  * 订阅注册表变化的监听函数。
+ *
+ * @param change - 发生变化的操作类型和受影响规则名称。
+ *
+ * @example
+ * ```ts
+ * const listener: PresetRuleRegistryListener = (change) => {
+ *   console.log(change.type, change.names)
+ * }
+ * ```
  */
 export type PresetRuleRegistryListener = (change: PresetRuleRegistryChange) => void
 
 /**
  * 命名校验规则注册中心。
  *
- * 只保存用户注册的命名规则；`required` 由 Validator 单独归一化，
- * 不会作为内置规则写入注册表。
+ * 保存用户注册的命名规则和内置 `required` 规则。
  *
  * @example
  * ```ts
- * const registry = new PresetRuleRegistry()
+ * const registry = createPresetRuleRegistry()
  * registry.register("email", emailRule)
  * ```
  */
-export class PresetRuleRegistry {
+class PresetRuleRegistryImpl {
   /**
    * 保存规则名称到原始注册条目的映射。
    */
@@ -149,9 +167,11 @@ export class PresetRuleRegistry {
   private readonly listeners = new Set<PresetRuleRegistryListener>()
 
   /**
-   * 创建一个空的命名规则注册中心。
+   * 创建包含内置 required 规则的命名规则注册中心。
    */
-  public constructor() {}
+  public constructor() {
+    this.register("required" as never, createRequiredValidationRule as never)
+  }
 
   /**
    * 注册一个命名校验规则。
@@ -255,6 +275,7 @@ export class PresetRuleRegistry {
    *   name: "email",
    *   label: "邮箱",
    *   required: true,
+   *   placeholder: "请输入邮箱",
    * })
    * ```
    */
@@ -361,10 +382,13 @@ export class PresetRuleRegistry {
   }
 }
 
+/** 由 {@link createPresetRuleRegistry} 创建的预设规则注册表类型。 */
+export type PresetRuleRegistry = PresetRuleRegistryImpl
+
 /**
- * 创建空的命名校验规则注册中心。
+ * 创建包含内置 required 规则的命名校验规则注册中心。
  *
- * @returns 新建且尚未注册任何规则的注册中心。
+ * @returns 新建且已注册内置 required 规则的注册中心。
  *
  * @example
  * ```ts
@@ -373,5 +397,5 @@ export class PresetRuleRegistry {
  * ```
  */
 export function createPresetRuleRegistry(): PresetRuleRegistry {
-  return new PresetRuleRegistry()
+  return new PresetRuleRegistryImpl()
 }

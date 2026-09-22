@@ -495,3 +495,33 @@ describe("createWatch 属性测试", () => {
     })
   })
 })
+
+describe("createWatch 空值与特殊对象回归", () => {
+  it("清空数组、清空对象和修改 Date 都报告变化路径", () => {
+    const changes: string[][] = []
+
+    const form = createForm({
+      initialValues: {
+        users: ["Ada"],
+        profile: { name: "Ada" },
+        date: new Date("2020-01-01"),
+      },
+    })
+
+    const dispose = createWatchAll(
+      form,
+      (_values, payload) => {
+        changes.push(payload.changedPaths as string[])
+      },
+      {}
+    )
+
+    form.setFieldValue("users", [])
+    form.setFieldValue("profile", {} as never)
+    form.setFieldValue("date", new Date("2026-01-01"))
+
+    expect(changes).toEqual([["users"], ["profile"], ["date"]])
+    dispose()
+    form.destroy()
+  })
+})

@@ -11,8 +11,8 @@ import { createSignalEffect } from "../../reactivity"
 import { createFieldKey } from "../../utils"
 
 import type { ComputedSignal } from "../../reactivity/computed"
-import type { PresetRuleFactoryContext } from "../../registry"
-import type { SchemxBaseField, Values } from "../../types"
+import type { PresetRuleEntry, PresetRuleFactoryContext } from "../../registry"
+import type { FieldRules, NamePath, SchemxBaseField, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type { FieldValidationState, Scope } from "../node"
 
@@ -50,6 +50,12 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
    * 请传入仅由该 effect 所有的专用 Scope；Scope 销毁时会同步注销该字段的规则与错误。
    */
   scope: Scope
+  /**
+   * 读取当前字段 placeholder 的无追踪函数。
+   *
+   * Placeholder 只作为规则工厂元数据传递，不参与校验注册 effect 的依赖追踪。
+   */
+  placeholder?: () => string
 }
 
 /**
@@ -86,29 +92,17 @@ interface ValidationRegistrationSnapshot<TValues extends Values = Values> {
    */
   label: string
   /**
+   * 用于规则工厂和错误提示的字段占位文本。
+   */
+  placeholder: string
+  /**
    * 字段是否必填。
    */
   required: SchemxBaseField<TValues>["required"]
   /**
    * 字段当前规则列表。
    */
-  rules: SchemxBaseField<TValues>["rules"]
-}
-
-/**
- * 解析可包含延迟工厂的字段规则条目。
- *
- * @param rules - 规则数组或延迟规则工厂。
- * @param context - 传给延迟规则工厂的字段上下文。
- * @returns 解析后的规则值。
- */
-function resolveFieldRules(
-  rules: unknown,
-  context: PresetRuleFactoryContext<PropertyKey>
-): unknown {
-  if (typeof rules === "function") return rules(context)
-
-  return rules
+  rules: SchemxBaseField<TValues>["rules"] | PresetRuleEntry<unknown>
 }
 
 /**
@@ -132,6 +126,8 @@ export function createValidationEffect<TValues extends Values = Values>(
 ): ValidationEffect {
   const { context, name, validationState, scope } = options
 
+  const resolvePlaceholder = options.placeholder ?? (() => "")
+
   const taskScheduler = context.scheduler
 
   let registrationVersion = 0
@@ -153,17 +149,24 @@ export function createValidationEffect<TValues extends Values = Values>(
           ? undefined
           : validationStateValue.rules
 
-      const fallbackRules = resolveFieldRules(context.fieldRules[name], {
-        name,
-        label: validationStateValue.label,
-        required: Boolean(validationStateValue.required),
-      }) as SchemxBaseField<TValues>["rules"] | undefined
+      const rawFallbackRules = context.fieldRules[name] as
+        SchemxBaseField<TValues>["rules"] | PresetRuleEntry<unknown> | undefined
+
+      const fallbackRules =
+        typeof rawFallbackRules === "function"
+          ? (factoryContext: PresetRuleFactoryContext<PropertyKey>) =>
+              rawFallbackRules({
+                ...factoryContext,
+                placeholder: resolvePlaceholder(),
+              })
+          : rawFallbackRules
 
       return {
         visible: validationStateValue.visible,
         readonly: validationStateValue.readonly,
         disabled: validationStateValue.disabled,
         label: validationStateValue.label,
+        placeholder: resolvePlaceholder(),
         required: validationStateValue.required,
         rules: fieldRules ?? fallbackRules ?? [],
       }
@@ -175,7 +178,7 @@ export function createValidationEffect<TValues extends Values = Values>(
   const applyValidationRegistration = (
     snapshot: ValidationRegistrationSnapshot<TValues>
   ): void => {
-    const { visible, readonly, disabled, label, required, rules } = snapshot
+    const { visible, readonly, disabled, label, placeholder, required, rules } = snapshot
 
     if (!visible || readonly || disabled || (!required && !hasRules(rules))) {
       context.validation.removeField(name)
@@ -183,8 +186,11 @@ export function createValidationEffect<TValues extends Values = Values>(
       return
     }
 
-    context.validation.setFieldConfig({ name, label, required })
-    context.validation.setFieldRules(name, rules)
+    context.validation.setFieldConfig({ name, label, placeholder, required })
+    context.validation.setFieldRules(
+      name,
+      rules as FieldRules<TValues, NamePath<TValues>> | PresetRuleEntry<unknown>
+    )
   }
 
   /**
@@ -249,7 +255,7 @@ export function createValidationEffect<TValues extends Values = Values>(
  * @returns 存在至少一条可用规则时返回 `true`。
  */
 function hasRules<TValues extends Values>(
-  rules: SchemxBaseField<TValues>["rules"]
+  rules: SchemxBaseField<TValues>["rules"] | PresetRuleEntry<unknown>
 ): boolean {
   return Array.isArray(rules) ? rules.length > 0 : Boolean(rules)
 }

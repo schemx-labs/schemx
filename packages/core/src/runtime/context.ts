@@ -10,6 +10,7 @@
 import type { NodeLifecycleEmitter } from "./lifecycle"
 import type { ContainerNode, NodeId } from "./node"
 import type { Scheduler } from "./scheduler"
+import type { PresetRuleEntry } from "../registry"
 import type { ArrayStructureHandle } from "../store"
 import type {
   FieldArrayChange,
@@ -91,6 +92,12 @@ export interface RuntimeStorePort<TValues extends Values = Values> {
    * @param action - 描述初始值更新方式的动作。
    */
   setInitialValues(action: SetValuesAction<TValues>): void
+
+  /** 按字段路径写入初始值基线。 */
+  setInitialValue?<TName extends NamePath<TValues>>(
+    name: TName,
+    action: SetValueAction<TValues, TName>
+  ): void
 }
 
 /**
@@ -100,9 +107,9 @@ export interface RuntimeStorePort<TValues extends Values = Values> {
  */
 export interface RuntimeValidationPort<TValues extends Values = Values> {
   /**
-   * 写入字段的校验基础配置。
+   * 写入字段的校验基础配置，包括标签、占位文本和必填状态。
    *
-   * @param config - 字段路径、标签和必填状态。
+   * @param config - 字段路径、标签、占位文本和必填状态。
    */
   setFieldConfig<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
@@ -116,7 +123,7 @@ export interface RuntimeValidationPort<TValues extends Values = Values> {
    */
   setFieldRules<TName extends NamePath<TValues>>(
     name: TName,
-    rules: FieldRules<TValues, TName> | undefined
+    rules: FieldRules<TValues, TName> | PresetRuleEntry<unknown> | undefined
   ): void
 
   /**

@@ -117,12 +117,15 @@ export function mergeConfig<TValues extends Values = Values>(
  * {@link mergeConfig} 的兼容名称。
  *
  * @deprecated 请改用 {@link mergeConfig}。
+ * @param configs - 按优先级从高到低传入的配置列表。
  *
  * @example
+ * ```ts
  * const config = mergeSchemxConfig(
  *   { schemaConfig: { readonly: true } },
  *   { schemaConfig: { readonly: false, disabled: true } },
  * )
+ * ```
  */
 export const mergeSchemxConfig: typeof mergeConfig = mergeConfig
 
@@ -134,6 +137,13 @@ export const mergeSchemxConfig: typeof mergeConfig = mergeConfig
  *
  * @param config - 已合并或待解析的 Schemx 配置。
  * @returns 可直接供 Runtime 消费的完整配置。
+ *
+ * @example
+ * ```ts
+ * const config = resolveSchemxConfig({
+ *   schemaConfig: { readonly: true },
+ * })
+ * ```
  */
 export function resolveSchemxConfig<TValues extends Values = Values>(
   config: SchemxConfig<TValues> = {}
@@ -168,6 +178,14 @@ export function resolveSchemxConfig<TValues extends Values = Values>(
  *
  * @param configs - 按高到低优先级传入的配置列表。
  * @returns 合并且补齐默认值后的完整配置。
+ *
+ * @example
+ * ```ts
+ * const config = mergeAndResolveSchemxConfig(
+ *   { schemaConfig: { readonly: true } },
+ *   { schemaConfig: { disabled: true } },
+ * )
+ * ```
  */
 export function mergeAndResolveSchemxConfig<TValues extends Values = Values>(
   ...configs: readonly SchemxConfig<TValues>[]

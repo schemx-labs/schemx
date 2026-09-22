@@ -37,35 +37,35 @@ export const defaultSchemxConfig = Object.freeze({
   /**
    * 标签图标。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   labelIcon: "",
 
   /**
    * 标签对齐方式。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   labelAlign: "left",
 
   /**
    * 标签位置。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   labelPosition: "left",
 
   /**
    * 标签宽度。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   labelWidth: "auto",
 
   /**
    * 内容区域对齐方式。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   contentAlign: "right",
 
@@ -80,14 +80,14 @@ export const defaultSchemxConfig = Object.freeze({
   /**
    * 是否在标签后显示冒号。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   colon: true,
 
   /**
    * 是否显示必填视觉标记。
    *
-   * @deprecated UI 展示默认值由适配层拥有；该默认值仅为兼容旧版 Core 配置保留。
+   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   showRequiredMark: undefined as boolean | undefined,
 } as const)
@@ -107,7 +107,7 @@ export const defaultSchemxConfigKeys = Object.keys(
 ) as SchemxConfigKey[]
 
 /**
- * 运行时需遍历 排除 默认配置字段时使用。
+ * 运行时需要排除默认配置字段时使用。
  */
 export const excludeSchemxConfigKeys = [
   "key",

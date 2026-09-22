@@ -6,6 +6,7 @@
  * @module core/validator/types
  */
 
+import type { PresetRuleEntry } from "../registry"
 import type {
   DefinedFieldValue,
   FieldArrayChange,
@@ -89,9 +90,15 @@ export interface FieldValidationConfig<
    */
   readonly label: string
   /**
+   * 用于规则工厂和错误消息的字段占位文本。
+   */
+  readonly placeholder: string
+  /**
    * 字段的必填声明。
    */
   readonly required: RequiredConfig<DefinedFieldValue<TValues, TName>> | undefined
+  /** 字段当前是否参与校验；省略时视为参与。 */
+  readonly active?: boolean
 }
 
 /**
@@ -177,191 +184,72 @@ export interface ValidationRuleIssue {
 }
 
 /**
- * 校验规则的执行结果。
+ * 校验规则的执行结果；失败时必须包含问题，`bail` 控制是否停止后续规则。
  */
 export type ValidationRuleResult =
   | { readonly valid: true }
   | {
-      /**
-       * 失败结果标记。
-       */
       readonly valid: false
-      /**
-       * 至少包含一个问题的错误列表。
-       */
       readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
-      /**
-       * 是否阻止后续规则继续执行。
-       */
       readonly bail?: boolean
     }
 
-/**
- * 字段级校验错误。
- *
- * `scope` 用于与表单级错误区分。
- *
- * @typeParam TName - 产生错误的字段路径类型。
- *
- * @example
- * ```ts
- * const error: FieldValidationError<"email"> = {
- *   scope: "field",
- *   name: "email",
- *   issues: [{ type: "validation", message: "邮箱格式不正确", code: "email" }],
- * }
- * ```
- */
+/** 字段级校验错误；`scope` 用于与表单级错误区分。 */
 export interface FieldValidationError<TName extends PropertyKey = string> {
-  /**
-   * 标识此错误归属于某个字段。
-   */
   readonly scope: "field"
-  /**
-   * 产生错误的字段路径。
-   */
   readonly name: TName
-  /**
-   * 完整的字段校验问题，保留稳定 `code` 与原始 `cause`。
-   */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
-/**
- * 表单级校验错误，适用于不归属某个字段的失败。
- *
- * `scope` 用于与字段级错误区分。
- *
- * @example
- * ```ts
- * const error: FormValidationError = {
- *   scope: "form",
- *   issues: [{ type: "validation", message: "无法提交当前表单", code: "submit" }],
- * }
- * ```
- */
+/** 表单级校验错误，适用于不归属于某个字段的失败。 */
 export interface FormValidationError {
-  /**
-   * 标识此错误不归属于特定字段。
-   */
   readonly scope: "form"
-  /**
-   * 完整的表单级校验问题，保留稳定 `code` 与原始 `cause`。
-   */
   readonly issues: readonly [ValidationRuleIssue, ...ValidationRuleIssue[]]
 }
 
-/**
- * 校验失败的统一错误表示。
- *
- * 通过 `scope` 判别字段级与表单级错误。
- *
- * @typeParam TName - 字段级错误中的字段路径类型。
- */
+/** 校验错误，通过 `scope` 区分字段与表单。 */
 export type ValidationError<TName extends PropertyKey = string> =
   FieldValidationError<TName> | FormValidationError
 
-/**
- * 校验成功结果。
- *
- * 成功时 `errors` 始终为空 tuple。
- *
- * @typeParam TValues - 本次校验使用的表单值类型。
- */
+/** 校验成功结果；成功时 `errors` 为空。 */
 export interface ValidationSuccess<TValues extends Values> {
-  /**
-   * 表示本次校验已完成且没有问题。
-   */
   readonly valid: true
-  /**
-   * 用于本次校验的表单值。
-   */
+  readonly cancelled?: false
   readonly values: TValues
-  /**
-   * 成功结果固定为空 tuple。
-   */
   readonly errors: readonly []
 }
 
-/**
- * 校验失败结果。
- *
- * @typeParam TValues - 本次校验使用的表单值类型。
- * @typeParam TName - 字段级错误中的字段路径类型。
- *
- * @example
- * ```ts
- * const result: ValidationFailure<LoginForm> = {
- *   valid: false,
- *   values: { email: "invalid" },
- *   errors: [{
- *     scope: "field",
- *     name: "email",
- *     issues: [{ type: "validation", message: "邮箱格式不正确" }],
- *   }],
- * }
- * ```
- */
+/** 普通校验失败结果；通过内置创建器生成时至少包含一个错误。 */
 export interface ValidationFailure<
   TValues extends Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > {
-  /**
-   * 表示本次校验完成但存在问题。
-   */
   readonly valid: false
-  /**
-   * 非取消失败固定为 `false` 或不存在。
-   */
   readonly cancelled?: false
-  /**
-   * 用于本次校验的表单值。
-   */
   readonly values: TValues
-  /**
-   * 聚合后的字段级或表单级错误。
-   */
   readonly errors: readonly ValidationError<TName>[]
 }
 
-/**
- * 已被较新校验、规则替换、字段移除或销毁中止的校验结果。
- *
- * 取消不代表值通过或不通过，调用方不得将其作为提交失败回调的依据。
- *
- * @typeParam TValues - 本次校验使用的表单值类型。
- */
+/** 已取消的校验结果；取消时不携带错误。 */
 export interface ValidationCancelled<TValues extends Values> {
-  /**
-   * 取消不是成功结果。
-   */
   readonly valid: false
-  /**
-   * 用于区分普通失败与过期运行的显式标记。
-   */
   readonly cancelled: true
-  /**
-   * 本次运行开始时使用的表单值。
-   */
   readonly values: TValues
-  /**
-   * 取消不会携带不完整或陈旧的错误。
-   */
   readonly errors: readonly []
 }
 
 /**
- * Validator 的校验结果。
+ * 校验结果，包含成功、普通失败和取消三种互斥状态。
  *
- * 可通过 `valid` 判别成功与失败分支。
+ * 所有分支保留本次校验使用的 `values`。运行时普通失败至少包含一个错误；成功和取消
+ * 的错误列表为空。取消不代表校验失败，不触发 `onFinishFailed`。
  *
  * @typeParam TValues - 本次校验使用的表单值类型。
- * @typeParam TName - 字段级错误中的字段路径类型。
- *
+ * @typeParam TName - 字段错误所属的路径类型。
  * @example
  * ```ts
- * const result = await validator.validate(values)
- * if (!result.valid) console.log(result.errors)
+ * const result = await form.validate()
+ * if (!result.cancelled && !result.valid) console.log(result.errors)
  * ```
  */
 export type ValidationResult<
@@ -386,7 +274,7 @@ export interface Validator<TValues extends Values> {
    * 保存字段校验元数据；规则会在字段校验前动态解析。
    *
    * @typeParam TName - 字段路径。
-   * @param config - 字段路径、标签和必填状态。
+   * @param config - 字段路径、标签、占位文本和必填状态。
    */
   setFieldConfig<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
@@ -401,7 +289,13 @@ export interface Validator<TValues extends Values> {
    */
   setFieldRules<TName extends NamePath<TValues>>(
     name: TName,
-    rules: FieldRules<TValues, TName> | undefined
+    rules: FieldRules<TValues, TName> | PresetRuleEntry<unknown> | undefined
+  ): void
+
+  /** 保存公开 API 设置的规则覆盖；该覆盖优先于 Runtime 声明规则。 */
+  setManualFieldRules<TName extends NamePath<TValues>>(
+    name: TName,
+    rules: FieldRules<TValues, TName>
   ): void
 
   /**
@@ -410,6 +304,8 @@ export interface Validator<TValues extends Values> {
    * @param name - 字段路径。
    */
   removeFieldRules(name: NamePath<TValues>): void
+  /** 删除公开 API 的规则覆盖并恢复 Runtime 声明规则。 */
+  removeManualFieldRules(name: NamePath<TValues>): void
   /**
    * 移除字段规则配置，并中止该字段仍在进行的校验。
    *

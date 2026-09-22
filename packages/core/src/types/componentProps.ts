@@ -21,7 +21,7 @@ export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
  * Core 自身使用的轻量 Renderer 公共 Props。
  *
  * UI 适配层可通过 `SchemxComponentPropsDefinition` 增加框架专属属性；旧版
- * `SchemxBaseComponentProps` 则继续保留完整兼容形态。
+ * `SchemxBaseComponentProps` 仅保留 Core 公共字段。
  *
  * @typeParam TValues - 表单值类型。
  */
@@ -60,8 +60,7 @@ export interface SchemxCoreBaseComponentProps<TValues extends Values = Values> {
  * 作为 `componentProps` 的最终类型。
  *
  * `TName` 和 `TValue` 以及 Vue 相关属性保留用于兼容旧版 Renderer 类型；新适配层
- * 应使用自己的公共 Props 类型，例如 `@schemx/vue` 的
- * `SchemxVueBaseComponentProps`。
+ * 应通过 `SchemxComponentPropsDefinition` 声明合并增加公共 Props。
  *
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 兼容旧版的字段路径类型。
@@ -75,35 +74,35 @@ export interface SchemxBaseComponentProps<
   /**
    * 内容区域对齐方式。
    *
-   * @deprecated 请从对应 UI 适配层使用公共 Renderer Props 类型。
+   * @deprecated 请使用适配层在 {@link SchemxRendererDefinition} 中声明的 Renderer 专属 Props。
    */
   align?: "left" | "center" | "right"
 
   /**
    * 当前字段值。
    *
-   * @deprecated 请从对应 UI 适配层使用公共 Renderer Props 类型。
+   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
    */
   value?: TValue
 
   /**
    * 字段值更新回调。
    *
-   * @deprecated 请从对应 UI 适配层使用公共 Renderer Props 类型。
+   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
    */
   "onUpdate:value"?: (value: TValue) => void
 
   /**
    * 值变化回调。
    *
-   * @deprecated 请从对应 UI 适配层使用公共 Renderer Props 类型。
+   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
    */
   onChange?: (value: TValue) => void
 
   /**
    * 失焦回调。
    *
-   * @deprecated 请从对应 UI 适配层使用公共 Renderer Props 类型。
+   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
    */
   onBlur?: (value: TValue) => void
 }

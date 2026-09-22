@@ -9,7 +9,6 @@ import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../util
 import type { SchemaCompilerOptions } from "./types"
 import type {
   NamePath,
-  SchemxBaseComponentProps,
   SchemxBaseField,
   SchemxComponentProps,
   SchemxField,
@@ -34,8 +33,6 @@ export const DEFAULT_PRESENTATION_STATE: PresentationState = {
   disabled: false,
 }
 
-type LegacyRendererAlignmentProps = Pick<SchemxBaseComponentProps, "align">
-
 /**
  * 将表单级默认配置应用到字段未显式赋值的属性。
  *
@@ -51,6 +48,16 @@ function applyFieldSchemaDefaults<TValues extends Values>(
   schemaConfig: SchemxSchemaConfig
 ): SchemxBaseField<TValues> {
   const inheritedEntries = Object.entries(schemaConfig).filter(([key]) => {
+    // 兼容期内，字段显式使用旧 layout 时不能被 Vue 层默认 col 覆盖；否则旧配置会
+    // 失去原有列宽。Core 只按 key 保留这一条兼容规则，不持有布局类型。
+    if (
+      key === "col" &&
+      !Object.prototype.hasOwnProperty.call(schema, "col") &&
+      Object.prototype.hasOwnProperty.call(schema, "layout")
+    ) {
+      return false
+    }
+
     const value = Reflect.get(schema, key)
 
     return value === undefined || value === null
@@ -73,6 +80,11 @@ function applyFieldSchemaDefaults<TValues extends Values>(
  * @param key - 编译后节点使用的稳定 key。
  * @param options - 表单级默认配置、Renderer Props 和表单实例。
  * @returns 编译后的字段静态配置。
+ *
+ * @example
+ * ```ts
+ * const compiled = compileFieldSchema(schema, "field:email", options)
+ * ```
  */
 export function compileFieldSchema<TValues extends Values>(
   schema: SchemxBaseField<TValues>,
@@ -91,12 +103,6 @@ export function compileFieldSchema<TValues extends Values>(
 
   const rendererComponentProps = options.rendererProps?.[schema.componentType]
 
-  const legacyComponentProps = componentProps as
-    (SchemxComponentProps<TValues> & LegacyRendererAlignmentProps) | undefined
-
-  const legacyRendererComponentProps = rendererComponentProps as
-    (Partial<SchemxComponentProps<TValues>> & LegacyRendererAlignmentProps) | undefined
-
   const mergedComponentProps = {
     ...rendererComponentProps,
     ...componentProps,
@@ -110,12 +116,6 @@ export function compileFieldSchema<TValues extends Values>(
     componentProps?.readonlyPlaceholder ??
     readonlyPlaceholder ??
     rendererComponentProps?.readonlyPlaceholder
-
-  const mergedAlign =
-    legacyComponentProps?.align ??
-    schema.contentAlign ??
-    legacyRendererComponentProps?.align ??
-    rest.contentAlign
 
   const normalizedSchema = {
     ...rest,
@@ -132,7 +132,6 @@ export function compileFieldSchema<TValues extends Values>(
 
   normalizedSchema.componentProps = {
     ...mergedComponentProps,
-    align: mergedReadonly ? "right" : mergedAlign,
     readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: rest.disabled,
@@ -160,6 +159,11 @@ export const buildFieldStaticSchema: typeof compileFieldSchema = compileFieldSch
  * @param index - Schema 在父节点 children 中的位置。
  * @param parentKey - 父节点的稳定 key。
  * @returns 用于 keyed reconcile 的稳定节点 key。
+ *
+ * @example
+ * ```ts
+ * const key = createNodeKey(fieldSchema, 0, "schemx:root")
+ * ```
  */
 export function createNodeKey<TValues extends Values>(
   schema: SchemxField<TValues>,
@@ -199,6 +203,14 @@ export function createNodeKey<TValues extends Values>(
  * @param dependencyOverrides - dependencies 产生的动态覆盖。
  * @param inheritedPresentationState - 父节点传入的有效状态。
  * @returns 当前节点及其后代使用的有效呈现状态。
+ *
+ * @example
+ * ```ts
+ * const state = resolvePresentationState(
+ *   { visible: true, readonly: false, disabled: false },
+ *   { readonly: true }
+ * )
+ * ```
  */
 export function resolvePresentationState(
   schemaState: Partial<PresentationState>,
@@ -250,6 +262,16 @@ interface ResolveComponentPropsOptions<TValues extends Values> {
  * @typeParam TValues - 表单值类型。
  * @param options - 静态 Props、动态覆盖和展示状态。
  * @returns Renderer 最终使用的 Props。
+ *
+ * @example
+ * ```ts
+ * const props = resolveComponentProps({
+ *   compiledProps,
+ *   dependencyComponentProps,
+ *   resolvedStateProps,
+ *   compiledStateProps,
+ * })
+ * ```
  */
 export function resolveComponentProps<TValues extends Values>(
   options: ResolveComponentPropsOptions<TValues>
@@ -290,6 +312,13 @@ export function resolveComponentProps<TValues extends Values>(
  * @param previous - 上一次校验配置切片。
  * @param next - 当前校验配置切片。
  * @returns 两个校验切片语义相同时返回 `true`。
+ *
+ * @example
+ * ```ts
+ * if (!isValidationStateEqual(previous, next)) {
+ *   updateValidationState(next)
+ * }
+ * ```
  */
 export function isValidationStateEqual<TValues extends Values>(
   previous: FieldValidationState<TValues>,
@@ -330,6 +359,11 @@ export const isValidationSchemaEqual: typeof isValidationStateEqual =
  *
  * @typeParam TValues - 表单值类型。
  * @returns 表示静态 Schema 初始状态的 diagnostics。
+ *
+ * @example
+ * ```ts
+ * const diagnostics = createInitialDiagnostics<FormValues>()
+ * ```
  */
 export function createInitialDiagnostics<
   TValues extends Values,
@@ -364,7 +398,7 @@ function getPlaceholder<TValues extends Values>(
     return placeholder
   }
 
-  return ["input", "text", "textarea"].includes(schema.componentType)
+  return ["input", "text", "textarea"].some((i) => schema.componentType.includes(i))
     ? `请输入${schema.label || schema.name}`
     : `请选择${schema.label || schema.name}`
 }

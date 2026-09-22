@@ -8,7 +8,10 @@
  */
 
 import { createSignal } from "../../reactivity"
-import { createDependencySchedulerEffect } from "../dependencyScheduler"
+import {
+  createDependencySchedulerEffect,
+  createGuardedFormApi,
+} from "../dependencyScheduler"
 
 import type { Signal } from "../../reactivity"
 import type { SchemxField, Values } from "../../types"
@@ -20,6 +23,13 @@ import type { DependencyNode, Scope } from "../node"
  *
  * @param node - dependency runtime 节点。
  * @returns 已挂载 effect state 时返回 true。
+ *
+ * @example
+ * ```ts
+ * if (hasDependencyRendererEffect(node)) {
+ *   node.rendererEffect?.dispose()
+ * }
+ * ```
  */
 export function hasDependencyRendererEffect(node: DependencyNode): boolean {
   return getDependencyRendererEffect(node) != null
@@ -30,6 +40,12 @@ export function hasDependencyRendererEffect(node: DependencyNode): boolean {
  *
  * @param node - dependency runtime 节点。
  * @returns 当前 effect state；尚未挂载时返回 undefined。
+ *
+ * @example
+ * ```ts
+ * const effect = getDependencyRendererEffect(node)
+ * effect?.run()
+ * ```
  */
 export function getDependencyRendererEffect(
   node: DependencyNode
@@ -102,8 +118,16 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
  * 会创建 effect state 的 run/dispose 逻辑，并把 renderer 结果经由统一 commit
  * 边界写入 dependency 子树。
  *
+ * @typeParam TValues - 表单值类型。
  * @param options - 创建 dependency effect 的配置。
  * @returns 已挂载到 node 的 renderer effect。
+ *
+ * @example
+ * ```ts
+ * const effect = createDependencyRendererEffect({ context, node })
+ * await effect.run()
+ * effect.dispose()
+ * ```
  */
 export function createDependencyRendererEffect<TValues extends Values = Values>(
   options: CreateDependencyRendererEffectOptions<TValues>
@@ -147,9 +171,13 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
     run: async (signal) => {
       // 每次任务读取节点上的最新 renderer，避免使用过期配置。
       return await Promise.resolve(
-        node.compiledSchema.value.renderer(formApi.getFieldsValue(), formApi, {
-          abortSignal: signal,
-        })
+        node.compiledSchema.value.renderer(
+          formApi.getFieldsValue(),
+          createGuardedFormApi(formApi, signal),
+          {
+            abortSignal: signal,
+          }
+        )
       )
     },
     onStart: (controller) => {

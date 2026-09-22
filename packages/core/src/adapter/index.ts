@@ -6,8 +6,13 @@
 
 export {
   createRendererRegistry,
-  RendererRegistry,
+  type RendererRegistry,
+  type RendererDescriptor,
+  type RendererEntry,
   type RendererMap,
+  type RendererPropsTransformer,
+  type RendererRegistration,
+  type RendererTransformContext,
 } from "../registry/rendererRegistry"
 
 export {

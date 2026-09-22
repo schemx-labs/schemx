@@ -1,25 +1,42 @@
 import type {
   SchemxField,
-  SchemxLayout,
   SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
 } from "../../index"
 
+interface TestCol {
+  span?: number
+  offset?: number
+  block?: boolean
+}
+
+interface TestRow {
+  gutter?: number
+  justify?: string
+  align?: string
+}
+
 declare module "../../types/field" {
   interface SchemxFieldDefinition {
+    col?: TestCol
+    layout?: TestCol
     layoutFieldMeta?: string
   }
 }
 
 declare module "../../types/group" {
   interface SchemxGroupFieldDefinition {
+    row?: TestRow
+    layout?: TestCol
     layoutGroupMeta?: string
   }
 }
 
 declare module "../../types/dynamic" {
   interface SchemxDynamicDefinition {
+    row?: TestRow
+    layout?: TestCol
     layoutDynamicMeta?: string
   }
 }
@@ -34,13 +51,13 @@ const field: SchemxField<FormValues> = {
   name: "users.0.name",
   label: "姓名",
   componentType: "input",
-  layout: { span: 12, offset: 0, block: true },
+  col: { span: 12, offset: 0, block: true },
   layoutFieldMeta: "field",
 }
 
 const group: SchemxField<FormValues> = {
   label: "用户",
-  layout: { span: 24 },
+  row: {},
   layoutGroupMeta: "group",
   children: [field],
 }
@@ -48,14 +65,14 @@ const group: SchemxField<FormValues> = {
 const dynamic: SchemxField<FormValues> = {
   key: "users",
   name: "users",
-  layout: { span: 24 },
+  row: {},
   layoutDynamicMeta: "dynamic",
   item: [
     {
       name: "name",
       label: "姓名",
       componentType: "input",
-      layout: { span: 12 },
+      col: { span: 12 },
       layoutFieldMeta: "dynamic-item",
     },
   ],
@@ -65,29 +82,38 @@ declare const fieldView: SchemxViewFieldSchema<FormValues>
 declare const groupView: SchemxViewGroupSchema<FormValues>
 declare const dynamicView: SchemxViewDynamicSchema<FormValues>
 
-const fieldLayoutSpan: number | undefined = fieldView.layout?.span
+const fieldColSpan: number | undefined = fieldView.col?.span
 
 const fieldMeta: string | undefined = fieldView.layoutFieldMeta
 
-const groupLayoutOffset: number | undefined = groupView.layout?.offset
+const groupRow: TestRow | undefined = groupView.row
 
 const groupMeta: string | undefined = groupView.layoutGroupMeta
 
-const dynamicLayoutFullLine: boolean | undefined = dynamicView.layout?.block
+const dynamicRow: TestRow | undefined = dynamicView.row
 
 const dynamicMeta: string | undefined = dynamicView.layoutDynamicMeta
 
-const invalidLayout: SchemxLayout = {
+const invalidLayout: TestCol = {
   // @ts-expect-error order 已从布局契约中移除。
   order: 1,
 }
 
-void fieldLayoutSpan
+const invalidCol: TestCol = {
+  // @ts-expect-error order 不属于 Col 配置。
+  order: 1,
+}
+
+const row: TestRow = {}
+
+void fieldColSpan
 void fieldMeta
-void groupLayoutOffset
+void groupRow
 void groupMeta
-void dynamicLayoutFullLine
+void dynamicRow
 void dynamicMeta
 void invalidLayout
+void invalidCol
+void row
 void group
 void dynamic

@@ -31,9 +31,11 @@ Core 将 Renderer 公共 Props、Schema 展示配置和字段依赖的适配层�
 
 影响范围：Core/UI 适配层的 Renderer Props、Schema 配置和动态依赖声明
 
-1. Vue Renderer 从 @schemx/vue 导入 SchemxVueBaseComponentProps；其他适配层用 SchemxComponentPropsDefinition<TValues> 声明公共 Renderer Props。
+1. Vue Renderer 从 @schemx/vue 导入 SchemxBaseComponentProps；其他适配层用 SchemxComponentPropsDefinition<TValues> 声明公共 Renderer Props。
 2. 用 SchemxSchemaConfigDefinition 声明适配层的表单展示默认值，用 SchemxFieldDependenciesDefinition<TValues> 声明可动态覆盖的展示属性。
 3. 升级 @schemx/core、@schemx/vue 和 @schemx/vant 至相同的 1.0.1 版本。
+
+Core 保留已弃用的字符串 `labelIcon` 兼容字段和默认值；Vue 适配层通过声明合并将其类型扩展为 `string | Component`，并管理图标 Adapter 与展示默认值。
 
 ## Features
 

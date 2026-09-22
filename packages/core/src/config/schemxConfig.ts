@@ -1,3 +1,6 @@
+import { normalizeSchemxConfig } from "./normalizeSchemxConfig"
+
+import type { SchemxConfigDefinition } from "../index"
 import type { PresetRuleRegistry, RendererRegistry } from "../registry"
 import type {
   SchemxRendererKey,
@@ -18,7 +21,9 @@ import type { ValidationAdapterOption } from "../validator/types"
  *
  * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
  */
-export interface SchemxConfig<TValues extends Values = Values> {
+export interface SchemxConfig<
+  TValues extends Values = Values,
+> extends SchemxConfigDefinition<TValues> {
   /**
    * 后续 Form 继承的字段默认值。
    *
@@ -58,77 +63,40 @@ export interface SchemxConfig<TValues extends Values = Values> {
   readonly presetRuleRegistry?: PresetRuleRegistry
 }
 
-// 未配置全局默认值时使用的标准化配置基线。
+// 模块级全局配置；由 configureSchemx() 替换，供后续 Form 创建调用继承。
 const EMPTY_SCHEMX_CONFIG = normalizeSchemxConfig({})
 
-// 当前生效的模块级全局配置。
 let globalConfig: SchemxConfig = EMPTY_SCHEMX_CONFIG
 
 /**
- * 设置后续 createForm 调用使用的全局默认配置。
+ * 配置 Schemx 的模块级全局默认行为。
  *
- * 采用替换语义：多次调用以最后一次为准，不与之前配置合并。
- * SSR 或同一进程多应用场景应改为在每个 Form 上显式传入配置。
+ * 该 API 只作用于当前模块级全局配置，不绑定 UI 适配包、Vue App 或组件树作用域。
+ * 每次调用都会替换此前的全局配置；无参数调用会清空全局配置。
+ * 多个 Vue App 或 SSR 场景应使用 App/ConfigProvider/Form 级配置，避免共享全局状态。
  *
- * @param nextConfig - 要替换的全局默认配置。
+ * @param nextConfig - 替换当前模块级默认配置的配置对象；省略时清空配置。
+ *
+ * @example
+ * ```ts
+ * configureSchemx({ schemaConfig: { readonly: true } })
+ * ```
  */
 export function configureSchemx(nextConfig: SchemxConfig = {}): void {
   globalConfig = normalizeSchemxConfig(nextConfig)
 }
 
 /**
- * 读取当前已标准化的模块级全局配置。
+ * 读取当前模块级全局配置。
  *
- * 适配层可用此函数与自身默认配置合并；单个 Form 的局部覆盖和内置默认值
- * 仍应由 `mergeCreateFormOptions()` 处理。
+ * @returns 当前已标准化的全局配置快照。
  *
- * @returns 当前生效的全局配置。
+ * @example
+ * ```ts
+ * const config = getGlobalSchemxConfig()
+ * console.log(config.schemaConfig)
+ * ```
  */
 export function getGlobalSchemxConfig(): SchemxConfig {
   return globalConfig
-}
-
-/**
- * 将用户输入标准化为可安全复用的全局配置。
- *
- * 对象与 adapter 列表会复制并冻结外层；Registry 保持其可变实例语义，以便
- * 配置它的多个 Form 共享注册结果。
- *
- * @param source - 由 `configureSchemx` 接收的用户配置。
- * @returns 已标准化的模块级配置。
- */
-function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
-  return Object.freeze({
-    // 复制并冻结字段默认值，避免配置后继续修改源对象影响后续 Form。
-    schemaConfig: Object.freeze({ ...(source.schemaConfig ?? {}) }),
-    // Renderer Props 只复制配置边界；嵌套 Prop 值保持调用方传入的引用语义。
-    rendererProps: normalizeRendererProps(source.rendererProps),
-    // 复制 adapter 列表，保持全局列表与调用方数组相互独立。
-    validatorAdapters: Object.freeze([...(source.validatorAdapters ?? [])]),
-    defaultRendererType: source.defaultRendererType,
-    // Registry 是跨 Form 共享的可变服务实例，不对其内部状态深冻。
-    rendererRegistry: source.rendererRegistry,
-    presetRuleRegistry: source.presetRuleRegistry,
-  })
-}
-
-/**
- * 复制并冻结 Renderer Props Map 外层及每个 Renderer 的 Props 对象。
- *
- * @param source - 待标准化的 Renderer Props Map。
- * @returns 与输入隔离一层的只读配置；任意嵌套 Prop 值仍保留原引用。
- */
-function normalizeRendererProps(
-  source: SchemxRendererPropsMap | undefined
-): SchemxRendererPropsMap | undefined {
-  if (source === undefined) {
-    return undefined
-  }
-
-  // 每个 Renderer 的 Props 对象单独复制，避免调用方替换顶层属性影响快照。
-  const entries = Object.entries(source).map(([type, props]) => {
-    return [type, props === undefined ? undefined : Object.freeze({ ...props })]
-  })
-
-  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
 }

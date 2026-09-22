@@ -88,6 +88,7 @@ function setTestRules<TValues extends Values, TName extends NamePath<TValues>>(
   validator.setFieldConfig({
     name,
     label: String(name),
+    placeholder: "",
     required: undefined,
   })
   validator.setFieldRules(name, rules)
@@ -224,6 +225,7 @@ describe("Validator", () => {
     validator.setFieldConfig({
       name: "name",
       label: "姓名",
+      placeholder: "请输入姓名",
       required: true,
     })
     validator.setFieldRules("name", "preset" as never)
@@ -237,6 +239,7 @@ describe("Validator", () => {
       name: "name",
       label: "姓名",
       required: true,
+      placeholder: "请输入姓名",
     })
     expect(adapterResolve).not.toHaveBeenCalled()
   })
@@ -307,6 +310,7 @@ describe("Validator", () => {
     validator.setFieldConfig({
       name: "name",
       label: "姓名",
+      placeholder: "请输入姓名",
       required: false,
     })
     validator.setFieldRules("name", "preset" as never)
@@ -346,6 +350,7 @@ describe("Validator", () => {
     validator.setFieldConfig({
       name: "name",
       label: "姓名",
+      placeholder: "请输入姓名",
       required: true,
     })
     validator.setFieldRules("name", [{ validate: extraRule }])

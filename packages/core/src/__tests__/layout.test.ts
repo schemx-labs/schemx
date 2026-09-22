@@ -8,20 +8,38 @@ import {
   type SchemxField,
 } from "../index"
 
+interface TestCol {
+  span?: number
+  offset?: number
+  block?: boolean
+}
+
+interface TestRow {
+  gutter?: number
+  justify?: string
+  align?: string
+}
+
 declare module "../types/field" {
   interface SchemxFieldDefinition {
+    col?: TestCol
+    layout?: TestCol
     layoutFieldMeta?: string
   }
 }
 
 declare module "../types/group" {
   interface SchemxGroupFieldDefinition {
+    row?: TestRow
+    layout?: TestCol
     layoutGroupMeta?: string
   }
 }
 
 declare module "../types/dynamic" {
   interface SchemxDynamicDefinition {
+    row?: TestRow
+    layout?: TestCol
     layoutDynamicMeta?: string
   }
 }
@@ -193,6 +211,77 @@ describe("Schema layout metadata", () => {
       layout: itemChildLayout,
       layoutFieldMeta: "dynamic-item-child",
     })
+
+    form.destroy()
+  })
+
+  it("保留 Field.col、Group.row 和 Dynamic.row 元数据", () => {
+    const fieldCol = { span: 12, offset: 1 }
+
+    const groupRow = {}
+
+    const dynamicRow = {}
+
+    const form = createForm<FormValues>({
+      initialValues: {
+        title: "表单",
+        groupTitle: "分组标题",
+        users: [{ name: "Ada", email: "ada@example.com" }],
+      },
+      schemas: [
+        {
+          name: "title",
+          label: "标题",
+          componentType: "input",
+          col: fieldCol,
+        },
+        {
+          label: "用户信息",
+          row: groupRow,
+          children: [],
+        },
+        {
+          key: "users-schema",
+          name: "users",
+          row: dynamicRow,
+          item: [
+            {
+              name: "name",
+              label: "姓名",
+              componentType: "input",
+              col: fieldCol,
+            },
+          ],
+        },
+      ],
+    })
+
+    const views = form.getViewSchemas()
+
+    const fieldView = views.find(
+      (schema) => isSchemxViewFieldSchema(schema) && schema.name === "title"
+    )
+
+    const groupView = views.find((schema) => isViewGroupSchema(schema))
+
+    const dynamicView = views.find((schema) => isViewDynamicSchema(schema))
+
+    if (!fieldView || !isSchemxViewFieldSchema(fieldView)) {
+      throw new Error("Field ViewSchema 未生成")
+    }
+
+    if (!groupView || !isViewGroupSchema(groupView)) {
+      throw new Error("Group ViewSchema 未生成")
+    }
+
+    if (!dynamicView || !isViewDynamicSchema(dynamicView)) {
+      throw new Error("Dynamic ViewSchema 未生成")
+    }
+
+    expect(fieldView.col).toBe(fieldCol)
+    expect(groupView.row).toBe(groupRow)
+    expect(dynamicView.row).toBe(dynamicRow)
+    expect(dynamicView.items[0]?.children[0]).toMatchObject({ col: fieldCol })
 
     form.destroy()
   })

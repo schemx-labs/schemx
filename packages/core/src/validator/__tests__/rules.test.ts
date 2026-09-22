@@ -34,7 +34,11 @@ const createSchema = (
 
 describe("规则归一化", () => {
   it.each([undefined, null, "", []])("默认 required 拒绝空值 %#", async (value) => {
-    const rule = createRequiredValidationRule({ required: true, label: "用户名" })
+    const rule = createRequiredValidationRule({
+      required: true,
+      label: "用户名",
+      placeholder: "请输入用户名",
+    })
 
     const result = await rule.validate(value, createContext())
 
@@ -46,7 +50,11 @@ describe("规则归一化", () => {
   })
 
   it.each([0, false, "value", [1]])("默认 required 接受非空值 %#", async (value) => {
-    const rule = createRequiredValidationRule({ required: true, label: "字段" })
+    const rule = createRequiredValidationRule({
+      required: true,
+      label: "字段",
+      placeholder: "请输入字段",
+    })
 
     expect(await rule.validate(value, createContext())).toEqual({ valid: true })
   })
@@ -55,12 +63,26 @@ describe("规则归一化", () => {
     const rule = createRequiredValidationRule<string>({
       required: { message: "请选择有效值", isEmpty: (value) => value === "N/A" },
       label: "值",
+      placeholder: "请输入值",
     })
 
     expect(await rule.validate("N/A", createContext())).toMatchObject({
       valid: false,
     })
     expect(await rule.validate("", createContext())).toEqual({ valid: true })
+  })
+
+  it("自定义 isEmpty 应返回布尔值判断数组是否为空", async () => {
+    const rule = createRequiredValidationRule<number[]>({
+      required: {
+        isEmpty: (value) => value == null || value.length === 0,
+      },
+      label: "选项",
+      placeholder: "请选择选项",
+    })
+
+    expect(await rule.validate([], createContext())).toMatchObject({ valid: false })
+    expect(await rule.validate([1], createContext())).toEqual({ valid: true })
   })
 
   it("Standard Schema wrapper 只映射 issues，不返回转换值", async () => {

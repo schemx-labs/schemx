@@ -142,14 +142,26 @@ describe("呈现状态运行时链路", () => {
     ] as SchemxField[])
     await flushRuntimeGraph(scheduler)
 
-    expect(groupTrigger).toHaveBeenLastCalledWith({ mode: "initial" }, formApi)
-    expect(dependencyTrigger).toHaveBeenLastCalledWith({ mode: "initial" }, formApi)
+    expect(groupTrigger).toHaveBeenLastCalledWith(
+      { mode: "initial" },
+      expect.objectContaining({ getFieldsValue: expect.any(Function) })
+    )
+    expect(dependencyTrigger).toHaveBeenLastCalledWith(
+      { mode: "initial" },
+      expect.objectContaining({ getFieldsValue: expect.any(Function) })
+    )
 
     formApi.setFieldValue("mode", "updated")
     await flushRuntimeGraph(scheduler)
 
-    expect(groupTrigger).toHaveBeenLastCalledWith({ mode: "updated" }, formApi)
-    expect(dependencyTrigger).toHaveBeenLastCalledWith({ mode: "updated" }, formApi)
+    expect(groupTrigger).toHaveBeenLastCalledWith(
+      { mode: "updated" },
+      expect.objectContaining({ getFieldsValue: expect.any(Function) })
+    )
+    expect(dependencyTrigger).toHaveBeenLastCalledWith(
+      { mode: "updated" },
+      expect.objectContaining({ getFieldsValue: expect.any(Function) })
+    )
   })
 
   it("Dependency 状态更新不应重建结构 effect 或 children", async () => {

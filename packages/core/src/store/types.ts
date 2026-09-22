@@ -310,6 +310,11 @@ export interface Store<TValues extends Values = Values> {
   ): void
 
   /**
+   * 清除 pending 提交流程写入的错误，保留其他来源。
+   */
+  clearFieldPendingErrors(path: NamePath<TValues>): void
+
+  /**
    * 批量设置字段的 pending 状态。
    *
    * @param paths - 要设置的字段路径数组。
@@ -381,6 +386,17 @@ export interface Store<TValues extends Values = Values> {
    * @returns 字段错误问题的独立快照。
    */
   getFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[]
+
+  /**
+   * 返回当前值写入和显式重置的单调版本。
+   */
+  getMutationRevision(): number
+
+  /** 返回显式 reset 操作版本，用于取消 reset 期间等待的校验。 */
+  getResetRevision(): number
+
+  /** 订阅显式 reset 操作，返回可重复调用的取消函数。 */
+  subscribeResets(listener: () => void): () => void
 
   /**
    * 无依赖读取指定字段的问题。

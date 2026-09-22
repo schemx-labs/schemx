@@ -38,7 +38,12 @@ export function diff<TRecord extends Record<string, unknown>>(
 ): Partial<TRecord> {
   const changedValues: Partial<TRecord> = {}
 
-  for (const key of Object.keys(current) as (keyof TRecord)[]) {
+  const keys = new Set<keyof TRecord>([
+    ...(Object.keys(current) as (keyof TRecord)[]),
+    ...(Object.keys(prev) as (keyof TRecord)[]),
+  ])
+
+  for (const key of keys) {
     if (!isEqual(current[key], prev[key])) {
       changedValues[key] = current[key]
     }

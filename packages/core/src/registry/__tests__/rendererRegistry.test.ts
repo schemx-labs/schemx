@@ -10,7 +10,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createRendererRegistry } from "../rendererRegistry"
+import {
+  createRendererRegistry,
+  type RendererPropsTransformer,
+} from "../rendererRegistry"
 
 const Comp1 = { name: "Comp1" }
 
@@ -53,19 +56,39 @@ describe("Registry", () => {
       reg.register("text", Comp2, { override: false })
       expect(reg.get("text")).toBe(Comp1)
     })
+
+    it("支持带 transformProps 的 Renderer 描述对象", () => {
+      const reg = createRendererRegistry()
+
+      const transformProps: RendererPropsTransformer = (props) => ({
+        ...props,
+        placeholder: "转换后的占位符",
+      })
+
+      reg.register("text", {
+        component: Comp1,
+        transformProps,
+      })
+
+      expect(reg.get("text")).toBe(Comp1)
+      expect(reg.getEntry("text")).toEqual({
+        component: Comp1,
+        transformProps,
+      })
+    })
   })
 
   // 验证 get 为纯查询、resolve 在未命中时回退到回退类型
   describe("get / resolve", () => {
     it("get 为纯查询，未注册时返回 undefined 且不回退", () => {
-      const reg = createRendererRegistry<string>("text")
+      const reg = createRendererRegistry("text")
 
       reg.register("text", Comp1)
       expect(reg.get("unknown")).toBeUndefined()
     })
 
     it("resolve 未命中时回退到回退类型", () => {
-      const reg = createRendererRegistry<string>("text")
+      const reg = createRendererRegistry("text")
 
       reg.register("text", Comp1)
       expect(reg.resolve("unknown")).toBe(Comp1)
@@ -78,11 +101,27 @@ describe("Registry", () => {
     })
 
     it("精确命中时 get 与 resolve 返回同一组件", () => {
-      const reg = createRendererRegistry<string>("text")
+      const reg = createRendererRegistry("text")
 
       reg.register("text", Comp1)
       expect(reg.get("text")).toBe(Comp1)
       expect(reg.resolve("text")).toBe(Comp1)
+    })
+
+    it("resolveEntry 在 fallback 时保留 fallback Renderer 的转换器", () => {
+      const reg = createRendererRegistry("text")
+
+      const transformProps: RendererPropsTransformer = (props) => props
+
+      reg.register("text", {
+        component: Comp1,
+        transformProps,
+      })
+
+      expect(reg.resolveEntry("unknown")).toEqual({
+        component: Comp1,
+        transformProps,
+      })
     })
   })
 
@@ -96,6 +135,46 @@ describe("Registry", () => {
       expect(reg.get("text")).toBe(Comp1)
       expect(reg.get("number")).toBe(Comp2)
       expect(reg.get("select")).toBe(Comp3)
+    })
+
+    it("批量注册支持 Renderer 描述对象", () => {
+      const reg = createRendererRegistry()
+
+      const transformProps: RendererPropsTransformer = (props) => props
+
+      reg.registerAll({
+        text: {
+          component: Comp1,
+          transformProps,
+        },
+      })
+
+      expect(reg.get("text")).toBe(Comp1)
+      expect(reg.getEntry("text")?.transformProps).toBe(transformProps)
+    })
+
+    it("覆盖、取消注册和清空会同步处理描述对象", () => {
+      const reg = createRendererRegistry()
+
+      const firstTransform: RendererPropsTransformer = (props) => props
+
+      const secondTransform: RendererPropsTransformer = (props) => ({
+        ...props,
+        placeholder: "second",
+      })
+
+      reg.register("text", { component: Comp1, transformProps: firstTransform })
+      reg.register("text", { component: Comp2, transformProps: secondTransform })
+
+      expect(reg.getEntry("text")?.component).toBe(Comp2)
+      expect(reg.getEntry("text")?.transformProps).toBe(secondTransform)
+
+      expect(reg.unregister("text")).toBe(true)
+      expect(reg.getEntry("text")).toBeUndefined()
+
+      reg.register("text", { component: Comp1, transformProps: firstTransform })
+      reg.clear()
+      expect(reg.getEntry("text")).toBeUndefined()
     })
   })
 
@@ -128,7 +207,7 @@ describe("Registry", () => {
     })
 
     it("移除最后一个渲染器时回退类型保持不变", () => {
-      const reg = createRendererRegistry<string>("text")
+      const reg = createRendererRegistry("text")
 
       reg.register("text", Comp1)
       reg.unregister("text")
@@ -148,7 +227,7 @@ describe("Registry", () => {
     })
 
     it("设置未注册的类型无效", () => {
-      const reg = createRendererRegistry<string>("text")
+      const reg = createRendererRegistry("text")
 
       reg.register("text", Comp1)
       reg.setFallback("nonexistent")

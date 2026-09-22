@@ -66,12 +66,14 @@ describe("PresetRuleRegistry", () => {
       name: "user.email",
       label: "邮箱",
       required: true,
+      placeholder: "请输入邮箱",
     })
 
     expect(factory).toHaveBeenCalledWith({
       name: "user.email",
       label: "邮箱",
       required: true,
+      placeholder: "请输入邮箱",
     })
   })
 
@@ -84,8 +86,8 @@ describe("PresetRuleRegistry", () => {
 
     registry.registerAll({ email, positive } as never)
 
-    expect(registry.keys()).toEqual(["email", "positive"])
-    expect(registry.size()).toBe(2)
+    expect(registry.keys()).toEqual(["required", "email", "positive"])
+    expect(registry.size()).toBe(3)
     expect(registry.unregister("email")).toBe(true)
     expect(registry.unregister("email")).toBe(false)
 
@@ -95,12 +97,26 @@ describe("PresetRuleRegistry", () => {
     expect(registry.size()).toBe(0)
   })
 
-  it("未注册规则返回 undefined，且不内置 required", () => {
+  it("未注册规则返回 undefined，且内置 required", () => {
     const registry = createPresetRuleRegistry()
 
     expect(
-      registry.resolve("missing", { name: "email", label: "邮箱", required: false })
+      registry.resolve("missing", {
+        name: "email",
+        label: "邮箱",
+        required: false,
+        placeholder: "请输入邮箱",
+      })
     ).toBeUndefined()
-    expect(registry.has("required")).toBe(false)
+    expect(registry.has("required")).toBe(true)
+
+    expect(
+      registry.resolve("required", {
+        name: "email",
+        label: "邮箱",
+        required: true,
+        placeholder: "请输入邮箱",
+      })
+    ).toBeDefined()
   })
 })

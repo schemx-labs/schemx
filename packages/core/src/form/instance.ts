@@ -1,14 +1,27 @@
 import { createSignal } from "../reactivity"
 import { withLock } from "../utils"
+import { createValidationCancelled, createValidationFailure } from "../validator/result"
 
 import type { FormModel } from "./model"
 import type { SchemxSchemas } from "../createSchemas"
-import type { PresetRuleRegistry, RendererRegistry } from "../registry"
+import type {
+  PresetRuleRegistry,
+  RegistryOptions,
+  RendererDescriptor,
+  RendererRegistry,
+} from "../registry"
 import type { SchemaRuntime } from "../runtime/createSchemaRuntime"
 import type { Store } from "../store"
-import type { NamePath, SchemxFormApi, SchemxInstance, Values } from "../types"
+import type {
+  NamePath,
+  SchemxFormApi,
+  SchemxInstance,
+  SchemxRendererKey,
+  Values,
+} from "../types"
 import type {
   FieldValidationConfig,
+  FieldValidationError,
   ValidationFailure,
   ValidationResult,
   ValidationRuleIssue,
@@ -86,12 +99,19 @@ export interface FormCallbacks<TValues extends Values> {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface CreateFormInstanceOptions<TValues extends Values> {
+  /** 保存表单数据、字段状态和校验器的 Model。 */
   model: FormModel<TValues>
+  /** 读取当前可用的 SchemaRuntime；Runtime 断开时返回 `undefined`。 */
   getRuntime: () => SchemaRuntime<TValues> | undefined
+  /** 读取当前的 Schema 集合；未提供时返回 `undefined`。 */
   getSchemas: () => SchemxSchemas<TValues> | undefined
+  /** 提交成功、失败、重置和 loading 状态变化时调用的回调。 */
   callbacks: FormCallbacks<TValues>
+  /** 销毁底层 Form 并释放其资源的回调。 */
   destroy: () => void
+  /** 当前 Form 使用的 Renderer 注册表。 */
   rendererRegistry: RendererRegistry
+  /** 当前 Form 使用的命名校验规则注册表。 */
   presetRuleRegistry: PresetRuleRegistry
 }
 
@@ -186,63 +206,137 @@ export function createFormInstance<TValues extends Values>(
 
   const isLoading: SchemxInstance<TValues>["isLoading"] = () => loading.value
 
+  const waitForCriticalIdle = async (
+    resetRevision: number
+  ): Promise<{ readonly ready: boolean; readonly reset: boolean }> => {
+    const runtime = getRuntime()
+
+    if (!runtime) return { ready: true, reset: false }
+
+    let resolveReset: (() => void) | undefined
+
+    const resetPromise = new Promise<void>((resolve) => {
+      resolveReset = resolve
+    })
+
+    const unsubscribe = model.store.subscribeResets(() => {
+      resolveReset?.()
+    })
+
+    try {
+      const result = await Promise.race([
+        runtime.waitForCriticalIdle().then((ready) => ({ ready, reset: false })),
+        resetPromise.then(() => ({ ready: false, reset: true })),
+      ])
+
+      return result
+    } finally {
+      unsubscribe()
+
+      if (model.store.getResetRevision() !== resetRevision) {
+        resolveReset = undefined
+      }
+    }
+  }
+
+  const refreshFieldValidationConfig = (name: NamePath<TValues>): void => {
+    const runtimeContext = getRuntime()?.getFieldRuleContext(name)
+
+    if (!runtimeContext) return
+
+    model.validation.setFieldConfig({
+      name,
+      label: runtimeContext.label ?? "",
+      placeholder: runtimeContext.placeholder ?? "",
+      required: runtimeContext.required ?? false,
+      active:
+        runtimeContext.visible !== false &&
+        runtimeContext.readonly !== true &&
+        runtimeContext.disabled !== true,
+    })
+  }
+
   const reset: SchemxInstance<TValues>["reset"] = () => {
     model.reset()
     callbacks.onReset?.()
   }
 
   const validateField: SchemxInstance<TValues>["validateField"] = async (name) => {
-    await getRuntime()?.waitForCriticalIdle()
+    const resetRevision = model.store.getResetRevision()
+
+    const dependencyState = await waitForCriticalIdle(resetRevision)
+
+    if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
+      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
+    }
+
+    if (!dependencyState.ready) {
+      return createDependencyTimeoutResult<TValues, typeof name>(
+        model.store.getFieldsSnapshot()
+      )
+    }
+
+    refreshFieldValidationConfig(name)
 
     return model.validation.validateField(name, model.store.getFieldsValue())
   }
 
   const validateAfterIdle = async (): Promise<ValidationResult<TValues>> => {
-    const pendingFields = model.store.getPendingFields()
+    const createPendingResult = (): ValidationResult<TValues> => {
+      const pendingFields = model.store.getPendingFields()
 
-    if (pendingFields.length > 0) {
       const defaultMessage = `存在正在操作中的字段: ${pendingFields.map((item) => item.field).join(", ")}，请等待完成后再提交`
 
       console.warn(`[schemx] ${defaultMessage}`)
 
-      return {
-        valid: false,
-        values: model.store.getFieldsSnapshot(),
-        errors: pendingFields.map(({ field, message }) => {
-          const messages = message.length ? message : ["字段正在处理中，请稍后重试"]
+      // 在写入错误触发订阅回调前保留本次值快照。
+      const values = model.store.getFieldsSnapshot()
 
-          model.store.setFieldErrors(
-            field as NamePath<TValues>,
-            messages.map((message) => ({
+      // 复用同一组问题写入 Store 和创建公开结果。
+      const errors = pendingFields.map<FieldValidationError<NamePath<TValues>>>(
+        ({ field, message }) => {
+          // 至少保留一条提示，使字段错误始终满足非空约束。
+          const [first = "字段正在处理中，请稍后重试", ...rest] = message
+
+          const issues: [ValidationRuleIssue, ...ValidationRuleIssue[]] = [
+            { type: "external", message: first, code: "pending" },
+            ...rest.map<ValidationRuleIssue>((item) => ({
               type: "external",
-              message,
-              code: "pending",
-            }))
-          )
-
-          return {
-            scope: "field" as const,
-            name: field as NamePath<TValues>,
-            issues: messages.map((item) => ({
-              type: "external" as const,
               message: item,
               code: "pending",
-            })) as [
-              { type: "external"; message: string; code: string },
-              ...{ type: "external"; message: string; code: string }[],
-            ],
-          }
-        }),
-      }
+            })),
+          ]
+
+          model.store.setFieldErrors(field as NamePath<TValues>, issues)
+
+          return { scope: "field", name: field as NamePath<TValues>, issues }
+        }
+      )
+
+      return createValidationFailure(values, errors)
     }
 
-    return model.validation.validate(model.store.getFieldsValue())
+    if (model.store.getPendingFields().length > 0) {
+      return createPendingResult()
+    }
+
+    const result = await model.validation.validate(model.store.getFieldsValue())
+
+    if (!result.valid && result.cancelled) return result
+
+    return model.store.getPendingFields().length > 0 ? createPendingResult() : result
   }
 
   const validate: SchemxInstance<TValues>["validate"] = withLock(async () => {
-    const depsReady = await getRuntime()?.waitForCriticalIdle()
+    const resetRevision = model.store.getResetRevision()
 
-    if (!depsReady) {
+    const dependencyState = await waitForCriticalIdle(resetRevision)
+
+    if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
+      return createValidationCancelled(model.store.getFieldsSnapshot())
+    }
+
+    if (!dependencyState.ready) {
       return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
     }
 
@@ -250,16 +344,32 @@ export function createFormInstance<TValues extends Values>(
   })
 
   const submit: SchemxInstance<TValues>["submit"] = withLock(async () => {
+    const resetRevision = model.store.getResetRevision()
+
     try {
       setLoading(true)
 
-      const depsReady = await getRuntime()?.waitForCriticalIdle()
+      const dependencyState = await waitForCriticalIdle(resetRevision)
 
-      if (!depsReady) {
-        return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
+      if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
+        return createValidationCancelled(model.store.getFieldsSnapshot())
       }
 
+      if (!dependencyState.ready) {
+        const result = createDependencyTimeoutResult(model.store.getFieldsSnapshot())
+
+        callbacks.onFinishFailed?.(result)
+
+        return result
+      }
+
+      const validationRevision = model.store.getMutationRevision()
+
       const result = await validateAfterIdle()
+
+      if (result.valid && model.store.getMutationRevision() !== validationRevision) {
+        return createValidationCancelled(model.store.getFieldsSnapshot())
+      }
 
       if (result.valid) {
         await callbacks.onFinish?.(result.values)
@@ -276,20 +386,26 @@ export function createFormInstance<TValues extends Values>(
   })
 
   const setFieldRules: SchemxInstance<TValues>["setFieldRules"] = (path, rules) => {
-    // 外部只传入 rules；label/required 由 Runtime 的有效 Schema 内部补齐。
+    // 外部只传入 rules；label/placeholder/required 由 Runtime 的有效 Schema 内部补齐。
     const ruleContext = getRuntime()?.getFieldRuleContext(path)
 
     const config: FieldValidationConfig<TValues, typeof path> = {
       name: path,
       label: ruleContext?.label ?? "",
+      placeholder: ruleContext?.placeholder ?? "",
       required: (ruleContext?.required ?? false) as FieldValidationConfig<
         TValues,
         typeof path
       >["required"],
+      active:
+        ruleContext === undefined ||
+        (ruleContext.visible !== false &&
+          ruleContext.readonly !== true &&
+          ruleContext.disabled !== true),
     }
 
     model.validation.setFieldConfig(config)
-    model.validation.setFieldRules(path, rules)
+    model.validation.setManualFieldRules(path, rules)
   }
 
   const setFieldsRules: SchemxInstance<TValues>["setFieldsRules"] = (fields) => {
@@ -299,7 +415,7 @@ export function createFormInstance<TValues extends Values>(
   }
 
   const removeFieldRules: SchemxInstance<TValues>["removeFieldRules"] = (path) => {
-    model.validation.removeFieldRules(path)
+    model.validation.removeManualFieldRules(path)
   }
 
   const removeFieldsRules: SchemxInstance<TValues>["removeFieldsRules"] = (names) => {
@@ -391,7 +507,16 @@ export function createFormInstance<TValues extends Values>(
     subscribeViewSchemas,
     waitForDependencies,
     getRenderer: rendererRegistry.resolve.bind(rendererRegistry),
-    registerRenderer: rendererRegistry.register.bind(rendererRegistry),
+    getRendererEntry: ((type: SchemxRendererKey<TValues>) =>
+      rendererRegistry.resolveEntry(type)) as SchemxInstance<TValues>["getRendererEntry"],
+    registerRenderer: ((
+      type: SchemxRendererKey<TValues>,
+      renderer:
+        RendererDescriptor<unknown, TValues, SchemxRendererKey<TValues>> | unknown,
+      options?: RegistryOptions
+    ) => {
+      rendererRegistry.register(type, renderer, options)
+    }) as SchemxInstance<TValues>["registerRenderer"],
     hasRenderer: rendererRegistry.has.bind(rendererRegistry),
     getPresetRule: presetRuleRegistry.get.bind(
       presetRuleRegistry
@@ -408,26 +533,24 @@ export function createFormInstance<TValues extends Values>(
  * 创建依赖解析超时的表单级失败结果。
  *
  * @typeParam TValues - 表单值对象类型。
+ * @typeParam TName - 保留字段校验调用方的路径类型。
  * @param values - 超时发生时应保留的表单值快照。
  * @returns 表示依赖解析超时的失败结果。
  */
-function createDependencyTimeoutResult<TValues extends Values>(
-  values: TValues
-): ValidationResult<TValues> {
-  return {
-    valid: false,
-    values,
-    errors: [
-      {
-        scope: "form",
-        issues: [
-          {
-            type: "validation",
-            message: "表单依赖解析超时，请稍后重试",
-            code: "dependency_timeout",
-          },
-        ],
-      },
-    ],
-  }
+function createDependencyTimeoutResult<
+  TValues extends Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+>(values: TValues): ValidationFailure<TValues, TName> {
+  return createValidationFailure<TValues, TName>(values, [
+    {
+      scope: "form",
+      issues: [
+        {
+          type: "validation",
+          message: "表单依赖解析超时，请稍后重试",
+          code: "dependency_timeout",
+        },
+      ],
+    },
+  ])
 }

@@ -16,10 +16,14 @@ import {
 
 import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 import { createAsyncValidatorAdapter } from "./asyncValidator.adapter"
-import { createRequiredValidationRule } from "./built-in.rules"
+import {
+  createValidationCancelled,
+  createValidationFailure,
+  createValidationSuccess,
+} from "./result"
 import { createStandardSchemaAdapter } from "./standardSchema.adapter"
 
-import type { PresetRuleRegistry } from "../registry"
+import type { PresetRuleEntry, PresetRuleRegistry } from "../registry"
 import type { Store } from "../store"
 import type {
   FieldValidationConfig,
@@ -40,6 +44,7 @@ import type {
   FieldRule,
   FieldRules,
   NamePath,
+  RequiredConfig,
   Values,
 } from "../types"
 
@@ -102,7 +107,8 @@ interface FieldRuleRecord<TValues extends Values> {
   // 规则所属的字段路径。
   readonly name: NamePath<TValues>
   // 尚未解析为原生规则的原始声明。
-  readonly rules: FieldRules<TValues, NamePath<TValues>> | undefined
+  readonly rules:
+    FieldRules<TValues, NamePath<TValues>> | PresetRuleEntry<unknown> | undefined
 }
 
 /**
@@ -125,7 +131,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   // 字段 configuration/validation/external 错误的响应式状态容器。
   private readonly fieldStore: Store<TValues>
 
-  // 保存字段校验元数据；规则解析时用于 label、required 和错误提示。
+  // 保存字段校验元数据；规则解析时用于 label、placeholder、required 和错误提示。
   private readonly fieldConfigs = new Map<
     string,
     FieldValidationConfig<TValues, NamePath<TValues>>
@@ -133,6 +139,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
   // 保存字段原始规则；可执行规则在校验前动态解析。
   private readonly fieldRules = new Map<string, FieldRuleRecord<TValues>>()
+
+  // 公开 setFieldRules 的覆盖层；Runtime 声明规则不会覆盖它。
+  private readonly manualFieldRules = new Map<string, FieldRuleRecord<TValues>>()
 
   // 按注册顺序保存可识别字段规则的 adapter。
   private readonly adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>
@@ -159,9 +168,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     const asyncValidatorAdapter = createAsyncValidatorAdapter()
 
     this.adapters = createValidationAdapterMap([
+      ...(options.validatorAdapters ?? []),
       standardSchemaAdapter,
       asyncValidatorAdapter,
-      ...(options.validatorAdapters ?? []),
     ])
   }
 
@@ -169,7 +178,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    * 保存字段规则配置并取消由旧配置启动的运行。
    *
    * @typeParam TName - 字段路径类型。
-   * @param config - 字段路径、标签和必填状态。
+   * @param config - 字段路径、标签、占位文本和必填状态。
    */
   public setFieldConfig<TName extends NamePath<TValues>>(
     config: FieldValidationConfig<TValues, TName>
@@ -179,10 +188,13 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     const key = createFieldKey(config.name)
 
     this.abortRun(key)
+
     const storedConfig = {
       name: config.name,
       label: config.label,
+      placeholder: config.placeholder,
       required: config.required,
+      active: config.active,
     } as FieldValidationConfig<TValues, NamePath<TValues>>
 
     this.fieldConfigs.set(key, storedConfig)
@@ -199,7 +211,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    */
   public setFieldRules<TName extends NamePath<TValues>>(
     name: TName,
-    rules: FieldRules<TValues, TName> | undefined
+    rules: FieldRules<TValues, TName> | PresetRuleEntry<unknown> | undefined
   ): void {
     if (this.destroyed) return
 
@@ -219,6 +231,22 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.clearResolvedFieldErrors(name)
   }
 
+  public setManualFieldRules<TName extends NamePath<TValues>>(
+    name: TName,
+    rules: FieldRules<TValues, TName>
+  ): void {
+    if (this.destroyed) return
+
+    const key = createFieldKey(name)
+
+    this.abortRun(key)
+    this.manualFieldRules.set(key, {
+      name,
+      rules: copyFieldRules(rules) as FieldRules<TValues, NamePath<TValues>>,
+    })
+    this.clearResolvedFieldErrors(name)
+  }
+
   /**
    * 只移除字段原始规则；字段元数据和必填校验保持不变。
    *
@@ -232,6 +260,14 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.clearResolvedFieldErrors(name)
   }
 
+  public removeManualFieldRules(name: NamePath<TValues>): void {
+    const key = createFieldKey(name)
+
+    this.abortRun(key)
+    this.manualFieldRules.delete(key)
+    this.clearResolvedFieldErrors(name)
+  }
+
   /**
    * 移除字段元数据和规则、中止正在进行的校验并清除全部错误。
    *
@@ -241,7 +277,14 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     const key = createFieldKey(name)
 
     this.abortRun(key)
-    this.fieldConfigs.delete(key)
+    const config = this.fieldConfigs.get(key)
+
+    if (config && this.manualFieldRules.has(key)) {
+      this.fieldConfigs.set(key, { ...config, active: false })
+    } else {
+      this.fieldConfigs.delete(key)
+    }
+
     this.fieldRules.delete(key)
     this.fieldStore.clearFieldErrors(name)
   }
@@ -361,7 +404,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     name: TName,
     values: TValues
   ): Promise<ValidationResult<TValues, TName>> {
-    if (this.destroyed) return this.cancelled(values)
+    if (this.destroyed) return createValidationCancelled(values)
 
     // 当前字段的稳定运行身份。
     const key = createFieldKey(name)
@@ -372,9 +415,18 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 在运行开始时读取字段元数据和原始规则。
     const config = this.fieldConfigs.get(key)
 
-    const ruleRecord = this.fieldRules.get(key)
+    const ruleRecord = this.manualFieldRules.get(key) ?? this.fieldRules.get(key)
+
+    const mutationRevision = this.fieldStore.getMutationRevision()
 
     let rules: readonly ValidationRule[] = []
+
+    if (config?.active === false) {
+      this.runs.delete(key)
+      this.clearResolvedFieldErrors(name)
+
+      return createValidationSuccess(values)
+    }
 
     if (config || ruleRecord) {
       try {
@@ -382,6 +434,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
           config ?? {
             name,
             label: "",
+            placeholder: "",
             required: undefined,
           },
           ruleRecord?.rules
@@ -417,12 +470,17 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 本次规则执行产生的问题；undefined 表示已中止。
     const issues = await this.executeRules(rules, value, context)
 
-    if (issues === undefined || run.controller.signal.aborted || this.destroyed) {
-      return this.cancelled(values)
+    if (
+      issues === undefined ||
+      run.controller.signal.aborted ||
+      this.destroyed ||
+      this.fieldStore.getMutationRevision() !== mutationRevision
+    ) {
+      return createValidationCancelled(values)
     }
 
     if (this.runs.get(key)?.version !== run.version) {
-      return this.cancelled(values)
+      return createValidationCancelled(values)
     }
 
     this.runs.delete(key)
@@ -438,7 +496,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    * @returns 成功、失败或任一字段被取消时的取消结果。
    */
   public async validate(values: TValues): Promise<ValidationResult<TValues>> {
-    if (this.destroyed) return this.cancelled(values)
+    if (this.destroyed) return createValidationCancelled(values)
+
+    const mutationRevision = this.fieldStore.getMutationRevision()
 
     // 合并配置和规则字段，避免校验期间字段注册变化影响本轮范围。
     const records = this.collectValidationRecords()
@@ -446,28 +506,25 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     // 各字段独立运行，但限制并发数并在批次间让出主线程。
     const results = await this.validateFieldsInBatches(records, values)
 
-    if (results.some((result) => !result.valid && result.cancelled)) {
-      return this.cancelled(values)
+    if (
+      results.some((result) => !result.valid && result.cancelled) ||
+      this.fieldStore.getMutationRevision() !== mutationRevision
+    ) {
+      return createValidationCancelled(values)
     }
 
-    // 最终公开结果中的字段与表单错误。
+    // 最终从最新错误仓库读取，避免校验期间写入的 external 错误被旧结果覆盖。
     const errors: ValidationError<NamePath<TValues>>[] = []
 
-    // 已由本轮规则运行覆盖的字段身份。
-    const validatedKeys = new Set(records.map((record) => createFieldKey(record.name)))
-
-    for (const result of results) {
-      if (!result.valid) errors.push(...result.errors)
-    }
-
     for (const entry of this.fieldStore.getFieldsErrors()) {
-      if (validatedKeys.has(createFieldKey(entry.field))) continue
       const fieldError = this.createFieldError(entry.field, entry.errors)
 
       if (fieldError) errors.push(fieldError)
     }
 
-    return errors.length === 0 ? this.success(values) : { valid: false, values, errors }
+    return errors.length === 0
+      ? createValidationSuccess(values)
+      : createValidationFailure(values, errors)
   }
 
   /**
@@ -481,6 +538,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     this.runs.clear()
     this.fieldConfigs.clear()
     this.fieldRules.clear()
+    this.manualFieldRules.clear()
     this.fieldStore.clearAllErrors()
   }
 
@@ -526,20 +584,28 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    */
   private resolveRules(
     config: FieldValidationConfig<TValues, NamePath<TValues>>,
-    rules: FieldRules<TValues, NamePath<TValues>> | undefined
+    rules: FieldRules<TValues, NamePath<TValues>> | PresetRuleEntry<unknown> | undefined
   ): readonly ValidationRule[] {
     const nativeRules: ValidationRule[] = []
 
     if (config.required) {
-      nativeRules.push(
-        createRequiredValidationRule({
-          required: config.required,
-          label: config.label,
-        })
-      )
+      nativeRules.push(...this.resolveNamedRule("required", config))
     }
 
-    for (const rule of toRuleArray(rules)) {
+    if (typeof rules === "function") {
+      const resolved = rules({
+        name: config.name,
+        label: config.label,
+        required: (config.required ?? false) as RequiredConfig<unknown>,
+        placeholder: config.placeholder,
+      })
+
+      nativeRules.push(...this.resolveObjectRule(resolved, config))
+
+      return nativeRules
+    }
+
+    for (const rule of toRuleArray(rules as FieldRules<TValues, NamePath<TValues>>)) {
       nativeRules.push(...this.resolveRule(rule, config))
     }
 
@@ -577,7 +643,8 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
       const resolved = this.presetRuleRegistry.resolve(name, {
         name: config.name,
         label: config.label,
-        required: Boolean(config.required),
+        required: (config.required ?? false) as RequiredConfig<unknown>,
+        placeholder: config.placeholder,
       })
 
       if (resolved === undefined) {
@@ -815,8 +882,8 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     const fieldError = this.createFieldError(name, this.fieldStore.getFieldErrors(name))
 
     return fieldError
-      ? { valid: false, values, errors: [fieldError] }
-      : this.success(values)
+      ? createValidationFailure(values, [fieldError])
+      : createValidationSuccess(values)
   }
 
   /**
@@ -831,39 +898,11 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     name: TName,
     issues: readonly ValidationRuleIssue[]
   ): FieldValidationError<TName> | undefined {
-    if (issues.length === 0) return undefined
+    const [first, ...rest] = issues
 
-    return {
-      scope: "field",
-      name,
-      issues: issues as [ValidationRuleIssue, ...ValidationRuleIssue[]],
-    }
-  }
+    if (first === undefined) return undefined
 
-  /**
-   * 创建不携带错误的成功结果。
-   *
-   * @typeParam TName - 字段路径类型。
-   * @param values - 本次校验使用的表单值。
-   * @returns 成功校验结果。
-   */
-  private success<TName extends NamePath<TValues> = NamePath<TValues>>(
-    values: TValues
-  ): ValidationResult<TValues, TName> {
-    return { valid: true, values, errors: [] }
-  }
-
-  /**
-   * 创建不携带陈旧错误的取消结果。
-   *
-   * @typeParam TName - 字段路径类型。
-   * @param values - 被取消运行开始时使用的表单值。
-   * @returns 显式取消结果。
-   */
-  private cancelled<TName extends NamePath<TValues> = NamePath<TValues>>(
-    values: TValues
-  ): ValidationResult<TValues, TName> {
-    return { valid: false, cancelled: true, values, errors: [] }
+    return { scope: "field", name, issues: [first, ...rest] }
   }
 }
 
@@ -892,8 +931,8 @@ function toRuleArray<TValues extends Values, TName extends NamePath<TValues>>(
  * @returns 与输入语义相同的独立规则声明。
  */
 function copyFieldRules<TValues extends Values, TName extends NamePath<TValues>>(
-  rules: FieldRules<TValues, TName> | undefined
-): FieldRules<TValues, TName> | undefined {
+  rules: FieldRules<TValues, TName> | PresetRuleEntry<unknown> | undefined
+): FieldRules<TValues, TName> | PresetRuleEntry<unknown> | undefined {
   if (rules === undefined || !Array.isArray(rules)) return rules
 
   return [...rules] as readonly FieldRule<TValues, TName>[]
@@ -955,6 +994,12 @@ function isValidationRuleResult(value: unknown): value is
  * @returns 管理规则、错误和异步运行生命周期的 Validator。
  *
  * @internal
+ *
+ * @example
+ * ```ts
+ * const validator = createValidator({ fieldStore, presetRuleRegistry })
+ * validator.setFieldConfig(fieldConfig)
+ * ```
  */
 export function createValidator<TValues extends Values = Values>(
   options: CreateValidatorOptions<TValues>

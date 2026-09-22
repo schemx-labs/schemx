@@ -115,20 +115,30 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   updateSchemaConfig(partial: Partial<SchemxSchemaConfig>): void
   /**
-   * 获取字段用于规则注册的 label 与 required 配置。
+   * 获取字段用于规则注册的 label、placeholder 与 required 配置。
    *
    * @param name - 要查询的字段路径。
    * @returns 字段规则上下文；字段不存在时返回 `undefined`。
    */
   getFieldRuleContext(
     name: NamePath<TValues>
-  ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined
+  ):
+    | Pick<
+        SchemxBaseField<TValues>,
+        "label" | "placeholder" | "required" | "visible" | "readonly" | "disabled"
+      >
+    | undefined
   /**
    * @deprecated 请改用 {@link SchemaRuntime.getFieldRuleContext}。
    */
   getEffectiveFieldSchema(
     name: NamePath<TValues>
-  ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined
+  ):
+    | Pick<
+        SchemxBaseField<TValues>,
+        "label" | "placeholder" | "required" | "visible" | "readonly" | "disabled"
+      >
+    | undefined
   /**
    * 获取当前视图 Schema 快照。
    *
@@ -311,7 +321,12 @@ export function createSchemaRuntime<TValues extends Values>(
    */
   const getFieldRuleContext = (
     name: NamePath<TValues>
-  ): Pick<SchemxBaseField<TValues>, "label" | "required"> | undefined => {
+  ):
+    | Pick<
+        SchemxBaseField<TValues>,
+        "label" | "placeholder" | "required" | "visible" | "readonly" | "disabled"
+      >
+    | undefined => {
     return findFieldNode(root, name)?.resolvedSchema.value
   }
 

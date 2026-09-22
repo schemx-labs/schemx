@@ -187,6 +187,10 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    */
   invalidateFieldArrayErrors(path: NamePath<TValues>, change: FieldArrayChange): void
   /**
+   * 在数组值已由父路径写入后发布结构变化。
+   */
+  notifyFieldArrayChange(path: NamePath<TValues>, change: FieldArrayChange): void
+  /**
    * 设置指定路径的 touched 状态。
    *
    * @param path - 要更新的字段路径。
@@ -233,6 +237,8 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    * @param errors - 要保存的问题列表。
    */
   setFieldErrors(path: NamePath<TValues>, errors: readonly ValidationRuleIssue[]): void
+  /** 清除 pending 提交流程产生的 external 错误。 */
+  clearFieldPendingErrors(path: NamePath<TValues>): void
   /**
    * 读取指定路径保存的错误问题。
    *
@@ -579,6 +585,19 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     this.errorRevision.value += 1
   }
 
+  clearFieldPendingErrors(path: NamePath<TValues>): void {
+    const state = this.ensureState(path).errors
+
+    const current = state.peek()
+
+    const next = current.filter((issue) => issue.code !== "pending")
+
+    if (next.length === current.length) return
+
+    state.value = next
+    this.errorRevision.value += 1
+  }
+
   // 读取错误并建立错误状态依赖；返回值始终是独立列表。
   getFieldErrors(path: NamePath<TValues>): readonly ValidationRuleIssue[] {
     return [...this.ensureState(path).errors.value]
@@ -880,6 +899,15 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
       if (affected) this.clearState(state)
     }
+  }
+
+  /**
+   * 同步数组结构变化带来的字段依赖、临时状态和过期错误。
+   */
+  notifyFieldArrayChange(path: NamePath<TValues>, change: FieldArrayChange): void {
+    this.clearArrayTransientState(path, change)
+    this.invalidateFieldArrayErrors(path, change)
+    this.notifyArrayValueChanged(path, change)
   }
 
   /**

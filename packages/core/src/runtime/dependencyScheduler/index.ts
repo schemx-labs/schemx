@@ -16,3 +16,5 @@ export {
   resolveDependencyProps,
   resolveDependencyOverrides,
 } from "./resolveDependencyOverrides"
+
+export { createGuardedFormApi } from "./guardedFormApi"
