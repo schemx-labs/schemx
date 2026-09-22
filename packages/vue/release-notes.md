@@ -1,68 +1,63 @@
 # Release Notes — 1.0.1
 
-## Unreleased
-
-### @schemx/vue
-
-- 统一 `<Schemx>` 中 Group 与 Dynamic 的子级 ViewSchema 渲染链路：由 SchemaList 的 `renderChildren` 回调处理布局；直接挂载 Group 时保留兼容递归渲染。
-- 基础样式收敛为 UI 无关的结构、布局和状态契约，移动端卡片、间距和末项分隔线改由 Vant 适配包提供。
-- 调整默认对齐方向：标签右对齐、普通字段内容左对齐，只读字段内容右对齐。
-- 新增 Icon 组件配置、全局注册和 `string | Component` 类型的 `labelIcon`，支持通过 Form、ConfigProvider、App 或全局配置 Icon Adapter。
-
 ## 版本信息
 
 - 目标版本：1.0.1
 - 发布包：@schemx/vue
-- 生成日期：2026-09-11
-- 基准版本：@schemx/vue@1.0.0
-- 比较范围：9696a15daf708ed8f1438f4cf3324e50019f95b1..a62db33c25a2d43a9a071eec8748f75ad09d477a
-- 目标提交：a62db33
-- 当前分支：main
+- 生成日期：2026-09-23
+- 基准版本：@schemx/vue@1.0.1
+- 比较范围：13c230bee8254718e8137166cf349b0570ad0759..333ac2b9f85bf4d62800cfb04f6b00e8fc3e2fad
+- 目标提交：333ac2b
+- 当前分支：dev
 
-1.0.1 新增统一 Form/Field Context 和共享 Vue Runtime，补齐 Renderer、插槽和布局的 TypeScript 契约，并保留旧 Context Provider API 作为兼容入口。
+新增 Row、Icon 与 24 栅格布局能力，并统一 App 插件、ConfigProvider 和 Form 的布局配置入口。
 
-## Important Notices
+## Breaking Changes
 
-- 目标提交尚未创建匹配的 @schemx/vue@1.0.1 Tag；目标版本取自目标提交中的 package.json。
-- Core、Vue 与 Vant 的公共类型存在交叉依赖，建议同步升级至 1.0.1。
+<a id="change-72656d6f76652d72656769737465722d636f6c"></a>
+
+### 移除 `registerCol` 全局注册函数 (@schemx/vue)
+
+Vue 根入口不再导出 `registerCol`；Col 组件现在从 Form、App 插件配置或 ConfigProvider 的 `colComponent` 读取实现。
+
+影响范围：通过 `registerCol(component)` 设置全局列组件的调用方。
+
+#### 迁移说明
+
+影响范围：调用 `registerCol(component)` 的应用。
+
+1. 在插件安装时传入 `app.use(SchemxForm, { colComponent: component })`，或在 `ConfigProvider`/Form 上设置 `colComponent`。
+
+<a id="change-6669656c642d736c6f742d626f756e64617279"></a>
+
+### 字段整体插槽的替换范围调整 (@schemx/vue)
+
+字段 `{name}` 整体插槽现在只替换标签和控件主体，Before、Error、After 区域仍由字段 wrapper 渲染；此前通过整体插槽一并接管这些区域的实现可能出现重复内容或布局变化。
+
+影响范围：在 `{name}` 插槽中自行渲染 Before、Error 或 After 内容的调用方。
+
+#### 迁移说明
+
+影响范围：使用字段整体插槽并自行控制 Before、Error、After 区域的实现。
+
+1. 将 Before、Error、After 内容迁移到对应的 `{name}Before`、`{name}Error`、`{name}After` 命名插槽。
+2. 让 `{name}` 插槽只负责标签和控件主体。
 
 ## Features
 
 ### @schemx/vue
 
-- <a id="change-7675652d756e69666965642d636f6e74657874"></a>新增 provideFormContext({ form, schemaConfig })、useFormContextValue()、useFormRuntimeContext()、createFieldContext() 和 useFieldContext()；表单子树可从一个 Provider 获取实例与展示配置，自定义 Renderer 也可读取当前字段 Context。（影响范围：自定义 Field、Renderer 或 Hook 需要同时访问表单实例、展示配置或当前字段状态时，可以使用统一 Context；createFormContext() 与 createFormConfigContext() 仍保留兼容。）
-
-## Fixes
-
-### @schemx/vue
-
-- <a id="change-7675652d6669656c642d63616c6c6261636b732d616e642d6c6162656c"></a>Field 现在会调用 Schema 顶层的 onChange(value, form) 与 onBlur(form)，向 Renderer 注入解析后的 readonly、disabled、placeholder 和只读占位文本，并在默认标签中渲染 labelIcon。（影响范围：依赖字段级 onChange/onBlur 回调、只读或禁用状态透传，或在 Schema 中设置 labelIcon 的 Vue 表单可直接获得预期行为。）
-
-## Improvements
-
-### @schemx/vue
-
-- <a id="change-7675652d7368617265642d72756e74696d65"></a>Vue bridge 通过共享 VueFormRuntime 和状态适配器复用响应式资源；useField、useFormSelector、useViewSchemas 与 useWatch 的订阅会随 Vue scope owner 自动释放，旧 Runtime 消费者仍可读取兼容的 core 字段。（影响范围：同一表单同时使用多个 Vue 状态 Hook，或在组件卸载与重建期间反复创建桥接状态的项目，可减少重复资源和残留订阅。）
-
-- <a id="change-7675652d616461707465722d747970652d636f6e747261637473"></a>新增 SchemxBaseComponentProps、SchemxFieldSlots、SchemxFieldSlotValue 和 SchemxGroupSlots，并通过声明合并把 Vue 展示属性和 Renderer Props 接入 Core。（影响范围：自定义 Vue Renderer、Field/Group 插槽和栅格布局可以复用字段名、值、错误和布局的 TypeScript 契约。）
-
-## Documentation
-
-### @schemx/vue
-
-- <a id="change-7675652d6170692d646f63756d656e746174696f6e"></a>Vue README 补充统一 Context、共享 Runtime、Vue Renderer Props、插槽、布局和 Core 配置边界的用法与公开导出清单。（影响范围：升级 Vue 适配包或编写自定义 Renderer 的开发者可以按新的 Context 和类型入口迁移。）
+- <a id="change-7675652d6c61796f75742d616e642d69636f6e2d636f6d706f6e656e7473"></a>根入口新增 `Row`、`Icon` 及 `SchemxRowConfig`、`SchemxColConfig`；Vue 提供默认 flex 行列布局，并支持配置 gutter、Row/Col 组件和图标适配组件。`labelIcon` 现在可使用字符串或 Vue 组件。（影响范围：使用 Vue 表单布局、标签图标或自定义组件库适配的调用方。）
 
 ## API Changes
 
-- [新增统一 Form 与 Field Context](#change-7675652d756e69666965642d636f6e74657874) (@schemx/vue)
-- [补充 Renderer、布局和插槽类型契约](#change-7675652d616461707465722d747970652d636f6e747261637473) (@schemx/vue)
-- [接通字段级回调并渲染标签图标](#change-7675652d6669656c642d63616c6c6261636b732d616e642d6c6162656c) (@schemx/vue)
-- [更新 Vue Context 与适配层 API 文档](#change-7675652d6170692d646f63756d656e746174696f6e) (@schemx/vue)
+- [移除 `registerCol` 全局注册函数](#change-72656d6f76652d72656769737465722d636f6c) (@schemx/vue)
+- [字段整体插槽的替换范围调整](#change-6669656c642d736c6f742d626f756e64617279) (@schemx/vue)
+- [新增 Row、Icon 与栅格布局配置](#change-7675652d6c61796f75742d616e642d69636f6e2d636f6d706f6e656e7473) (@schemx/vue)
 
 ## TypeScript Changes
 
-- [补充 Renderer、布局和插槽类型契约](#change-7675652d616461707465722d747970652d636f6e747261637473) (@schemx/vue)
-- [更新 Vue Context 与适配层 API 文档](#change-7675652d6170692d646f63756d656e746174696f6e) (@schemx/vue)
+- [新增 Row、Icon 与栅格布局配置](#change-7675652d6c61796f75742d616e642d69636f6e2d636f6d706f6e656e7473) (@schemx/vue)
 
 ## Affected Packages
 
