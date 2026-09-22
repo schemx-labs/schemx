@@ -1,0 +1,24 @@
+/** Element Plus 适配层的 Schemx CSS 变量。 */
+
+.schemx {
+  --schemx-primary-color: var(--el-color-primary, #409eff);
+  --schemx-primary-color-light: var(--el-color-primary-light-9, #ecf5ff);
+  --schemx-text-color: var(--el-text-color-primary, #303133);
+  --schemx-text-color-secondary: var(--el-text-color-regular, #606266);
+  --schemx-text-color-placeholder: var(--el-text-color-placeholder, #a8abb2);
+  --schemx-readonly-color: var(--el-text-color-secondary, #909399);
+  --schemx-disabled-color: var(--el-text-color-placeholder, #a8abb2);
+  --schemx-disabled-opacity: 0.6;
+  --schemx-background-color: var(--el-bg-color, #ffffff);
+  --schemx-background-color-light: var(--el-fill-color-light, #f5f7fa);
+  --schemx-border-color: var(--el-border-color, #dcdfe6);
+  --schemx-danger-color: var(--el-color-danger, #f56c6c);
+  --schemx-success-color: var(--el-color-success, #67c23a);
+  --schemx-warning-color: var(--el-color-warning, #e6a23c);
+  --schemx-border-radius-xs: var(--el-border-radius-small, 2px);
+  --schemx-border-radius-sm: var(--el-border-radius-small, 2px);
+  --schemx-border-radius-md: var(--el-border-radius-base, 4px);
+  --schemx-border-radius-lg: var(--el-border-radius-base, 4px);
+  --schemx-field-label-color: var(--el-text-color-regular, #606266);
+  --schemx-component-size: var(--el-component-size, 32px);
+}

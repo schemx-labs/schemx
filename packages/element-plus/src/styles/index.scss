@@ -1,0 +1,13 @@
+@use "./variables.scss" as *;
+
+.schemx .schemx-group-wrapper {
+  margin-bottom: var(--schemx-padding-md);
+}
+
+.schemx .schemx-group__header {
+  padding-block: var(--schemx-padding-sm);
+}
+
+.schemx .schemx-field--label-left > .schemx-field__content {
+  max-width: 80%;
+}

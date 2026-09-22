@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+
+      "@schemx/core": ["../core/src/index.ts"],
+      "@schemx/core/*": ["../core/src/*"],
+
+      "@schemx/vue": ["../vue/src/index.ts"],
+      "@schemx/vue/*": ["../vue/src/*"],
+
+      "@schemx/element-plus": ["src/index.ts"],
+      "@schemx/element-plus/*": ["src/*"]
+    },
+    "rootDir": "./src",
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist",
+    "outDir": "./dist"
+  },
+  "references": [{ "path": "../core/tsconfig.json" }, { "path": "../vue/tsconfig.json" }],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "build"]
+}

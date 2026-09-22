@@ -1,0 +1,230 @@
+/**
+ * Element Plus Renderer 工具函数
+ *
+ * 提供渲染器组件中常用的属性提取、树形数据查找、文件名解析等工具。
+ *
+ * @module utils
+ */
+
+/**
+ * 从 attrs 对象中获取指定属性值，不存在时返回默认值。
+ *
+ * 用于从 Vue 组件的 `attrs` 中安全地提取透传属性，
+ * 常见场景包括读取 Renderer 的透传属性。
+ *
+ * @param attrs - Vue 组件的 attrs 对象
+ * @param key - 属性名
+ * @param defaultValue - 默认值
+ * @typeParam TProps - attrs 对象类型
+ *
+ * @returns 属性值或默认值
+ *
+ * @example
+ * getFieldProps(attrs, "align", "right")
+ * getFieldProps(attrs, "rightIcon", "arrow")
+ */
+export function getFieldProps<TProps extends Record<string, unknown>>(
+  attrs: TProps,
+  key: keyof TProps,
+  defaultValue: TProps[typeof key] = undefined as TProps[typeof key]
+): TProps[typeof key] {
+  return attrs?.[key] ?? defaultValue
+}
+
+/**
+ * 判断值是否应按空值展示。
+ *
+ * @example
+ * ```ts
+ * isEmptyDisplayValue([]) // => true
+ * isEmptyDisplayValue(0)  // => false
+ * ```
+ */
+export function isEmptyDisplayValue(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  )
+}
+
+/**
+ * 获取只读态展示值。
+ *
+ * 只在值为空时回退到 readonlyPlaceholder，保留 0、false 等有效值。
+ *
+ * @typeParam TValue - 待展示的值类型。
+ *
+ * @example
+ * ```ts
+ * getReadonlyDisplayValue(undefined, "未填写") // => "未填写"
+ * getReadonlyDisplayValue(0, "未填写")         // => 0
+ * ```
+ */
+export function getReadonlyDisplayValue<TValue>(
+  value: TValue,
+  readonlyPlaceholder = "-"
+): TValue | string {
+  return isEmptyDisplayValue(value) ? readonlyPlaceholder : value
+}
+
+export type RendererMode = "editable" | "disabled" | "readonly"
+
+/**
+ * 解析渲染器当前呈现模式。
+ *
+ * disabled/readonly 仍会阻止交互。
+ *
+ * @example
+ * ```ts
+ * resolveRendererMode({ readonly: true }) // => "readonly"
+ * resolveRendererMode({ disabled: true, readonly: true }) // => "disabled"
+ * ```
+ */
+export function resolveRendererMode(options: {
+  disabled?: boolean
+  readonly?: boolean
+}): RendererMode {
+  if (options.disabled) return "disabled"
+  if (options.readonly) return "readonly"
+
+  return "editable"
+}
+
+/**
+ * 判断当前状态是否允许用户交互。
+ *
+ * @example
+ * ```ts
+ * isRendererInteractive("editable") // => true
+ * isRendererInteractive("disabled") // => false
+ * ```
+ */
+export function isRendererInteractive(mode: RendererMode): boolean {
+  return mode === "editable"
+}
+
+/**
+ * 树形查找结果
+ *
+ * @typeParam TNode - 树节点类型。
+ * @typeParam TValue - 节点值类型。
+ */
+export interface FindTreeItemResult<
+  TNode extends Record<string, unknown> = Record<string, unknown>,
+  TValue = unknown,
+> {
+  /** 匹配节点 */
+  node: TNode | null
+  /** 从根到匹配节点的 label 路径 */
+  labels: string[]
+  /** 从根到匹配节点的 value 路径 */
+  values: TValue[]
+}
+
+/**
+ * 在树形数据中查找指定值的节点，返回匹配节点及其路径信息。
+ *
+ * 支持自定义字段名映射，适用于 Cascader 等树形选择组件。
+ *
+ * @typeParam TNode - 树节点类型。
+ * @typeParam TValue - 待查找的节点值类型。
+ * @param tree - 树形数据数组
+ * @param targetValue - 要查找的目标值
+ * @param options - 字段名配置
+ * @param options.labelKey - label 字段名，默认 `"label"`
+ * @param options.valueKey - value 字段名，默认 `"value"`
+ * @param options.childrenKey - children 字段名，默认 `"children"`
+ *
+ * @returns `{ node, labels, values }`：匹配节点、label 路径和 value 路径
+ *
+ * @example
+ * const result = findTreeItem(tree, "guangzhou", {
+ *   labelKey: "text",
+ *   valueKey: "value",
+ *   childrenKey: "children",
+ * })
+ * const { node, labels, values } = result
+ * // node => { text: "广州", value: "guangzhou" }
+ * // labels => ["广东", "广州"]
+ * // values => ["guangdong", "guangzhou"]
+ */
+export function findTreeItem<TNode extends Record<string, unknown>, TValue>(
+  tree: TNode[],
+  targetValue: TValue,
+  options: {
+    labelKey?: string
+    valueKey?: string
+    childrenKey?: string
+  } = {}
+): FindTreeItemResult<TNode, TValue> {
+  const { labelKey = "label", valueKey = "value", childrenKey = "children" } = options
+
+  const result: FindTreeItemResult<TNode, TValue> = { node: null, labels: [], values: [] }
+
+  if (!Array.isArray(tree) || targetValue === undefined || targetValue === null) {
+    return result
+  }
+
+  const search = (
+    nodes: TNode[],
+    labels: string[],
+    values: TValue[]
+  ): FindTreeItemResult<TNode, TValue> | null => {
+    for (const node of nodes) {
+      const currentLabels = [...labels, String(node[labelKey])]
+
+      const currentValues = [...values, node[valueKey] as TValue]
+
+      if (node[valueKey] === targetValue) {
+        return { node, labels: currentLabels, values: currentValues }
+      }
+
+      const children = node[childrenKey]
+
+      if (Array.isArray(children) && children.length > 0) {
+        const found = search(children as TNode[], currentLabels, currentValues)
+
+        if (found) return found
+      }
+    }
+
+    return null
+  }
+
+  return search(tree, [], []) || result
+}
+
+/**
+ * 从 URL 或文件路径中提取文件名。
+ *
+ * 去除查询参数和 hash 后，取最后一段路径作为文件名。
+ * 用于上传组件中生成文件的唯一标识。
+ *
+ * @param url - 文件 URL 或路径
+ *
+ * @returns 文件名字符串，无法解析时返回原始输入或时间戳
+ *
+ * @example
+ * getFileName("https://cdn.example.com/uploads/photo.jpg?t=123")
+ * // => "photo.jpg"
+ *
+ * getFileName("blob:http://localhost:3000/abc-def")
+ * // => "abc-def"
+ */
+export function getFileName(url: string | undefined | null): string {
+  if (!url) return String(Date.now())
+
+  try {
+    const cleanUrl = url.split("?")[0].split("#")[0]
+
+    const parts = cleanUrl.split("/")
+
+    const fileName = parts[parts.length - 1]
+
+    return fileName || String(Date.now())
+  } catch {
+    return String(Date.now())
+  }
+}
