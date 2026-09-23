@@ -322,94 +322,105 @@ describe("Field 集成测试", () => {
     form.destroy()
   })
 
-  it.each(["left", "top"] as const)("应按顺序渲染字段各区域插槽（标签在 %s）", (labelPosition) => {
-    const slotProps: Record<string, SchemxFieldSlotValue> = {}
+  it.each(["left", "top"] as const)(
+    "应按顺序渲染字段各区域插槽（标签在 %s）",
+    (labelPosition) => {
+      const slotProps: Record<string, SchemxFieldSlotValue> = {}
 
-    const form = createForm({
-      initialValues: { "profile.name": "Schemx" },
-      schemas: [
-        {
-          name: "profile.name",
-          label: "名称",
-          labelPosition,
-          labelWidth: 96.5,
-          labelAlign: "right",
-          componentType: "input",
-        } as any,
-      ],
-    })
+      const form = createForm({
+        initialValues: { "profile.name": "Schemx" },
+        schemas: [
+          {
+            name: "profile.name",
+            label: "名称",
+            labelPosition,
+            labelWidth: 96.5,
+            labelAlign: "right",
+            componentType: "input",
+          } as any,
+        ],
+      })
 
-    form.registerRenderer("input", InputRenderer)
+      form.registerRenderer("input", InputRenderer)
 
-    const wrapper = mount(Field as Component, {
-      props: { schema: form.getViewSchemas()[0] },
-      slots: {
-        "profile.nameLabel": (props: SchemxFieldSlotValue) => {
-          slotProps.label = props
+      const wrapper = mount(Field as Component, {
+        props: { schema: form.getViewSchemas()[0] },
+        slots: {
+          "profile.nameLabel": (props: SchemxFieldSlotValue) => {
+            slotProps.label = props
 
-          return h("span", { "data-testid": "label-slot" })
+            return h("span", { "data-testid": "label-slot" })
+          },
+          "profile.nameBefore": (props: SchemxFieldSlotValue) => {
+            slotProps.before = props
+
+            return h("span", { "data-testid": "before-slot" })
+          },
+          "profile.nameContent": (props: SchemxFieldSlotValue) => {
+            slotProps.content = props
+
+            return h("div", { "data-testid": "content-slot" }, [
+              (props as SchemxFieldContentSlotProps).columnElement,
+            ])
+          },
+          "profile.nameAfter": (props: SchemxFieldSlotValue) => {
+            slotProps.after = props
+
+            return h("span", { "data-testid": "after-slot" })
+          },
+          "profile.nameError": (props: SchemxFieldSlotValue) => {
+            slotProps.error = props
+
+            return h("span", { "data-testid": "error-slot" })
+          },
         },
-        "profile.nameBefore": (props: SchemxFieldSlotValue) => {
-          slotProps.before = props
-
-          return h("span", { "data-testid": "before-slot" })
+        global: {
+          provide: {
+            [SCHEMX_FORM_INSTANCE_KEY]: form,
+            [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+          },
         },
-        "profile.nameContent": (props: SchemxFieldSlotValue) => {
-          slotProps.content = props
+      })
 
-          return h("div", { "data-testid": "content-slot" }, [
-            (props as SchemxFieldContentSlotProps).columnElement,
-          ])
-        },
-        "profile.nameAfter": (props: SchemxFieldSlotValue) => {
-          slotProps.after = props
+      for (const name of ["label", "before", "content", "after", "error"]) {
+        expect(wrapper.find(`[data-testid="${name}-slot"]`).exists()).toBe(true)
+        expect(slotProps[name].schema).toEqual(form.getViewSchemas()[0])
+        expect(slotProps[name].componentProps).toEqual(expect.any(Object))
+        expect(slotProps[name].value).toBe("Schemx")
+        expect(slotProps[name].field).toBeDefined()
+        expect(slotProps[name].form).toBe(form)
+      }
 
-          return h("span", { "data-testid": "after-slot" })
-        },
-        "profile.nameError": (props: SchemxFieldSlotValue) => {
-          slotProps.error = props
+      expect(
+        (slotProps.content as SchemxFieldContentSlotProps).columnElement
+      ).toBeDefined()
+      expect((slotProps.error as { errors: readonly string[] }).errors).toEqual([])
+      expect(
+        wrapper.find(".schemx-field__label > [data-testid='label-slot']").exists()
+      ).toBe(true)
+      expect(
+        wrapper.find(".schemx-field__content > [data-testid='content-slot']").exists()
+      ).toBe(true)
+      expect(
+        wrapper.find(".schemx-field__error > [data-testid='error-slot']").exists()
+      ).toBe(true)
+      expect(wrapper.get<HTMLElement>(".schemx-field__label").element.style.width).toBe(
+        labelPosition === "top" ? "100%" : "96.5px"
+      )
+      expect(
+        wrapper.get<HTMLElement>(".schemx-field__label").element.style.textAlign
+      ).toBe(labelPosition === "top" ? "left" : "right")
+      expect(Array.from(wrapper.get(".schemx-field-wrapper").element.children)).toEqual([
+        wrapper.get('[data-testid="before-slot"]').element,
+        wrapper.get(".schemx-field").element,
+        wrapper.get(".schemx-field__error").element,
+        wrapper.get('[data-testid="after-slot"]').element,
+      ])
 
-          return h("span", { "data-testid": "error-slot" })
-        },
-      },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
-    })
-
-    for (const name of ["label", "before", "content", "after", "error"]) {
-      expect(wrapper.find(`[data-testid="${name}-slot"]`).exists()).toBe(true)
-      expect(slotProps[name].schema).toEqual(form.getViewSchemas()[0])
-      expect(slotProps[name].componentProps).toEqual(expect.any(Object))
-      expect(slotProps[name].value).toBe("Schemx")
-      expect(slotProps[name].field).toBeDefined()
-      expect(slotProps[name].form).toBe(form)
+      wrapper.unmount()
+      form.destroy()
     }
-
-    expect((slotProps.content as SchemxFieldContentSlotProps).columnElement).toBeDefined()
-    expect((slotProps.error as { errors: readonly string[] }).errors).toEqual([])
-    expect(wrapper.get(".schemx-field__label > [data-testid='label-slot']").exists()).toBe(true)
-    expect(wrapper.get(".schemx-field__content > [data-testid='content-slot']").exists()).toBe(true)
-    expect(wrapper.get(".schemx-field__error > [data-testid='error-slot']").exists()).toBe(true)
-    expect(wrapper.get<HTMLElement>(".schemx-field__label").element.style.width).toBe(
-      labelPosition === "top" ? "100%" : "96.5px"
-    )
-    expect(wrapper.get<HTMLElement>(".schemx-field__label").element.style.textAlign).toBe(
-      labelPosition === "top" ? "left" : "right"
-    )
-    expect(Array.from(wrapper.get(".schemx-field-wrapper").element.children)).toEqual([
-      wrapper.get('[data-testid="before-slot"]').element,
-      wrapper.get(".schemx-field").element,
-      wrapper.get(".schemx-field__error").element,
-      wrapper.get('[data-testid="after-slot"]').element,
-    ])
-
-    wrapper.unmount()
-    form.destroy()
-  })
+  )
 
   it("应合并内部、父级和 Schema 的 class/style 到字段容器", () => {
     const form = createForm({
@@ -449,7 +460,9 @@ describe("Field 集成测试", () => {
     expect(itemWrapper.attributes("style")).toContain("color: red")
     expect(itemWrapper.attributes("style")).toContain("margin-top: 4px")
     expect(wrapper.find(".schemx-field").classes()).not.toContain("schema-item")
-    expect(wrapper.get('.schemx-field__content > [data-testid="input-renderer"]').exists()).toBe(true)
+    expect(
+      wrapper.find('.schemx-field__content > [data-testid="input-renderer"]').exists()
+    ).toBe(true)
 
     wrapper.unmount()
     form.destroy()

@@ -180,8 +180,15 @@ export function createValidationEffect<TValues extends Values = Values>(
   ): void => {
     const { visible, readonly, disabled, label, placeholder, required, rules } = snapshot
 
-    if (!visible || readonly || disabled || (!required && !hasRules(rules))) {
+    if (!visible || readonly || disabled) {
       context.validation.removeField(name)
+
+      return
+    }
+
+    if (!required && !hasRules(rules)) {
+      context.validation.setFieldConfig({ name, label, placeholder, required })
+      context.validation.setFieldRules(name, undefined)
 
       return
     }

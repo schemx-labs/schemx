@@ -59,6 +59,7 @@ export {
 /**
  * schemx/core 导出
  */
+/* eslint-disable import/export -- Vue 的 SchemxLayout 兼容别名需要覆盖同名 Core 类型。 */
 export * from "@schemx/core"
 
 // 显式导出 Vue 的 SchemxLayout 兼容别名，覆盖 Core 旧类型名。
@@ -68,3 +69,4 @@ export type { SchemxLayout } from "./types/layout"
  * Types
  */
 export * from "./types"
+/* eslint-enable import/export */

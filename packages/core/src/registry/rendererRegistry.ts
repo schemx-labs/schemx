@@ -533,17 +533,18 @@ class RendererRegistryImpl<TValues extends Values = Values> {
   }
 }
 
-/** 由 {@link createRendererRegistry} 创建的 Renderer 注册表类型。 */
 /**
- * 由 {@link createRendererRegistry} 创建的 Renderer 注册表类型。
+ * 由 {@link createRendererRegistry} 创建的 Renderer 注册表公开 API。
  *
  * @example
  * ```ts
  * const registry: RendererRegistry = createRendererRegistry("input")
  * ```
  */
-export type RendererRegistry<TValues extends Values = Values> =
-  RendererRegistryImpl<TValues>
+export type RendererRegistry<TValues extends Values = Values> = Pick<
+  RendererRegistryImpl<TValues>,
+  keyof RendererRegistryImpl<TValues>
+>
 
 /**
  * 创建独立的渲染器注册中心实例。

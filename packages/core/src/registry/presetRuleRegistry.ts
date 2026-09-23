@@ -145,6 +145,29 @@ export interface PresetRuleRegistryChange {
  */
 export type PresetRuleRegistryListener = (change: PresetRuleRegistryChange) => void
 
+/** 由 {@link createPresetRuleRegistry} 创建的预设规则注册表公开 API。 */
+export interface PresetRuleRegistry {
+  register<TKey extends PresetRuleKey>(
+    name: TKey,
+    rule: PresetRuleEntry<PresetRuleValue<TKey>>,
+    options?: RegistryOptions
+  ): void
+  registerAll(rules: PresetRuleMap): void
+  unregister(name: string): boolean
+  get<TKey extends PresetRuleKey>(
+    name: TKey
+  ): PresetRuleEntry<PresetRuleValue<TKey>> | undefined
+  resolve<TName extends PropertyKey>(
+    name: string,
+    context: PresetRuleFactoryContext<TName>
+  ): ResolvedPresetRuleEntry<unknown> | undefined
+  has(name: string): boolean
+  keys(): PresetRuleKey[]
+  clear(): void
+  size(): number
+  subscribe(listener: PresetRuleRegistryListener): () => void
+}
+
 /**
  * 命名校验规则注册中心。
  *
@@ -156,7 +179,7 @@ export type PresetRuleRegistryListener = (change: PresetRuleRegistryChange) => v
  * registry.register("email", emailRule)
  * ```
  */
-class PresetRuleRegistryImpl {
+class PresetRuleRegistryImpl implements PresetRuleRegistry {
   /**
    * 保存规则名称到原始注册条目的映射。
    */
@@ -381,9 +404,6 @@ class PresetRuleRegistryImpl {
     for (const listener of [...this.listeners]) listener(change)
   }
 }
-
-/** 由 {@link createPresetRuleRegistry} 创建的预设规则注册表类型。 */
-export type PresetRuleRegistry = PresetRuleRegistryImpl
 
 /**
  * 创建包含内置 required 规则的命名校验规则注册中心。

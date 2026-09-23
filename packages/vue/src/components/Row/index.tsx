@@ -95,7 +95,7 @@ const Row = defineComponent({
           "--schemx-gutter-right": `${paddingRight}px`,
           "--schemx-gutter-bottom": `${paddingBottom}px`,
           "--schemx-gutter-left": `${paddingLeft}px`,
-          marginInline: `-${paddingRight}px -${paddingLeft}px`,
+          margin: `-${paddingTop}px -${paddingRight}px -${paddingBottom}px -${paddingLeft}px`,
           justifyContent,
           alignItems,
         },
