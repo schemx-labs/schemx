@@ -66,8 +66,8 @@
 
   const contentAlign = computed(
     () =>
-      getFieldProps(attrs as Record<string, any>, "align", "right") as
-        "left" | "center" | "right"
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(attrs as Record<string, any>, "align", "right")
   )
 
   const fieldValue = computed(() => {

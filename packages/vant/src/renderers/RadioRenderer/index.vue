@@ -72,7 +72,11 @@
 
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
 
-  const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
+  const contentAlign = computed(
+    () =>
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(attrs, "align", "right")
+  )
 
   const fieldValue = computed(() => {
     return getOption(radioValue.value ?? props.value, labelName.value)

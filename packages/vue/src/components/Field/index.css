@@ -27,6 +27,7 @@
   justify-content: space-between;
   line-height: var(--schemx-component-size);
   gap: var(--schemx-field-gap);
+  font-size: var(--schemx-font-size-md);
 }
 
 /**
@@ -69,7 +70,6 @@
   flex-shrink: 0;
   min-height: var(--schemx-component-size);
   color: var(--schemx-field-label-color);
-  font-size: var(--schemx-font-size-md);
   line-height: var(--schemx-component-size);
 }
 

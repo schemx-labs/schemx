@@ -74,7 +74,11 @@
 
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
 
-  const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
+  const contentAlign = computed(
+    () =>
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(attrs as Record<string, any>, "align", "right")
+  )
 
   const modelValue = computed(() => {
     const value = checkboxValue.value ?? props.value

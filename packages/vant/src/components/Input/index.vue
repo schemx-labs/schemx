@@ -363,6 +363,10 @@
       .van-field__right-icon {
         padding: 0;
       }
+
+      .van-field__body > input {
+        text-align: inherit;
+      }
     }
   }
 </style>

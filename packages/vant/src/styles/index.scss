@@ -41,6 +41,10 @@
     .van-cell {
       padding: 0;
     }
+
+    .van-cell__value {
+      text-align: inherit;
+    }
   }
 }
 

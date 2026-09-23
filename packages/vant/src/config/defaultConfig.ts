@@ -42,7 +42,7 @@ configureSchemx({
     row: { gutter: [0, 0] },
     labelAlign: "right",
     labelPosition: "left",
-    contentAlign: "left",
+    contentAlign: "right",
     errorAlign: "right",
     bordered: true,
   },

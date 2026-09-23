@@ -24,10 +24,12 @@
  * getFieldProps(attrs, "rightIcon", "arrow")
  */
 export function getFieldProps<TProps extends Record<string, unknown>>(
-  attrs: TProps,
+  attrs: TProps | undefined,
   key: keyof TProps,
   defaultValue: TProps[typeof key] = undefined as TProps[typeof key]
 ): TProps[typeof key] {
+  if (!attrs) return defaultValue
+
   return attrs?.[key] ?? defaultValue
 }
 

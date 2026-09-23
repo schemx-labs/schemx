@@ -7,7 +7,12 @@
     <template #readonly>
       {{ getReadonlyDisplayValue(modelValue, props.readonlyPlaceholder) }}
     </template>
-    <SchemxInput ref="inputRef" v-bind="inputProps" v-model:value="inputValue">
+    <SchemxInput
+      ref="inputRef"
+      v-bind="inputProps"
+      v-model:value="inputValue"
+      :align="contentAlign"
+    >
       <template v-if="$slots['left-icon']" #left-icon>
         <slot name="left-icon" />
       </template>
@@ -30,7 +35,7 @@
   import { Wrapper } from "@schemx/vue"
 
   import SchemxInput from "@/components/Input"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { InputRendererProps, InputValue } from "./types"
 
@@ -78,6 +83,12 @@
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
 
   const modelValue = computed(() => String(inputValue.value ?? props.value ?? ""))
+
+  const contentAlign = computed(
+    () =>
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(props, "align", "right")
+  ) as any
 
   const inputProps = computed(() => {
     const rendererProps = props as typeof props & { formInstance?: unknown }

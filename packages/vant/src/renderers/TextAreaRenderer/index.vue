@@ -11,6 +11,7 @@
       ref="inputRef"
       v-model:value="textAreaValue"
       v-bind="inputProps"
+      :align="contentAlign"
       @change="props.onChange"
       @blur="props.onBlur"
       @focus="props.onFocus"
@@ -44,7 +45,7 @@
   import { Wrapper } from "@schemx/vue"
 
   import SchemxInput from "@/components/Input"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
 
   import type { TextAreaAutosize, TextAreaRendererProps } from "./types"
 
@@ -123,6 +124,12 @@
       showWordLimit: props.showWordLimit && !props.readonly && !props.disabled,
     }
   })
+
+  const contentAlign = computed(
+    () =>
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(props, "align", "right")
+  ) as any
 
   defineExpose({
     focus: () => inputRef.value?.focus?.(),

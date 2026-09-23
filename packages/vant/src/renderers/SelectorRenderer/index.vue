@@ -68,7 +68,11 @@
 
   const valueName = computed(() => props.fieldNames?.value || "value")
 
-  const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
+  const contentAlign = computed(
+    () =>
+      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
+      getFieldProps(attrs, "align", "right")
+  )
 
   const fieldValue = computed(() => {
     return getOption(selectorValue.value ?? props.value, labelName.value)
