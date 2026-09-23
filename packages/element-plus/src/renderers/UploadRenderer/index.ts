@@ -2,6 +2,8 @@
 
 export { default } from "./index.vue"
 export type {
+  UploadBeforePreview,
+  UploadDownloadHandler,
   UploadFile,
   UploadListType,
   UploadRendererProps,

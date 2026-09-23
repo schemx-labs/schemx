@@ -41,6 +41,8 @@ export type {
 export type { RateRendererProps, RateValue } from "./RateRenderer"
 export type { SliderRendererProps, SliderValue } from "./SliderRenderer"
 export type {
+  UploadBeforePreview,
+  UploadDownloadHandler,
   UploadFile,
   UploadListType,
   UploadRendererProps,

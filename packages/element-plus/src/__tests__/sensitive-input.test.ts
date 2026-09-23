@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest"
 import SensitiveInputRenderer from "../renderers/SensitiveInputRenderer"
 
 describe("SensitiveInputRenderer", () => {
-  it("默认传入 value 并显示脱敏值", () => {
+  it("非只读状态默认通过输入框显示脱敏值", () => {
     const wrapper = mount(SensitiveInputRenderer, {
       props: {
         value: "13812348899",
@@ -14,8 +14,10 @@ describe("SensitiveInputRenderer", () => {
       },
     })
 
-    expect(wrapper.text()).toContain("138****8899")
-    expect(wrapper.find("input").exists()).toBe(false)
+    const input = wrapper.get("input")
+
+    expect(input.element.value).toBe("138****8899")
+    expect(input.attributes("readonly")).toBeDefined()
 
     wrapper.unmount()
   })
@@ -34,6 +36,25 @@ describe("SensitiveInputRenderer", () => {
     await wrapper.get("input").setValue("13900001111")
 
     expect(onChange).toHaveBeenCalledWith("13900001111")
+
+    wrapper.unmount()
+  })
+
+  it("点击隐藏后仍通过输入框显示脱敏值", async () => {
+    const wrapper = mount(SensitiveInputRenderer, {
+      props: {
+        value: "13812348899",
+        defaultRevealed: true,
+        maskFormatter: (value: string) => `${value.slice(0, 3)}****${value.slice(-4)}`,
+      },
+    })
+
+    await wrapper.get('[data-testid="sensitive-toggle"]').trigger("click")
+
+    const input = wrapper.get("input")
+
+    expect(input.element.value).toBe("138****8899")
+    expect(input.attributes("readonly")).toBeDefined()
 
     wrapper.unmount()
   })
@@ -66,7 +87,7 @@ describe("SensitiveInputRenderer", () => {
     wrapper.unmount()
   })
 
-  it("开启 hideOnBlur 后失焦恢复脱敏展示", async () => {
+  it("开启 hideOnBlur 后失焦在输入框内恢复脱敏展示", async () => {
     const wrapper = mount(SensitiveInputRenderer, {
       props: {
         value: "sensitive-value",
@@ -77,8 +98,10 @@ describe("SensitiveInputRenderer", () => {
     await wrapper.get('[data-testid="sensitive-toggle"]').trigger("click")
     await wrapper.get("input").trigger("blur")
 
-    expect(wrapper.find("input").exists()).toBe(false)
-    expect(wrapper.text()).not.toContain("sensitive-value")
+    const input = wrapper.get("input")
+
+    expect(input.element.value).not.toBe("sensitive-value")
+    expect(input.attributes("readonly")).toBeDefined()
 
     wrapper.unmount()
   })

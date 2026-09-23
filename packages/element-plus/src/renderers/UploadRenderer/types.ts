@@ -9,6 +9,18 @@ export type UploadFile = NonNullable<UploadProps["fileList"]>[number]
 /** Element Plus 上传 Renderer 的字段值。 */
 export type UploadValue = NonNullable<UploadProps["fileList"]>
 
+/** 文件预览前的拦截器；返回 false 可取消，或通过 done 延迟放行。 */
+export type UploadBeforePreview = (
+  file: UploadFile,
+  done: () => void
+) => boolean | void | Promise<boolean | void>
+
+/** 自定义文件下载处理器。 */
+export type UploadDownloadHandler = (
+  file: UploadFile,
+  index: number
+) => void | Promise<void>
+
 /** Element Plus 原生上传列表类型。 */
 export type UploadListType = NonNullable<UploadProps["listType"]>
 
@@ -50,6 +62,14 @@ export interface UploadRendererProps
   disableUpload?: boolean
   /** 是否允许点击图片预览。 */
   previewFullImage?: boolean
+  /** Element Plus 上传文件列表的展示类型。 */
+  listType?: UploadListType
+  /** 用于强制按指定类型预览文件。 */
+  fileType?: string
+  /** 自定义文件预览拦截器。 */
+  beforePreview?: UploadBeforePreview
+  /** 自定义文件下载处理器。 */
+  downloadHandler?: UploadDownloadHandler
   /** 自定义上传响应字段映射。 */
   propsHttp?: UploadResponseFields
   /** 上传完成回调。 */

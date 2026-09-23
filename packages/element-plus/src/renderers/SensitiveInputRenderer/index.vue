@@ -21,28 +21,11 @@
       </button>
     </template>
 
-    <template v-if="!showInput">
-      {{ displayValue }}
-      <button
-        v-if="canReveal"
-        type="button"
-        class="schemx-sensitive-input__toggle"
-        data-testid="sensitive-toggle"
-        :aria-label="props.revealText"
-        @click.stop="toggleReveal"
-      >
-        <ElIcon v-if="props.revealIcon">
-          <component :is="props.revealIcon" />
-        </ElIcon>
-        <span>{{ props.revealText }}</span>
-      </button>
-    </template>
-
     <ElInput
-      v-if="showInput"
       ref="inputRef"
       v-bind="inputProps"
-      :model-value="formattedValue"
+      :model-value="inputValue"
+      :readonly="isInputMasked"
       @update:model-value="handleInputChange"
       @blur="handleInputBlur"
       @focus="handleInputFocus"
@@ -53,13 +36,13 @@
           type="button"
           class="schemx-sensitive-input__toggle"
           data-testid="sensitive-toggle"
-          :aria-label="props.hideText"
+          :aria-label="isRevealed ? props.hideText : props.revealText"
           @click.stop="toggleReveal"
         >
-          <ElIcon v-if="props.hideIcon">
-            <component :is="props.hideIcon" />
+          <ElIcon v-if="isRevealed ? props.hideIcon : props.revealIcon">
+            <component :is="isRevealed ? props.hideIcon : props.revealIcon" />
           </ElIcon>
-          <span>{{ props.hideText }}</span>
+          <span>{{ isRevealed ? props.hideText : props.revealText }}</span>
         </button>
       </template>
     </ElInput>
@@ -155,11 +138,13 @@
     return maskedValue.value
   })
 
-  const showInput = computed(() => {
-    if (props.readonly || props.disabled) return false
+  const isInputMasked = computed(
+    () => props.revealable && !isEmpty.value && !isRevealed.value
+  )
 
-    return !props.revealable || isEmpty.value || isRevealed.value
-  })
+  const inputValue = computed(() =>
+    isInputMasked.value ? maskedValue.value : formattedValue.value
+  )
 
   const inputProps = computed(() => ({
     ...getElementProps(props, attrs, [

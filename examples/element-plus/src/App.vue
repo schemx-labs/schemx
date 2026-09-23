@@ -324,6 +324,7 @@
           name: file.name,
           url: URL.createObjectURL(file),
         }),
+        listType: "text",
       },
     },
     {

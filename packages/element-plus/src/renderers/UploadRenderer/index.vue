@@ -26,6 +26,7 @@
       <span v-else>{{ props.readonlyPlaceholder }}</span>
     </template>
     <ElUpload
+      ref="uploadRef"
       v-bind="uploadProps"
       v-model:file-list="fileList"
       @change="handleChange"
@@ -36,27 +37,61 @@
     >
       <template v-if="props.showUpload !== false">
         <slot>
-          <ElButton type="primary">选择文件</ElButton>
+          <ElIcon v-if="props.listType === 'picture-card'"><Plus /></ElIcon>
+          <ElButton v-else type="primary">选择文件</ElButton>
         </slot>
+      </template>
+      <template #file="{ file, index }">
+        <FileDisplay
+          :file="file"
+          :index="index"
+          :list-type="props.listType"
+          :file-type="props.fileType"
+          :crossorigin="props.crossorigin"
+          :disabled="props.disabled || props.disableUpload"
+          @preview="handlePreview"
+          @download="handleDownload"
+          @remove="handleDisplayRemove"
+        />
       </template>
     </ElUpload>
   </Wrapper>
+
+  <FilePreview
+    ref="previewRef"
+    :files="fileList"
+    :file-type="props.fileType"
+    :preview-full-image="props.previewFullImage"
+    :crossorigin="props.crossorigin"
+    :before-preview="props.beforePreview"
+    :download-handler="props.downloadHandler"
+  >
+    <template v-if="$slots.viewer" #viewer="viewerProps">
+      <slot name="viewer" v-bind="viewerProps" />
+    </template>
+  </FilePreview>
 </template>
 
 <script setup lang="ts">
   /** 使用 Element Plus ElUpload 管理文件选择、上传和预览。 */
   import { computed, ref, useAttrs, watch } from "vue"
 
+  import { Plus } from "@element-plus/icons-vue"
   import { useFieldContext, Wrapper } from "@schemx/vue"
-  import { ElButton, ElImage, ElUpload } from "element-plus"
+  import { ElButton, ElIcon, ElImage, ElMessage, ElUpload } from "element-plus"
 
   import { getElementProps } from "@/renderers/shared/props"
+
+  import FileDisplay from "./file-display.vue"
+  import FilePreview from "./preview.vue"
 
   import type { UploadRendererProps, UploadValue } from "./types"
   import type {
     UploadFile as ElementUploadFile,
     UploadFiles,
+    UploadInstance,
     UploadProps,
+    UploadRawFile,
     UploadRequestHandler,
     UploadUserFile,
   } from "element-plus"
@@ -87,9 +122,18 @@
 
   const attrs = useAttrs() as Record<string, unknown>
 
+  console.log(" > ~ props:", props, attrs)
+
   const valueModel = defineModel<UploadValue>("value")
 
   const fileList = ref<UploadUserFile[]>(normalizeFiles(props.value))
+
+  const previewRef = ref<{
+    open: (file: ElementUploadFile) => void
+    download: (file: ElementUploadFile, index?: number) => Promise<void>
+  }>()
+
+  const uploadRef = ref<UploadInstance>()
 
   const field = resolveFieldContext()
 
@@ -113,12 +157,75 @@
     imageFiles.value.map((file) => file.url).filter((url): url is string => Boolean(url))
   )
 
+  /** 将 accept 字符串拆分为可逐项比对的文件类型规则。 */
+  const acceptRules = computed(() =>
+    String(props.accept ?? attrs.accept ?? "")
+      .split(",")
+      .map((rule) => rule.trim())
+      .filter(Boolean)
+  )
+
+  /** 判断文件是否符合扩展名、精确 MIME 或 MIME 通配规则。 */
+  const isAcceptedFile = (file: File): boolean => {
+    if (!acceptRules.value.length) return true
+
+    const fileName = file.name.toLowerCase()
+
+    const mimeType = file.type.toLowerCase()
+
+    return acceptRules.value.some((rule) => {
+      const normalizedRule = rule.toLowerCase()
+
+      if (normalizedRule === "*" || normalizedRule === "*/*") return true
+      if (normalizedRule.startsWith(".")) return fileName.endsWith(normalizedRule)
+
+      if (normalizedRule.endsWith("/*")) {
+        return mimeType.startsWith(normalizedRule.slice(0, -1))
+      }
+
+      if (normalizedRule.includes("/")) return mimeType === normalizedRule
+
+      return fileName.endsWith(`.${normalizedRule}`)
+    })
+  }
+
+  /** 提示文件类型不符合 accept 配置。 */
+  const showInvalidTypeWarning = (fileName: string): void => {
+    ElMessage.warning(
+      `${fileName} 类型不符合要求，仅支持：${acceptRules.value.join("、")}`
+    )
+  }
+
+  /** 强制校验文件类型，通过后再执行调用方的 beforeUpload。 */
+  const handleBeforeUpload: NonNullable<UploadProps["beforeUpload"]> = (
+    rawFile: UploadRawFile
+  ) => {
+    if (!isAcceptedFile(rawFile)) {
+      showInvalidTypeWarning(rawFile.name)
+
+      return false
+    }
+
+    const configuredBeforeUpload = props.beforeUpload ?? attrs.beforeUpload
+
+    if (typeof configuredBeforeUpload !== "function") return true
+
+    const beforeUpload = configuredBeforeUpload as NonNullable<
+      UploadProps["beforeUpload"]
+    >
+
+    return beforeUpload(rawFile)
+  }
+
   const uploadProps = computed(() => ({
     ...getElementProps(props, attrs, [
       "value",
       "showUpload",
       "disableUpload",
       "previewFullImage",
+      "fileType",
+      "beforePreview",
+      "downloadHandler",
       "propsHttp",
       "uploader",
       "fileList",
@@ -127,8 +234,10 @@
       "onPreview",
       "onSuccess",
       "onError",
+      "beforeUpload",
     ]),
     disabled: props.disabled || props.disableUpload,
+    beforeUpload: handleBeforeUpload,
     httpRequest: httpRequest.value,
   }))
 
@@ -232,6 +341,14 @@
     props.onRemove?.(file, files)
   }
 
+  const handleDisplayRemove = (file: ElementUploadFile): void => {
+    uploadRef.value?.handleRemove(file)
+  }
+
+  const handleDownload = (file: ElementUploadFile, index: number): void => {
+    void previewRef.value?.download(file, index)
+  }
+
   /**
    * 处理文件预览。
    *
@@ -240,6 +357,7 @@
   const handlePreview: NonNullable<UploadProps["onPreview"]> = (
     file: ElementUploadFile
   ): void => {
+    previewRef.value?.open(file)
     props.onPreview?.(file)
   }
 
@@ -315,6 +433,12 @@
   .schemx-renderer {
     box-sizing: border-box;
     width: 100%;
+
+    .el-upload-list,
+    .el-upload {
+      --el-upload-list-picture-card-size: 125px;
+      --el-upload-picture-card-size: 125px;
+    }
   }
 
   .schemx-upload-renderer__readonly-list {

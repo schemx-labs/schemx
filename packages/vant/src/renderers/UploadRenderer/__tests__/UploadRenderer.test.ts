@@ -3,6 +3,8 @@
 
 import { defineComponent, h } from "vue"
 
+import { showNotify } from "vant"
+
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
 
@@ -23,6 +25,7 @@ vi.mock("@schemx/vue", () => ({
 }))
 
 vi.mock("vant", () => ({
+  showNotify: vi.fn(),
   Uploader: defineComponent({
     name: "Uploader",
     props: [
@@ -32,6 +35,8 @@ vi.mock("vant", () => ({
       "disabled",
       "readonly",
       "multiple",
+      "accept",
+      "beforeRead",
       "afterRead",
       "maxCount",
       "previewImage",
@@ -278,6 +283,45 @@ describe("UploadRenderer", () => {
         name: "自定义文件",
       }),
     ])
+
+    wrapper.unmount()
+  })
+
+  it("强制校验 accept 文件类型", async () => {
+    const beforeRead = vi.fn().mockReturnValue(true)
+
+    const notify = vi.mocked(showNotify)
+
+    notify.mockClear()
+
+    const wrapper = mount(UploadRenderer, {
+      props: {
+        accept: ".png,image/jpeg",
+        beforeRead,
+      },
+    })
+
+    const uploader = wrapper.findComponent({ name: "Uploader" })
+
+    const validate = uploader.props("beforeRead")
+
+    const invalidFile = new File(["pdf"], "report.pdf", {
+      type: "application/pdf",
+    })
+
+    const validFile = new File(["image"], "photo.jpg", { type: "image/jpeg" })
+
+    const detail = { name: "file", index: 0 }
+
+    expect(await validate(invalidFile, detail)).toBe(false)
+    expect(notify).toHaveBeenCalledWith({
+      type: "warning",
+      message: "report.pdf 类型不符合要求，仅支持：.png、image/jpeg",
+    })
+    expect(beforeRead).not.toHaveBeenCalled()
+
+    expect(await validate(validFile, detail)).toBe(true)
+    expect(beforeRead).toHaveBeenCalledWith(validFile, detail)
 
     wrapper.unmount()
   })

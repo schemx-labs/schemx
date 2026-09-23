@@ -3,6 +3,7 @@
 import { type Component, defineComponent, h, nextTick } from "vue"
 
 import { mount } from "@vue/test-utils"
+import { ElMessage } from "element-plus"
 import { describe, expect, it, vi } from "vitest"
 
 import AutocompleteRenderer from "../renderers/AutocompleteRenderer/index.vue"
@@ -51,6 +52,8 @@ function modelStub(name: string) {
       "type",
       "min",
       "max",
+      "accept",
+      "beforeUpload",
     ],
     emits: [
       "update:modelValue",
@@ -286,5 +289,41 @@ describe("Element Plus Renderer components", () => {
 
     expect(wrapper.findComponent({ name: "ElImage" }).props("src")).toBe("/avatar.png")
     expect(wrapper.findComponent({ name: "ElUpload" }).exists()).toBe(false)
+  })
+
+  it("强制校验 Upload accept 文件类型", () => {
+    const beforeUpload = vi.fn().mockReturnValue(true)
+
+    const warning = vi.spyOn(ElMessage, "warning").mockReturnValue({ close: vi.fn() })
+
+    const wrapper = mountRenderer(UploadRenderer, {
+      accept: ".png,image/jpeg",
+      beforeUpload,
+    })
+
+    const upload = wrapper.findComponent({ name: "ElUpload" })
+
+    const validate = upload.props("beforeUpload")
+
+    const invalidFile = Object.assign(
+      new File(["pdf"], "report.pdf", { type: "application/pdf" }),
+      { uid: 1 }
+    )
+
+    const validFile = Object.assign(
+      new File(["image"], "photo.jpg", { type: "image/jpeg" }),
+      { uid: 2 }
+    )
+
+    expect(validate(invalidFile)).toBe(false)
+    expect(warning).toHaveBeenCalledWith(
+      "report.pdf 类型不符合要求，仅支持：.png、image/jpeg"
+    )
+    expect(beforeUpload).not.toHaveBeenCalled()
+
+    expect(validate(validFile)).toBe(true)
+    expect(beforeUpload).toHaveBeenCalledWith(validFile)
+
+    warning.mockRestore()
   })
 })

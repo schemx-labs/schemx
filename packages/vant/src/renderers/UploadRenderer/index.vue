@@ -9,7 +9,8 @@
    */
   import { computed, ref, useAttrs, watch } from "vue"
 
-  import { ImagePreview, Uploader } from "vant"
+  import { ImagePreview, showToast, Uploader } from "vant"
+  import type { UploaderBeforeRead } from "vant"
 
   import { useFieldContext, Wrapper } from "@schemx/vue"
   import classNames from "classnames"
@@ -282,6 +283,45 @@
     return rendererProps.multiple ?? uploadAttrs.multiple ?? true
   })
 
+  /** 将 accept 字符串拆分为可逐项比对的文件类型规则。 */
+  const acceptRules = computed(() =>
+    String(props.accept ?? "")
+      .split(",")
+      .map((rule) => rule.trim())
+      .filter(Boolean)
+  )
+
+  /** 判断文件是否符合扩展名、精确 MIME 或 MIME 通配规则。 */
+  const isAcceptedFile = (file: File): boolean => {
+    if (!acceptRules.value.length) return true
+
+    const fileName = file.name.toLowerCase()
+
+    const mimeType = file.type.toLowerCase()
+
+    return acceptRules.value.some((rule) => {
+      const normalizedRule = rule.toLowerCase()
+
+      if (normalizedRule === "*" || normalizedRule === "*/*") return true
+      if (normalizedRule.startsWith(".")) return fileName.endsWith(normalizedRule)
+
+      if (normalizedRule.endsWith("/*")) {
+        return mimeType.startsWith(normalizedRule.slice(0, -1))
+      }
+
+      if (normalizedRule.includes("/")) return mimeType === normalizedRule
+
+      return fileName.endsWith(`.${normalizedRule}`)
+    })
+  }
+
+  /** 提示文件类型不符合 accept 配置。 */
+  const showInvalidTypeWarning = (fileName: string): void => {
+    showToast({
+      message: `${fileName} 类型不符合要求，仅支持：${acceptRules.value.join("、")}`,
+    })
+  }
+
   /** 只读模式始终禁止删除，其他模式沿用用户配置。 */
   const deletableComputed = computed(() =>
     readonlyComputed.value ? false : props.deletable
@@ -437,10 +477,17 @@
    * @param file - 用户刚选择的单个或多个原始文件。
    * @param detail - Uploader 提供的字段名和插入位置。
    */
-  const handleBeforeRead = (
-    file: File | File[],
-    detail: { name: string | number; index: number }
-  ): boolean | Promise<File | File[] | undefined> | undefined => {
+  const handleBeforeRead: UploaderBeforeRead = (file, detail) => {
+    const selectedFiles = Array.isArray(file) ? file : [file]
+
+    const invalidFile = selectedFiles.find((item) => !isAcceptedFile(item))
+
+    if (invalidFile) {
+      showInvalidTypeWarning(invalidFile.name)
+
+      return false
+    }
+
     const beforeRead = props.beforeRead || uploadAttrs.beforeRead
 
     if (beforeRead) {

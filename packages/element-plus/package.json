@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@schemx/element-plus",
-  "version": "1.0.1",
+  "version": "0.0.1",
   "description": "基于 Element Plus UI 库的 schemx 渲染器适配包",
   "keywords": [
     "schemx",
