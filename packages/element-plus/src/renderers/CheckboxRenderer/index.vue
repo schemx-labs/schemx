@@ -161,7 +161,11 @@
   .schemx-checkbox-renderer > .el-checkbox-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 8px;
+    gap: 10px 20px;
+  }
+
+  .schemx-checkbox-renderer > .el-checkbox-group .el-checkbox {
+    margin-right: 0px;
   }
 
   .schemx-checkbox-renderer > .el-checkbox-group {

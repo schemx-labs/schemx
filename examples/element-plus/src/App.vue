@@ -325,6 +325,7 @@
           url: URL.createObjectURL(file),
         }),
         listType: "text",
+        multiple: true,
       },
     },
     {

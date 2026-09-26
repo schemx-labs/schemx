@@ -127,7 +127,10 @@
   .schemx-radio-renderer > .el-radio-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 8px;
+    gap: 10px 20px;
+  }
+  .schemx-radio-renderer > .el-radio-group .el-radio {
+    margin-right: 0px;
   }
 
   .schemx-radio-renderer > .el-radio-group {
