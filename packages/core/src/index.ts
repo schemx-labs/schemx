@@ -129,6 +129,7 @@ export {
   getByPath,
   setByPath,
   collectObjectPathsByLeaf,
+  createFieldKey,
 } from "./utils"
 
 export type {
@@ -153,6 +154,7 @@ export type {
   AsyncValidatorDescriptor,
   SchemxInstance,
   SchemxFormApi,
+  SchemxInstanceDefinition,
   SchemxFieldRulesMap,
   SchemxSchemaConfig,
   SchemxSchemaConfigDefinition,

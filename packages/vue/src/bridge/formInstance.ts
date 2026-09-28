@@ -7,6 +7,8 @@
  * @module vue/bridge/formInstance
  */
 
+import { createVueScrollToFieldDispatcher } from "./scrollToField"
+
 import type { VueFieldDependency, VueFormDependency } from "./types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
@@ -127,8 +129,12 @@ export function createVueFormInstance<TValues extends Values>(
     form.destroy()
   }
 
+  // 由挂载的 Vue 表单组件注册 DOM 定位实现。
+  const scrollToField = createVueScrollToFieldDispatcher<TValues>()
+
   return {
     ...form,
+    scrollToField,
     getFieldValue,
     getFieldErrors,
     isFieldTouched,

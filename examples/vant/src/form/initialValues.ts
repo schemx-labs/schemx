@@ -3,6 +3,9 @@ import type { FormGroupsValues } from "./types"
 /** 创建合并表单示例的初始值，避免多个组件实例共享可变对象。 */
 export function createInitialFormData(): FormGroupsValues {
   return {
+    test: "",
+    test1: "",
+    test2: "",
     basic: {
       username: "张三",
       website: "www.example.com",

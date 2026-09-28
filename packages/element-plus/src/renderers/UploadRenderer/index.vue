@@ -122,8 +122,6 @@
 
   const attrs = useAttrs() as Record<string, unknown>
 
-  console.log(" > ~ props:", props, attrs)
-
   const valueModel = defineModel<UploadValue>("value")
 
   const fileList = ref<UploadUserFile[]>(normalizeFiles(props.value))

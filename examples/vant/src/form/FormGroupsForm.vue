@@ -61,10 +61,13 @@
       key: "basic-group",
       label: "基础表单 · 全部 Renderer",
       collapsible: true,
+      defaultCollapsed: true,
       children: [
         {
           key: "basic-information",
           label: "基础信息",
+          collapsible: true,
+          defaultCollapsed: true,
           children: [
             {
               name: "basic.username",
@@ -474,6 +477,11 @@
   const handleGetSnapshot = (): void => {
     console.log("合并表单快照:", formRef.value?.getFieldsSnapshot())
   }
+
+  /** 展开基础信息分组，并定位到年龄字段。 */
+  const handleScrollToBasicAge = async (): Promise<void> => {
+    await formRef.value?.scrollToField("basic.age", { block: "center" })
+  }
 </script>
 
 <template>
@@ -482,7 +490,8 @@
     <p class="description">
       一个 Schemx 组件承载全部示例，并通过 Group 进行分区。基础表单集中展示内置
       Renderer；动态表单演示 Group 状态联动；字段联动演示 Dependency 动态子树；动态数组
-      演示 item 相对路径、增删移动，以及本组 dependencies 对数组容器状态的控制。
+      演示 item 相对路径、增删移动，以及本组 dependencies
+      对数组容器状态的控制。可点击定位按钮 展开嵌套分组并滚动到指定字段。
     </p>
 
     <Schemx
@@ -500,6 +509,7 @@
       <Button type="primary" @click="formRef?.submit()">提交</Button>
       <Button @click="formRef?.validate()">校验</Button>
       <Button @click="formRef?.reset()">重置</Button>
+      <Button @click="handleScrollToBasicAge">定位到基础年龄</Button>
       <Button @click="handleSetValues">设置示例值</Button>
       <Button @click="handleGetSnapshot">获取快照</Button>
     </div>

@@ -28,6 +28,14 @@ import type { FieldRules } from "./rule"
 import type { SchemxField } from "./schema"
 
 /**
+ * 框架层为表单实例追加方法的声明合并入口。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
+
+/**
  * 表单实例接口
  *
  * 定义表单的所有操作方法，是 useForm 返回值的基础接口。
@@ -35,7 +43,9 @@ import type { SchemxField } from "./schema"
  *
  * @typeParam TValues - 表单值类型，默认为 Values
  */
-export interface SchemxInstance<TValues extends Values = Values> {
+export interface SchemxInstance<
+  TValues extends Values = Values,
+> extends SchemxInstanceDefinition<TValues> {
   /**
    * 获取单个字段的当前值
    *
@@ -794,41 +804,44 @@ export interface SchemxInstance<TValues extends Values = Values> {
  *
  * @typeParam TValues - 表单值类型
  */
-export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
-  SchemxInstance<TValues>,
-  | "getFieldValue"
-  | "getFieldsValue"
-  | "setFieldValue"
-  | "setFieldsValue"
-  | "getFieldSnapshot"
-  | "getFieldsSnapshot"
-  | "getInitialValue"
-  | "getInitialValues"
-  | "setInitialValue"
-  | "setInitialValues"
-  | "isFieldTouched"
-  | "isFieldsTouched"
-  | "getTouchedFields"
-  | "setFieldTouched"
-  | "setFieldsTouched"
-  | "isFieldPending"
-  | "isFieldsPending"
-  | "getPendingFields"
-  | "setFieldPending"
-  | "setFieldsPending"
-  | "resetField"
-  | "resetFields"
-  | "reset"
-  | "validateField"
-  | "validate"
-  | "getFieldErrors"
-  | "getFieldsErrors"
-  | "setFieldErrors"
-  | "setFieldsErrors"
-  | "clearFieldErrors"
-  | "clearFieldsErrors"
-  | "setFieldRules"
-  | "setFieldsRules"
-  | "removeFieldRules"
-  | "removeFieldsRules"
-> {}
+export interface SchemxFormApi<TValues extends Values = Values>
+  extends
+    Pick<
+      SchemxInstance<TValues>,
+      | "getFieldValue"
+      | "getFieldsValue"
+      | "setFieldValue"
+      | "setFieldsValue"
+      | "getFieldSnapshot"
+      | "getFieldsSnapshot"
+      | "getInitialValue"
+      | "getInitialValues"
+      | "setInitialValue"
+      | "setInitialValues"
+      | "isFieldTouched"
+      | "isFieldsTouched"
+      | "getTouchedFields"
+      | "setFieldTouched"
+      | "setFieldsTouched"
+      | "isFieldPending"
+      | "isFieldsPending"
+      | "getPendingFields"
+      | "setFieldPending"
+      | "setFieldsPending"
+      | "resetField"
+      | "resetFields"
+      | "reset"
+      | "validateField"
+      | "validate"
+      | "getFieldErrors"
+      | "getFieldsErrors"
+      | "setFieldErrors"
+      | "setFieldsErrors"
+      | "clearFieldErrors"
+      | "clearFieldsErrors"
+      | "setFieldRules"
+      | "setFieldsRules"
+      | "removeFieldRules"
+      | "removeFieldsRules"
+    >,
+    SchemxInstanceDefinition<TValues> {}

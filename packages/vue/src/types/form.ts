@@ -31,6 +31,24 @@ import type {
 } from "@schemx/core"
 
 /**
+ * 配置 `scrollToField` 的滚动行为与对齐方式。
+ */
+export interface ScrollToFieldOptions {
+  /**
+   * 滚动行为；`auto` 使用浏览器默认行为。
+   */
+  behavior?: "auto" | "smooth"
+  /**
+   * 字段在滚动容器中的垂直对齐方式。
+   */
+  block?: "start" | "center" | "end" | "nearest"
+  /**
+   * 字段在滚动容器中的水平对齐方式。
+   */
+  inline?: "start" | "center" | "end" | "nearest"
+}
+
+/**
  * Vue 需要在编译 `defineProps` 时直接读取 Props 的字段列表。
  *
  * Core 中的 `SchemxSchemaConfig` 是基于 `SchemxBaseField` 的外部复合类型别名，

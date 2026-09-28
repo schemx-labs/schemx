@@ -19,6 +19,7 @@ import type { TriggerConfig } from "@/utils"
 
 import { createFieldContext, useFormContextValue } from "../../context"
 import { useField, useStableRef } from "../../hooks"
+import { useFieldScrollTarget } from "../../hooks/useFieldScrollTarget"
 import { useViewSchema } from "../../hooks/useViewSchemas"
 import {
   mergeTrigger,
@@ -206,6 +207,10 @@ const Field = defineComponent({
       slots,
     })
 
+    const setWrapperElement = useFieldScrollTarget({
+      getName: () => schemaRef.value.name,
+    })
+
     return (): VNodeChild => {
       if (schemaRef.value.visible === false) {
         return null
@@ -233,6 +238,7 @@ const Field = defineComponent({
       const fieldWrapper = (
         <div
           {...attrs}
+          ref={setWrapperElement}
           class={classnames(
             "schemx-field-wrapper",
             props.class,

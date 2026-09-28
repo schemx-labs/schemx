@@ -7,12 +7,13 @@
  * @module components/Group
  */
 
-import { computed, defineComponent, getCurrentInstance, ref, watch } from "vue"
+import { defineComponent, getCurrentInstance } from "vue"
 import type { ClassValue, PropType, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
+import { useGroupCollapse } from "../../hooks/useGroupCollapse"
 import { normalizeId, normalizeNameKey } from "../../utils"
 import Col from "../Col"
 import Field from "../Field"
@@ -97,37 +98,11 @@ const Group = defineComponent({
   setup(props, setupContext) {
     const { attrs, slots } = setupContext
 
-    const internalCollapsed = ref(Boolean(props.schema.defaultCollapsed))
-
-    const collapsed = computed(() => props.schema.collapsed ?? internalCollapsed.value)
+    const { collapsed, toggle } = useGroupCollapse({
+      getSchema: () => props.schema,
+    })
 
     const componentId = getCurrentInstance()?.uid ?? 0
-
-    watch(
-      () => props.schema.collapsed,
-      (nextCollapsed, previousCollapsed) => {
-        if (nextCollapsed !== undefined) {
-          internalCollapsed.value = nextCollapsed
-        } else if (previousCollapsed !== undefined) {
-          internalCollapsed.value = previousCollapsed
-        }
-      }
-    )
-
-    // 切换非受控 Group 的折叠状态，并通知受控回调。
-    const toggle = () => {
-      if (!props.schema.collapsible || props.schema.disabled) {
-        return
-      }
-
-      const nextCollapsed = !collapsed.value
-
-      if (props.schema.collapsed === undefined) {
-        internalCollapsed.value = nextCollapsed
-      }
-
-      props.schema.onCollapsedChange?.(nextCollapsed)
-    }
 
     return (): VNodeChild => {
       const schema = props.schema

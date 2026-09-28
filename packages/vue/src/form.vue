@@ -26,6 +26,7 @@
   } from "./config/defaultVueSchemaConfig"
   import { provideFormContext, useConfigProviderContextRef } from "./context"
   import { useForm, useFormSelector, useViewSchemas } from "./hooks"
+  import { useScrollToField } from "./hooks/useScrollToField"
   import { getSectionPosition } from "./utils/helpers"
 
   import type { SchemxIconComponent } from "./types/icon"
@@ -534,6 +535,8 @@
 
   // 当前 Form 的响应式 ViewSchema 列表。
   const viewSchemas = useViewSchemas(formInstance)
+
+  useScrollToField({ form: formInstance, viewSchemas })
 
   /**
    * 根据 ViewSchema 在当前列表中的位置生成首尾样式类。

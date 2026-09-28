@@ -25,6 +25,8 @@ pnpm --filter vant-demo dev
 
 “动态数组”已合并到“form-groups”示例中，`SchemxDynamicField.item` 使用数组项相对路径；通过“末项移到首位”可观察数组索引变化时字段值与行身份仍保持对应。切换“显示团队成员”和“成员编辑权限”可观察 `SchemxDynamicField.dependencies` 对数组容器及行内字段的状态控制。
 
+“定位到基础年龄”按钮演示通过表单实例调用 `scrollToField()`，自动展开两层 Group 并滚动到目标字段。
+
 ## 快速开始
 
 ```vue

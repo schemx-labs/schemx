@@ -17,7 +17,7 @@ export type {
   SchemxSchemaConfigDefinition,
 } from "./form"
 
-export type { SchemxInstance, SchemxFormApi } from "./instance"
+export type { SchemxInstance, SchemxFormApi, SchemxInstanceDefinition } from "./instance"
 
 export type {
   RequiredOptions,

@@ -3,7 +3,7 @@
     <section class="intro">
       <p class="eyebrow">SCHEMX / ELEMENT PLUS</p>
       <h1>Element Plus Renderer 示例</h1>
-      <p>展示 Element Plus 适配包支持的输入、选项、日期时间和上传字段。</p>
+      <p>展示 Element Plus Renderer、字段定位，以及自动展开 Group 并滚动到字段。</p>
     </section>
     <ElCard class="form-card">
       <SchemxForm ref="formRef" :initial-values="initialValues" :schemas="schemas" />
@@ -12,6 +12,7 @@
         <ElButton type="primary" @click="submitForm">提交</ElButton>
         <ElButton @click="formRef?.validate()">校验</ElButton>
         <ElButton @click="formRef?.reset()">重置</ElButton>
+        <ElButton @click="scrollToBasicAge">定位到分组中的年龄</ElButton>
       </div>
     </ElCard>
 
@@ -106,6 +107,19 @@
     score: 3,
     progress: 40,
     files: [],
+    basic: {
+      username: "Ada",
+      website: "",
+      phone: "",
+      bio: "",
+      age: 28,
+      notification: true,
+      gender: "female",
+      hobbies: [],
+      preferredCities: [],
+      avatar: [],
+      region: [],
+    },
   }
 
   const schemas: SchemxField<ExampleValues>[] = [
@@ -331,6 +345,8 @@
     {
       key: "basic-information",
       label: "基础信息",
+      collapsible: true,
+      defaultCollapsed: true,
       children: [
         {
           name: "basic.username",
@@ -369,6 +385,11 @@
   /** 提交当前表单并展示返回结果。 */
   const submitForm = async (): Promise<void> => {
     submitResult.value = await formRef.value?.submit()
+  }
+
+  /** 展开基础信息分组，并滚动到年龄字段。 */
+  const scrollToBasicAge = async (): Promise<void> => {
+    await formRef.value?.scrollToField("basic.age", { block: "center" })
   }
 </script>
 

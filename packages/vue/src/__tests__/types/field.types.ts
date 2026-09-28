@@ -7,9 +7,11 @@ import type {
   SchemxFieldSlotProps,
   SchemxFieldSlots,
   SchemxFieldSlotValue,
+  SchemxFormApi,
   SchemxFormProps,
   SchemxGroupSlotProps,
   SchemxGroupSlots,
+  SchemxInstance,
 } from "../../index"
 
 interface FormValues {
@@ -88,6 +90,15 @@ void legacyVueRendererProps
 void invalidComponentProps
 void actionProps
 void invalidActionProps
+
+declare const formInstance: SchemxInstance<FormValues>
+declare const formApi: SchemxFormApi<FormValues>
+
+void formInstance.scrollToField("name", { behavior: "smooth", block: "center" })
+void formApi.scrollToField("name")
+
+// @ts-expect-error scroll behavior is limited to the supported library options.
+void formInstance.scrollToField("name", { behavior: "instant" })
 
 declare const fieldSlotProps: SchemxFieldSlotProps<FormValues>
 declare const contentSlotProps: SchemxFieldContentSlotProps<FormValues>
