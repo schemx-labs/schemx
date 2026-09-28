@@ -264,7 +264,6 @@ export function useScrollToField<TValues extends Values>(
         await nextTick()
       }
 
-      await nextTick()
       target = fieldScrollRegistry.find(fieldKey)
     }
 
@@ -273,8 +272,8 @@ export function useScrollToField<TValues extends Values>(
     }
 
     scrollIntoView(target, {
-      behavior: scrollOptions?.behavior ?? "auto",
-      block: scrollOptions?.block ?? "nearest",
+      behavior: scrollOptions?.behavior ?? "smooth",
+      block: scrollOptions?.block ?? "center",
       inline: scrollOptions?.inline ?? "nearest",
       scrollMode: "if-needed",
     })

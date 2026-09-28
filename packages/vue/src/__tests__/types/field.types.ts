@@ -95,6 +95,7 @@ declare const formInstance: SchemxInstance<FormValues>
 declare const formApi: SchemxFormApi<FormValues>
 
 void formInstance.scrollToField("name", { behavior: "smooth", block: "center" })
+// @ts-expect-error Dynamic Schema callbacks receive the Core API without Vue DOM methods.
 void formApi.scrollToField("name")
 
 // @ts-expect-error scroll behavior is limited to the supported library options.

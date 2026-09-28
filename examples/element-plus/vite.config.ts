@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite"
 import vue from "@vitejs/plugin-vue"
 import vueJsx from "@vitejs/plugin-vue-jsx"
+import { createRequire } from "node:module"
 import { existsSync, statSync } from "fs"
 import { resolve } from "path"
 
@@ -51,6 +52,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "")
   const useSource = env.VITE_USE_SOURCE === "true"
   const packagesDir = resolve(__dirname, "../../packages")
+  const resolveFromConfig = createRequire(import.meta.url)
+  const resolveFromVue = createRequire(resolveFromConfig.resolve("vue"))
+  const vueSharedPath = resolveFromVue.resolve("@vue/shared")
   const packageRoots = {
     core: resolve(packagesDir, "core/src"),
     vue: resolve(packagesDir, "vue/src"),
@@ -59,26 +63,29 @@ export default defineConfig(({ mode }) => {
 
   return {
     resolve: {
-      alias: useSource
-        ? [
-            { find: /^@schemx\/core\/(.+)$/, replacement: `${packageRoots.core}/$1` },
-            { find: /^@schemx\/core$/, replacement: `${packageRoots.core}/index.ts` },
-            { find: /^@schemx\/vue\/(.+)$/, replacement: `${packageRoots.vue}/$1` },
-            { find: /^@schemx\/vue$/, replacement: `${packageRoots.vue}/index.ts` },
-            {
-              find: /^@schemx\/element-plus\/style\.css$/,
-              replacement: `${packageRoots.elementPlus}/styles/index.scss`,
-            },
-            {
-              find: /^@schemx\/element-plus\/(.+)$/,
-              replacement: `${packageRoots.elementPlus}/$1`,
-            },
-            {
-              find: /^@schemx\/element-plus$/,
-              replacement: `${packageRoots.elementPlus}/index.ts`,
-            },
-          ]
-        : [],
+      alias: [
+        { find: /^@vue\/shared$/, replacement: vueSharedPath },
+        ...(useSource
+          ? [
+              { find: /^@schemx\/core\/(.+)$/, replacement: `${packageRoots.core}/$1` },
+              { find: /^@schemx\/core$/, replacement: `${packageRoots.core}/index.ts` },
+              { find: /^@schemx\/vue\/(.+)$/, replacement: `${packageRoots.vue}/$1` },
+              { find: /^@schemx\/vue$/, replacement: `${packageRoots.vue}/index.ts` },
+              {
+                find: /^@schemx\/element-plus\/style\.css$/,
+                replacement: `${packageRoots.elementPlus}/styles/index.scss`,
+              },
+              {
+                find: /^@schemx\/element-plus\/(.+)$/,
+                replacement: `${packageRoots.elementPlus}/$1`,
+              },
+              {
+                find: /^@schemx\/element-plus$/,
+                replacement: `${packageRoots.elementPlus}/index.ts`,
+              },
+            ]
+          : []),
+      ],
     },
     plugins: [...(useSource ? [dynamicAtAlias(packageRoots)] : []), vue(), vueJsx()],
     server: {

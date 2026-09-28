@@ -35,11 +35,11 @@ import type {
  */
 export interface ScrollToFieldOptions {
   /**
-   * 滚动行为；`auto` 使用浏览器默认行为。
+   * 滚动行为；默认 `smooth`，`auto` 使用浏览器默认行为。
    */
   behavior?: "auto" | "smooth"
   /**
-   * 字段在滚动容器中的垂直对齐方式。
+   * 字段在滚动容器中的垂直对齐方式；默认 `center`。
    */
   block?: "start" | "center" | "end" | "nearest"
   /**

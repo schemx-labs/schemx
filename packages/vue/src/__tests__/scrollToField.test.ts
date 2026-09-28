@@ -11,7 +11,7 @@ import { useFieldScrollTarget } from "../hooks/useFieldScrollTarget"
 
 import type { FieldScrollRegistry } from "../context/fieldScrollContext"
 import type { FieldScrollTargetRef } from "../hooks/useFieldScrollTarget"
-import type { SchemxFormApi, SchemxInstance } from "../index"
+import type { SchemxInstance } from "../index"
 import type { NamePath, Values } from "@schemx/core"
 
 const { scrollIntoViewMock } = vi.hoisted(() => ({
@@ -72,7 +72,7 @@ describe("Schemx scrollToField", () => {
     )
   })
 
-  it("scrolls to a field with if-needed defaults and accepts alignment options", async () => {
+  it("defaults to smooth centered scrolling and accepts explicit options", async () => {
     const wrapper = mount(SchemxForm, {
       props: {
         rendererRegistry: createInputRendererRegistry(),
@@ -89,18 +89,18 @@ describe("Schemx scrollToField", () => {
 
     expect(await form.scrollToField("name")).toBe(true)
     expect(scrollIntoViewMock).toHaveBeenLastCalledWith(target, {
-      behavior: "auto",
-      block: "nearest",
+      behavior: "smooth",
+      block: "center",
       inline: "nearest",
       scrollMode: "if-needed",
     })
 
-    expect(
-      await form.scrollToField("name", { behavior: "smooth", block: "center" })
-    ).toBe(true)
+    expect(await form.scrollToField("name", { behavior: "auto", block: "end" })).toBe(
+      true
+    )
     expect(scrollIntoViewMock).toHaveBeenLastCalledWith(target, {
-      behavior: "smooth",
-      block: "center",
+      behavior: "auto",
+      block: "end",
       inline: "nearest",
       scrollMode: "if-needed",
     })
@@ -581,43 +581,6 @@ describe("Schemx scrollToField", () => {
     expect(await form.scrollToField("name")).toBe(false)
     expect(wrapper.find(".schemx-group--collapsed").exists()).toBe(false)
     expect(scrollIntoViewMock).not.toHaveBeenCalled()
-
-    wrapper.unmount()
-  })
-
-  it("makes the late-bound dispatcher available to dynamic Schema callbacks", async () => {
-    let callbackFormApi: SchemxFormApi<Values> | undefined
-
-    const wrapper = mount(SchemxForm, {
-      props: {
-        rendererRegistry: createInputRendererRegistry(),
-        initialValues: { name: "Ada" },
-        schemas: [
-          {
-            name: "name",
-            label: "姓名",
-            componentType: "input",
-            dependencies: {
-              triggerFields: ["name"],
-              trigger: (_values: Values, formApi: SchemxFormApi<Values>) => {
-                callbackFormApi = formApi
-              },
-            },
-          },
-        ],
-      },
-      attachTo: document.body,
-    })
-
-    const form = wrapper.vm as unknown as SchemxInstance<FormValues>
-
-    const target = wrapper.get(".schemx-field-wrapper").element
-
-    markVisible(target)
-    await form.waitForDependencies()
-
-    expect(callbackFormApi).toBeDefined()
-    expect(await callbackFormApi?.scrollToField("name")).toBe(true)
 
     wrapper.unmount()
   })

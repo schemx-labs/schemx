@@ -252,7 +252,7 @@ const schemas = [
 | Registry 与规则        | `getRenderer`、`registerRenderer`、`hasRenderer`、`getPresetRule`、`registerPresetRule`、`hasPresetRule`、`setFieldRules`、`setFieldsRules`、`removeFieldRules`、`removeFieldsRules` |
 | 生命周期               | `destroy`                                                                                                                                                                            |
 
-`scrollToField()` 滚动到已渲染字段；目标位于折叠 Group 时会依次展开祖先 Group。未渲染或不可见时返回 `false`；`options` 支持 `behavior`、`block` 和 `inline`。
+`scrollToField()` 默认平滑滚动并将字段垂直居中；目标位于折叠 Group 时会依次展开祖先 Group。未渲染或不可见时返回 `false`；`options` 支持覆盖 `behavior`、`block` 和 `inline`。
 
 ```vue
 <script setup lang="ts">

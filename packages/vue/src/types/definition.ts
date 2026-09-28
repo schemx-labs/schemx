@@ -33,7 +33,7 @@ declare module "@schemx/core" {
      * 定位当前 Vue 表单中的字段；折叠的祖先 Group 会依次展开。
      *
      * @param name - 目标字段路径。
-     * @param options - 滚动行为与对齐方式；始终仅在需要时滚动。
+     * @param options - 滚动行为与对齐方式；默认为平滑滚动并垂直居中，且仅在需要时滚动。
      * @returns 找到可见字段并发起滚动时返回 `true`；字段不可见、未渲染或无法展开时返回 `false`。
      *
      * @example
