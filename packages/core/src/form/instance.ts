@@ -1,3 +1,5 @@
+import { pick } from "es-toolkit"
+
 import { createSignal } from "../reactivity"
 import { withLock } from "../utils"
 import { createValidationCancelled, createValidationFailure } from "../validator/result"
@@ -131,43 +133,45 @@ export interface CreateFormInstanceOptions<TValues extends Values> {
 export function createFormApi<TValues extends Values>(
   instance: SchemxInstance<TValues>
 ): SchemxFormApi<TValues> {
-  return {
-    setFieldValue: instance.setFieldValue,
-    setFieldsValue: instance.setFieldsValue,
-    getFieldValue: instance.getFieldValue,
-    getFieldsValue: instance.getFieldsValue,
-    getFieldSnapshot: instance.getFieldSnapshot,
-    getFieldsSnapshot: instance.getFieldsSnapshot,
-    getInitialValue: instance.getInitialValue,
-    getInitialValues: instance.getInitialValues,
-    setInitialValue: instance.setInitialValue,
-    setInitialValues: instance.setInitialValues,
-    isFieldTouched: instance.isFieldTouched,
-    isFieldsTouched: instance.isFieldsTouched,
-    getTouchedFields: instance.getTouchedFields,
-    setFieldTouched: instance.setFieldTouched,
-    setFieldsTouched: instance.setFieldsTouched,
-    isFieldPending: instance.isFieldPending,
-    isFieldsPending: instance.isFieldsPending,
-    getPendingFields: instance.getPendingFields,
-    setFieldPending: instance.setFieldPending,
-    setFieldsPending: instance.setFieldsPending,
-    resetField: instance.resetField,
-    resetFields: instance.resetFields,
-    getFieldErrors: instance.getFieldErrors,
-    getFieldsErrors: instance.getFieldsErrors,
-    setFieldErrors: instance.setFieldErrors,
-    setFieldsErrors: instance.setFieldsErrors,
-    clearFieldErrors: instance.clearFieldErrors,
-    clearFieldsErrors: instance.clearFieldsErrors,
-    setFieldRules: instance.setFieldRules,
-    setFieldsRules: instance.setFieldsRules,
-    removeFieldRules: instance.removeFieldRules,
-    removeFieldsRules: instance.removeFieldsRules,
-    reset: instance.reset,
-    validateField: instance.validateField,
-    validate: instance.validate,
-  }
+  return pick(instance, [
+    "setFieldValue",
+    "setFieldsValue",
+    "getFieldValue",
+    "getFieldsValue",
+    "getFieldSnapshot",
+    "getFieldsSnapshot",
+    "getInitialValue",
+    "getInitialValues",
+    "setInitialValue",
+    "setInitialValues",
+    "isFieldTouched",
+    "isFieldsTouched",
+    "setFieldTouched",
+    "setFieldsTouched",
+    "getTouchedFields",
+    "setFieldPending",
+    "setFieldsPending",
+    "isFieldPending",
+    "isFieldsPending",
+    "getPendingFields",
+    "isLoading",
+    "getFieldErrors",
+    "getFieldsErrors",
+    "setFieldErrors",
+    "setFieldsErrors",
+    "clearFieldErrors",
+    "clearFieldsErrors",
+    "clearErrors",
+    "setFieldRules",
+    "setFieldsRules",
+    "removeFieldRules",
+    "removeFieldsRules",
+    "resetField",
+    "resetFields",
+    "reset",
+    "validateField",
+    "validate",
+  ])
 }
 
 /**
@@ -507,26 +511,22 @@ export function createFormInstance<TValues extends Values>(
     subscribeViewSchemas,
     waitForDependencies,
     getRenderer: rendererRegistry.resolve.bind(rendererRegistry),
-    getRendererEntry: ((type: SchemxRendererKey<TValues>) =>
-      rendererRegistry.resolveEntry(type)) as SchemxInstance<TValues>["getRendererEntry"],
-    registerRenderer: ((
+    getRendererEntry: (type: SchemxRendererKey<TValues>) =>
+      rendererRegistry.resolveEntry(type),
+    registerRenderer: (
       type: SchemxRendererKey<TValues>,
       renderer:
         RendererDescriptor<unknown, TValues, SchemxRendererKey<TValues>> | unknown,
       options?: RegistryOptions
     ) => {
       rendererRegistry.register(type, renderer, options)
-    }) as SchemxInstance<TValues>["registerRenderer"],
+    },
     hasRenderer: rendererRegistry.has.bind(rendererRegistry),
-    getPresetRule: presetRuleRegistry.get.bind(
-      presetRuleRegistry
-    ) as SchemxInstance<TValues>["getPresetRule"],
-    registerPresetRule: presetRuleRegistry.register.bind(
-      presetRuleRegistry
-    ) as SchemxInstance<TValues>["registerPresetRule"],
+    getPresetRule: presetRuleRegistry.get.bind(presetRuleRegistry),
+    registerPresetRule: presetRuleRegistry.register.bind(presetRuleRegistry),
     hasPresetRule: presetRuleRegistry.has.bind(presetRuleRegistry),
     destroy,
-  }
+  } as SchemxInstance<TValues>
 }
 
 /**

@@ -43,9 +43,7 @@ export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
  *
  * @typeParam TValues - 表单值类型，默认为 Values
  */
-export interface SchemxInstance<
-  TValues extends Values = Values,
-> extends SchemxInstanceDefinition<TValues> {
+export type SchemxInstance<TValues extends Values = Values> = {
   /**
    * 获取单个字段的当前值
    *
@@ -795,7 +793,7 @@ export interface SchemxInstance<
    * ```
    */
   destroy: () => void
-}
+} & SchemxInstanceDefinition<TValues>
 
 /**
  * 表单 API，提供与表单交互的方法。
@@ -804,12 +802,12 @@ export interface SchemxInstance<
  *
  * @typeParam TValues - 表单值类型
  */
-export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
+export type SchemxFormApi<TValues extends Values = Values> = Pick<
   SchemxInstance<TValues>,
-  | "getFieldValue"
-  | "getFieldsValue"
   | "setFieldValue"
   | "setFieldsValue"
+  | "getFieldValue"
+  | "getFieldsValue"
   | "getFieldSnapshot"
   | "getFieldsSnapshot"
   | "getInitialValue"
@@ -818,27 +816,29 @@ export interface SchemxFormApi<TValues extends Values = Values> extends Pick<
   | "setInitialValues"
   | "isFieldTouched"
   | "isFieldsTouched"
-  | "getTouchedFields"
   | "setFieldTouched"
   | "setFieldsTouched"
+  | "getTouchedFields"
+  | "setFieldPending"
+  | "setFieldsPending"
   | "isFieldPending"
   | "isFieldsPending"
   | "getPendingFields"
-  | "setFieldPending"
-  | "setFieldsPending"
-  | "resetField"
-  | "resetFields"
-  | "reset"
-  | "validateField"
-  | "validate"
+  | "isLoading"
   | "getFieldErrors"
   | "getFieldsErrors"
   | "setFieldErrors"
   | "setFieldsErrors"
   | "clearFieldErrors"
   | "clearFieldsErrors"
+  | "clearErrors"
   | "setFieldRules"
   | "setFieldsRules"
   | "removeFieldRules"
   | "removeFieldsRules"
-> {}
+  | "resetField"
+  | "resetFields"
+  | "reset"
+  | "validateField"
+  | "validate"
+>

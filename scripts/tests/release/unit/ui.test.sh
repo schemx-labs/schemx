@@ -85,7 +85,7 @@ copyable_summary_stderr="$temp_dir/copyable-summary.stderr"
 copyable_command='pnpm i /tmp/core.tgz /tmp/vue.tgz'
 SCHEMX_UI_FORMAT=plain ui_copyable_summary --title '安装命令' --tone success --content '已生成 2 个 tarball。' --copy "$copyable_command" >/dev/null 2>"$copyable_summary_stderr"
 assert_contains "$(<"$copyable_summary_stderr")" '--- 安装命令 ---'
-rg -qxF "$copyable_command" "$copyable_summary_stderr"
+grep -qxF -- "$copyable_command" "$copyable_summary_stderr"
 copyable_command_gaps="$(awk -v command="$copyable_command" '
   $0 == command { print gaps; exit }
   $0 == "│" { gaps += 1; next }
@@ -123,7 +123,7 @@ assert_rail_gap_before "$plain_stderr" '[说明] info'
 assert_rail_gap_before "$plain_stderr" '[成功] ok'
 assert_rail_gap_before "$plain_stderr" '[任务] 成功任务'
 assert_rail_gap_count_before "$plain_stderr" '[成功] 成功任务' 1
-rg -q '成功任务（[0-9]+\.[0-9]{2}s）' "$plain_stderr" || {
+grep -Eq '成功任务（[0-9]+\.[0-9]{2}s）' "$plain_stderr" || {
   printf '断言失败：任务耗时应保留两位小数。\n' >&2
   sed -n l "$plain_stderr" >&2
   exit 1
@@ -131,7 +131,7 @@ rg -q '成功任务（[0-9]+\.[0-9]{2}s）' "$plain_stderr" || {
 assert_contains "$plain_output" '[成功] 质量检查完成'
 assert_rail_gap_before "$plain_stderr" '--- 结果摘要 ---'
 assert_rail_gap_before "$plain_stderr" '[成功] 流程完成'
-if rg -n '^$' "$plain_stderr" >/dev/null; then
+if grep -n '^$' "$plain_stderr" >/dev/null; then
   printf '断言失败：UI 组合输出不应出现无导轨的空行。\n' >&2
   sed -n l "$plain_stderr" >&2
   exit 1
