@@ -3,7 +3,7 @@
 
 import { defineComponent, h } from "vue"
 
-import { showNotify } from "vant"
+import { showToast } from "vant"
 
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vitest"
@@ -25,7 +25,7 @@ vi.mock("@schemx/vue", () => ({
 }))
 
 vi.mock("vant", () => ({
-  showNotify: vi.fn(),
+  showToast: vi.fn(),
   Uploader: defineComponent({
     name: "Uploader",
     props: [
@@ -290,9 +290,9 @@ describe("UploadRenderer", () => {
   it("强制校验 accept 文件类型", async () => {
     const beforeRead = vi.fn().mockReturnValue(true)
 
-    const notify = vi.mocked(showNotify)
+    const toast = vi.mocked(showToast)
 
-    notify.mockClear()
+    toast.mockClear()
 
     const wrapper = mount(UploadRenderer, {
       props: {
@@ -314,8 +314,7 @@ describe("UploadRenderer", () => {
     const detail = { name: "file", index: 0 }
 
     expect(await validate(invalidFile, detail)).toBe(false)
-    expect(notify).toHaveBeenCalledWith({
-      type: "warning",
+    expect(toast).toHaveBeenCalledWith({
       message: "report.pdf 类型不符合要求，仅支持：.png、image/jpeg",
     })
     expect(beforeRead).not.toHaveBeenCalled()

@@ -27,7 +27,7 @@ describe("@schemx/vant 根入口", () => {
         row: { gutter: [0, 0] },
         labelAlign: "right",
         labelPosition: "left",
-        contentAlign: "left",
+        contentAlign: "right",
         bordered: true,
       },
     })
