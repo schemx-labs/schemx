@@ -69,7 +69,9 @@ describe("Group", () => {
       },
     })
 
-    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+    expect(wrapper.get(".schemx-group__body").attributes("style")).toContain(
+      "display: none"
+    )
 
     await wrapper.find(".schemx-group__header").trigger("click")
 
@@ -93,7 +95,9 @@ describe("Group", () => {
     await wrapper.find(".schemx-group__header").trigger("click")
 
     expect(onCollapsedChange).toHaveBeenCalledWith(false)
-    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+    expect(wrapper.get(".schemx-group__body").attributes("style")).toContain(
+      "display: none"
+    )
 
     await wrapper.setProps({
       schema: createSchema({
@@ -173,7 +177,11 @@ describe("Group", () => {
 
     expect(onCollapsedChange).toHaveBeenCalledWith(true)
     expect(wrapper.find(".schemx-group").classes()).toContain("is-readonly")
-    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+    await vi.waitFor(() => {
+      expect(wrapper.get(".schemx-group__body").attributes("style")).toContain(
+        "display: none"
+      )
+    })
   })
 
   it("destroyOnCollapse=true 时卸载后代实例", () => {
@@ -188,7 +196,9 @@ describe("Group", () => {
       },
     })
 
-    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+    expect(wrapper.get(".schemx-group__body").attributes("style")).toContain(
+      "display: none"
+    )
     expect(wrapper.find('[data-key="nested"]').exists()).toBe(false)
   })
 
@@ -300,7 +310,11 @@ describe("Group", () => {
 
     await wrapper.find(".schemx-group__header").trigger("click")
 
-    expect(wrapper.find(".schemx-group__body").exists()).toBe(false)
+    await vi.waitFor(() => {
+      expect(wrapper.get(".schemx-group__body").attributes("style")).toContain(
+        "display: none"
+      )
+    })
   })
 
   it("应合并内部、父级和 Schema 的 class/style 到 Group wrapper", () => {

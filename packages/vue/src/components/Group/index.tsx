@@ -7,12 +7,19 @@
  * @module components/Group
  */
 
-import { defineComponent, getCurrentInstance } from "vue"
+import {
+  defineComponent,
+  getCurrentInstance,
+  Transition,
+  vShow,
+  withDirectives,
+} from "vue"
 import type { ClassValue, PropType, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
+import { useGroupBodyTransition } from "../../hooks/useGroupBodyTransition"
 import { useGroupCollapse } from "../../hooks/useGroupCollapse"
 import { normalizeId, normalizeNameKey } from "../../utils"
 import Col from "../Col"
@@ -102,6 +109,12 @@ const Group = defineComponent({
       getSchema: () => props.schema,
     })
 
+    const { showChildren, beforeEnter, enter, afterEnter, beforeLeave, afterLeave } =
+      useGroupBodyTransition({
+        collapsed,
+        getDestroyOnCollapse: () => props.schema.destroyOnCollapse,
+      })
+
     const componentId = getCurrentInstance()?.uid ?? 0
 
     return (): VNodeChild => {
@@ -114,8 +127,6 @@ const Group = defineComponent({
       const collapsible = Boolean(schema.collapsible)
 
       const isCollapsed = collapsed.value
-
-      const destroyOnCollapse = schema.destroyOnCollapse ?? true
 
       const uniqueId = schema.debug?.runtimeNodeId ?? `local-${componentId}`
 
@@ -190,11 +201,12 @@ const Group = defineComponent({
           aria-labelledby={schema.label ? headerId : undefined}
           aria-hidden={isCollapsed || undefined}
           class="schemx-group__body"
-          style={!destroyOnCollapse && isCollapsed ? { display: "none" } : undefined}
         >
-          {renderBodyContent()}
+          {showChildren.value && renderBodyContent()}
         </div>
       )
+
+      const transitioningBody = withDirectives(body, [[vShow, !isCollapsed]])
 
       const groupWrapper = (
         <div
@@ -238,7 +250,16 @@ const Group = defineComponent({
                 {renderHeaderContent()}
               </div>
             )}
-            {destroyOnCollapse ? !isCollapsed && body : body}
+            <Transition
+              name="schemx-group-body"
+              onBeforeEnter={beforeEnter}
+              onEnter={enter}
+              onAfterEnter={afterEnter}
+              onBeforeLeave={beforeLeave}
+              onAfterLeave={afterLeave}
+            >
+              {transitioningBody}
+            </Transition>
           </div>
         </div>
       )

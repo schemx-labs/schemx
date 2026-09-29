@@ -5,6 +5,7 @@
   --schemx-primary-color-light: var(--el-color-primary-light-9, #ecf5ff);
   --schemx-text-color: var(--el-text-color-primary, #303133);
   --schemx-text-color-secondary: var(--el-text-color-regular, #606266);
+  --schemx-text-color-tertiary: var(--el-text-color-placeholder, #a8abb2);
   --schemx-text-color-placeholder: var(--el-text-color-placeholder, #a8abb2);
   --schemx-readonly-color: var(--el-text-color-secondary, #909399);
   --schemx-disabled-color: var(--el-text-color-placeholder, #a8abb2);
@@ -21,4 +22,6 @@
   --schemx-border-radius-lg: var(--el-border-radius-base, 4px);
   --schemx-field-label-color: var(--el-text-color-regular, #606266);
   --schemx-component-size: var(--el-component-size, 32px);
+
+  --schemx-group-arrow-size: 7px;
 }

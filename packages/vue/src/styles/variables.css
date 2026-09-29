@@ -14,9 +14,12 @@
   /*
    * 文本颜色
    */
-  --schemx-text-color: #323233;
-  --schemx-text-color-secondary: #666666;
-  --schemx-text-color-placeholder: #c8c9cc;
+  --schemx-text-color: rgba(0, 0, 0, 0.88);
+  --schemx-text-color-secondary: rgba(0, 0, 0, 0.65);
+  --schemx-text-color-tertiary: rgba(0, 0, 0, 0.45);
+  --schemx-text-color-quaternary: rgba(0, 0, 0, 0.25);
+
+  --schemx-text-color-placeholder: rgba(0, 0, 0, 0.25);
 
   /*
    * 只读 / 禁用
@@ -89,6 +92,6 @@
   /*
    * 分组
    */
-  --schemx-group-arrow-size: 5px;
-  --schemx-group-arrow-duration: 0.2s;
+  --schemx-group-arrow-size: 6px;
+  --schemx-group-arrow-duration: 0.25s;
 }
