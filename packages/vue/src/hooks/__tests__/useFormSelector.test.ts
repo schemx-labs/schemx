@@ -7,7 +7,7 @@
 import { effectScope, nextTick, watch } from "vue"
 
 import { createForm } from "@schemx/core"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { useFormSelector } from "../useFormSelector"
 

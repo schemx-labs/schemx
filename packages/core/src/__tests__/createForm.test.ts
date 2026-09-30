@@ -8,7 +8,7 @@
  */
 
 import fc from "fast-check"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFormStateAdapter } from "../adapter"
 import { createField } from "../createField"
@@ -78,7 +78,8 @@ describe("字段初始值", () => {
 describe("校验与赋值一致性回归", () => {
   it("值变化后取消旧异步校验并拒绝旧错误回写", async () => {
     let resolveRule:
-      ((result: { valid: false; issues: [{ message: string }] }) => void) | undefined
+      | ((result: { valid: false; issues: [{ message: string }] }) => void)
+      | undefined
 
     let started: () => void = () => undefined
 

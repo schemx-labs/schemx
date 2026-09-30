@@ -18,6 +18,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: [
       "./tsconfig.eslint.json",
+      "./scripts/tsconfig.json",
       "./tsconfig.json",
       "./packages/core/tsconfig.json",
       "./packages/vue/tsconfig.json",
@@ -42,6 +43,7 @@ module.exports = {
       typescript: {
         alwaysTryTypes: true,
         project: [
+          "./scripts/tsconfig.json",
           "./tsconfig.json",
           "./packages/core/tsconfig.json",
           "./packages/vue/tsconfig.json",

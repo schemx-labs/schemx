@@ -57,19 +57,19 @@
     "async-validator": "^4.2.5"
   },
   "scripts": {
-    "build": "vite build",
-    "build:analyze": "vite build --mode analyze",
-    "test": "vitest run",
+    "build": "vp build",
+    "build:analyze": "vp build --mode analyze",
+    "test": "vp test run",
     "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
+    "format": "vp fmt \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
+    "format:check": "vp fmt --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "type-test": "pnpm run test:type-check",
     "test:type-check": "tsc -p tsconfig.test.json --noEmit",
     "type-check": "tsc -p tsconfig.json --noEmit && pnpm run test:type-check",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
     "prepublishOnly": "pnpm run build",
-    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/core"
+    "pack-local": "node ../../scripts/workflow.ts pack-local --target packages/core"
   },
   "license": "MIT",
   "devDependencies": {

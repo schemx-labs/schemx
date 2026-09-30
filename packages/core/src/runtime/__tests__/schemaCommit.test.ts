@@ -6,7 +6,7 @@
  * @module core/runtime/__tests__/schemaCommit.test
  */
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import {
   createRawFieldSchema,

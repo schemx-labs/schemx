@@ -16,14 +16,8 @@
   } from "@element-plus/icons-vue"
   import { ElButton, ElIcon, ElImageViewer } from "element-plus"
 
-  import type { UploadBeforePreview, UploadDownloadHandler, UploadFile } from "./types"
+  import type { PreviewFile, UploadBeforePreview, UploadDownloadHandler } from "./types"
   import type { ImageViewerInstance, ImageViewerProps, UploadRawFile } from "element-plus"
-
-  interface PreviewFile extends UploadFile {
-    type?: string
-    previewUrl?: string
-    downloadUrl?: string
-  }
 
   interface PreviewFileWithRaw extends PreviewFile {
     raw: UploadRawFile
@@ -403,7 +397,7 @@
     try {
       const result = props.beforePreview(file, done)
 
-      if (result && typeof result.then === "function") {
+      if (result && typeof result === "object" && typeof result.then === "function") {
         result
           .then((value) => {
             if (value !== false) {

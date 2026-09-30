@@ -2,8 +2,20 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["src/*"]
-    }
+      "@/*": ["./src/*"]
+    },
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist",
+    "outDir": "./dist"
   },
-  "exclude": ["node_modules", "dist", "build", "src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "src/**/__tests__",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ]
 }

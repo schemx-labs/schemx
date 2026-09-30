@@ -6,7 +6,7 @@
  * @module core/runtime/presentation/__tests__/presentationStateFlow
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
   createRuntimeGraphHarness,

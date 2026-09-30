@@ -1,7 +1,9 @@
 import { resolve } from "path"
-import type { PluginOption } from "vite"
-import dts from "vite-plugin-dts"
+
 import { visualizer } from "rollup-plugin-visualizer"
+import dts from "vite-plugin-dts"
+
+import type { PluginOption } from "vite"
 
 interface PackagePluginOptions {
   analyze: boolean
@@ -11,8 +13,8 @@ export function createVitePlugins({ analyze }: PackagePluginOptions): PluginOpti
   return [
     dts({
       include: ["src/**/*.ts"],
-      outDir: "dist",
-      rollupTypes: true,
+      outDirs: "dist",
+      tsconfigPath: "tsconfig.build.json",
     }),
     analyze &&
       visualizer({

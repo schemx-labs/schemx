@@ -33,7 +33,8 @@ import type { Values } from "../types"
  * ```
  */
 export type DynamicProp<TValue, TValues extends Values = Values> =
-  ((values: TValues) => TValue | Promise<TValue>) | TValue
+  | ((values: TValues) => TValue | Promise<TValue>)
+  | TValue
 
 /**
  * 批量解析的单个属性条目

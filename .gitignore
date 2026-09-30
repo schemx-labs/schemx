@@ -190,3 +190,4 @@ bower_components
 
 .release
 */release-notes.md
+.vitest/

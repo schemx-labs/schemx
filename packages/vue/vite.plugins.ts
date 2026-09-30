@@ -1,10 +1,13 @@
 import { resolve } from "path"
-import type { PluginOption } from "vite"
+
 import vue from "@vitejs/plugin-vue"
 import vueJsx from "@vitejs/plugin-vue-jsx"
-import dts from "vite-plugin-dts"
 import { visualizer } from "rollup-plugin-visualizer"
-import { injectStyleCss } from "@plugins/inject-style-css"
+import dts from "vite-plugin-dts"
+
+import { injectStyleCss } from "../../scripts/vite/inject-style-css"
+
+import type { PluginOption } from "vite"
 
 interface PackagePluginOptions {
   analyze: boolean
@@ -17,7 +20,7 @@ export function createVitePlugins({ analyze }: PackagePluginOptions): PluginOpti
     injectStyleCss(),
     dts({
       include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
-      outDir: "dist",
+      outDirs: "dist",
       tsconfigPath: "tsconfig.build.json",
     }),
     analyze &&

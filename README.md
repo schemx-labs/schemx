@@ -18,12 +18,12 @@ schemx focuses on the parts of dynamic forms that are most likely to become diff
 
 ## Packages
 
-| Package                                      | Responsibility                  | Use Case                                             |
-| -------------------------------------------- | ------------------------------- | ---------------------------------------------------- |
-| [`@schemx/core`](./packages/core)           | Framework-agnostic headless form engine | Build form runtimes, field dependencies, validation, and ViewSchemas |
-| [`@schemx/vue`](./packages/vue)             | Vue 3 adapter                  | Render ViewSchemas as Vue component trees            |
-| [`@schemx/vant`](./packages/vant)           | Vant renderer adapter           | Quickly build mobile dynamic forms with Vant 4     |
-| [`@schemx/element-plus`](./packages/element-plus) | Element Plus renderer adapter | Build dynamic forms with Element Plus              |
+| Package                                           | Responsibility                          | Use Case                                                             |
+| ------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------- |
+| [`@schemx/core`](./packages/core)                 | Framework-agnostic headless form engine | Build form runtimes, field dependencies, validation, and ViewSchemas |
+| [`@schemx/vue`](./packages/vue)                   | Vue 3 adapter                           | Render ViewSchemas as Vue component trees                            |
+| [`@schemx/vant`](./packages/vant)                 | Vant renderer adapter                   | Quickly build mobile dynamic forms with Vant 4                       |
+| [`@schemx/element-plus`](./packages/element-plus) | Element Plus renderer adapter           | Build dynamic forms with Element Plus                                |
 
 ## Quick Start
 
@@ -171,27 +171,27 @@ pnpm --filter vant-demo dev
 pnpm --filter element-plus-demo dev
 ```
 
-| Command               | Description                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------- |
+| Command               | Description                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`            | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target. |
-| `pnpm build`          | Interactively select targets to build; non-interactive environments build all targets by default. |
-| `pnpm build:analyze`  | Interactively select and run the build analysis script.                                     |
-| `pnpm test`           | Interactively select and run tests; non-interactive environments run all tests by default.   |
-| `pnpm type-check`     | Interactively select and run TypeScript type checking.                                       |
-| `pnpm lint`           | Interactively select and run ESLint checks.                                                   |
-| `pnpm lint:fix`       | Interactively select and run automatic ESLint fixes.                                         |
-| `pnpm format`         | Interactively select and run Prettier formatting.                                            |
-| `pnpm format:check`   | Interactively select and run Prettier format checks.                                         |
-| `pnpm check`          | Interactively select and run the target's complete static checks.                            |
-| `pnpm fix`            | Run all automatic code fixes; `--staged` is used by the pre-commit hook.                     |
-| `pnpm code-check`     | Run the complete code checks for all workspace packages.                                     |
-| `pnpm pack-local`     | Interactively select packable `packages` / `plugins` targets and generate tarballs.          |
-| `pnpm check:packages` | Check workspace package configuration and build output external boundaries.                  |
-| `pnpm preview`        | Start Vite Preview.                                                                          |
+| `pnpm build`          | Interactively select targets to build; non-interactive environments build all targets by default.                                        |
+| `pnpm build:analyze`  | Interactively select and run the build analysis script.                                                                                  |
+| `pnpm test`           | Interactively select and run tests; non-interactive environments run all tests by default.                                               |
+| `pnpm type-check`     | Interactively select and run TypeScript type checking.                                                                                   |
+| `pnpm lint`           | Interactively select and run ESLint checks.                                                                                              |
+| `pnpm lint:fix`       | Interactively select and run automatic ESLint fixes.                                                                                     |
+| `pnpm format`         | Interactively select and run Prettier formatting.                                                                                        |
+| `pnpm format:check`   | Interactively select and run Prettier format checks.                                                                                     |
+| `pnpm check`          | Interactively select and run the target's complete static checks.                                                                        |
+| `pnpm fix`            | Run all automatic code fixes; `--staged` is used by the pre-commit hook.                                                                 |
+| `pnpm code-check`     | Run the complete code checks for all workspace packages.                                                                                 |
+| `pnpm pack-local`     | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
+| `pnpm check:packages` | Check workspace package configuration and build output external boundaries.                                                              |
+| `pnpm preview`        | Start Vite Preview.                                                                                                                      |
 
 ## Project Workflow
 
-Development, build, quality, and test commands at the repository root are all executed through `scripts/workflow.sh`. In a local terminal, Clack selects `packages`, `plugins`, and `examples` targets that define the relevant script for the task; `dev` uses single selection, while other batch tasks use multiple selection. In CI or pipeline environments, batch tasks run all matching targets by default, while `dev` must specify exactly one target. Each target directly executes its corresponding package script.
+Development, build, quality, and test commands at the repository root are all executed through `scripts/workflow.ts`, a single TypeScript entry run directly by Node (no build step). In a local terminal, Clack selects `packages`, `plugins`, and `examples` targets that define the relevant script for the task; `dev` uses single selection, while other batch tasks use multiple selection. In CI or pipeline environments, batch tasks run all matching targets by default, while `dev` must specify exactly one target. Each target directly executes its corresponding package script. See `scripts/README.md` for the full command, environment variable, and release-interruption contract.
 
 ```bash
 pnpm dev
@@ -209,14 +209,16 @@ and `pnpm code-check` before it is created.
 Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
 
 ```bash
-bash scripts/workflow.sh lint all --keep-going
-bash scripts/workflow.sh release pack all --keep-going
-bash scripts/workflow.sh release verify /path/to/plan.json --keep-going
+node scripts/workflow.ts lint all --keep-going
+node scripts/workflow.ts release pack all --keep-going
+node scripts/workflow.ts release verify /path/to/plan.json --keep-going
 ```
 
 `pnpm pack-local` also uses the same workflow to select multiple targets; it only handles locally packable `packages` and `plugins` targets. In CI, you can pass `all`, `packages/core`, or `plugins/<name>` after the command, or use `SCHEMX_WORKFLOW_TARGETS` to provide a comma-separated target list.
 
-All workflows share the same Shell UI: a command allows only one top-level flow, while tasks own the command, duration, and exit code. `ui_group_begin` / `ui_group_end` support nestable business groups without rendering duplicate stage feedback. The UI writes to stderr; selection and input results are written to stdout, and confirmation is represented by the exit code (confirmed `0`, rejected `1`, cancelled `130`). `--log live` passes through native stdout/stderr unchanged, while `--log capture` buffers output before rendering it. Use `SCHEMX_UI_FORMAT=plain` to force stable plain text, or set `SCHEMX_UI_EVENTS_FILE=/path/to/events.jsonl` to append machine-consumable `schemx.ui/v2` JSONL lifecycle events. Adjacent UI output blocks retain one guide-rail spacer line prefixed with `│`; task completion status and the end of raw logs retain one or two guide-rail spacer lines. Non-interactive confirmation can be enabled with `SCHEMX_UI_ASSUME_YES=true`.
+All workflows share the same terminal UI: a command allows only one top-level flow, while tasks own the command and exit code. `groupBegin` / `groupEnd` support nestable business groups. The UI writes to stderr, and `release plan` writes the plan path to stdout so it can be read from a command substitution. Confirmation is cancelled with exit code `130`; usage and validation errors use `2`. Non-interactive confirmation can be enabled with `SCHEMX_UI_ASSUME_YES=true`.
+
+Indentation expresses position and colour expresses result — never both. Tasks inside a batch render as three aligned columns (target, task, duration); a spinner is not used, because Clack's spinner redraws by erasing the current line and cannot coexist with a child process writing to the same terminal. Tasks show an in-place spinner while running, which requires both output capture and a TTY — with `WORKFLOW_LOG=live` a child process writes to the terminal directly and the spinner is disabled. Failure output is captured by default, reordered into commands → other output → error conclusions, and shown only when a task fails; set `WORKFLOW_LOG=live` to pass it through instead. See `scripts/README.md` for the full visual contract.
 
 Release is an independent command domain that uses the `release:*` prefix.
 
@@ -309,21 +311,21 @@ The Skill includes deterministic scripts, release policies, data Schemas, and Ma
 
 ### Common Commands
 
-| Command                                                       | Description                                                                                                                     | Usage                                                                                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm release:check`                                          | Run all pre-release checks: install consistency, tests, lint, build, and published-package content checks.                      | Local pre-release check: `pnpm release:check`                                                                                        |
-| `pnpm release:pack [target]`                                  | Generate local tarballs to inspect the actual published-package contents.                                                      | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                         |
-| `pnpm release:publish [channel] [target] [version-action]`    | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
-| `pnpm release:dry-run <channel> <target> <version-action>`    | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases. | `pnpm release:dry-run beta core 1.0.0` |
-| `pnpm release:test`                                           | Run tests for the release scripts without publishing or changing versions.                                                     | Run after modifying release scripts: `pnpm release:test`                                                                             |
+| Command                                                    | Description                                                                                                                                                       | Usage                                                                                                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm release:check`                                       | Run all pre-release checks: install consistency, tests, lint, build, and published-package content checks.                                                        | Local pre-release check: `pnpm release:check`                                                                                             |
+| `pnpm release:pack [target]`                               | Generate local tarballs to inspect the actual published-package contents.                                                                                         | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                               |
+| `pnpm release:publish [channel] [target] [version-action]` | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
+| `pnpm release:dry-run <channel> <target> <version-action>` | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases.  | `pnpm release:dry-run beta core 1.0.0`                                                                                                    |
+| `pnpm release:test`                                        | Run tests for the release scripts without publishing or changing versions.                                                                                        | Run after modifying release scripts: `pnpm release:test`                                                                                  |
 
 ### Release Channels
 
-| Type     | Purpose                         |
-| -------- | ------------------------------- |
-| `latest` | Stable release                  |
-| `dev`    | Daily development testing; unstable |
-| `alpha`  | Internal preview; the API may change |
+| Type     | Purpose                                            |
+| -------- | -------------------------------------------------- |
+| `latest` | Stable release                                     |
+| `dev`    | Daily development testing; unstable                |
+| `alpha`  | Internal preview; the API may change               |
 | `beta`   | External testing; functionality is mostly complete |
-| `rc`     | Release candidate               |
-| `next`   | Preview of the next version     |
+| `rc`     | Release candidate                                  |
+| `next`   | Preview of the next version                        |

@@ -6,7 +6,7 @@
  *
  * @module core/runtime/view/__tests__/subscribeViewSchemas
  */
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import createForm from "../../../createForm"
 import { createFieldNode } from "../../node/__tests__/nodeTestUtils"

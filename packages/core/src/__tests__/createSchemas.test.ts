@@ -5,7 +5,7 @@
  *
  * @module core/__tests__/createSchemas
  */
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSchemas } from "../createSchemas"
 

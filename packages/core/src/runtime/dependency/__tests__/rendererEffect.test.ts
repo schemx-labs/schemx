@@ -7,7 +7,7 @@
  * @module core/runtime/dependency/__tests__/rendererEffect
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 import * as dependencyModule from "../index"

@@ -704,7 +704,10 @@ export type ContainerNode<TValues extends Values = Values> =
  * @typeParam TValues - 表单值类型。
  */
 export type SchemaNode<TValues extends Values = Values> =
-  FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
+  | FieldNode<TValues>
+  | GroupNode<TValues>
+  | DependencyNode<TValues>
+  | DynamicNode<TValues>
 
 /**
  * 可以承载子节点的 Node。
@@ -715,7 +718,10 @@ export type SchemaNode<TValues extends Values = Values> =
  * @typeParam TValues - 表单值类型。
  */
 export type ParentNode<TValues extends Values = Values> =
-  RootNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
+  | RootNode<TValues>
+  | GroupNode<TValues>
+  | DependencyNode<TValues>
+  | DynamicNode<TValues>
 
 /**
  * RootNode 创建选项。

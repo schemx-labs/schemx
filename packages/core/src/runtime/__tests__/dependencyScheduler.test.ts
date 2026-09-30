@@ -6,7 +6,7 @@
  * @module core/runtime/__tests__/dependencyScheduler
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createStore } from "../../store"
 import { createDependencySchedulerEffect } from "../dependencyScheduler"

@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig, loadEnv } from "vite-plus"
 import { resolve } from "path"
 import { createVitePlugins } from "./vite.plugins"
 
@@ -13,8 +13,7 @@ const externalPackages = [
 ]
 
 function createExternalMatcher(packages: string[]) {
-  return (id: string) =>
-    packages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
+  return (id: string) => packages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
 }
 
 export default defineConfig(({ command, mode }) => {
@@ -25,6 +24,13 @@ export default defineConfig(({ command, mode }) => {
   const isExternal = createExternalMatcher(externalPackages)
 
   return {
+    test: {
+      // Vitest v4 compatibility: preserve mock call history.
+      // Remove after tests no longer rely on calls from setup or earlier tests.
+      // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+      // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+      clearMocks: false,
+    },
     resolve: {
       alias: useSource
         ? [
@@ -57,6 +63,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       lib: {
         entry: resolve(__dirname, "src/index.ts"),
+        cssFileName: "style",
         name: "schemxVant",
         formats: ["es", "cjs"],
         fileName: (format) => {

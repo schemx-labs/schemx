@@ -7,7 +7,7 @@
  * @module core/reactivity/__tests__/computed.test
  */
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { createComputed } from "../computed"
 import { createSignal } from "../signal"

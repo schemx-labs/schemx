@@ -3,7 +3,7 @@ import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
 import { createFieldKey, createForm, createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { provideFieldScrollRegistry } from "../context/fieldScrollContext"
 import SchemxForm from "../form.vue"

@@ -4,7 +4,7 @@
  * @module core/__tests__/preserve
  */
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"

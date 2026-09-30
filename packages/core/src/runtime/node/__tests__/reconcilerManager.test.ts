@@ -6,7 +6,7 @@
  * @module core/runtime/node/__tests__/reconcilerManager.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { isDependencyNode, isFieldNode, isGroupNode } from "../helper"
 

@@ -1,9 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@schemx/core": ["../../packages/core/src/index.ts"],
       "@schemx/core/*": ["../../packages/core/src/*"],
       "@schemx/vue": ["../../packages/vue/src/index.ts"],

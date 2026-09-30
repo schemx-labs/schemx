@@ -4,7 +4,7 @@ import { type Component, defineComponent, h, nextTick } from "vue"
 
 import { mount } from "@vue/test-utils"
 import { ElMessage } from "element-plus"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import AutocompleteRenderer from "../renderers/AutocompleteRenderer/index.vue"
 import CascaderRendererComponent from "../renderers/CascaderRenderer/index.vue"

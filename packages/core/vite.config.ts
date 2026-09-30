@@ -1,4 +1,4 @@
-import { defineConfig } from "vite"
+import { defineConfig } from "vite-plus"
 import { resolve } from "path"
 import { createVitePlugins } from "./vite.plugins"
 
@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => {
   const analyze = mode === "analyze"
 
   return {
+    test: {
+      // Vitest v4 compatibility: preserve mock call history.
+      // Remove after tests no longer rely on calls from setup or earlier tests.
+      // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+      // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+      clearMocks: false,
+    },
     resolve: {
       alias: {
         "@": resolve(__dirname, "src"),

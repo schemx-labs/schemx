@@ -21,7 +21,9 @@ import type {
 } from "../node"
 
 type StatefulPresentationNode<TValues extends Values> =
-  GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
+  | GroupNode<TValues>
+  | DependencyNode<TValues>
+  | DynamicNode<TValues>
 
 /**
  * 容器依赖配置支持的动态属性键。

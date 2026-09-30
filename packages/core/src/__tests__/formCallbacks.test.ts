@@ -4,7 +4,7 @@
  * @module core/__tests__/formCallbacks
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"

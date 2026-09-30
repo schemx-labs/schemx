@@ -1,95 +1,165 @@
 # 项目工作流脚本
 
-根目录 `package.json` 的开发、构建、质量、测试和发布命令统一由
-`scripts/workflow.sh` 分派。
+根目录 `package.json` 的开发、构建、质量、测试和发布命令统一由 `scripts/workflow.ts` 分派。
+使用 Node 原生类型剥离直接运行 `.ts`，没有构建步骤。
 
 ```text
 scripts/
-├── workflow.sh           # 项目级命令入口
-├── workflow/             # 工作流实现层
-│   ├── commands/         # 可执行命令入口与最终编排
-│   ├── domains/          # workspace、packages、release 的领域公共 API 与私有实现
-│   ├── shared/           # package.json、workspace 目录发现等无 UI 通用能力
-│   └── ui/               # UI 公共 API 与 internal/ 内部实现
-├── fixtures/             # UI 预览与测试使用的静态输入
-└── tests/                # shared、domains 与命令域测试
+├── workflow.ts             # 项目级命令入口
+├── workflow/
+│   ├── commands/           # 命令编排：workspace、dev、tools、fix、release
+│   ├── core/               # 进程执行、目录发现、package.json 读写、执行上下文
+│   ├── packages/           # 包配置检查、产物边界检查、本地 tarball 打包
+│   ├── release/            # 发布领域逻辑与 adapters/ 外部适配器
+│   └── ui/                 # 终端 UI、交互控件、目标选择、批处理执行器
+└── vite/                   # Vite 相关辅助脚本
 ```
 
-本地 TTY 下，workspace 命令通过 Clack 选择 `packages`、`plugins`、`examples` 中定义了
-对应 script 的目标；`dev` 使用单选，其余批处理任务使用多选。CI 和管道环境中，有限批处理默认
-执行所有符合条件的目标，`dev` 必须显式指定单个目标。每个目标直接执行对应 script。发布命令的参数、计划冻结和不可逆操作边界由
-`workflow/commands/release/main.sh` 负责。
+## 运行环境
 
-`workflow/domains/packages/` 中保留需要 Node 读取复杂产物或 JSON 结构的领域实现；它们不再作为
-根命令入口，统一由 `workflow/commands/tools.sh` 包装并通过 `workflow/ui/api.sh` 显示生命周期反馈。
+- Node ≥ 22.18（`package.json` 的 `engines` 声明），由原生类型剥离执行 TypeScript，无编译产物。
+- 外部工具只有 `git`、`pnpm`、`gh` 和 `npm`。终端颜色使用 Node 内置的 `util.styleText`，
+  交互控件使用 `@clack/prompts`；没有额外的二进制依赖。
 
-根目录提供两个提交前质量命令：`pnpm fix` 执行 `format` 和 `lint:fix`，`pnpm code-check`
-执行 workspace 的完整代码检查。Git hooks 由 `pnpm install` 的 `prepare` script 配置；
-`.githooks/pre-commit` 使用 `pnpm fix --staged` 和 `pnpm code-check`。
+## 输出边界
 
-## Shell UI 约定
+视觉输出全部写 **stderr**，`release plan` 的计划路径写 **stdout**。这样可以用命令替换读取
+计划路径而不污染 UI 文本，CI 日志也不会混入交互控件的绘制内容。
 
-`scripts/workflow/ui/api.sh` 是工作流唯一的 UI 边界。业务脚本只使用以下公共方法，底层的
-`ui__*` 函数、Gum 和 Clack 实现不属于业务 API：
+## 目标选择
 
-| 方法 | 职责 |
-| --- | --- |
-| `ui_flow_begin` / `ui_flow_end` | 开始和结束一个顶层工作流；结束状态为 `success`、`failed` 或 `cancelled`。 |
-| `ui_flow_cleanup` | 供调用方 EXIT/INT/TERM 清理逻辑幂等释放当前 flow 的 UI 临时资源。 |
-| `ui_group_begin` / `ui_group_end` | 以 LIFO 栈开始和结束可嵌套业务分组；结束状态为 `success`、`failed`、`cancelled` 或 `skipped`。 |
-| `ui_group_run` | 在自动收口的 group 中执行命令或函数，并保留被执行命令的退出码。 |
-| `ui_note` | 输出上下文说明，不表示执行结果。 |
-| `ui_prompt` | 统一处理 `select`、`multiselect`、`group-multiselect`、`input` 和 `confirm`；前四种结果写入 stdout，`confirm` 以退出码表示确认 `0`、拒绝 `1`、取消 `130`。 |
-| `ui_task` | 执行一次有明确结束状态的命令，显示命令、耗时和退出码；支持 `--log live`、`--log capture` 和隐藏命令参数的 `--sensitive`。 |
-| `ui_task_skip` | 记录因 script 缺失或前置条件不满足而跳过的任务及原因。 |
-| `ui_service` | 执行持续运行的开发服务，Ctrl+C 映射为取消状态（退出码 130）；支持 `--sensitive`。 |
-| `ui_status` | 输出单条 `info`、`success`、`warning` 或 `error` 状态。 |
-| `ui_summary` | 输出计划或结果等结构化摘要；不承担任务执行。 |
-| `ui_copyable_summary` | 输出结构化摘要与可直接复制的单行内容；复制内容前固定保留两条导轨间隔。 |
+本地 TTY 下，workspace 命令通过 Clack 分组多选 `packages`、`plugins`、`examples` 中定义了对应
+script 的目标；`dev` 使用单选。目标来源优先级为：命令行参数 → `SCHEMX_WORKFLOW_TARGETS` →
+`SCHEMX_WORKFLOW_TARGET` → 非交互默认 `all` → 交互控件。
 
-输出边界固定为：UI 反馈写入 stderr（交互控件使用 TTY），选择和输入结果写入 stdout，确认使用
-退出码；`ui_task --log live` 包装的原生命令 stdout/stderr 保持原样透传，`--log capture` 将合并输出
-为 UI 日志块。这样可以安全地用命令替换读取选择结果，也可以把 live 日志交给 CI 或其他工具处理。
-脚本不再使用“阶段”作为独立反馈层；需要分组时使用 `ui_group_begin` / `ui_group_end`，需要结果时
-使用 `ui_status` 或 `ui_summary`。成功结束 flow 前必须显式结束全部 group；失败或取消结束 flow 时，
-UI 会按 LIFO 自动收口未闭合 group。一个 Shell 内不支持嵌套顶层 flow；group 只表达顺序结构，
-当前不提供并行任务调度。
+CI 和管道环境中，有限批处理默认执行所有符合条件的目标，`dev` 必须显式指定单个目标。
+目标标识接受 `packages/core`、`core` 和 `@schemx/core` 三种形式，匹配使用精确比较。
 
-典型的多包嵌套组合如下；内层 group 的 `itemKey` 会由其中的任务继承：
+## UI 约定
+
+`Ui` 类是工作流唯一的 UI 边界，业务代码只使用它的公共方法：
+
+| 方法                                       | 职责                                                          |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| `flowBegin` / `flowEnd` / `flowEndFromExitCode` | 顶层工作流的开始与结束；后者按退出码自动选择语气。       |
+| `groupBegin` / `groupEnd`                  | 以 LIFO 栈表达可嵌套的业务分组。                             |
+| `task`                                     | 执行一次操作，结束时输出一行结果；失败时附缩进的输出块。     |
+| `taskRow` / `taskPending` / `taskSkip`     | 渲染已完成、未执行与已跳过的目标行。                         |
+| `service`                                  | 透传运行 dev / preview 一类的长驻服务，Ctrl+C 记为取消。    |
+| `exec`                                     | 按当前日志模式运行子进程的唯一入口。                         |
+| `note` / `status` / `summary`              | 上下文说明、单条状态、结构化摘要卡片。                       |
+| `interactive`                              | 环境是否支持交互控件。                                       |
+
+取消统一由 `WorkflowError` 表达：退出码 `130` 表示用户取消，`2` 表示用法或校验错误。
+`flowEndFromExitCode` 把「成功 / 失败 / 取消」三态映射收敛到一处。
+
+### 视觉约定
+
+两条通道各司其职，互不重叠：
+
+- **缩进表达位置**。每深入一层 group 缩进两格；批处理内用 `├─` / `└─` 标明兄弟关系与
+  列表终点；子进程输出缩进到所属分组之下。
+- **颜色只表达结果**。
+
+| 结果 | 符号 | 颜色 |
+| --- | --- | --- |
+| 成功 | `✔` | 绿 |
+| 失败 | `✖` | 红 |
+| 取消 | `■` | 黄 |
+| 跳过 / 未执行 | `○` | 弱化灰 |
+
+标题分三级明暗：流程与分组标题加粗、任务标题默认色、说明与耗时弱化。分组标题不带结果色，
+避免「蓝色既表示分组也表示说明」这类同色异义。
+
+批处理内任务按三列对齐渲染：目标、任务名、耗时。列宽由该批次的实际内容算出，并受最小值与
+上限约束，因此包名长短不一时列也不会错位。
+
+### 子进程输出与转圈动画
+
+任务的子进程输出**默认捕获**：成功时静默，失败时渲染成缩进的详情块。
+
+```
+    ⠋ ├─ @schemx/core          check         （转圈中）
+    ✔ ├─ @schemx/core          check        13.4s
+    ✖ └─ @schemx/vue           check        11.3s
+│   ┌ $ pnpm run lint && pnpm run format:check && pnpm run type-check
+│   │ $ vue-tsc -p tsconfig.json --noEmit
+│   │ src/bridge/formBridge.ts(171,7): error TS2322: Type 'ShallowRef<unknown>' is not
+│   │ assignable to type 'ShallowRef<TValues>'.
+│   └ … 另有 12 行，设置 WORKFLOW_LOG=live 查看完整输出
+```
+
+转圈动画的启用条件是「捕获模式 **且** TTY」，这两条缺一不可：
+
+- **捕获模式**下子进程走管道，不写终端，动画独占输出流，可以安全地擦除重绘；
+- **透传模式**下子进程直接写终端，与行重绘机制冲突，因此完全禁用动画——这正是最初
+  出现「动画在终端里铺成一条斜线」的原因：帧写入后没有换行，下一帧的 `cursorUp(1)`
+  就再多退一行，逐帧累积所致。
+
+| 模式 | TTY | 行为 |
+| --- | --- | --- |
+| 捕获 | 是 | 占位行显示转圈动画，完成后原地替换为结果行 |
+| 捕获 | 否 | 不输出占位行，一个任务一行 |
+| 透传 | 任意 | 不输出占位行，子进程输出直接进入终端 |
+
+失败详情按语义分色与重排：命令回显（`$ …`）是上下文，弱化处理并排在最前；明确的错误
+标记（`error TS…`、`ELIFECYCLE`、`ERR_*`）染红并排在最后；其余输出居中弱化。跨流的重复
+行只保留一份（pnpm 会在 stdout 与 stderr 各写一次 `[ELIFECYCLE]`）。超长行截断到 140 列，
+避免类型展开在终端反复折行把锚点列冲散；行数超预算时优先保留错误结论。
+
+`dev`、`preview` 等长驻服务始终透传，它们的存在意义就是实时输出。
+
+设置 `WORKFLOW_LOG=live` 可让所有任务切回透传（此时无动画、无结构化详情）：
 
 ```bash
-ui_flow_begin --domain workspace --title '质量检查'
-ui_group_begin --title '检查全部包'
-ui_group_begin --title '[1/2] @schemx/core' --item-key '@schemx/core'
-ui_task --title '类型检查' -- pnpm --dir packages/core type-check
-ui_task_skip --title '单元测试' --reason 'package.json 未定义 test script'
-ui_group_end success '@schemx/core 检查完成。'
-ui_group_end success '全部包检查完成。'
-ui_flow_end success '质量检查完成。'
+WORKFLOW_LOG=live pnpm build
 ```
 
-有限批处理默认首错停止。`build`、workspace 质量任务和 release 的 `check`、`pack`、`verify` 支持
-`--keep-going`；它只对普通失败继续，取消仍立即停止，最终返回首个失败码。`publish`、`execute`、
-`dev`、release `test` 不支持该选项。
+## 批处理
 
-布局边界固定为：相邻 UI 输出块之间保留 1 条带前置 `│` 的导轨间隔行；任务原始日志视为
-任务块内容，任务完成状态与日志末尾之间保留 1–2 条导轨间隔行。卡片、分组说明、摘要多行
-内容属于同一个输出块，不会把其中的普通换行误判为额外步骤。该约束同时适用于 plain 和
-pretty 格式，以及提示结果通过命令替换返回父 Shell 的场景。
+`runBatch` 是 `build`、workspace 质量任务和 `release pack` 共用的目标循环：统一
+`--keep-going` 语义、失败汇总和收尾消息。命令只负责挑选目标并提供 `execute` 回调，
+`identify` 回调提供失败汇总中的目标标识。
 
-终端格式可以通过环境变量控制：
+有限批处理默认首错停止。`--keep-going` 只对普通失败继续，取消仍立即停止，最终返回首个失败码。
+
+## 发布顺序与中断恢复
+
+发布目标按 workspace 依赖拓扑排序：`dependencies` 与 `optionalDependencies` 中的 `workspace:`
+依赖总是先发布，`devDependencies` 与 `peerDependencies` 不参与排序。发布前检查会确认未选中依赖的
+当前版本已在 registry 可获得。
+
+`publish` 会把冻结计划写到 `.release/plans/<时间戳>-<通道>.json`（目录已在 `.gitignore` 中），
+并在旁边维护同名 `.state.json`，逐包记录 `published`、`tagged`、`released` 三个不可逆步骤：
+
+- 发布中断时，已成功发布的包仍会完成版本提交、Tag 推送和 GitHub Release；未发布包的版本
+  改动会回滚，工作区保持干净。
+- 修复原因后执行 `release execute <plan>` 即可续跑：已完成的步骤被跳过，未完成的步骤继续执行。
+- 进度文件与冻结计划的版本不一致时，续跑会被拒绝，需要删除进度文件重新发布。
+- **进度文件损坏时不做任何版本回滚**：状态不可信时无法判断哪些包已经上线，回滚会造成
+  工作区版本与 npm 版本不一致。此时工作流保留版本备份、报错中止，由人工确认。
+
+## 环境变量
+
+| 变量                              | 作用                                                              |
+| --------------------------------- | ----------------------------------------------------------------- |
+| `SCHEMX_WORKFLOW_TARGET(S)`       | 预选 workspace 目标。                                              |
+| `SCHEMX_RELEASE_CHANNEL`          | 预选发布通道。                                                    |
+| `SCHEMX_RELEASE_TARGET`           | 预选发布目标。                                                    |
+| `SCHEMX_RELEASE_VERSION_ACTION`   | 预选版本动作。                                                    |
+| `SCHEMX_RELEASE_CUSTOM_VERSION`   | 预选精确版本基线。                                                |
+| `SCHEMX_UI_ASSUME_YES`            | 非交互环境下让发布确认视为通过。                                  |
+| `SCHEMX_RELEASE_SHA` / `_TIMESTAMP` / `_PRERELEASE_SEQUENCE` | 注入可复现测试所需的版本输入。 |
+| `SCHEMX_RELEASE_NOTES_FILE`       | 指定包级发布说明文件；指定后文件缺失即报错。                      |
+| `SCHEMX_RELEASE_NOTES_GENERATOR`  | 外部 Release notes 生成器可执行文件。                             |
+| `WORKFLOW_LOG`                    | `live` 让任务子进程输出透传；默认 `capture`，仅失败时显示。      |
+| `WORKFLOW_DEBUG`                  | 为 `true` 时输出未处理异常的堆栈。                                 |
+
+## 测试
 
 ```bash
-SCHEMX_UI_FORMAT=auto    # 默认；TTY 使用 pretty，其他环境使用 plain
-SCHEMX_UI_FORMAT=pretty  # 强制 Gum 样式（仍需安装 gum）
-SCHEMX_UI_FORMAT=plain   # 稳定的纯文本输出
-SCHEMX_UI_ASSUME_YES=true # 非交互环境下让 ui_prompt confirm 以退出码 0 确认
+pnpm test:scripts        # vitest，覆盖工作流脚本自身
+pnpm type-check:scripts  # tsc -p scripts/tsconfig.json
 ```
 
-需要机器消费 UI 生命周期时，可设置 `SCHEMX_UI_EVENTS_FILE`。每个事件追加一行
-`schemx.ui/v2` JSONL，顶层包含 `runId`（一次 workflow 命令）、`flowId`（一次顶层流程）、
-`groupId`（当前分组）、`correlationId`（可选 `SCHEMX_UI_CORRELATION_ID`）和 `payload`；事件文件
-独立于命令日志，适合 CI 收集。当前事件类型包括 `flow.started`、`group.started`、`group.finished`、
-`note`、`prompt.completed`、`prompt.cancelled`、`task.started`、`task.finished`、`task.skipped`、
-`status`、`summary` 和 `flow.finished`。group 事件还包含 `parentGroupId`、`depth`、耗时及后代统计；
-task 开始和结束事件通过 `taskId` 配对，并可携带 `itemKey`。
+`WORKFLOW_REMEDIATION.md` 记录了本次 TypeScript 重构之前的历史整改项。

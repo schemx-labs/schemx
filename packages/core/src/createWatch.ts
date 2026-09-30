@@ -501,7 +501,9 @@ export function createWatch<
   form: SchemxInstance<TValues>,
   nameOrNamesOrCallback: TName | TName[] | WatchAllCallback<TValues>,
   callbackOrOptions?:
-    WatchFieldCallback<TValues> | WatchFieldsCallback<TValues> | CreateWatchOptions,
+    | WatchFieldCallback<TValues>
+    | WatchFieldsCallback<TValues>
+    | CreateWatchOptions,
   maybeOptions?: CreateWatchOptions
 ): CreateWatchReturn {
   // 全局监听：createWatch(form, callback, options?)

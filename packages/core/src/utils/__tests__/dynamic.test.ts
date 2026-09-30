@@ -5,7 +5,7 @@
  *
  * @module utils/__tests__/dynamic
  */
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
   resolveDynamicProp,

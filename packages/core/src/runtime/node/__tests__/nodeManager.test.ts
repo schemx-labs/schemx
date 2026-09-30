@@ -6,7 +6,7 @@
  * @module core/runtime/node/__tests__/nodeManager.test
  */
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { createNodeManager } from "../nodeManager"
 

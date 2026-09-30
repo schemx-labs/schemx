@@ -1,7 +1,0 @@
-allowBuilds:
-  core-js: false
-  core-js-pure: false
-  esbuild: false
-minimumReleaseAgeExclude:
-  - '@schemx/core@0.1.24 || 0.2.0'
-  - '@schemx/vue@0.1.22 || 0.2.0'

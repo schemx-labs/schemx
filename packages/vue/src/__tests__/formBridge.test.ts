@@ -7,7 +7,7 @@
 import { effectScope, nextTick, watchEffect } from "vue"
 
 import { createForm } from "@schemx/core"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { acquireVueFormRuntime } from "../bridge"
 import { useForm } from "../hooks/useForm"

@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, Plugin } from "vite"
+import { defineConfig, loadEnv, Plugin, lazyPlugins } from "vite-plus"
 import vue from "@vitejs/plugin-vue"
 import vueJsx from "@vitejs/plugin-vue-jsx"
 import { resolve } from "path"
@@ -113,7 +113,11 @@ export default defineConfig(({ mode }) => {
         scss: { api: "modern-compiler", silenceDeprecations: ["legacy-js-api"] },
       },
     },
-    plugins: [...(useSource ? [dynamicAtAlias(pkgRoots)] : []), vue(), vueJsx()],
+    plugins: lazyPlugins(() => [
+      ...(useSource ? [dynamicAtAlias(pkgRoots)] : []),
+      vue(),
+      vueJsx(),
+    ]),
     server: {
       host: "0.0.0.0",
     },

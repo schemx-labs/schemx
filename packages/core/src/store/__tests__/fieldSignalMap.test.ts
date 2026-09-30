@@ -4,7 +4,7 @@
  * @module core/reactivity/__tests__/fieldSignalMap.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSignalEffect } from "../../reactivity/effect"
 import { createSignal } from "../../reactivity/signal"

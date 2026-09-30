@@ -5,7 +5,7 @@
  *
  * @module core/runtime/scheduler/__tests__/abortableTaskRunner
  */
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createScope } from "../../node/scope"
 import { createAbortableTaskRunner } from "../abortableTaskRunner"

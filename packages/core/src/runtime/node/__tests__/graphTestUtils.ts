@@ -6,7 +6,7 @@
  *
  * @module core/runtime/node/__tests__/graphTestUtils
  */
-import { vi } from "vitest"
+import { vi } from "vite-plus/test"
 
 import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createSignal } from "../../../reactivity"

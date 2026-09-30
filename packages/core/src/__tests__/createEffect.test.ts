@@ -9,7 +9,7 @@
  */
 import { batch, signal } from "@preact/signals-core"
 import fc from "fast-check"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSignalEffect } from "../reactivity"
 

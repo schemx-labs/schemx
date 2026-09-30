@@ -119,9 +119,13 @@ export function useWatch<TValues extends Values>(
  */
 export function useWatch<TValues extends Values>(
   nameOrNamesOrCallback:
-    NamePath<TValues> | NamePath<TValues>[] | WatchAllCallback<TValues>,
+    | NamePath<TValues>
+    | NamePath<TValues>[]
+    | WatchAllCallback<TValues>,
   callbackOrOptions?:
-    WatchFieldCallback<TValues> | WatchFieldsCallback<TValues> | CreateWatchOptions,
+    | WatchFieldCallback<TValues>
+    | WatchFieldsCallback<TValues>
+    | CreateWatchOptions,
   maybeOptions?: CreateWatchOptions
 ): () => void {
   const runtime = useFormRuntimeContext<TValues>()

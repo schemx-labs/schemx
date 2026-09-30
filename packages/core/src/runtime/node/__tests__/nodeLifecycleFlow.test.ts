@@ -7,7 +7,7 @@
  * @module core/runtime/node/__tests__/nodeLifecycleFlow.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { findFieldNode, isFieldNode } from "../helper"
 import { createNodeLifecycle, mountNodeResources } from "../resources"

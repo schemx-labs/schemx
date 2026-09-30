@@ -11,7 +11,7 @@ import {
   type ValidationAdapter,
 } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import ConfigProvider from "../components/ConfigProvider"
 import Schemx from "../form"
@@ -474,7 +474,8 @@ describe("Schemx Vue 插件安装", () => {
     const providedConfig = app.provide.mock.calls[0]?.[1] as ComputedRef<SchemxConfig>
 
     const normalizedRendererProps = providedConfig.value.rendererProps as
-      Record<string, Record<string, unknown>> | undefined
+      | Record<string, Record<string, unknown>>
+      | undefined
 
     const normalizedConfiguredProps = normalizedRendererProps?.configured
 

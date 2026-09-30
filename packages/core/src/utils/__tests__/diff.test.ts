@@ -5,7 +5,7 @@
  *
  * @module utils/__tests__/diff
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { diff } from "../diff"
 

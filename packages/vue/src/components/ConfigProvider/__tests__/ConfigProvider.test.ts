@@ -2,7 +2,7 @@ import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
 import { createRendererRegistry, type SchemxInstance } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { useFormConfigContext } from "../../../context/formContext.js"
 import SchemxForm from "../../../form.vue"

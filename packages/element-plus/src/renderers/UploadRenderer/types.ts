@@ -6,6 +6,13 @@ import type { UploadFile as ElementUploadFile, UploadProps } from "element-plus"
 /** Element Plus 上传文件项。 */
 export type UploadFile = NonNullable<UploadProps["fileList"]>[number]
 
+/** 预览文件可选的资源地址与媒体类型。 */
+export interface PreviewFile extends UploadFile {
+  type?: string
+  previewUrl?: string
+  downloadUrl?: string
+}
+
 /** Element Plus 上传 Renderer 的字段值。 */
 export type UploadValue = NonNullable<UploadProps["fileList"]>
 

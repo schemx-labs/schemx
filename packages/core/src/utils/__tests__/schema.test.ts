@@ -5,7 +5,7 @@
  *
  * @module utils/__tests__/schema
  */
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
   findSchema,

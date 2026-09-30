@@ -144,4 +144,5 @@ export type ValidationAdapterObjectRule = Record<string, unknown> & {
  * ```
  */
 export type FieldRules<TValues extends Values, TName extends NamePath<TValues>> =
-  FieldRule<TValues, TName> | readonly FieldRule<TValues, TName>[]
+  | FieldRule<TValues, TName>
+  | readonly FieldRule<TValues, TName>[]

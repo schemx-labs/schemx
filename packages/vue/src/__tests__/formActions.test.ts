@@ -8,7 +8,7 @@ import { h, nextTick } from "vue"
 
 import { createForm, type Values } from "@schemx/core"
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import SchemxForm from "../form.vue"
 

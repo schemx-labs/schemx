@@ -64,9 +64,10 @@ export type DeepNamePathArray<
             // eslint-disable-next-line @typescript-eslint/ban-types
             [TKey in keyof TValues]: TValues[TKey] extends Function
               ? never // 排除函数类型属性
-              : | (TParentPath["length"] extends 0 ? TKey : never) // 顶层允许单独使用 key
-                | [...TParentPath, TKey] // 拼接父级路径
-                | DeepNamePathArray<Required<TValues>[TKey], [...TParentPath, TKey]> // 递归子属性
+              :
+                  | (TParentPath["length"] extends 0 ? TKey : never) // 顶层允许单独使用 key
+                  | [...TParentPath, TKey] // 拼接父级路径
+                  | DeepNamePathArray<Required<TValues>[TKey], [...TParentPath, TKey]> // 递归子属性
           }[keyof TValues]
 
 /**
@@ -187,7 +188,8 @@ type ArrayPathValueInner<TValues, TPath extends (string | number)[]> = TPath ext
  * ```
  */
 export type PathValueByString<TValues, TPath extends string> =
-  StringPathValueInner<TValues, TPath> | undefined
+  | StringPathValueInner<TValues, TPath>
+  | undefined
 
 /**
  * 按数组路径从对象类型中提取值类型。
@@ -210,7 +212,8 @@ export type PathValueByString<TValues, TPath extends string> =
  * ```
  */
 export type PathValueByArray<TValues, TPath extends (string | number)[]> =
-  ArrayPathValueInner<TValues, TPath> | undefined
+  | ArrayPathValueInner<TValues, TPath>
+  | undefined
 
 /**
  * 按路径从对象类型中提取值类型。

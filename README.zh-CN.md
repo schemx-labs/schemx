@@ -18,11 +18,11 @@ schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、�
 
 ## 包说明
 
-| 包                                          | 职责                         | 适用场景                                         |
-| ------------------------------------------- | ---------------------------- | ------------------------------------------------ |
-| [`@schemx/core`](./packages/core)           | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas     |
-| [`@schemx/vue`](./packages/vue)             | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树                 |
-| [`@schemx/vant`](./packages/vant)           | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单               |
+| 包                                                | 职责                         | 适用场景                                     |
+| ------------------------------------------------- | ---------------------------- | -------------------------------------------- |
+| [`@schemx/core`](./packages/core)                 | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas |
+| [`@schemx/vue`](./packages/vue)                   | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树             |
+| [`@schemx/vant`](./packages/vant)                 | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单           |
 | [`@schemx/element-plus`](./packages/element-plus) | Element Plus Renderer 适配包 | 使用 Element Plus 构建动态表单               |
 
 ## 快速开始
@@ -183,7 +183,7 @@ pnpm --filter element-plus-demo dev
 | `pnpm format`         | 交互选择并执行 Prettier 格式化。                                                      |
 | `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                                                    |
 | `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                                                |
-| `pnpm fix`            | 执行全部代码自动修复；提交钩子使用 `--staged` 模式。                                   |
+| `pnpm fix`            | 执行全部代码自动修复；提交钩子使用 `--staged` 模式。                                  |
 | `pnpm code-check`     | 执行所有 workspace 包的完整代码检查。                                                 |
 | `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
 | `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。                                       |
@@ -191,10 +191,11 @@ pnpm --filter element-plus-demo dev
 
 ## 项目工作流
 
-根目录的开发、构建、质量与测试命令统一通过 `scripts/workflow.sh` 执行。本地终端会按任务
-使用 Clack 选择定义了对应 script 的 `packages`、`plugins`、`examples` 目标；`dev` 使用单选，
-其余批处理任务使用多选；CI 或管道环境中，批处理默认执行所有符合条件的目标，`dev` 则必须
-显式指定单个目标。每个目标都直接执行对应 package script。
+根目录的开发、构建、质量与测试命令统一通过 `scripts/workflow.ts` 执行——一个由 Node 直接运行的
+TypeScript 入口，没有构建步骤。本地终端会按任务使用 Clack 选择定义了对应 script 的 `packages`、
+`plugins`、`examples` 目标；`dev` 使用单选，其余批处理任务使用多选；CI 或管道环境中，批处理默认执行
+所有符合条件的目标，`dev` 则必须显式指定单个目标。每个目标都直接执行对应 package script。
+完整的命令、环境变量与发布中断恢复约定见 `scripts/README.md`。
 
 ```bash
 pnpm dev
@@ -213,22 +214,24 @@ pnpm check:packages
 `release verify` 可传入 `--keep-going`，继续执行剩余目标并最终返回首个失败码。取消始终立即停止：
 
 ```bash
-bash scripts/workflow.sh lint all --keep-going
-bash scripts/workflow.sh release pack all --keep-going
-bash scripts/workflow.sh release verify /path/to/plan.json --keep-going
+node scripts/workflow.ts lint all --keep-going
+node scripts/workflow.ts release pack all --keep-going
+node scripts/workflow.ts release verify /path/to/plan.json --keep-going
 ```
 
 `pnpm pack-local` 也通过同一工作流选择多个目标；它只处理可本地打包的 `packages` 和
 `plugins` 目标。在 CI 中可在命令后传入 `all`、`packages/core` 或 `plugins/<name>`，
 也可使用 `SCHEMX_WORKFLOW_TARGETS` 提供逗号分隔的目标列表。
 
-所有工作流共用同一套 Shell UI：一个命令内只允许一个顶层流程，任务负责命令、耗时和退出码，
-`ui_group_begin` / `ui_group_end` 用于可嵌套的业务分组，不再额外渲染重复的“阶段”反馈。UI 写入 stderr；选择和输入
-结果写入 stdout，确认则以退出码表示（确认 `0`、拒绝 `1`、取消 `130`）。`--log live` 的原生命令
-stdout/stderr 保持原样透传，`--log capture` 则统一缓冲后渲染。可用 `SCHEMX_UI_FORMAT=plain` 强制
-稳定纯文本，或用 `SCHEMX_UI_EVENTS_FILE=/path/to/events.jsonl` 追加机器可消费的 `schemx.ui/v2`
-JSONL 生命周期事件；相邻 UI 输出块之间保持 1 条带前置 `│` 的导轨间隔行，任务完成状态与原始
-日志末尾保持 1–2 条导轨间隔行；非交互确认可设置 `SCHEMX_UI_ASSUME_YES=true`。
+所有工作流共用同一套终端 UI：一个命令内只允许一个顶层流程，任务负责命令与退出码，
+`groupBegin` / `groupEnd` 用于可嵌套的业务分组。UI 写入 stderr；`release plan` 的计划路径写入
+stdout，便于用命令替换读取。取消以退出码 `130` 表示，用法与校验错误使用 `2`。非交互确认可设置
+`SCHEMX_UI_ASSUME_YES=true`。
+
+缩进表达位置，颜色只表达结果，两者互不重叠。批处理内的任务按目标、任务名、耗时三列对齐；
+工作流不使用转圈动画——Clack 的 spinner 靠擦除当前行重绘，无法与同样写终端的子进程共存。
+任务运行中显示原地转圈动画（需要同时满足捕获模式与 TTY；`WORKFLOW_LOG=live` 下子进程直接写终端，动画自动禁用）。任务的子进程输出默认捕获、按「命令 → 其他输出 → 错误结论」重排，仅在失败时显示；设置 `WORKFLOW_LOG=live` 可改为透传。
+完整视觉约定见 `scripts/README.md`。
 
 发布是其中的独立命令域，使用 `release:*` 前缀。
 

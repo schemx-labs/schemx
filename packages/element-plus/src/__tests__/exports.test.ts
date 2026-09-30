@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test } from "vite-plus/test"
 
 import * as elementPlusPackage from "../index"
 import { getGlobalSchemxConfig, presetRuleRegistry, rendererRegistry } from "../index"
@@ -70,7 +70,7 @@ describe("@schemx/element-plus 根入口", () => {
       rowComponent: ElementPlusRow,
       schemaConfig: {
         col: { span: 12 },
-        row: { gutter: [14, 16] },
+        row: { gutter: [14, 0] },
         labelAlign: "right",
         labelWidth: 120,
         labelPosition: "left",

@@ -11,7 +11,7 @@
 import { h } from "vue"
 
 import { mount as mountComponent } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import Group, { type SchemxGroupProps } from "../index"
 

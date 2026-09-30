@@ -4,7 +4,7 @@
  * @module core/runtime/scheduler/__tests__/scheduler.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createScope } from "../../node/scope"
 import { createScheduler } from "../scheduler"
@@ -102,7 +102,8 @@ describe("schedule", () => {
     expect(task).not.toHaveBeenCalled()
 
     const callback = requestIdleCallback.mock.calls[0]?.[0] as
-      ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void) | undefined
+      | ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void)
+      | undefined
 
     callback?.({
       didTimeout: false,

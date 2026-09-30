@@ -129,7 +129,8 @@ export function useFormContextValue<
  * ```
  */
 export function useOptionalFormContextValue<TValues extends Values = Values>():
-  FormContextValue<TValues> | undefined {
+  | FormContextValue<TValues>
+  | undefined {
   const form = inject(SCHEMX_FORM_INSTANCE_KEY, null)
 
   const config = inject(SCHEMX_FORM_CONFIG_KEY, null)

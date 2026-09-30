@@ -20,7 +20,7 @@ import {
   type Values,
 } from "@schemx/core"
 import { mount } from "@vue/test-utils"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import Schemx from "../form"
 import SchemxForm from "../form.vue"

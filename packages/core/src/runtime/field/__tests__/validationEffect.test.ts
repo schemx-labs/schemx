@@ -4,7 +4,7 @@
  * @module core/runtime/field/__tests__/validationEffect.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createSignal, createSignalEffect } from "../../../reactivity"
 import {

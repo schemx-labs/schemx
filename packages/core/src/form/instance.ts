@@ -516,7 +516,8 @@ export function createFormInstance<TValues extends Values>(
     registerRenderer: (
       type: SchemxRendererKey<TValues>,
       renderer:
-        RendererDescriptor<unknown, TValues, SchemxRendererKey<TValues>> | unknown,
+        | RendererDescriptor<unknown, TValues, SchemxRendererKey<TValues>>
+        | unknown,
       options?: RegistryOptions
     ) => {
       rendererRegistry.register(type, renderer, options)

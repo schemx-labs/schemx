@@ -108,7 +108,9 @@ interface FieldRuleRecord<TValues extends Values> {
   readonly name: NamePath<TValues>
   // 尚未解析为原生规则的原始声明。
   readonly rules:
-    FieldRules<TValues, NamePath<TValues>> | PresetRuleEntry<unknown> | undefined
+    | FieldRules<TValues, NamePath<TValues>>
+    | PresetRuleEntry<unknown>
+    | undefined
 }
 
 /**

@@ -53,6 +53,25 @@ interface FieldSlotRendererOptions<TValues extends Values = Values> {
   slots: Slots
 }
 
+/** Field 插槽接收的字段上下文及额外属性。 */
+interface FieldSlotProps<TValues extends Values> extends Record<string, unknown> {
+  schema: SchemxViewFieldSchema<TValues>
+  componentProps: SchemxComponentProps<TValues>
+  value: unknown
+  field: FieldInstance<TValues>
+  form: SchemxInstance<TValues>
+}
+
+/** Field 各区域的渲染函数。 */
+interface FieldSlotRenderers<TValues extends Values> {
+  createSlotProps: (additionalProps?: Record<string, unknown>) => FieldSlotProps<TValues>
+  renderAfter: () => VNodeChild
+  renderBefore: () => VNodeChild
+  renderContent: () => VNodeChild
+  renderError: () => VNodeChild
+  renderLabel: () => VNodeChild
+}
+
 /**
  * 创建 Field 各区域的插槽渲染函数。
  *
@@ -70,7 +89,7 @@ interface FieldSlotRendererOptions<TValues extends Values = Values> {
  */
 export function createFieldSlotRenderers<TValues extends Values = Values>(
   options: FieldSlotRendererOptions<TValues>
-) {
+): FieldSlotRenderers<TValues> {
   const { schemaRef, field, form, formContext, componentProps, slots } = options
 
   const labelWidth = computed(() => {
@@ -98,7 +117,9 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
    * @param additionalProps - 当前插槽额外携带的属性。
    * @returns 传给字段插槽的统一上下文对象。
    */
-  const createSlotProps = (additionalProps: Record<string, unknown> = {}) => {
+  const createSlotProps = (
+    additionalProps: Record<string, unknown> = {}
+  ): FieldSlotProps<TValues> => {
     return {
       schema: schemaRef.value,
       componentProps: componentProps.value,

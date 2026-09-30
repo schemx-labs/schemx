@@ -6,7 +6,7 @@
  * @module core/__tests__/formStateAdapter
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"

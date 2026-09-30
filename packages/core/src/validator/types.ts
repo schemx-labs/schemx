@@ -209,7 +209,8 @@ export interface FormValidationError {
 
 /** 校验错误，通过 `scope` 区分字段与表单。 */
 export type ValidationError<TName extends PropertyKey = string> =
-  FieldValidationError<TName> | FormValidationError
+  | FieldValidationError<TName>
+  | FormValidationError
 
 /** 校验成功结果；成功时 `errors` 为空。 */
 export interface ValidationSuccess<TValues extends Values> {

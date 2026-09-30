@@ -34,7 +34,9 @@ export interface SchemxColDefinition<TValues extends Values = Values> {
  * 单值表示四边；二元组表示上下、左右；四元组表示上、右、下、左。
  */
 export type SchemxGutter =
-  number | readonly [number, number] | readonly [number, number, number, number]
+  | number
+  | readonly [number, number]
+  | readonly [number, number, number, number]
 
 /**
  * Vue 框架层的 Row 配置扩展点。

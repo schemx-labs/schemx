@@ -1,0 +1,863 @@
+/**
+ * 终端 UI。
+ *
+ * @remarks 对外契约保持不变：视觉输出全部写 stderr，stdout 只留给机器可读结果。
+ *
+ * 相对上一版的结构性变化：
+ *
+ * 1. 移除转圈动画。clack spinner 靠擦除当前行重绘，假设自己是该 fd 的唯一写入者；
+ *    而绝大多数任务会启动子进程并直接写终端，两者物理互斥，混用会退化成逐字符重绘。
+ *    去掉动画后终端输出只剩「追加流」一种控制方式，不再有互相破坏的假设。
+ * 2. 任务只在结束时输出一行。原先的「开始行 + spinner + 完成行」是三行，且开始行
+ *    与完成行的缩进不一致，视觉上像是两个不同的任务。
+ * 3. 子进程输出默认捕获，仅在失败时渲染成缩进的详情块；`WORKFLOW_LOG=live` 可切回透传。
+ *    `service`（dev / preview 等长驻服务）始终透传，因为它们的存在意义就是实时输出。
+ * 4. 颜色只编码结果，层级完全交给缩进。详见 `theme.ts` 的说明。
+ */
+import { Writable } from "node:stream"
+
+import { box } from "@clack/prompts"
+
+import { CANCELLED_EXIT_CODE } from "../core/errors.ts"
+import { run, type RunOptions, type RunResult } from "../core/exec.ts"
+
+import {
+  type ColumnLayout,
+  formatDetail,
+  formatGroupNote,
+  formatGroupTitle,
+  formatTaskRow,
+  type TaskRow,
+} from "./layout.ts"
+import {
+  classifyDetailLine,
+  type DetailTone,
+  type Result,
+  setColorSupport,
+  SPINNER_FRAMES,
+  SPINNER_INTERVAL_MS,
+  theme,
+} from "./theme.ts"
+
+/** 反馈语气。 */
+export type Tone = "neutral" | "info" | "success" | "warning" | "error"
+
+/** 流程终止语气。 */
+export type Outcome = "success" | "failed" | "cancelled"
+
+/** 子进程输出模式。 */
+export type LogMode = "live" | "capture"
+
+/** 任务展示选项。 */
+export interface TaskOptions {
+  /** 任务名称。 */
+  title: string
+  /** 关联目标；提供时会在三列布局中单独成列。 */
+  itemKey?: string
+  /** 输出模式；默认按 `WORKFLOW_LOG` 决定，`dev` 一类长驻服务强制 `live`。 */
+  log?: LogMode
+  /** 保留字段：动画已移除，恒为无效。 */
+  spin?: boolean
+  /** 是否为列表末项；提供时渲染树形连接符。 */
+  last?: boolean
+}
+
+/** 摘要展示选项。 */
+export interface SummaryOptions {
+  /** 摘要标题。 */
+  title: string
+  /** 摘要语气。 */
+  tone: Tone
+  /** 摘要正文。 */
+  content: string
+  /** 额外高亮的一行可复制内容。 */
+  copy?: string
+}
+
+/** 流程开始选项。 */
+export interface FlowOptions {
+  /** 流程所属领域。 */
+  domain: string
+  /** 流程标题。 */
+  title: string
+  /** 流程说明。 */
+  description?: string
+}
+
+/** 分组开始选项。 */
+export interface GroupOptions {
+  /** 分组标题。 */
+  title: string
+  /** 分组说明。 */
+  description?: string
+  /** 关联目标标识。 */
+  itemKey?: string
+}
+
+/** 一个正在进行的分组。 */
+interface GroupFrame {
+  readonly title: string
+  readonly itemKey?: string
+}
+
+/**
+ * 失败详情最多渲染的行数。
+ *
+ * @remarks `vue-tsc` 之类工具的失败输出常有数百行，全量铺开会淹没结论。这里截断并
+ * 显式告知剩余行数，需要完整输出时用 `WORKFLOW_LOG=live`。
+ */
+const MAX_DETAIL_LINES = 40
+
+/**
+ * 失败详情单行的最大宽度。
+ *
+ * @remarks 类型不匹配错误的展开动辄数百字符，会在终端里反复折行，把锚点列冲散。
+ */
+const MAX_DETAIL_WIDTH = 140
+
+/** 摘要卡片的最大宽度。 */
+const MAX_CARD_WIDTH = 72
+
+/** 摘要卡片的最小宽度，低于此值 Clack 的边框计算会溢出。 */
+const MIN_CARD_WIDTH = 36
+
+/** `WORKFLOW_LOG` 的合法取值。 */
+const LOG_MODES: ReadonlySet<string> = new Set(["live", "capture"])
+
+/**
+ * 解析全局日志模式。
+ *
+ * @param env - 环境变量。
+ * @returns 默认日志模式。
+ */
+export function resolveLogMode(env: NodeJS.ProcessEnv): LogMode {
+  const requested = env.WORKFLOW_LOG
+
+  return requested !== undefined && LOG_MODES.has(requested)
+    ? (requested as LogMode)
+    : "capture"
+}
+
+/**
+ * 终端 UI 实例。每个命令持有一个实例，状态不跨命令共享。
+ */
+export class Ui {
+  /** 视觉输出流。 */
+  readonly out: Writable
+  /** 环境变量。 */
+  readonly env: NodeJS.ProcessEnv
+  /** 当前 group 嵌套深度。 */
+  depth = 0
+  /** 批处理列布局；为空时任务按单列渲染。 */
+  columns: ColumnLayout | undefined
+
+  readonly #groups: GroupFrame[] = []
+  #cancelled = false
+  #signalsInstalled = false
+  #logMode: LogMode = "capture"
+  #frame = 0
+  #activeRow: TaskRow = { status: "running", label: "" }
+  #timer: ReturnType<typeof setInterval> | undefined
+
+  /**
+   * @param out - 视觉输出流，默认标准错误。
+   * @param env - 环境变量，默认当前进程环境。
+   */
+  constructor(
+    out: InstanceType<typeof Writable> = process.stderr,
+    env: NodeJS.ProcessEnv = process.env,
+    options: { readonly signals?: boolean } = {}
+  ) {
+    this.out = out
+    this.env = env
+    setColorSupportOnStream(out)
+
+    // 测试会反复构造实例；关掉信号注册可避免监听器累积。
+    if (options.signals !== false) {
+      this.#installSignals()
+    }
+  }
+
+  /** 当前环境是否支持交互式控件。 */
+  get interactive(): boolean {
+    if (this.env.CI === "true") {
+      return false
+    }
+
+    const tty = (this.out as { isTTY?: boolean }).isTTY === true
+
+    return tty && (process.stdin as { isTTY?: boolean }).isTTY === true
+  }
+
+  /** 是否已经收到中断信号。 */
+  get cancelled(): boolean {
+    return this.#cancelled
+  }
+
+  /**
+   * 是否可以展示转圈动画。
+   *
+   * @remarks 只有在**捕获模式**下才安全：此时子进程的 stdout/stderr 走管道，不会写
+   * 终端，转圈动画独占该 fd 不会被打断。透传模式下子进程直接写终端，两种行重绘机制
+   * 互相破坏——这正是上一版移除动画的原因，但当时把捕获模式也一并禁用了，属于过度收紧。
+   */
+  get canSpin(): boolean {
+    return this.#logMode === "capture" && (this.out as { isTTY?: boolean }).isTTY === true
+  }
+
+  /**
+   * 开始一行转圈动画。
+   *
+   * @remarks 任务串行执行，任意时刻至多一行处于进行中，因此只需向上移动一行即可
+   * 原地重绘，无需管理多行光标。
+   *
+   * @param label - 行文本，不含帧字符。
+   */
+  #startSpin(row: TaskRow): void {
+    // 非 TTY 下没有动画，占位行只会让 CI 日志里同一个任务出现两次（开始一次、结果
+    // 一次）。静默跳过，让日志回归「一行一个任务」。
+    if (!this.canSpin) {
+      return
+    }
+
+    this.#activeRow = row
+    this.#write(this.#spinLine(0))
+    this.#timer = setInterval(() => {
+      this.#frame = (this.#frame + 1) % SPINNER_FRAMES.length
+      // 每帧都是「回到同一行的行首 → 擦除整行 → 重写 → 再次换行」。
+      //
+      // 帧尾的换行不可省略：写入后光标必须停在该行的**下一行行首**，下一帧的
+      // `cursorUp(1)` 才会正好回到这一行。若帧尾不换行，光标停在本行行尾，下一帧
+      // 再上移一行就会逐帧向上爬，最终呈现在终端里铺成一条斜线。
+      this.out.write(`\u001B[1A\u001B[2K${this.#spinLine(this.#frame)}\n`)
+    }, SPINNER_INTERVAL_MS)
+    this.#timer.unref?.()
+  }
+
+  /**
+   * 停止转圈动画，并用最终文本替换当前行。
+   *
+   * @param final - 结束后的整行文本。
+   */
+  #stopSpin(final: string): void {
+    if (this.#timer === undefined) {
+      this.#write(final)
+
+      return
+    }
+
+    clearInterval(this.#timer)
+    this.#timer = undefined
+    this.out.write(`\u001B[1A\u001B[2K${final}\n`)
+    this.#activeRow = { status: "running", label: "" }
+  }
+
+  /**
+   * 渲染转圈动画行。
+   *
+   * @param frame - 帧序号。
+   * @returns 整行文本。
+   */
+  #spinLine(frame: number): string {
+    // 让转圈帧占据符号位，而不是追加在状态符号之前。
+    return formatTaskRow(
+      { ...this.#activeRow, frame: theme.dim(SPINNER_FRAMES[frame] ?? "") },
+      this.depth,
+      this.columns
+    )
+  }
+
+  /**
+   * 按当前日志模式运行一个子进程。
+   *
+   * @remarks 这是业务代码执行子进程的唯一入口。日志模式在此统一翻译成 `capture`，
+   * 避免「渲染层以为在捕获、执行层却在透传」这种两层不一致——那种不一致会让失败
+   * 输出绕过 UI 结构直接写进终端。
+   *
+   * @param command - 可执行文件。
+   * @param args - 命令参数。
+   * @param options - 除 `capture` 外的执行选项。
+   * @returns 执行结果。
+   */
+  async exec(
+    command: string,
+    args: readonly string[],
+    options: Omit<RunOptions, "capture"> = {}
+  ): Promise<RunResult> {
+    return await run(command, args, { ...options, capture: this.#logMode !== "live" })
+  }
+
+  /**
+   * 渲染一条中性说明。
+   *
+   * @param message - 说明文本。
+   */
+  note(message: string): void {
+    this.#write(theme.dim(message))
+  }
+
+  /**
+   * 渲染一条状态消息。
+   *
+   * @param tone - 语气。
+   * @param message - 消息文本。
+   */
+  status(tone: Tone, message: string): void {
+    const prefix = "  "
+
+    switch (tone) {
+      case "neutral":
+        this.#write(`${prefix}${message}`)
+
+        return
+      case "info":
+        this.#write(`${prefix}${theme.dim(message)}`)
+
+        return
+      case "success":
+        this.#write(`${prefix}${theme.success(message)}`)
+
+        return
+      case "warning":
+        this.#write(`${prefix}${theme.warning(message)}`)
+
+        return
+      case "error":
+        this.#write(`${prefix}${theme.error(message)}`)
+    }
+  }
+
+  /**
+   * 渲染一张带边框的摘要卡片。
+   *
+   * @remarks 宽度按实际终端宽度收敛。Clack 的 `box` 在宽度算得过窄时会以负数调用
+   * `String.repeat` 并抛错，而它读到的是 stdout 的列数——当输出流是 stderr 且 stdout
+   * 未连接终端时，这个值可能是 0 或 1。因此这里既做下限保护，也保留降级路径，
+   * 保证摘要渲染失败不会连带让整个命令失败。
+   *
+   * @param options - 摘要选项。
+   */
+  summary(options: SummaryOptions): void {
+    const title =
+      options.tone === "neutral"
+        ? options.title
+        : `${titlePrefix(options.tone)} ${options.title}`
+
+    const body = [options.content, ...(options.copy ? [theme.dim(options.copy)] : [])]
+      .filter((line) => line.length > 0)
+      .join("\n")
+
+    // 卡片先落到内存，再按当前层级加前缀后整体输出；Clack 的 box 没有缩进参数，
+    // 直接写出去会与 group 的导轨脱节、卡片像是漂浮在分组之外。
+    const indent = this.depth === 0 ? "" : `${"│ ".repeat(this.depth)} `
+
+    const width = Math.max(
+      MIN_CARD_WIDTH,
+      Math.min(MAX_CARD_WIDTH, this.#columns() - 4 - this.depth * 2)
+    )
+
+    for (const line of this.#renderCard(body, title, width)) {
+      this.#write(`${indent}${line}`)
+    }
+  }
+
+  /**
+   * 把摘要正文渲染成带边框的多行文本。
+   *
+   * @param body - 正文。
+   * @param title - 标题。
+   * @param width - 卡片宽度。
+   * @returns 逐行文本；渲染失败时降级为标题加正文。
+   */
+  #renderCard(body: string, title: string, width: number): readonly string[] {
+    const chunks: string[] = []
+
+    const collector = new Writable({
+      write(chunk: unknown, _encoding, done) {
+        chunks.push(String(chunk))
+
+        return done()
+      },
+    })
+
+    try {
+      box(body, title, { output: collector, width })
+    } catch {
+      return [theme.title(title), body]
+    }
+
+    const lines = chunks.join("").split("\n")
+
+    return lines.at(-1) === "" ? lines.slice(0, -1) : lines
+  }
+
+  /**
+   * 推断可用的终端宽度。
+   *
+   * @returns 终端列数；无法推断时返回默认值。
+   */
+  #columns(): number {
+    const candidates = [
+      (this.out as { columns?: number }).columns,
+      process.stdout.columns,
+      Number.parseInt(process.env.COLUMNS ?? "", 10),
+    ]
+
+    for (const candidate of candidates) {
+      if (typeof candidate === "number" && Number.isFinite(candidate) && candidate > 20) {
+        return candidate
+      }
+    }
+
+    return 80
+  }
+
+  /**
+   * 开启一次流程。
+   *
+   * @param options - 流程选项。
+   */
+  flowBegin(options: FlowOptions): void {
+    this.#write("")
+    this.#write(theme.title(`${options.domain} · ${options.title}`))
+    if (options.description) {
+      this.note(options.description)
+    }
+
+    this.#write("")
+  }
+
+  /**
+   * 结束当前流程。
+   *
+   * @param outcome - 终止语气。
+   * @param message - 结束说明。
+   */
+  flowEnd(outcome: Outcome, message: string): void {
+    this.depth = 0
+    this.columns = undefined
+    this.#write("")
+    this.#write(`${titlePrefix(outcome)} ${message}`)
+    this.#write("")
+  }
+
+  /**
+   * 依据退出码结束流程，把三态判断收敛到一处。
+   *
+   * @param exitCode - 子命令退出码。
+   * @param messages - 三种终止语气各自对应的说明。
+   */
+  flowEndFromExitCode(
+    exitCode: number,
+    messages: { success: string; failed: string; cancelled: string }
+  ): void {
+    if (exitCode === CANCELLED_EXIT_CODE) {
+      this.flowEnd("cancelled", messages.cancelled)
+
+      return
+    }
+
+    if (exitCode !== 0) {
+      this.flowEnd("failed", messages.failed)
+
+      return
+    }
+
+    this.flowEnd("success", messages.success)
+  }
+
+  /**
+   * 开启一个分组。
+   *
+   * @param options - 分组选项。
+   */
+  groupBegin(options: GroupOptions): void {
+    this.#groups.push({
+      title: options.title,
+      ...(options.itemKey === undefined ? {} : { itemKey: options.itemKey }),
+    })
+    this.depth = this.#groups.length
+    this.#write(formatGroupTitle(options.title, this.depth))
+    if (options.description) {
+      this.#write(formatGroupNote(options.description, this.depth))
+    }
+  }
+
+  /**
+   * 结束当前分组。
+   *
+   * @param outcome - 终止语气。
+   * @param message - 结束说明。
+   */
+  groupEnd(outcome: Outcome, message: string): void {
+    this.#groups.pop()
+    this.depth = this.#groups.length
+    this.#write(`${"  ".repeat(this.depth + 1)}${titlePrefix(outcome)} ${message}`)
+  }
+
+  /**
+   * 标记一个被跳过的任务。
+   *
+   * @param title - 任务标题。
+   * @param reason - 跳过原因。
+   */
+  taskSkip(title: string, reason: string): void {
+    this.taskRow({ status: "skipped", label: title, pendingReason: reason })
+  }
+
+  /**
+   * 渲染一条已完成的任务行。
+   *
+   * @param row - 任务行内容。
+   */
+  taskRow(row: TaskRow): void {
+    this.#write(formatTaskRow(row, this.depth, this.columns))
+  }
+
+  /**
+   * 标记一个未执行的任务，用于失败时说明还有多少目标没有跑。
+   *
+   * @param target - 目标标识。
+   * @param label - 任务名称。
+   * @param reason - 未执行原因。
+   * @param last - 是否为列表末项。
+   */
+  taskPending(target: string, label: string, reason: string, last = false): void {
+    this.taskRow({ status: "pending", target, label, pendingReason: reason, last })
+  }
+
+  /**
+   * 执行一次任务，并在结束时输出一行结果。
+   *
+   * @remarks 返回 `RunResult` 表示子进程已执行，退出码由渲染层判断；返回 `void`
+   * 表示纯进程内操作，抛错即失败。取消必须由执行逻辑返回退出码 130 表达。
+   *
+   * @param options - 任务选项。
+   * @param execute - 任务逻辑。
+   * @returns 退出码；130 表示用户取消。
+   */
+  async task(
+    options: TaskOptions,
+    execute: () => Promise<RunResult | void>
+  ): Promise<number> {
+    this.#logMode = options.log ?? resolveLogMode(this.env)
+    const started = Date.now()
+
+    const row = { ...targetOf(options), label: options.title, last: options.last }
+
+    // 先占一行：捕获模式下子进程不写终端，这一行可以安全地原地重绘为转圈动画。
+    this.#startSpin({ status: "running", ...row })
+
+    let result: RunResult
+
+    try {
+      result = (await execute()) ?? { code: 0, stdout: "", stderr: "", output: "" }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+
+      this.#stopSpin(
+        formatTaskRow(
+          { status: "error", ...row, duration: Date.now() - started },
+          this.depth,
+          this.columns
+        )
+      )
+      this.#writeDetail(message)
+
+      return 1
+    }
+
+    const duration = Date.now() - started
+
+    if (result.code === CANCELLED_EXIT_CODE) {
+      this.#stopSpin(
+        formatTaskRow({ status: "cancelled", ...row, duration }, this.depth, this.columns)
+      )
+
+      return CANCELLED_EXIT_CODE
+    }
+
+    const failed = result.code !== 0
+
+    this.#stopSpin(
+      formatTaskRow(
+        { status: failed ? "error" : "success", ...row, duration },
+        this.depth,
+        this.columns
+      )
+    )
+
+    // live 模式下子进程输出已经直接写进终端，这里不再重复渲染。
+    if (failed && this.#logMode !== "live") {
+      this.#writeDetail(result.output)
+    }
+
+    return result.code
+  }
+
+  /**
+   * 渲染子进程的失败输出。
+   *
+   * @remarks 整块染红会淹没真正需要被读到的错误结论。这里按行判定语义：命令回显
+   * （`$ …`）属于上下文，弱化处理；明确的错误标记染红；其余保持弱化，形成 rustc 与
+   * eslint 那种「红色只落在结论上」的观感。块状锚点让归属关系一眼可辨。
+   *
+   * @param detail - 子进程输出。
+   */
+  #writeDetail(detail: string): void {
+    if (detail === "") {
+      return
+    }
+
+    const ordered = arrangeDetail(detail)
+
+    const shown = selectDetailLines(ordered, MAX_DETAIL_LINES)
+
+    for (const [index, line] of shown.entries()) {
+      const tone = classifyDetailLine(line.text)
+
+      // 类型不匹配错误的展开动辄数百字符，不截断会在终端里反复折行、把锚点列冲散。
+      const text =
+        line.text.length > MAX_DETAIL_WIDTH
+          ? `${line.text.slice(0, MAX_DETAIL_WIDTH - 1)}…`
+          : line.text
+
+      this.#write(formatDetail(toneColor(tone)(text), this.depth, index === 0))
+    }
+
+    if (ordered.length > shown.length) {
+      this.#write(
+        formatDetail(
+          theme.dim(
+            `… 另有 ${ordered.length - shown.length} 行，设置 WORKFLOW_LOG=live 查看完整输出`
+          ),
+          this.depth
+        )
+      )
+    }
+  }
+
+  /**
+   * 以透传方式持续运行一个子进程，用于开发服务器一类的长驻服务。
+   *
+   * @param options - 任务选项。
+   * @param command - 可执行文件。
+   * @param args - 命令参数。
+   * @param cwd - 工作目录。
+   * @returns 子进程退出码；130 表示用户取消。
+   */
+  async service(
+    options: TaskOptions,
+    command: string,
+    args: readonly string[],
+    cwd?: string
+  ): Promise<number> {
+    this.taskRow({ status: "running", ...targetOf(options), label: options.title })
+    // 长驻服务的意义就是实时输出，不受全局日志模式影响。
+    this.#logMode = "live"
+    const result = await run(command, args, { ...(cwd ? { cwd } : {}), capture: false })
+
+    if (result.code === 0) {
+      this.taskRow({ status: "success", ...targetOf(options), label: options.title })
+
+      return 0
+    }
+
+    this.taskRow({
+      status: result.code === CANCELLED_EXIT_CODE ? "cancelled" : "error",
+      ...targetOf(options),
+      label: options.title,
+    })
+
+    return result.code
+  }
+
+  /**
+   * 释放 UI 资源。
+   *
+   * @remarks 动画已移除，此方法保留为幂等的收尾钩子。
+   */
+  cleanup(): void {
+    this.depth = 0
+  }
+
+  /**
+   * 写一行视觉输出。
+   *
+   * @param line - 文本内容。
+   */
+  #write(line: string): void {
+    this.out.write(`${line}\n`)
+  }
+
+  /**
+   * 注册信号处理：收尾后按约定退出码结束进程。
+   */
+  #installSignals(): void {
+    if (this.#signalsInstalled) {
+      return
+    }
+
+    this.#signalsInstalled = true
+
+    for (const signal of ["SIGINT", "SIGTERM"] as const) {
+      process.on(signal, () => {
+        if (this.#cancelled) {
+          return
+        }
+
+        this.#cancelled = true
+        this.out.write(
+          `${theme.warning("■")} 收到 ${signal === "SIGINT" ? "Ctrl+C" : "终止信号"}，正在结束流程。\n`
+        )
+        process.exit(signal === "SIGINT" ? CANCELLED_EXIT_CODE : 143)
+      })
+    }
+  }
+}
+
+/**
+ * 按语义类别给文本着色。
+ *
+ * @param tone - 语义类别。
+ * @returns 着色函数。
+ */
+function toneColor(tone: DetailTone): (text: string) => string {
+  switch (tone) {
+    case "error":
+      return theme.error
+    case "command":
+      return theme.dim
+    case "plain":
+      return theme.muted
+  }
+}
+
+/**
+ * 从任务选项中取出目标标识。
+ *
+ * @param options - 任务选项。
+ * @returns 含 target 字段的对象；未提供时为空。
+ */
+function targetOf(options: TaskOptions): { target?: string } {
+  return options.itemKey === undefined ? {} : { target: options.itemKey }
+}
+
+/**
+ * 返回语气对应的前缀符号。
+ *
+ * @param tone - 语气。
+ * @returns 带色符号。
+ */
+function titlePrefix(tone: Tone | Outcome): string {
+  switch (tone) {
+    case "neutral":
+    case "info":
+      return "▸"
+    case "success":
+      return "✔"
+    case "warning":
+      return "■"
+    case "cancelled":
+      return "■"
+    case "error":
+    case "failed":
+      return "✖"
+  }
+}
+
+/**
+ * 依据输出流设置颜色支持。
+ *
+ * @param out - 输出流。
+ */
+function setColorSupportOnStream(out: Writable): void {
+  setColorSupport((out as { isTTY?: boolean }).isTTY === true)
+}
+
+/** 结果语义类型的再导出，便于调用方类型收窄。 */
+export type { Result }
+
+/** 详情块中带语义类别的一行。 */
+interface DetailLine {
+  /** 行文本。 */
+  readonly text: string
+  /** 语义类别。 */
+  readonly tone: DetailTone
+}
+
+/**
+ * 按语义重排子进程输出，并去掉重复行。
+ *
+ * @remarks stdout 与 stderr 是两条独立的流，合并后时序会错位：pnpm 的命令回显写在
+ * stderr，错误结论写在 stdout，直接拼接会让「跑了什么」落到「错在哪」之后。这里按
+ * 「命令 → 其他输出 → 错误结论」重排，与着色规则保持一致；相邻重复行（如 pnpm 在两个
+ * 流里各写一次的 `[ELIFECYCLE]`）只保留一份。
+ *
+ * @param detail - 合并后的子进程输出。
+ * @returns 重排并去重后的行。
+ */
+function arrangeDetail(detail: string): readonly DetailLine[] {
+  const buckets: Record<DetailTone, string[]> = { command: [], plain: [], error: [] }
+
+  for (const text of detail.split("\n")) {
+    const trimmed = text.trimEnd()
+
+    if (trimmed === "") {
+      continue
+    }
+
+    buckets[classifyDetailLine(trimmed)].push(trimmed)
+  }
+
+  return (["command", "plain", "error"] as const)
+    .flatMap((tone) => buckets[tone])
+    .filter((text, index, all) => index === 0 || text !== all[index - 1])
+    .map((text) => ({ text, tone: classifyDetailLine(text) }))
+}
+
+/**
+ * 在行数预算内挑选要展示的行。
+ *
+ * @remarks 错误结论排在最后，若简单截断尾部，最需要看的内容反而会被丢掉。这里先为
+ * 错误行预留额度，剩余额度再按原顺序补足前面的上下文。
+ *
+ * @param lines - 全部候选行。
+ * @param budget - 最多展示的行数。
+ * @returns 选中的行，保持原有顺序。
+ */
+function selectDetailLines(
+  lines: readonly DetailLine[],
+  budget: number
+): readonly DetailLine[] {
+  if (lines.length <= budget) {
+    return lines
+  }
+
+  const errors = lines.filter((line) => line.tone === "error")
+
+  const errorQuota = Math.min(
+    errors.length,
+    Math.max(budget - 8, Math.ceil(budget * 0.6))
+  )
+
+  const keptErrors = errors.slice(-errorQuota)
+
+  const keptText = new Set(keptErrors.map((line) => line.text))
+
+  const head: DetailLine[] = []
+
+  for (const line of lines) {
+    if (keptText.has(line.text) || line.tone === "error") {
+      continue
+    }
+
+    if (head.length >= budget - keptErrors.length) {
+      break
+    }
+
+    head.push(line)
+  }
+
+  return [...head, ...keptErrors]
+}

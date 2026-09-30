@@ -139,7 +139,8 @@ export interface SchemxSchemas<TValues extends Values = Values> {
  * @typeParam TValues - 表单值类型。
  */
 export type SchemxSchemasInput<TValues extends Values = Values> =
-  SchemxField<TValues>[] | SchemxSchemas<TValues>
+  | SchemxField<TValues>[]
+  | SchemxSchemas<TValues>
 
 /**
  * 创建空 schema source。

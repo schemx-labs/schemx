@@ -4,7 +4,7 @@ import { defineComponent, h, markRaw } from "vue"
 
 import { createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import SchemaList from "../components/SchemaList"
 import Schemx from "../form"

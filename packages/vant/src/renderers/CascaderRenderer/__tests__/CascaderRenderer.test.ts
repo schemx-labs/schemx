@@ -3,7 +3,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 vi.mock("vant", () => {
   const component = (name: string, props: string[], emits: string[] = []) =>

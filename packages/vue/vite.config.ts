@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig, loadEnv } from "vite-plus"
 import { resolve } from "path"
 import { createVitePlugins } from "./vite.plugins"
 
@@ -15,6 +15,13 @@ export default defineConfig(({ command, mode }) => {
   const analyze = env.VITE_ANALYZE === "true"
 
   return {
+    test: {
+      // Vitest v4 compatibility: preserve mock call history.
+      // Remove after tests no longer rely on calls from setup or earlier tests.
+      // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+      // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+      clearMocks: false,
+    },
     resolve: {
       alias: [
         { find: "@", replacement: resolve(__dirname, "src") },
@@ -32,15 +39,11 @@ export default defineConfig(({ command, mode }) => {
           : []),
       ],
     },
-    css: {
-      preprocessorOptions: {
-        scss: { api: "modern-compiler" },
-      },
-    },
     plugins: createVitePlugins({ analyze }),
     build: {
       lib: {
         entry: resolve(__dirname, "src/index.ts"),
+        cssFileName: "style",
         name: "schemxCore",
         formats: ["es", "cjs"],
         fileName: (format) => {

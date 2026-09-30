@@ -43,7 +43,8 @@ export type SetValueAction<TValues extends Values, TName extends NamePath<TValue
  * @typeParam TValues - 表单值类型。
  */
 export type SetValuesAction<TValues extends Values> =
-  Partial<TValues> | ((previousValues: Readonly<TValues>) => Partial<TValues>)
+  | Partial<TValues>
+  | ((previousValues: Readonly<TValues>) => Partial<TValues>)
 
 /**
  * 表单值对象类型。
@@ -58,7 +59,8 @@ export type Values = Record<string, any>
  * 支持静态值或函数形式，函数接收当前表单值并返回属性值（支持异步）。
  */
 export type Dynamic<TValue, TValues extends Values = Values> =
-  ((values: TValues) => TValue | Promise<TValue>) | TValue
+  | ((values: TValues) => TValue | Promise<TValue>)
+  | TValue
 
 /**
  * 字段路径类型
@@ -75,7 +77,12 @@ export type NamePath<TValues = Values> = DeepNamePath<TValues>
  * 支持两种命名风格：`onBlur` / `blur`，内部会归一化处理。
  */
 export type ValidationTrigger =
-  "onBlur" | "onChange" | "onSubmit" | "blur" | "change" | "submit"
+  | "onBlur"
+  | "onChange"
+  | "onSubmit"
+  | "blur"
+  | "change"
+  | "submit"
 
 /**
  * 表单级字段校验规则映射。
@@ -84,7 +91,8 @@ export type ValidationTrigger =
  */
 export type SchemxFieldRulesMap<TValues extends Values = Values> = {
   [TName in NamePath<TValues>]?:
-    FieldRules<TValues, TName> | PresetRuleEntry<FieldValue<TValues, TName>>
+    | FieldRules<TValues, TName>
+    | PresetRuleEntry<FieldValue<TValues, TName>>
 }
 
 /**

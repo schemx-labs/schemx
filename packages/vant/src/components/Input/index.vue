@@ -316,7 +316,9 @@
   /** 聚焦方法 */
   const focus = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
-      HTMLInputElement | HTMLTextAreaElement | null
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | null
 
     input?.focus?.()
   }
@@ -324,7 +326,9 @@
   /** 失焦方法 */
   const blur = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
-      HTMLInputElement | HTMLTextAreaElement | null
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | null
 
     input?.blur?.()
   }

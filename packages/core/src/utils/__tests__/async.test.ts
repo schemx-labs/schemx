@@ -6,7 +6,7 @@
  *
  * @module utils/__tests__/async
  */
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { withLock } from "../async"
 

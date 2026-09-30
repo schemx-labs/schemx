@@ -11,7 +11,7 @@ import { defineComponent, h, nextTick } from "vue"
 
 import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { SchemxDictionary } from "@/types/dictionary"
 

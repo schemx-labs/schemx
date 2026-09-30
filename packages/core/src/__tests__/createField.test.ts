@@ -6,7 +6,7 @@
  *
  * @module core/__tests__/createField
  */
-import { describe, expect, expectTypeOf, it } from "vitest"
+import { describe, expect, expectTypeOf, it } from "vite-plus/test"
 
 import { createField } from "../createField"
 import { createForm } from "../createForm"

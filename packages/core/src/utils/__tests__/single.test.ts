@@ -6,7 +6,7 @@
  *
  * @module utils/__tests__/single
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import { createStrictSingleton } from "../single"
 

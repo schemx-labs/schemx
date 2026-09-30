@@ -1,18 +1,20 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["packages/vue/src/*", "packages/vant/src/*", "packages/element-plus/src/*"],
-      "@plugins/*": ["plugins/*/index.mjs"],
-      "@schemx/core": ["packages/core/src/index.ts"],
-      "@schemx/core/*": ["packages/core/src/*"],
-      "@schemx/vue": ["packages/vue/src/index.ts"],
-      "@schemx/vue/*": ["packages/vue/src/*"],
-      "@schemx/vant": ["packages/vant/src/index.ts"],
-      "@schemx/vant/*": ["packages/vant/src/*"],
-      "@schemx/element-plus": ["packages/element-plus/src/index.ts"],
-      "@schemx/element-plus/*": ["packages/element-plus/src/*"]
+      "@/*": [
+        "./packages/vue/src/*",
+        "./packages/vant/src/*",
+        "./packages/element-plus/src/*"
+      ],
+      "@schemx/core": ["./packages/core/src/index.ts"],
+      "@schemx/core/*": ["./packages/core/src/*"],
+      "@schemx/vue": ["./packages/vue/src/index.ts"],
+      "@schemx/vue/*": ["./packages/vue/src/*"],
+      "@schemx/vant": ["./packages/vant/src/index.ts"],
+      "@schemx/vant/*": ["./packages/vant/src/*"],
+      "@schemx/element-plus": ["./packages/element-plus/src/index.ts"],
+      "@schemx/element-plus/*": ["./packages/element-plus/src/*"]
     },
     "noEmit": true
   },
@@ -24,12 +26,13 @@
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
     "packages/*/src/**/*.vue",
+    "packages/*/vite.plugins.ts",
     "plugins/*/src/**/*.ts",
     "plugins/*/src/**/*.tsx",
     "examples/*/src/**/*.ts",
     "examples/*/src/**/*.tsx",
     "examples/*/src/**/*.vue",
-    "scripts/**/*.mjs"
+    "scripts/**/*.ts"
   ],
   "exclude": ["node_modules", "dist", "build"]
 }

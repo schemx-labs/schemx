@@ -150,7 +150,9 @@ export function createValidationEffect<TValues extends Values = Values>(
           : validationStateValue.rules
 
       const rawFallbackRules = context.fieldRules[name] as
-        SchemxBaseField<TValues>["rules"] | PresetRuleEntry<unknown> | undefined
+        | SchemxBaseField<TValues>["rules"]
+        | PresetRuleEntry<unknown>
+        | undefined
 
       const fallbackRules =
         typeof rawFallbackRules === "function"

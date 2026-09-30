@@ -7,7 +7,7 @@
  * @module core/runtime/node/__tests__/scope.test
  */
 
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createScope } from "../scope"
 

@@ -3,7 +3,7 @@
 import { defineComponent, h, nextTick, ref } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import FileDisplay from "../file-display.vue"
 import FilePreview from "../preview.vue"
@@ -168,7 +168,12 @@ describe("UploadRenderer file preview", () => {
   })
 
   it("allows source-less files to open while hiding their download action", async () => {
-    const file = { uid: 1, name: "pending.bin", type: "application/octet-stream" }
+    const file = {
+      uid: 1,
+      name: "pending.bin",
+      type: "application/octet-stream",
+      status: "ready" as const,
+    }
 
     const wrapper = mount(FileDisplay, {
       props: { file, index: 0 },

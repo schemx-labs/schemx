@@ -57,17 +57,18 @@
     "dayjs": "^1.11.19"
   },
   "scripts": {
-    "build": "pnpm run type-check && vite build",
-    "build:analyze": "vite build",
-    "test": "vitest run --passWithNoTests",
+    "build": "pnpm run type-check && vp build",
+    "build:analyze": "vp build",
+    "build:deps": "pnpm --filter \"@schemx/element-plus^...\" run build",
+    "test": "vp test run --passWithNoTests",
     "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-check": "tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
+    "format": "vp fmt \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
+    "format:check": "vp fmt --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
+    "type-check": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run build:deps && pnpm run lint && pnpm run format:check && tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "pnpm run build",
-    "pack-local": "bash ../../scripts/workflow/commands/packages/local-pack.sh --target packages/element-plus"
+    "pack-local": "node ../../scripts/workflow.ts pack-local --target packages/element-plus"
   },
   "license": "MIT",
   "devDependencies": {
