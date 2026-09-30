@@ -12,7 +12,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
-import { classifyDetailLine, setColorSupport } from "./theme.ts"
+import { classifyDetailLine, setColorSupport, visibleWidth } from "./theme.ts"
 import { Ui } from "./ui.ts"
 
 /** 收集全部写入的假流。 */
@@ -215,8 +215,8 @@ describe("失败详情块", () => {
   it("超长行被截断以免在终端折行", async () => {
     const lines = await renderFailure(`error TS2322: ${"x".repeat(400)}`)
 
-    expect(lines[0]?.length).toBeLessThanOrEqual(146)
-    expect(lines[0]).toContain("…")
+    expect(lines[0]?.length).toBeLessThanOrEqual(148)
+    expect(lines.join("\n")).toContain("…")
   })
 
   it("行数超预算时先保留错误结论", async () => {
@@ -242,5 +242,117 @@ describe("失败详情块", () => {
     }))
 
     expect(strip(capture.raw)).not.toContain("┌")
+  })
+})
+
+describe("流程反馈布局", () => {
+  it("长中文说明与错误详情换行后，每行仍保留导轨", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    Object.assign(capture.stream, { columns: 40 })
+    ui.flowBegin({
+      domain: "release",
+      title: "检查",
+      description: "这是较长的中文说明。".repeat(5),
+    })
+    ui.groupBegin({ title: "发布前检查", description: "这是较长的分组说明。".repeat(5) })
+    await ui.task({ title: "验证凭据" }, async () => {
+      throw new Error("凭据无效，请重新登录。".repeat(5))
+    })
+
+    const lines = strip(capture.raw).split("\n").filter(Boolean)
+
+    expect(lines.every((line) => visibleWidth(line) <= 40)).toBe(true)
+    expect(lines.slice(1).every((line) => line.startsWith("│"))).toBe(true)
+  })
+
+  it("实时日志按流缓冲半行，无结尾换行的内容也只输出一次", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    await ui.task(
+      { title: "build", log: "live" },
+      async () =>
+        await ui.exec(process.execPath, [
+          "-e",
+          'process.stdout.write("first\\npar"); process.stderr.write("warning\\n"); setTimeout(() => process.stdout.write("tial"), 10)',
+        ])
+    )
+
+    const lines = strip(capture.raw).trimEnd().split("\n")
+
+    expect(lines.filter((line) => line.includes("partial"))).toEqual(["│    partial"])
+    expect(lines).toContain("│    first")
+    expect(lines).toContain("│    warning")
+    expect(lines.every((line) => line.startsWith("│"))).toBe(true)
+  })
+
+  it("标题、说明、任务、摘要与结束反馈共用导轨，阶段之间留白", () => {
+    const ui = makeUi({ isTTY: false })
+
+    ui.flowBegin({ domain: "release", title: "发布检查", description: "检查说明" })
+    ui.groupBegin({ title: "生成计划", description: "分组说明" })
+    ui.note("第一行\n第二行")
+    ui.taskRow({ status: "success", label: "校验配置" })
+    ui.summary({ title: "发布计划", tone: "neutral", content: "通道：beta\n目标：core" })
+    ui.groupEnd("success", "计划已冻结")
+    ui.groupBegin({ title: "发布前检查" })
+    ui.status("error", "凭据无效\n请重新登录")
+    ui.flowEnd("failed", "检查失败")
+
+    const lines = strip(capture.raw).split("\n").filter(Boolean)
+
+    expect(lines[0]).toBe("╭─ release · 发布检查")
+    expect(lines.at(-1)).toBe("╰─ ✖ 检查失败")
+    expect(lines.slice(1, -1).every((line) => line.startsWith("│"))).toBe(true)
+    expect(capture.raw).toContain("计划已冻结\n│\n│  ◆ 发布前检查")
+    expect(capture.raw).toContain("│    第一行\n│    第二行")
+    expect(capture.raw).toContain("│    ╭")
+    expect(capture.raw).not.toContain("│\n│\n")
+  })
+
+  it("失败后开始下一流程时不继承未闭合的分组", () => {
+    const ui = makeUi({ isTTY: false })
+
+    ui.flowBegin({ domain: "release", title: "发布检查" })
+    ui.groupBegin({ title: "发布前检查" })
+    ui.flowEnd("failed", "检查失败")
+    ui.flowBegin({ domain: "workspace", title: "构建" })
+    ui.groupBegin({ title: "执行构建" })
+
+    expect(ui.depth).toBe(1)
+  })
+
+  it("TTY 下结果和导轨分别着色，NO_COLOR 下仍保留符号与层级", () => {
+    const ui = makeUi({ isTTY: true })
+
+    ui.flowBegin({ domain: "workspace", title: "检查" })
+    ui.status("warning", "跳过产物")
+    ui.groupBegin({ title: "质量检查" })
+    ui.groupEnd("success", "检查通过")
+    ui.flowEnd("failed", "流程失败")
+
+    expect(capture.raw).toContain(`${ESC}[33m`)
+    expect(capture.raw).toContain(`${ESC}[32m`)
+    expect(capture.raw).toContain(`${ESC}[31m`)
+    expect(capture.raw).toContain(`${ESC}[90m`)
+
+    capture.raw = ""
+    const plainUi = makeUi({ isTTY: true }, { NO_COLOR: "1" })
+
+    plainUi.status("error", "凭据无效")
+    expect(capture.raw).toBe("│  ✖ 凭据无效\n")
+  })
+
+  it("摘要按目标流的列数收敛宽度，移除 Clack 自带的重复导轨", () => {
+    const ui = makeUi({ isTTY: false })
+
+    Object.assign(capture.stream, { columns: 50 })
+    ui.summary({ title: "摘要", tone: "info", content: "x".repeat(150) })
+
+    const lines = strip(capture.raw).split("\n").filter(Boolean)
+
+    expect(lines.every((line) => line.length <= 50)).toBe(true)
+    expect(lines.filter((line) => line.includes("╭"))).toHaveLength(1)
+    expect(lines.every((line) => !line.startsWith("│  │ ╭"))).toBe(true)
   })
 })

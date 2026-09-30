@@ -93,7 +93,7 @@ raw schemas
   -> ViewSchemas
   -> @schemx/vue
   -> renderer registry
-  -> @schemx/vant or business renderer
+  -> @schemx/vant, @schemx/element-plus, or business renderers
 ```
 
 `@schemx/core` does not depend on a specific UI framework or render the DOM. It maintains form rules, field state, and runtime Schema, then outputs ViewSchemas for the UI layer to consume.
@@ -102,9 +102,9 @@ raw schemas
 
 `@schemx/vue` only adapts the form to a Vue component tree and does not bind to a specific component library. Business code can use `rendererRegistry` to connect its own inputs, selectors, upload components, or design-system components.
 
-`@schemx/vant` is a collection of Vant 4 renderers for mobile form scenarios. It reuses the capabilities of `@schemx/core` and `@schemx/vue`, registers default renderers in its exported Registry, and requires Forms to receive that Registry explicitly.
+`@schemx/vant` provides Vant 4 renderers for mobile forms; `@schemx/element-plus` provides Element Plus renderers for desktop forms. Importing an adapter's root entry installs its default renderers and layout. Vant shares Vue's module-level Registry, while Element Plus uses an independent Registry. To isolate forms, configure their Registries, layout components, and field defaults through Form Props or `ConfigProvider`.
 
-`@schemx/core` includes async-validator descriptor support as a built-in capability. `@schemx/vue` and `@schemx/vant` install their required Schemx lower-layer packages automatically; Vue and Vant remain peer dependencies and must be declared by business projects when used.
+`@schemx/core` includes async-validator descriptor support. The Vue, Vant, and Element Plus adapters install their required Schemx dependencies automatically; applications must install Vue and the chosen UI library as peer dependencies. If application code imports another Schemx package or its subpaths directly, declare that dependency explicitly as well.
 
 ## When to Use
 
@@ -121,6 +121,7 @@ If you only have a few static fields and do not need field dependencies, dynamic
 - Need only form runtime, validation, dependencies, and ViewSchemas: use `@schemx/core`.
 - Already have a Vue component library or business components and need to register your own renderers: install `@schemx/vue` and `vue`.
 - Using Vue 3 + Vant 4 and want built-in mobile renderers: install `@schemx/vant`, `vant`, and `vue`.
+- Using Vue 3 + Element Plus and want built-in desktop renderers: install `@schemx/element-plus`, `element-plus`, `@element-plus/icons-vue`, and `vue`.
 
 See the documentation for each package for detailed APIs and usage examples.
 
@@ -129,8 +130,12 @@ See the documentation for each package for detailed APIs and usage examples.
 Group and Dependency can both act as containers with `visible`, `readonly`, `disabled`, and `dependencies`. Group declares `children`, while Dependency declares `to` and `renderer`; containers do not use `componentType`. Container state propagates recursively to all descendant fields: descendants are invisible when an ancestor is hidden, and descendants cannot override an ancestor's readonly or disabled state through their own configuration.
 
 ```ts
-const schemas = [
-  { name: "editable", label: "Editable", componentType: "switch" },
+import type { SchemxField } from "@schemx/core"
+
+type ProfileValues = { editable: boolean; name: string }
+
+const schemas: SchemxField<ProfileValues>[] = [
+  { name: "editable", label: "Editable", componentType: "switch", initialValue: true },
   {
     key: "profile",
     label: "Profile",
@@ -153,11 +158,10 @@ You can interact with Group and Dependency container state in the [Vant example 
 
 - [Vant Example](./examples/vant/README.md): covers built-in Renderers, validation, dependencies, dynamic Schemas, container state, and slots.
 - [Element Plus Example](./examples/element-plus): covers the Element Plus Renderer set and native form controls.
-- [uni-app + Vant Example](./examples/uniapp-vant): validates integration across H5 and multiple mini-program build targets.
 
 ## Local Development
 
-The repository uses a pnpm workspace. Install dependencies first, then use the root command to interactively choose a package, plugin, or example to run or build:
+Local development requires Node.js `>=22.18.0` and pnpm `11.15.1`. The repository uses a pnpm workspace. Install dependencies first, then use the root command to interactively choose a package, plugin, or example to run or build:
 
 ```bash
 pnpm install
@@ -176,22 +180,22 @@ pnpm --filter element-plus-demo dev
 | `pnpm dev`            | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target. |
 | `pnpm build`          | Interactively select targets to build; non-interactive environments build all targets by default.                                        |
 | `pnpm build:analyze`  | Interactively select and run the build analysis script.                                                                                  |
-| `pnpm test`           | Interactively select and run tests; non-interactive environments run all tests by default.                                               |
-| `pnpm type-check`     | Interactively select and run TypeScript type checking.                                                                                   |
+| `pnpm test`           | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                             |
+| `pnpm type-check`     | Check types for selected targets, then workflow scripts.                                                                                 |
 | `pnpm lint`           | Interactively select and run ESLint checks.                                                                                              |
 | `pnpm lint:fix`       | Interactively select and run automatic ESLint fixes.                                                                                     |
-| `pnpm format`         | Interactively select and run Prettier formatting.                                                                                        |
-| `pnpm format:check`   | Interactively select and run Prettier format checks.                                                                                     |
+| `pnpm format`         | Interactively select and run Vite+ formatting.                                                                                           |
+| `pnpm format:check`   | Interactively select and run Vite+ format checks.                                                                                        |
 | `pnpm check`          | Interactively select and run the target's complete static checks.                                                                        |
-| `pnpm fix`            | Run all automatic code fixes; `--staged` is used by the pre-commit hook.                                                                 |
-| `pnpm code-check`     | Run the complete code checks for all workspace packages.                                                                                 |
+| `pnpm fix`            | Select targets and run lint fixes followed by formatting; the pre-commit hook uses `--staged`.                                           |
+| `pnpm code-check`     | Run selected targets' `check` scripts; non-interactive environments select all targets.                                                  |
 | `pnpm pack-local`     | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
 | `pnpm check:packages` | Check workspace package configuration and build output external boundaries.                                                              |
 | `pnpm preview`        | Start Vite Preview.                                                                                                                      |
 
 ## Project Workflow
 
-Development, build, quality, and test commands at the repository root are all executed through `scripts/workflow.ts`, a single TypeScript entry run directly by Node (no build step). In a local terminal, Clack selects `packages`, `plugins`, and `examples` targets that define the relevant script for the task; `dev` uses single selection, while other batch tasks use multiple selection. In CI or pipeline environments, batch tasks run all matching targets by default, while `dev` must specify exactly one target. Each target directly executes its corresponding package script. See `scripts/README.md` for the full command, environment variable, and release-interruption contract.
+Development, build, quality, and test commands at the repository root are all executed through `scripts/workflow.ts`, a single TypeScript entry run directly by Node (no build step). In a local terminal, Clack selects `packages`, `plugins`, and `examples` targets that define the relevant script for the task; `dev` uses single selection, while other batch tasks use multiple selection. In CI or pipeline environments, batch tasks run all matching targets by default, while `dev` must specify exactly one target. Each target directly executes its corresponding package script. See the [workflow guide](./scripts/README.md) for commands, environment variables, and recovery instructions.
 
 ```bash
 pnpm dev
@@ -216,9 +220,9 @@ node scripts/workflow.ts release verify /path/to/plan.json --keep-going
 
 `pnpm pack-local` also uses the same workflow to select multiple targets; it only handles locally packable `packages` and `plugins` targets. In CI, you can pass `all`, `packages/core`, or `plugins/<name>` after the command, or use `SCHEMX_WORKFLOW_TARGETS` to provide a comma-separated target list.
 
-All workflows share the same terminal UI: a command allows only one top-level flow, while tasks own the command and exit code. `groupBegin` / `groupEnd` support nestable business groups. The UI writes to stderr, and `release plan` writes the plan path to stdout so it can be read from a command substitution. Confirmation is cancelled with exit code `130`; usage and validation errors use `2`. Non-interactive confirmation can be enabled with `SCHEMX_UI_ASSUME_YES=true`.
+All workflows share the same terminal feedback. Visual output goes to stderr; `release plan` writes the plan path to stdout for command substitution. Cancellation uses exit code `130`, while usage and argument validation errors use `2`. Enable non-interactive confirmation with `SCHEMX_UI_ASSUME_YES=true`.
 
-Indentation expresses position and colour expresses result — never both. Tasks inside a batch render as three aligned columns (target, task, duration); a spinner is not used, because Clack's spinner redraws by erasing the current line and cannot coexist with a child process writing to the same terminal. Tasks show an in-place spinner while running, which requires both output capture and a TTY — with `WORKFLOW_LOG=live` a child process writes to the terminal directly and the spinner is disabled. Failure output is captured by default, reordered into commands → other output → error conclusions, and shown only when a task fails; set `WORKFLOW_LOG=live` to pass it through instead. See `scripts/README.md` for the full visual contract.
+A light vertical guide connects the flow, with spacing between stages and distinct colors and symbols for headings, success, warnings, and errors. Batch tasks align their target, task, and duration columns; wrapped text retains the guide. Captured tasks can show an in-place spinner in a TTY. Child-process output is shown only on failure by default, ordered as commands → other output → error conclusions. Set `WORKFLOW_LOG=live` to stream logs along the guide with animation disabled. Non-TTY output and `NO_COLOR` retain symbols and hierarchy without colors.
 
 Release is an independent command domain that uses the `release:*` prefix.
 
@@ -226,11 +230,11 @@ Release is an independent command domain that uses the `release:*` prefix.
 
 Release scripts are all run through `pnpm release:*`. Commands involving package targets support `all`, `core`, `vue`, `vant`, and `element-plus`:
 
-- When `release:publish` receives no arguments, it sequentially selects the release channel, release target, and version baseline action; release targets support space-separated multi-selection.
+- When `release:publish` receives no arguments, it sequentially selects the release channel, release target, and version baseline action; use the Space key to select multiple targets.
 - `release:pack` targets `all` by default.
 - Explicit arguments are recommended in CI or non-interactive environments.
 
-Stable releases use the `latest` channel. When `patch`, `minor`, `major`, or `x.y.z` is selected, the script automatically bumps the version, synchronizes `pnpm-lock.yaml`, commits the version changes, and continues publishing:
+Stable releases use the `latest` channel. When `patch`, `minor`, `major`, or `x.y.z` is selected, the script freezes a plan, runs pre-release checks, writes versions, and publishes to npm. It then synchronizes `pnpm-lock.yaml`, commits and pushes version changes for successfully published packages, and creates Git Tags and GitHub Releases.
 
 Version actions follow SemVer's `x.y.z` format:
 
@@ -249,7 +253,7 @@ To publish the currently committed version, choose `current`:
 pnpm release:publish latest vue current
 ```
 
-An exact version (replace `x.y.z` in the example with the target version) is allowed only for a single-package target and must not have been published yet. Use `current` for an already published version to avoid forcing packages from different version lines to share the same version.
+An exact version (replace `x.y.z` in the example with the target version) is allowed only for a single-package target. Use `current` to publish the currently committed stable version if it has not been published yet. Versions already present on npm cannot be republished. Resume interrupted releases from their frozen plan as described in the [workflow guide](./scripts/README.md).
 
 Prereleases require an explicit `patch`, `minor`, `major`, or `x.y.z` version baseline. `alpha`, `beta`, `rc`, and `next` generate sortable versions such as `0.1.0-beta.0`; the local `package.json` is restored after publishing:
 
@@ -260,7 +264,7 @@ pnpm release:publish beta vue 1.0.0
 
 ### Custom GitHub Release Notes
 
-A stable `latest` release creates a GitHub Release for each package. By default, the notes are generated from Conventional Commits between the package's previous tag and `HEAD`. When manual confirmation is needed, place `release-notes.md` in the corresponding package root, or generate a summary with an Agent. Both methods affect only GitHub Release notes, not the version commit message.
+All channels except `dev` create Git Tags and GitHub Releases; `alpha`, `beta`, `rc`, and `next` mark the Release as a prerelease. By default, notes are generated from Conventional Commits between the package's previous Tag and the target commit. For curated notes, place `release-notes.md` in the package root or generate it with an Agent. Both methods affect only GitHub Release notes, not the version commit message.
 
 ```bash
 # Use a package-level Markdown file, such as packages/core/release-notes.md.
@@ -277,7 +281,7 @@ If `SCHEMX_RELEASE_NOTES_FILE` is set, it overrides the package-level default pa
 
 ### Generate Release Notes by Package
 
-The repository maintains release notes through a structured data → validation → rendering workflow. The Agent's `release-notes-generator` Skill analyzes Git Diff, public APIs, TypeScript types, and user impact; repository scripts handle only repeatable fact collection, data validation, and Markdown rendering.
+The `release-notes-generator` Skill can generate release notes through a structured data → validation → rendering workflow. It analyzes Git Diff, public APIs, TypeScript types, and user impact, and handles evidence collection, validation, and Markdown rendering. Repository release scripts read the generated notes.
 
 #### Daily Usage
 
@@ -307,17 +311,17 @@ The Skill automatically performs the following operations:
 
 The existing `pnpm release:publish` command reads package-level `release-notes.md` files directly when creating GitHub Releases, so you can continue with the existing release workflow after generating the notes.
 
-The Skill includes deterministic scripts, release policies, data Schemas, and Markdown templates for evidence collection, data validation, and Markdown rendering. These are not part of the repository's daily commands; normal releases only require invoking the Skill.
+The Skill includes deterministic scripts, release policies, data Schemas, and Markdown templates for evidence collection, data validation, and Markdown rendering. These are not part of the repository's daily commands; invoke the Skill to generate notes, then publish with `pnpm release:publish`.
 
 ### Common Commands
 
 | Command                                                    | Description                                                                                                                                                       | Usage                                                                                                                                     |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm release:check`                                       | Run all pre-release checks: install consistency, tests, lint, build, and published-package content checks.                                                        | Local pre-release check: `pnpm release:check`                                                                                             |
+| `pnpm release:check [channel] [target] [version-action]`   | Freeze a plan and check the worktree, credentials, registry, dependencies, lint, types, tests, build, and package contents without release writes.                | Local pre-release check: `pnpm release:check`                                                                                             |
 | `pnpm release:pack [target]`                               | Generate local tarballs to inspect the actual published-package contents.                                                                                         | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                               |
 | `pnpm release:publish [channel] [target] [version-action]` | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases.  | `pnpm release:dry-run beta core 1.0.0`                                                                                                    |
-| `pnpm release:test`                                        | Run tests for the release scripts without publishing or changing versions.                                                                                        | Run after modifying release scripts: `pnpm release:test`                                                                                  |
+| `pnpm release:test`                                        | Run all workflow script tests without publishing or changing versions.                                                                                            | Run after modifying release scripts: `pnpm release:test`                                                                                  |
 
 ### Release Channels
 

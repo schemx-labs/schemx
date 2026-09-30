@@ -8,6 +8,8 @@
 pnpm add @schemx/element-plus element-plus @element-plus/icons-vue vue
 ```
 
+当前适配包要求 Element Plus `^2.14.0`、`@element-plus/icons-vue` `^2.3.1` 和 Vue `^3.0.0`。`@schemx/core` 与 `@schemx/vue` 会随适配包自动安装。
+
 常规 ESM 构建会由 Schemx 根入口自动加载 Vue 基础样式和 Element Plus 适配样式，应用只需引入 Element Plus 自身样式：
 
 ```ts
@@ -25,7 +27,9 @@ import "@schemx/element-plus/style.css"
 
 默认使用双列布局、右对齐标签、左对齐字段内容且不显示移动端分隔线；根入口会通过 `configureSchemx()` 写入模块级全局默认配置，可通过 Form Props 或 `ConfigProvider` 覆盖。
 
-默认列宽配置为 `col.span = 12`，标签宽度为 `120`。导入多个 UI 适配包时，最后执行的适配包配置会成为 Core 的模块级默认值；需要隔离配置时，请为各个 Form 显式传入 Registry 或使用 `ConfigProvider`。
+默认列宽配置为 `col.span = 12`，标签宽度为 `120`。Element Plus 使用独立的 Renderer Registry 和预设规则 Registry；最后导入的 UI 适配包会写入 Core 的模块级默认配置。混用多个适配包时，可通过 Form Props 或 `ConfigProvider` 分别设置 Registry、`rowComponent`、`colComponent` 和字段布局默认值。
+
+若业务代码直接导入 `@schemx/vue`、`@schemx/core` 或其公开子路径（例如上面的 `@schemx/vue/style.css`），也应显式声明对应依赖。
 
 根入口导出的 `rendererRegistry` 和 `presetRuleRegistry` 可用于扩展默认 Renderer 与规则。Form 配置、布局组件和 `ConfigProvider` 的用法见 [`@schemx/vue`](../vue)。
 
@@ -100,25 +104,48 @@ upload
 
 选项类 Renderer 使用对应 Element Plus 组件的 `options` 和 `props` 配置；以下 Renderer 另外支持 Schemx 的 `dict` 远程选项：`autocomplete`、`cascader`、`checkbox`、`mention`、`radio`、`select`、`treeSelect` 和 `virtualizedSelect`。Autocomplete 的 `props` 可映射建议项字段。`select`、`virtualizedSelect` 和 `treeSelect` 使用字符串、数字或布尔值作为单选值，多选值为数组。
 
-`datetimePicker` 基于 `ElDatePicker`，默认 `type` 为 `datetime`，也支持 `datetimerange`。`virtualizedSelect` 基于 Element Plus `ElSelectV2`，适合大量选项场景；该组件在 Element Plus 中仍处于 testing 状态。
-
-`inputOtp` 需要 Element Plus `^2.14.0` 或更高版本；该组件当前仍处于 beta 状态。
+`datetimePicker` 基于 `ElDatePicker`，默认 `type` 为 `datetime`，也支持 `datetimerange`。`virtualizedSelect` 基于 Element Plus `ElSelectV2`，适合大量选项场景；选项值、字段映射和远程字典用法与 `select` 一致。
 
 `number`、`stepper`、`date`、`calendar`、`picker`、`selectPicker` 和 `selector` 不属于本适配包；其中 `number`/`stepper` 应迁移为 `inputNumber`，`date` 应迁移为 `datePicker`。
 
 ## 上传
 
-上传字段值使用 Element Plus `UploadUserFile[]`。自定义上传函数通过 `uploader` 映射到 Element Plus 的 `http-request`：
+上传字段值使用 Element Plus `UploadUserFile[]`（本包导出别名为 `UploadValue`）。可通过 `action` 使用 Element Plus 原生上传，也可以提供 `uploader(file)` 自定义请求。默认响应映射为 `{ data: "data", url: "url", name: "name" }`，对应下面的接口响应：
+
+```json
+{
+  "data": {
+    "url": "https://example.com/avatar.png",
+    "name": "avatar.png"
+  }
+}
+```
 
 ```ts
-{
+import type { SchemxField, UploadValue } from "@schemx/element-plus"
+
+type ProfileValues = { avatar: UploadValue }
+
+const avatarField: SchemxField<ProfileValues> = {
   name: "avatar",
+  label: "头像",
   componentType: "upload",
   componentProps: {
     accept: "image/*",
-    uploader: async (file) => uploadFile(file),
+    limit: 1,
+    uploader: async (file) => {
+      const body = new FormData()
+      body.append("file", file)
+
+      const response = await fetch("/api/upload", { method: "POST", body })
+      if (!response.ok) throw new Error("上传失败")
+
+      return response.json()
+    },
   },
 }
 ```
+
+将 `avatarField` 放入表单的 `schemas`，并在 `initialValues` 或 `v-model` 中设置 `avatar: []`。接口使用其他字段名时，可通过 `componentProps.propsHttp` 配置 `data`、`url` 和 `name` 的映射；文件列表、上传完成和失败事件由 Renderer 同步到字段。
 
 通用 Form Props、Slots 和 Composition API 见 [`@schemx/vue`](../vue)；Schema、动态字段和校验能力见 [`@schemx/core`](../core)。可运行示例见 [`examples/element-plus`](../../examples/element-plus)。

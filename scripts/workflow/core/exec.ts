@@ -20,16 +20,21 @@ export interface RunResult {
   readonly output: string
 }
 
+/** 实时输出回调；携带来源流，供渲染层独立缓冲半行。 */
+export type OutputHandler = (chunk: string, stream: "stdout" | "stderr") => void
+
 /** 子进程执行选项。 */
 export interface RunOptions {
   /** 工作目录，默认继承当前进程。 */
   cwd?: string
   /** 附加的环境变量；与当前环境合并。 */
   env?: NodeJS.ProcessEnv
-  /** 捕获标准输出；默认直接透传。 */
+  /** 捕获标准输出；默认捕获，设为 false 时使用实时输出。 */
   capture?: boolean
   /** 标准输入内容。 */
   input?: string
+  /** 透传模式下接收输出；提供时由调用方渲染实时日志。 */
+  onOutput?: OutputHandler
 }
 
 /**
@@ -50,11 +55,13 @@ export async function run(
 ): Promise<RunResult> {
   const capture = options.capture ?? true
 
+  const pipeOutput = capture || options.onOutput !== undefined
+
   return await new Promise<RunResult>((resolve, reject) => {
     const child = spawn(command, [...args], {
       cwd: options.cwd,
       env: options.env ? { ...process.env, ...options.env } : process.env,
-      stdio: capture ? ["pipe", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
+      stdio: pipeOutput ? ["pipe", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
       shell: false,
     })
 
@@ -64,11 +71,19 @@ export async function run(
 
     child.stdout?.setEncoding("utf8")
     child.stdout?.on("data", (chunk: string) => {
-      stdout += chunk
+      if (capture) {
+        stdout += chunk
+      } else {
+        options.onOutput?.(chunk, "stdout")
+      }
     })
     child.stderr?.setEncoding("utf8")
     child.stderr?.on("data", (chunk: string) => {
-      stderr += chunk
+      if (capture) {
+        stderr += chunk
+      } else {
+        options.onOutput?.(chunk, "stderr")
+      }
     })
 
     child.on("error", reject)

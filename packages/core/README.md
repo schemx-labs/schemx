@@ -69,7 +69,7 @@ form.destroy()
 | `schemaConfig`                                         | 框架无关的字段默认值，如 `required`、`readonly`、`disabled`、`visible` 和校验触发方式；UI 适配层可通过 `SchemxSchemaConfigDefinition` 扩展。 |
 | `fieldRules`                                           | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先。                                                                              |
 | `rendererProps` / `rendererRegistry`                   | 按 `componentType` 配置默认 Props，或提供 Renderer Registry。Core 仅保存和解析 Renderer，不渲染它。                                          |
-| `defaultRendererType`                                  | Core 创建内部 Renderer Registry 时使用的回退类型；显式传入 `rendererRegistry` 后，由该 Registry 自身的 fallback 决定。                       |
+| `defaultRendererType`                                  | Core 未配置 Renderer Registry 时创建内部 Registry 所用的回退类型；使用已有 Registry 时由其自身的 fallback 决定。                             |
 | `presetRuleRegistry` / `validatorAdapters`             | 预设规则注册表和额外的第三方校验 adapter；async-validator 规则由 Core 内置支持。                                                             |
 | `onRuleError`                                          | 规则解析或执行异常时的回调。                                                                                                                 |
 | `onFinish` / `onFinishFailed`                          | `submit()` 成功或失败后的回调。                                                                                                              |
@@ -100,7 +100,7 @@ const nickname: SchemxField = {
 
 | 参数                                                                 | 说明                                                                               |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `name`                                                               | 字段路径，支持如 `profile.city` 的嵌套路径。                                       |
+| `name`                                                               | 字段路径，支持 `profile.city` 或 `["profile", "city"]` 等嵌套路径。                |
 | `label`                                                              | 字段标签；传入空字符串可隐藏标签内容。                                             |
 | `componentType`                                                      | Renderer key，用于从 `RendererRegistry` 查找控件。                                 |
 | `componentProps`                                                     | 透传给目标 Renderer 的专属 Props。                                                 |
@@ -331,13 +331,17 @@ const form = createForm({
 
 `PresetRuleRegistry` 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear`、`size` 与 `subscribe`，并内置 `required` 规则。规则也可以是接收 `{ name, label, required, placeholder }` 的 `PresetRuleFactory`。
 
-实例级 `fieldRules` 用于按字段路径设置规则兜底；字段自身 `rules` 或动态规则存在时优先。它的 value 可以是命名 preset、原生 rule、Standard Schema、adapter descriptor，也可以是单条或数组。
+实例级 `fieldRules` 用于按字段路径设置规则兜底；字段自身 `rules` 或动态规则存在时优先。规则可以使用预设规则名、原生规则、Standard Schema 或第三方 adapter 描述对象，支持单条规则或规则数组。
 
 ## Renderer Registry
 
 `createRendererRegistry(fallbackType?)` 创建 Renderer 的注册和查询容器。它不依赖 UI 框架，Renderer 的具体类型由接入层决定。
 
+以下示例假设已准备好业务组件 `TextInput` 和 `SelectInput`：
+
 ```ts
+import { createForm, createRendererRegistry } from "@schemx/core"
+
 const renderers = createRendererRegistry("text")
 
 renderers.register("text", TextInput)
@@ -395,4 +399,4 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
 | `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter` 及表单状态快照相关类型，供 UI 适配层使用。                                                                                                                                                                                                                                                            |
 
-所有公开 API 均从 `@schemx/core` 导入；UI 适配层专用能力从 `@schemx/core/adapter` 导入。
+表单、Schema、Registry 和校验 API 从 `@schemx/core` 导入；`createFormStateAdapter()` 及其状态快照类型从 `@schemx/core/adapter` 导入。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。

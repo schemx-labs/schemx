@@ -10,7 +10,7 @@
  * - 补齐按可见宽度计算，含 ANSI 颜色时列仍然对齐；
  * - 单列形态省略空列，不产生多余空格；
  * - `last` 决定 `├─` 还是 `└─`；
- * - 详情块按所在 group 层级缩进，flow 直接层用纯缩进而非导轨。
+ * - 全部内容保留同一左侧导轨，详情块按所在 group 层级缩进。
  */
 import { describe, expect, it } from "vitest"
 
@@ -21,7 +21,7 @@ import {
   formatGroupTitle,
   formatTaskRow,
 } from "./layout.ts"
-import { setColorSupport, theme } from "./theme.ts"
+import { setColorSupport, theme, visibleWidth, wrapText } from "./theme.ts"
 
 setColorSupport(false)
 
@@ -29,6 +29,14 @@ setColorSupport(false)
 const COLUMNS = { target: 20, label: 10, duration: 7 }
 
 describe("computeColumns", () => {
+  it("混合中文任务名按终端列数计算宽度", () => {
+    expect(computeColumns(["core"], ["验证 npm registry"])).toEqual({
+      target: 12,
+      label: 17,
+      duration: 7,
+    })
+  })
+
   it("按实际最宽内容确定列宽", () => {
     expect(computeColumns(["@schemx/core", "@schemx/element-plus"], ["build"])).toEqual({
       target: 20,
@@ -58,6 +66,23 @@ describe("computeColumns", () => {
   })
 })
 
+describe("终端文本换行", () => {
+  it("中文、组合字符和 emoji 按实际列数计宽", () => {
+    expect(visibleWidth("发布 beta")).toBe(9)
+    expect(visibleWidth("e\u0301")).toBe(1)
+    expect(visibleWidth("👩‍💻")).toBe(2)
+    expect(wrapText("发布前检查", 6)).toEqual(["发布前", "检查"])
+  })
+
+  it("ANSI 序列不占列宽且不会被换行切断", () => {
+    const lines = wrapText("\u001B[31m发布前检查\u001B[39m", 6)
+
+    expect(lines.map((line) => visibleWidth(line))).toEqual([6, 4])
+    expect(lines.every((line) => line.startsWith("\u001B[31m"))).toBe(true)
+    expect(lines[0]).toBe("\u001B[31m发布前\u001B[0m")
+  })
+})
+
 describe("formatTaskRow", () => {
   it("三列形态下按列宽对齐，耗时右对齐", () => {
     const line = formatTaskRow(
@@ -73,7 +98,7 @@ describe("formatTaskRow", () => {
     )
 
     // 目标列补齐到 20、任务列补齐到 10、耗时右对齐到 7。
-    expect(line).toBe("    ✔ ├─ @schemx/core          check         13.5s")
+    expect(line).toBe("│    ✔ ├─ @schemx/core          check         13.5s")
   })
 
   it("耗时不足一秒时用毫秒", () => {
@@ -129,15 +154,15 @@ describe("formatTaskRow", () => {
 
   it("单列形态不产生多余空列", () => {
     expect(formatTaskRow({ status: "success", target: "core", label: "check" }, 0)).toBe(
-      "  ✔ core check"
+      "│  ✔ core check"
     )
-    expect(formatTaskRow({ status: "success", label: "check" }, 0)).toBe("  ✔ check")
+    expect(formatTaskRow({ status: "success", label: "check" }, 0)).toBe("│  ✔ check")
   })
 
   it("嵌套层级每深一层缩进两格", () => {
-    expect(formatTaskRow({ status: "success", label: "x" }, 0)).toBe("  ✔ x")
-    expect(formatTaskRow({ status: "success", label: "x" }, 1)).toBe("    ✔ x")
-    expect(formatTaskRow({ status: "success", label: "x" }, 2)).toBe("      ✔ x")
+    expect(formatTaskRow({ status: "success", label: "x" }, 0)).toBe("│  ✔ x")
+    expect(formatTaskRow({ status: "success", label: "x" }, 1)).toBe("│    ✔ x")
+    expect(formatTaskRow({ status: "success", label: "x" }, 2)).toBe("│      ✔ x")
   })
 
   it("耗时缺省时不渲染尾列", () => {
@@ -153,21 +178,21 @@ describe("formatTaskRow", () => {
 
 describe("分组与详情缩进", () => {
   it("分组标题按层级缩进", () => {
-    expect(formatGroupTitle("执行检查", 1)).toBe("    执行检查")
-    expect(formatGroupTitle("执行检查", 2)).toBe("      执行检查")
+    expect(formatGroupTitle("执行检查", 1)).toBe("│  ◆ 执行检查")
+    expect(formatGroupTitle("执行检查", 2)).toBe("│    ◆ 执行检查")
   })
 
   it("分组说明比标题再深一级", () => {
-    expect(formatGroupNote("说明", 1)).toBe("      说明")
+    expect(formatGroupNote("说明", 1)).toBe("│    说明")
   })
 
   it("详情块首行带左锚点，其余行与首行对齐", () => {
-    expect(formatDetail("line1", 1, true)).toBe("│   ┌ line1")
-    expect(formatDetail("line2", 1, false)).toBe("│   │ line2")
+    expect(formatDetail("line1", 1, true)).toBe("│      ┌ line1")
+    expect(formatDetail("line2", 1, false)).toBe("│      │ line2")
   })
 
-  it("flow 直接层的详情块用纯缩进而非导轨", () => {
-    expect(formatDetail("line", 0, true)).toBe("  ┌ line")
+  it("flow 直接层的详情块保留导轨", () => {
+    expect(formatDetail("line", 0, true)).toBe("│    ┌ line")
   })
 })
 
@@ -189,7 +214,7 @@ describe("颜色模式", () => {
 
     const plain = formatTaskRow(row, 1, COLUMNS)
 
-    setColorSupport(true)
+    setColorSupport(true, {})
 
     try {
       const colored = formatTaskRow(row, 1, COLUMNS)

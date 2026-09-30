@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#包说明">包说明</a> · <a href="#快速开始">快速开始</a> · <a href="#示例项目">示例项目</a> · <a href="#本地开发">本地开发</a> · <a href="#发布脚本">发布脚本</a> · <a href="#按包生成-release-note">Release Note</a>
+  <a href="#包说明">包说明</a> · <a href="#快速开始">快速开始</a> · <a href="#示例项目">示例项目</a> · <a href="#本地开发">本地开发</a> · <a href="#发布脚本">发布脚本</a> · <a href="#按包生成发布说明">发布说明</a>
 </p>
 
 schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、联动、运行时 Schema 更新、可渲染视图投影和 UI 适配边界。业务只描述 Schema，Core 负责将其编译为稳定的运行时结构，上层适配器再把 ViewSchemas 渲染为具体界面。
@@ -20,9 +20,9 @@ schemx 聚焦动态表单中最容易失控的部分：字段状态、校验、�
 
 | 包                                                | 职责                         | 适用场景                                     |
 | ------------------------------------------------- | ---------------------------- | -------------------------------------------- |
-| [`@schemx/core`](./packages/core)                 | 框架无关的 headless 表单引擎 | 构建表单运行时、字段依赖、校验和 ViewSchemas |
+| [`@schemx/core`](./packages/core)                 | 框架无关的表单运行时         | 构建表单运行时、字段依赖、校验和 ViewSchemas |
 | [`@schemx/vue`](./packages/vue)                   | Vue 3 适配层                 | 把 ViewSchemas 渲染为 Vue 组件树             |
-| [`@schemx/vant`](./packages/vant)                 | Vant renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单           |
+| [`@schemx/vant`](./packages/vant)                 | Vant Renderer 适配包         | 使用 Vant 4 快速落地移动端动态表单           |
 | [`@schemx/element-plus`](./packages/element-plus) | Element Plus Renderer 适配包 | 使用 Element Plus 构建动态表单               |
 
 ## 快速开始
@@ -93,7 +93,7 @@ raw schemas
   -> ViewSchemas
   -> @schemx/vue
   -> renderer registry
-  -> @schemx/vant 或业务 renderer
+  -> @schemx/vant、@schemx/element-plus 或业务 Renderer
 ```
 
 `@schemx/core` 不依赖具体 UI 框架，也不渲染 DOM。它只负责把表单规则、字段状态和运行时 Schema 维护好，并输出 UI 层可消费的 ViewSchemas。
@@ -102,9 +102,9 @@ raw schemas
 
 `@schemx/vue` 只负责 Vue 组件树的适配，不绑定具体组件库。业务可以通过 `rendererRegistry` 接入自己的输入框、选择器、上传组件或设计系统组件。
 
-`@schemx/vant` 是基于 Vant 4 的 renderer 集合，面向移动端表单场景。它复用 `@schemx/core` 和 `@schemx/vue` 的能力，并将默认 renderer 注册到包级 Registry，使用时通过 Form Props 或 `ConfigProvider` 显式传入。
+`@schemx/vant` 提供 Vant 4 Renderer，面向移动端表单；`@schemx/element-plus` 提供 Element Plus Renderer，面向桌面端表单。导入适配包根入口后即可使用默认 Renderer 和布局。Vant 与 Vue 共用模块级 Registry，Element Plus 使用独立 Registry；需要按表单隔离时，可通过 Form Props 或 `ConfigProvider` 配置 Registry、布局组件和字段默认值。
 
-`@schemx/core` 内置 async-validator 规则支持。`@schemx/vue` 和 `@schemx/vant` 会自动安装必需的 Schemx 下层包；Vue 和 Vant 仍是 peer dependencies，使用时需由业务项目显式声明。
+`@schemx/core` 内置 async-validator 规则支持。Vue、Vant 和 Element Plus 适配包会自动安装必需的 Schemx 下层包；Vue 和对应 UI 组件库是 peer dependencies，需要由业务项目显式安装。业务代码直接导入其他 Schemx 包或其子路径时，也应显式声明对应依赖。
 
 ## 何时使用
 
@@ -119,8 +119,9 @@ raw schemas
 ## 选择入口
 
 - 只需要表单运行时、校验、依赖和 ViewSchemas：使用 `@schemx/core`。
-- 已有 Vue 组件库或业务组件，需要自己注册 renderer：安装 `@schemx/vue` 和 `vue`。
-- 项目使用 Vue 3 + Vant 4，希望直接使用内置移动端 renderer：安装 `@schemx/vant`、`vant` 和 `vue`。
+- 已有 Vue 组件库或业务组件，需要自己注册 Renderer：安装 `@schemx/vue` 和 `vue`。
+- 项目使用 Vue 3 + Vant 4，希望直接使用内置移动端 Renderer：安装 `@schemx/vant`、`vant` 和 `vue`。
+- 项目使用 Vue 3 + Element Plus，希望直接使用内置桌面端 Renderer：安装 `@schemx/element-plus`、`element-plus`、`@element-plus/icons-vue` 和 `vue`。
 
 具体 API 和使用示例见各包文档。
 
@@ -129,8 +130,12 @@ raw schemas
 Group 和 Dependency 都可以作为容器使用 `visible`、`readonly`、`disabled` 与 `dependencies`。Group 通过 `children` 声明，Dependency 通过 `to` 和 `renderer` 声明；容器不使用 `componentType`。容器状态会递归传递给所有后代字段：祖先隐藏时后代不可见，祖先只读或禁用时后代不能通过自身配置解除限制。
 
 ```ts
-const schemas = [
-  { name: "editable", label: "允许编辑", componentType: "switch" },
+import type { SchemxField } from "@schemx/core"
+
+type ProfileValues = { editable: boolean; name: string }
+
+const schemas: SchemxField<ProfileValues>[] = [
+  { name: "editable", label: "允许编辑", componentType: "switch", initialValue: true },
   {
     key: "profile",
     label: "资料",
@@ -153,11 +158,10 @@ Dependency 的 `to` 只负责重建动态子树；容器 `dependencies.triggerFi
 
 - [Vant 示例](./examples/vant/README.md)：覆盖内置 Renderer、校验、联动、动态 Schema、容器状态和插槽。
 - [Element Plus 示例](./examples/element-plus)：覆盖 Element Plus Renderer 和原生表单控件。
-- [uni-app + Vant 示例](./examples/uniapp-vant)：验证 H5 与多种小程序构建目标下的集成方式。
 
 ## 本地开发
 
-仓库使用 pnpm workspace。先安装依赖，再通过根命令交互选择要运行的包、构建插件或示例：
+本地开发需要 Node.js `>=22.18.0` 和 pnpm `11.15.1`。仓库使用 pnpm workspace，先安装依赖，再通过根命令交互选择要运行的包、构建插件或示例：
 
 ```bash
 pnpm install
@@ -176,15 +180,15 @@ pnpm --filter element-plus-demo dev
 | `pnpm dev`            | 交互单选并启动一个具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境必须显式指定单个目标。 |
 | `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。                                      |
 | `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                                          |
-| `pnpm test`           | 交互选择并运行测试；非交互环境默认运行全部测试。                                      |
-| `pnpm type-check`     | 交互选择并执行 TypeScript 类型检查。                                                  |
+| `pnpm test`           | 交互选择并运行目标测试，随后运行工作流脚本测试；非交互环境默认选择全部目标。          |
+| `pnpm type-check`     | 交互选择并执行目标类型检查，随后检查工作流脚本类型。                                  |
 | `pnpm lint`           | 交互选择并执行 ESLint 检查。                                                          |
 | `pnpm lint:fix`       | 交互选择并执行 ESLint 自动修复。                                                      |
-| `pnpm format`         | 交互选择并执行 Prettier 格式化。                                                      |
-| `pnpm format:check`   | 交互选择并执行 Prettier 格式检查。                                                    |
+| `pnpm format`         | 交互选择并执行 Vite+ 格式工具 格式化。                                                |
+| `pnpm format:check`   | 交互选择并执行 Vite+ 格式工具 格式检查。                                              |
 | `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                                                |
-| `pnpm fix`            | 执行全部代码自动修复；提交钩子使用 `--staged` 模式。                                  |
-| `pnpm code-check`     | 执行所有 workspace 包的完整代码检查。                                                 |
+| `pnpm fix`            | 选择目标后依次执行 lint 自动修复与格式化；提交钩子使用 `--staged` 模式。              |
+| `pnpm code-check`     | 交互选择并执行目标的 `check` 脚本；非交互环境默认选择全部目标。                       |
 | `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
 | `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。                                       |
 | `pnpm preview`        | 启动 Vite Preview。                                                                   |
@@ -195,7 +199,7 @@ pnpm --filter element-plus-demo dev
 TypeScript 入口，没有构建步骤。本地终端会按任务使用 Clack 选择定义了对应 script 的 `packages`、
 `plugins`、`examples` 目标；`dev` 使用单选，其余批处理任务使用多选；CI 或管道环境中，批处理默认执行
 所有符合条件的目标，`dev` 则必须显式指定单个目标。每个目标都直接执行对应 package script。
-完整的命令、环境变量与发布中断恢复约定见 `scripts/README.md`。
+完整的命令、环境变量与发布中断恢复约定见 [工作流文档](./scripts/README.md)。
 
 ```bash
 pnpm dev
@@ -223,15 +227,9 @@ node scripts/workflow.ts release verify /path/to/plan.json --keep-going
 `plugins` 目标。在 CI 中可在命令后传入 `all`、`packages/core` 或 `plugins/<name>`，
 也可使用 `SCHEMX_WORKFLOW_TARGETS` 提供逗号分隔的目标列表。
 
-所有工作流共用同一套终端 UI：一个命令内只允许一个顶层流程，任务负责命令与退出码，
-`groupBegin` / `groupEnd` 用于可嵌套的业务分组。UI 写入 stderr；`release plan` 的计划路径写入
-stdout，便于用命令替换读取。取消以退出码 `130` 表示，用法与校验错误使用 `2`。非交互确认可设置
-`SCHEMX_UI_ASSUME_YES=true`。
+所有工作流共用同一套终端反馈。视觉输出写入 stderr；`release plan` 的计划路径写入 stdout，便于用命令替换读取。取消以退出码 `130` 表示，用法与参数校验错误使用 `2`。非交互确认可设置 `SCHEMX_UI_ASSUME_YES=true`。
 
-缩进表达位置，颜色只表达结果，两者互不重叠。批处理内的任务按目标、任务名、耗时三列对齐；
-工作流不使用转圈动画——Clack 的 spinner 靠擦除当前行重绘，无法与同样写终端的子进程共存。
-任务运行中显示原地转圈动画（需要同时满足捕获模式与 TTY；`WORKFLOW_LOG=live` 下子进程直接写终端，动画自动禁用）。任务的子进程输出默认捕获、按「命令 → 其他输出 → 错误结论」重排，仅在失败时显示；设置 `WORKFLOW_LOG=live` 可改为透传。
-完整视觉约定见 `scripts/README.md`。
+浅色竖线连接流程内容，阶段之间统一留白；标题、成功、警告和失败使用不同颜色与符号。批处理任务按目标、任务名和耗时对齐，长文本换行后保留导轨。捕获模式下的 TTY 可显示原地转圈动画；子进程输出默认只在失败时展示，并按「命令 → 其他输出 → 错误结论」排列。设置 `WORKFLOW_LOG=live` 可实时显示日志，此时禁用动画，日志仍沿导轨排列。非 TTY 或设置 `NO_COLOR` 时保留符号与层级，并关闭颜色。
 
 发布是其中的独立命令域，使用 `release:*` 前缀。
 
@@ -239,11 +237,11 @@ stdout，便于用命令替换读取。取消以退出码 `130` 表示，用法�
 
 发布脚本统一通过 `pnpm release:*` 执行。涉及包目标的命令都支持 `all`、`core`、`vue`、`vant`、`element-plus`：
 
-- `release:publish` 不传参数时会依次选择发布通道、发布目标和版本基线动作；发布目标支持空格多选。
+- `release:publish` 不传参数时会依次选择发布通道、发布目标和版本基线动作；发布目标支持使用空格键多选。
 - `release:pack` 默认目标为 `all`。
 - CI 或非交互环境中建议显式传入参数。
 
-正式发布使用 `latest` 通道。选择 `patch`、`minor`、`major` 或 `x.y.z` 时，脚本会自动提升版本、同步 `pnpm-lock.yaml`，并提交版本变更，再继续发布：
+正式发布使用 `latest` 通道。选择 `patch`、`minor`、`major` 或 `x.y.z` 时，脚本会冻结计划并执行发布前检查，再写入版本并发布到 npm；随后为已成功发布的包同步 `pnpm-lock.yaml`、提交并推送版本变更，最后创建 Git Tag 和 GitHub Release。
 
 版本处理方式对应 SemVer 的 `x.y.z`：
 
@@ -262,8 +260,7 @@ pnpm release:publish latest vue x.y.z
 pnpm release:publish latest vue current
 ```
 
-精确版本（将示例中的 `x.y.z` 替换为目标版本）只允许用于单包目标，且必须是尚未发布的版本；
-已发布版本应使用 `current`，避免把版本线不同的包强行设置成同一个版本。
+精确版本（将示例中的 `x.y.z` 替换为目标版本）只允许用于单包目标。`current` 用于发布已提交但尚未发布的当前正式版本；npm 上已有的版本不能重复发布。中断后应使用冻结计划续跑，命令见 [工作流文档](./scripts/README.md)。
 
 预发布需要明确选择 `patch`、`minor`、`major` 或 `x.y.z` 版本基线。`alpha`、`beta`、`rc`、`next`
 会生成可排序的 `0.1.0-beta.0` 版本；发布完成后恢复本地 `package.json`：
@@ -275,8 +272,7 @@ pnpm release:publish beta vue 1.0.0
 
 ### 自定义 GitHub Release 说明
 
-`latest` 正式发布会为每个包创建 GitHub Release。默认说明按该包上一个 tag 到
-`HEAD` 的 Conventional Commit 自动生成。需要人工确认时，可在对应包根目录放置
+除 `dev` 外，发布通道都会创建 Git Tag 和 GitHub Release；`alpha`、`beta`、`rc`、`next` 的 Release 会标记为预发布。默认说明按该包上一个 Tag 到目标提交的 Conventional Commits 自动生成。需要人工确认时，可在对应包根目录放置
 `release-notes.md`；也可以由 Agent 生成摘要。两种方式均只影响 GitHub Release notes，
 不影响版本提交信息。
 
@@ -298,11 +294,10 @@ SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
 多包发布时，每个包会读取自己的 `packages/<package>/release-notes.md`；若文件不存在，
 则按该包自己的上一个 tag 生成说明。
 
-### 按包生成 Release Note
+### 按包生成发布说明
 
-仓库使用“结构化数据 → 校验 → 渲染”的方式维护发布说明。Agent 的
-`release-notes-generator` Skill 负责分析 Git Diff、公共 API、TypeScript 类型和用户影响；
-仓库脚本只处理可重复的事实收集、数据校验和 Markdown 渲染。
+可使用 `release-notes-generator` Skill 按「结构化数据 → 校验 → 渲染」生成发布说明。
+该 Skill 负责分析 Git Diff、公共 API、TypeScript 类型和用户影响，并完成证据收集、数据校验和 Markdown 渲染；仓库的发布脚本负责读取生成的说明。
 
 #### 日常使用
 
@@ -312,7 +307,7 @@ SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
 预览当前所有受影响包的发布说明：
 
 ```text
-使用 release-notes-generator 分析当前 HEAD，预览所有受影响包的 Release Note。
+使用 release-notes-generator 分析当前 HEAD，预览所有受影响包的 发布说明。
 ```
 
 预览不会写入文件。Agent 会自动收集每个包自己的 Tag、Diff、公开 API、类型和依赖影响，判断
@@ -321,7 +316,7 @@ SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
 确认内容后，明确要求写入：
 
 ```text
-确认写入所有受影响包的 Release Note，并生成版本归档。
+确认写入所有受影响包的 发布说明，并生成版本归档。
 ```
 
 Skill 会自动完成以下操作：
@@ -336,17 +331,17 @@ Skill 会自动完成以下操作：
 继续执行既有发布流程。
 
 Skill 内部包含确定性脚本、发布策略、数据 Schema 与 Markdown 模板，分别负责收集证据、校验数据和
-渲染 Markdown。它们不属于仓库日常命令；正常发布只需调用 Skill。
+渲染 Markdown。它们不属于仓库日常命令；生成说明时调用 Skill，发布仍使用 `pnpm release:publish`。
 
 ### 常用命令
 
 | 命令                                                       | 作用                                                                                                                         | 使用                                                                                                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm release:check`                                       | 执行完整发布前检查：安装一致性、测试、lint、构建和发布包内容检查。                                                           | 发布前本地自检：`pnpm release:check`                                                                                                 |
+| `pnpm release:check [channel] [target] [version-action]`   | 冻结发布计划，检查工作区、凭据、registry、依赖、lint、类型、测试、构建和发布包内容；不执行发布写操作。                       | 发布前本地自检：`pnpm release:check`                                                                                                 |
 | `pnpm release:pack [target]`                               | 生成本地 tarball，用于检查实际发布包内容。                                                                                   | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                          |
 | `pnpm release:publish [channel] [target] [version-action]` | 发布到指定通道。所有通道均支持 `patch`、`minor`、`major` 或 `x.y.z`；`current` 仅限 `latest`。目标可传 `all` 或 `core,vue`。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；公开 Beta：`pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。                                      | `pnpm release:dry-run beta core 1.0.0`                                                                                               |
-| `pnpm release:test`                                        | 运行发布脚本自身的测试，不发布、不改版本。                                                                                   | 修改发布脚本后执行：`pnpm release:test`                                                                                              |
+| `pnpm release:test`                                        | 运行全部工作流脚本测试，不发布、不改版本。                                                                                   | 修改发布脚本后执行：`pnpm release:test`                                                                                              |
 
 ### 发布通道
 

@@ -11,7 +11,6 @@ import { runTool, toolsUsage } from "./workflow/commands/tools.ts"
 import { runWorkspaceTask, workspaceUsage } from "./workflow/commands/workspace.ts"
 import { type Context, createContext } from "./workflow/core/context.ts"
 import { usageError, WorkflowError } from "./workflow/core/errors.ts"
-import { run } from "./workflow/core/exec.ts"
 import { resolveRoot } from "./workflow/core/root.ts"
 import { Ui } from "./workflow/ui/ui.ts"
 
@@ -130,7 +129,7 @@ async function runSelfCheck(
   })
   const exitCode = await ui.task(
     { title: check.title, log: "live" },
-    async () => await run(check.command, check.args, { cwd: root })
+    async () => await ui.exec(check.command, check.args, { cwd: root })
   )
 
   ui.flowEndFromExitCode(exitCode, {

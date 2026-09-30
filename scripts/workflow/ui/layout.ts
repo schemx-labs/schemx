@@ -7,10 +7,12 @@ import {
   formatDuration,
   padEnd,
   padStart,
-  type Result,
   resultSymbol,
   theme,
+  visibleWidth,
 } from "./theme.ts"
+
+import type { Result } from "./theme.ts"
 
 /** 任务结果。 */
 export type TaskStatus = Result | "running"
@@ -56,6 +58,17 @@ const MAX_TARGET_WIDTH = 32
 const MAX_LABEL_WIDTH = 24
 
 /**
+ * 为流程内容提供连续的左侧导轨。
+ *
+ * @param depth - 导轨之后的缩进层级。
+ * @returns 导轨与缩进前缀。
+ * @example railPrefix(1) + "检查结果"
+ */
+export function railPrefix(depth = 0): string {
+  return `${theme.rail("│")}  ${"  ".repeat(Math.max(0, depth))}`
+}
+
+/**
  * 计算批处理所需的列宽。
  *
  * @remarks 宽度取实际内容与最小宽度的较大值，避免包名长短差异造成列错位。
@@ -68,9 +81,9 @@ export function computeColumns(
   targets: readonly string[],
   labels: readonly string[]
 ): ColumnLayout {
-  const widestTarget = targets.reduce((max, item) => Math.max(max, item.length), 0)
+  const widestTarget = targets.reduce((max, item) => Math.max(max, visibleWidth(item)), 0)
 
-  const widestLabel = labels.reduce((max, item) => Math.max(max, item.length), 0)
+  const widestLabel = labels.reduce((max, item) => Math.max(max, visibleWidth(item)), 0)
 
   return {
     target: Math.min(Math.max(widestTarget, 12), MAX_TARGET_WIDTH),
@@ -101,7 +114,7 @@ function renderDuration(row: TaskRow): string {
  * 渲染一条任务行。
  *
  * @remarks 有列布局时输出三列（目标 / 任务 / 耗时），否则输出单列。
- * 两种形态都带当前层级的缩进前缀，位置信息只由缩进表达，颜色只编码结果。
+ * 两种形态都沿流程导轨排列，树形连接符保持弱化。
  *
  * @param row - 任务行内容。
  * @param depth - 当前 group 嵌套深度。
@@ -113,14 +126,17 @@ export function formatTaskRow(
   depth: number,
   columns?: ColumnLayout
 ): string {
-  const indent = "  ".repeat(depth + 1)
+  const indent = railPrefix(depth)
 
-  const tree = row.last === undefined ? "" : row.last ? TREE_LAST : TREE_BRANCH
+  const tree =
+    row.last === undefined ? "" : theme.rail(row.last ? TREE_LAST : TREE_BRANCH)
 
   const symbol = row.frame ?? resultSymbol(row.status)
 
+  const label = row.status === "error" ? theme.error(row.label) : row.label
+
   if (!columns) {
-    const parts = [symbol, tree, row.target, row.label].filter(
+    const parts = [symbol, tree, row.target, label].filter(
       (part): part is string => part !== undefined && part !== ""
     )
 
@@ -129,11 +145,11 @@ export function formatTaskRow(
 
   const target = padEnd(row.target ?? "", columns.target)
 
-  const label = padEnd(row.label, columns.label)
+  const paddedLabel = padEnd(label, columns.label)
 
   const duration = padStart(renderDuration(row), columns.duration)
 
-  return `${indent}${symbol} ${tree} ${target}  ${label}  ${duration}`.trimEnd()
+  return `${indent}${symbol} ${tree} ${target}  ${paddedLabel}  ${duration}`.trimEnd()
 }
 
 /**
@@ -144,7 +160,7 @@ export function formatTaskRow(
  * @returns 可直接输出的整行文本。
  */
 export function formatGroupTitle(title: string, depth: number): string {
-  return `${"  ".repeat(depth + 1)}${theme.title(title)}`
+  return `${railPrefix(depth - 1)}${theme.accent("◆")} ${theme.accent(theme.title(title))}`
 }
 
 /**
@@ -155,14 +171,13 @@ export function formatGroupTitle(title: string, depth: number): string {
  * @returns 可直接输出的整行文本。
  */
 export function formatGroupNote(description: string, depth: number): string {
-  return `${"  ".repeat(depth + 2)}${theme.dim(description)}`
+  return `${railPrefix(depth)}${theme.dim(description)}`
 }
 
 /**
  * 渲染失败输出的缩进块。
  *
- * @remarks 用方括号导轨标出这是一段子进程输出，而非工作流自己的行；首行带左锚点，
- * 其余行与首行对齐。这样即使输出里有裸文本，也不会和上方的任务行混淆。
+ * @remarks 详情跟随任务缩进，保留流程导轨；正文的语义色由调用方决定。
  *
  * @param text - 单行文本。
  * @param depth - 当前 group 嵌套深度。
@@ -170,9 +185,9 @@ export function formatGroupNote(description: string, depth: number): string {
  * @returns 渲染后的行。
  */
 export function formatDetail(text: string, depth: number, anchored = true): string {
-  const indent = depth === 0 ? "  " : `${"│ ".repeat(depth)}  `
+  const indent = railPrefix(depth + 1)
 
   const anchor = anchored ? `${theme.rail("┌")} ` : `${theme.rail("│")} `
 
-  return `${indent}${anchor}${theme.dim(text)}`
+  return `${indent}${anchor}${text}`
 }

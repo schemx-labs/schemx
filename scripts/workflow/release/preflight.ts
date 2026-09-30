@@ -10,7 +10,7 @@ import { run } from "../core/exec.ts"
 
 import * as git from "./adapters/git.ts"
 import * as github from "./adapters/github.ts"
-import { queryVersionState, registryOf } from "./adapters/npm.ts"
+import { queryVersionState, registryOf, withNpmToken } from "./adapters/npm.ts"
 import { dependencyVersion } from "./targets.ts"
 
 /** 校验结果；`undefined` 表示通过。 */
@@ -49,7 +49,10 @@ export async function assertMainBranch(): Promise<CheckResult> {
 export async function assertRegistry(env: NodeJS.ProcessEnv): Promise<CheckResult> {
   const expected = registryOf(env)
 
-  const result = await run("pnpm", ["config", "get", "registry"], { capture: true })
+  // 必须与发布走同一套配置，否则一次性 npmrc 里的 registry 不参与判定。
+  const result = await withNpmToken(env, (scoped) =>
+    run("pnpm", ["config", "get", "registry"], { env: scoped, capture: true })
+  )
 
   const actual = result.stdout.trim()
 
@@ -61,18 +64,29 @@ export async function assertRegistry(env: NodeJS.ProcessEnv): Promise<CheckResul
 /**
  * 确认 npm 身份可用于目标 registry。
  *
+ * @remarks 必须用 `npm` 而非 `pnpm`：pnpm 11 的 `whoami` 请求的是 pnpm 私有 registry
+ * 端点 `/pnpm`，对 registry.npmjs.org 恒返回 401，会把有效凭据误判为无效。
+ *
  * @param env - 环境变量。
  * @returns 失败原因或 undefined。
  */
 export async function assertNpmAuth(env: NodeJS.ProcessEnv): Promise<CheckResult> {
-  const result = await run("pnpm", ["whoami", "--registry", registryOf(env)], {
-    env,
-    capture: true,
-  })
+  const result = await withNpmToken(env, (scoped) =>
+    run("npm", ["whoami", "--registry", registryOf(scoped)], {
+      env: scoped,
+      capture: true,
+    })
+  )
 
-  return result.code === 0
-    ? undefined
-    : "npm 未登录或当前 registry 无发布权限；请设置 NPM_TOKEN 或执行 pnpm login。"
+  if (result.code === 0) {
+    return undefined
+  }
+
+  const reason = env.NPM_TOKEN
+    ? "NPM_TOKEN 无效或对目标 registry 无发布权限。"
+    : "未检测到 npm 凭据：NPM_TOKEN 未设置且 pnpm 未登录。"
+
+  return `${reason}请在 shell 中导出 NPM_TOKEN，或执行 pnpm login。`
 }
 
 /**

@@ -81,6 +81,34 @@ export async function withNpmToken(
   }
 }
 
+/** pnpm 在包于 registry 尚不存在时返回的错误码。 */
+const PACKAGE_MISSING = "ERR_PNPM_FETCH_404"
+
+/** pnpm 在包存在但指定版本不存在时返回的标记。 */
+const VERSION_MISSING = ["ERR_PNPM_PACKAGE_NOT_FOUND", "No matching version found"]
+
+/**
+ * 判断一次 registry 查询是否因为「包尚不存在」失败。
+ *
+ * @param result - 查询结果。
+ * @returns 是否为包不存在。
+ */
+function isPackageMissing(result: RunResult): boolean {
+  return `${result.stdout}${result.stderr}`.includes(PACKAGE_MISSING)
+}
+
+/**
+ * 判断一次 registry 查询是否因为「版本不存在」失败。
+ *
+ * @param result - 查询结果。
+ * @returns 是否为版本不存在。
+ */
+function isVersionMissing(result: RunResult): boolean {
+  const output = `${result.stdout}${result.stderr}`
+
+  return VERSION_MISSING.some((marker) => output.includes(marker))
+}
+
 /**
  * 查询一个 npm 版本是否已发布。
  *
@@ -109,16 +137,8 @@ export async function queryVersionState(
     return "published"
   }
 
-  const output = `${result.stdout}${result.stderr}`
-
-  const notFound = [
-    "No matching version found",
-    "ERR_PNPM_NO_MATCHING_VERSION",
-    "404 Not Found",
-  ].some((marker) => output.includes(marker))
-
-  // 查询故障不得当作「可用」，必须显式区分。
-  return notFound ? "available" : "unknown"
+  // 包尚未发布时其任意版本都不可用；网络或权限故障不得当作「可用」。
+  return isVersionMissing(result) || isPackageMissing(result) ? "available" : "unknown"
 }
 
 /**
@@ -128,7 +148,7 @@ export async function queryVersionState(
  * @param packageName - npm 包名。
  * @param baselineVersion - 正式版本基线。
  * @param channel - 预发布通道。
- * @returns 下一个序号。
+ * @returns 下一个序号；包在 registry 上尚不存在时为 0。
  * @throws {Error} registry 查询失败时抛出。
  */
 export async function nextPrereleaseSequence(
@@ -149,6 +169,11 @@ export async function nextPrereleaseSequence(
   )
 
   if (result.code !== 0) {
+    // 首次发布的包在 registry 上尚不存在，等价于零个已发布版本，首个预发布序号为 0。
+    if (isPackageMissing(result)) {
+      return 0
+    }
+
     throw new Error(
       `无法查询 ${packageName} 的已发布版本：${(result.stderr || result.stdout).trim()}`
     )

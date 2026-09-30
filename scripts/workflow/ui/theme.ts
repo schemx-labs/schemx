@@ -1,12 +1,8 @@
 /**
  * 终端主题。
  *
- * @remarks 颜色只编码「结果」，层级完全交给缩进表达。
- *
- * 原实现给分组标题（蓝 `◆`）、说明（蓝 `●`）、进行中（绿 `◐`）、成功（绿 `◇`）
- * 分别上了不同符号与颜色，导致「我在第几层」和「结果是什么」两件事在同一条视觉通道里
- * 混用：蓝色既表示分组也表示说明，绿色既表示进行中也表示成功，而蓝绿两色在深色终端上
- * 明度接近、几乎无法分辨。这里把通道拆开——位置看缩进，结果看符号与颜色。
+ * @remarks 导轨与缩进表达层级，强调色标出阶段，语义色区分结果。
+ * 使用终端色表，随用户的浅色或深色主题调整。
  *
  * 渲染使用 Node 内置的 `util.styleText`，不依赖任何外部二进制。
  */
@@ -14,16 +10,18 @@ import { styleText } from "node:util"
 
 /** 主题色表。 */
 const PALETTE = {
+  /** 阶段标题与进行中。 */
+  accent: "cyan",
   /** 成功。 */
-  success: "#4ade80",
+  success: "green",
   /** 失败。 */
-  error: "#f87171",
+  error: "red",
   /** 取消。 */
-  warning: "#fbbf24",
+  warning: "yellow",
   /** 跳过与次要信息。 */
-  muted: "#8b95a5",
+  muted: "gray",
   /** 导轨。 */
-  rail: "#5b6472",
+  rail: "gray",
 } as const
 
 /** 转圈帧。使用 braille 系列，在深色终端上笔画最细、最不刺眼。 */
@@ -61,9 +59,13 @@ let colorEnabled = true
  * 依据目标流与 NO_COLOR 决定是否输出 ANSI 序列。
  *
  * @param isTTY - 目标流是否为终端。
+ * @param env - 用于读取 NO_COLOR 的环境变量。
  */
-export function setColorSupport(isTTY: boolean): void {
-  colorEnabled = isTTY && process.env.NO_COLOR === undefined
+export function setColorSupport(
+  isTTY: boolean,
+  env: NodeJS.ProcessEnv = process.env
+): void {
+  colorEnabled = isTTY && env.NO_COLOR === undefined
 }
 
 /**
@@ -88,6 +90,8 @@ export const theme = {
     colorEnabled ? styleText("bold", text, { validateStream: false }) : text,
   /** 正文：终端默认前景色。 */
   text: (text: string): string => text,
+  /** 阶段强调色。 */
+  accent: painter("accent"),
   /** 次要说明：弱化色。 */
   dim: painter("muted"),
   /** 结果语义色。 */
@@ -99,7 +103,10 @@ export const theme = {
   /** 跳过语义色。 */
   muted: painter("muted"),
   /** 导轨。 */
-  rail: painter("rail"),
+  rail: (text: string): string =>
+    colorEnabled
+      ? styleText([PALETTE.rail, "dim"], text, { validateStream: false })
+      : text,
 } as const
 
 /**
@@ -113,7 +120,7 @@ export function resultSymbol(result: Result): string {
 
   switch (result) {
     case "running":
-      return theme.dim(symbol)
+      return theme.accent(symbol)
     case "success":
       return theme.success(symbol)
     case "error":
@@ -178,14 +185,76 @@ export function classifyDetailLine(line: string): DetailTone {
 /** SGR 颜色序列。用字符码构造，避免正则中出现裸控制字符。 */
 const ANSI_SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g")
 
+/** 将颜色序列与可见文字分开，换行时不会切断转义序列。 */
+const ANSI_PARTS = new RegExp(`(${ANSI_SGR.source})`)
+
+/** 按字素计算宽度，避免切开组合字符。 */
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+/** 汉字、全角字符和默认以图形呈现的 emoji 占两个终端列。 */
+const WIDE_CHARACTER =
+  /[\u1100-\u115f\u2329\u232a\u2e80-\u303e\u3040-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff01-\uff60\uffe0-\uffe6]|\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F/u
+
 /**
  * 计算文本的可见宽度，忽略 ANSI 颜色序列。
  *
  * @param text - 文本。
- * @returns 可见字符数。
+ * @returns 占用的终端列数。
  */
 export function visibleWidth(text: string): number {
-  return text.replace(ANSI_SGR, "").length
+  let width = 0
+
+  for (const { segment } of GRAPHEMES.segment(text.replace(ANSI_SGR, ""))) {
+    width += WIDE_CHARACTER.test(segment) ? 2 : 1
+  }
+
+  return width
+}
+
+/**
+ * 按终端列宽换行，保留显式换行、组合字符与 ANSI 颜色。
+ *
+ * @param text - 待换行文本。
+ * @param width - 每行最多占用的终端列数。
+ * @returns 换行后的文本行。
+ * @example wrapText("发布前检查", 6) // ["发布前", "检查"]
+ */
+export function wrapText(text: string, width: number): readonly string[] {
+  const lines: string[] = []
+
+  for (const paragraph of text.split("\n")) {
+    let line = ""
+
+    let lineWidth = 0
+
+    let styles = ""
+
+    for (const part of paragraph.split(ANSI_PARTS)) {
+      if (part.startsWith("\u001B[")) {
+        line += part
+        styles += part
+
+        continue
+      }
+
+      for (const { segment } of GRAPHEMES.segment(part)) {
+        const segmentWidth = visibleWidth(segment)
+
+        if (lineWidth > 0 && lineWidth + segmentWidth > Math.max(1, width)) {
+          lines.push(styles === "" ? line : `${line}\u001B[0m`)
+          line = styles
+          lineWidth = 0
+        }
+
+        line += segment
+        lineWidth += segmentWidth
+      }
+    }
+
+    lines.push(line)
+  }
+
+  return lines
 }
 
 /**

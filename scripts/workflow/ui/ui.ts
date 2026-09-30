@@ -3,16 +3,8 @@
  *
  * @remarks 对外契约保持不变：视觉输出全部写 stderr，stdout 只留给机器可读结果。
  *
- * 相对上一版的结构性变化：
- *
- * 1. 移除转圈动画。clack spinner 靠擦除当前行重绘，假设自己是该 fd 的唯一写入者；
- *    而绝大多数任务会启动子进程并直接写终端，两者物理互斥，混用会退化成逐字符重绘。
- *    去掉动画后终端输出只剩「追加流」一种控制方式，不再有互相破坏的假设。
- * 2. 任务只在结束时输出一行。原先的「开始行 + spinner + 完成行」是三行，且开始行
- *    与完成行的缩进不一致，视觉上像是两个不同的任务。
- * 3. 子进程输出默认捕获，仅在失败时渲染成缩进的详情块；`WORKFLOW_LOG=live` 可切回透传。
- *    `service`（dev / preview 等长驻服务）始终透传，因为它们的存在意义就是实时输出。
- * 4. 颜色只编码结果，层级完全交给缩进。详见 `theme.ts` 的说明。
+ * @remarks 流程、分组、任务与摘要共用左侧导轨。阶段之间留白，颜色区分阶段与结果。
+ * 捕获模式下原地更新任务动画，透传模式下保留子进程的实时输出。
  */
 import { Writable } from "node:stream"
 
@@ -27,6 +19,7 @@ import {
   formatGroupNote,
   formatGroupTitle,
   formatTaskRow,
+  railPrefix,
   type TaskRow,
 } from "./layout.ts"
 import {
@@ -37,6 +30,8 @@ import {
   SPINNER_FRAMES,
   SPINNER_INTERVAL_MS,
   theme,
+  visibleWidth,
+  wrapText,
 } from "./theme.ts"
 
 /** 反馈语气。 */
@@ -158,6 +153,8 @@ export class Ui {
   #frame = 0
   #activeRow: TaskRow = { status: "running", label: "" }
   #timer: ReturnType<typeof setInterval> | undefined
+  /** 相邻内容块共用一行间隔，避免重复输出空导轨。 */
+  #separated = false
 
   /**
    * @param out - 视觉输出流，默认标准错误。
@@ -170,7 +167,7 @@ export class Ui {
   ) {
     this.out = out
     this.env = env
-    setColorSupportOnStream(out)
+    setColorSupport((out as { isTTY?: boolean }).isTTY === true, env)
 
     // 测试会反复构造实例；关掉信号注册可避免监听器累积。
     if (options.signals !== false) {
@@ -216,7 +213,10 @@ export class Ui {
   #startSpin(row: TaskRow): void {
     // 非 TTY 下没有动画，占位行只会让 CI 日志里同一个任务出现两次（开始一次、结果
     // 一次）。静默跳过，让日志回归「一行一个任务」。
-    if (!this.canSpin) {
+    if (
+      !this.canSpin ||
+      visibleWidth(formatTaskRow(row, this.depth, this.columns)) >= this.#columns()
+    ) {
       return
     }
 
@@ -261,7 +261,7 @@ export class Ui {
   #spinLine(frame: number): string {
     // 让转圈帧占据符号位，而不是追加在状态符号之前。
     return formatTaskRow(
-      { ...this.#activeRow, frame: theme.dim(SPINNER_FRAMES[frame] ?? "") },
+      { ...this.#activeRow, frame: theme.accent(SPINNER_FRAMES[frame] ?? "") },
       this.depth,
       this.columns
     )
@@ -276,15 +276,51 @@ export class Ui {
    *
    * @param command - 可执行文件。
    * @param args - 命令参数。
-   * @param options - 除 `capture` 外的执行选项。
+   * @param options - 除 `capture` 与 `onOutput` 外的执行选项。
    * @returns 执行结果。
    */
   async exec(
     command: string,
     args: readonly string[],
-    options: Omit<RunOptions, "capture"> = {}
+    options: Omit<RunOptions, "capture" | "onOutput"> = {}
   ): Promise<RunResult> {
-    return await run(command, args, { ...options, capture: this.#logMode !== "live" })
+    if (this.#logMode !== "live") {
+      return await run(command, args, { ...options, capture: true })
+    }
+
+    const pending = { stdout: "", stderr: "" }
+
+    const prefix = railPrefix(this.depth + 1)
+
+    const writeLine = (line: string): void => {
+      for (const part of wrapText(
+        line.replace(/\r$/, ""),
+        this.#columns() - visibleWidth(prefix)
+      )) {
+        this.#write(`${prefix}${part}`)
+      }
+    }
+
+    try {
+      return await run(command, args, {
+        ...options,
+        capture: false,
+        onOutput: (chunk, stream) => {
+          const lines = (pending[stream] + chunk).split("\n")
+
+          pending[stream] = lines.pop() ?? ""
+          for (const line of lines) {
+            writeLine(line)
+          }
+        },
+      })
+    } finally {
+      for (const line of Object.values(pending)) {
+        if (line !== "") {
+          writeLine(line)
+        }
+      }
+    }
   }
 
   /**
@@ -293,7 +329,9 @@ export class Ui {
    * @param message - 说明文本。
    */
   note(message: string): void {
-    this.#write(theme.dim(message))
+    for (const line of wrapText(message, this.#columns() - 3 - this.depth * 2)) {
+      this.#write(`${railPrefix(this.depth)}${theme.dim(line)}`)
+    }
   }
 
   /**
@@ -303,27 +341,13 @@ export class Ui {
    * @param message - 消息文本。
    */
   status(tone: Tone, message: string): void {
-    const prefix = "  "
+    for (const [index, line] of wrapText(
+      message,
+      this.#columns() - 5 - this.depth * 2
+    ).entries()) {
+      const marker = index === 0 ? `${titlePrefix(tone)} ` : "  "
 
-    switch (tone) {
-      case "neutral":
-        this.#write(`${prefix}${message}`)
-
-        return
-      case "info":
-        this.#write(`${prefix}${theme.dim(message)}`)
-
-        return
-      case "success":
-        this.#write(`${prefix}${theme.success(message)}`)
-
-        return
-      case "warning":
-        this.#write(`${prefix}${theme.warning(message)}`)
-
-        return
-      case "error":
-        this.#write(`${prefix}${theme.error(message)}`)
+      this.#write(`${railPrefix(this.depth)}${marker}${statusColor(tone)(line)}`)
     }
   }
 
@@ -331,17 +355,16 @@ export class Ui {
    * 渲染一张带边框的摘要卡片。
    *
    * @remarks 宽度按实际终端宽度收敛。Clack 的 `box` 在宽度算得过窄时会以负数调用
-   * `String.repeat` 并抛错，而它读到的是 stdout 的列数——当输出流是 stderr 且 stdout
-   * 未连接终端时，这个值可能是 0 或 1。因此这里既做下限保护，也保留降级路径，
-   * 保证摘要渲染失败不会连带让整个命令失败。
+   * `String.repeat` 并抛错。因此将目标流的可用列数传给内存流，过窄时降级为带导轨的
+   * 文字块，保证摘要渲染不会让整个命令失败。
    *
    * @param options - 摘要选项。
    */
   summary(options: SummaryOptions): void {
-    const title =
-      options.tone === "neutral"
-        ? options.title
-        : `${titlePrefix(options.tone)} ${options.title}`
+    const titleColor =
+      options.tone === "neutral" ? theme.accent : statusColor(options.tone)
+
+    const title = titleColor(theme.title(options.title))
 
     const body = [options.content, ...(options.copy ? [theme.dim(options.copy)] : [])]
       .filter((line) => line.length > 0)
@@ -349,16 +372,16 @@ export class Ui {
 
     // 卡片先落到内存，再按当前层级加前缀后整体输出；Clack 的 box 没有缩进参数，
     // 直接写出去会与 group 的导轨脱节、卡片像是漂浮在分组之外。
-    const indent = this.depth === 0 ? "" : `${"│ ".repeat(this.depth)} `
+    const indent = railPrefix(this.depth)
 
-    const width = Math.max(
-      MIN_CARD_WIDTH,
-      Math.min(MAX_CARD_WIDTH, this.#columns() - 4 - this.depth * 2)
-    )
+    const width = Math.min(MAX_CARD_WIDTH, this.#columns() - visibleWidth(indent))
 
+    this.#write(theme.rail("│"))
     for (const line of this.#renderCard(body, title, width)) {
       this.#write(`${indent}${line}`)
     }
+
+    this.#write(theme.rail("│"))
   }
 
   /**
@@ -370,6 +393,10 @@ export class Ui {
    * @returns 逐行文本；渲染失败时降级为标题加正文。
    */
   #renderCard(body: string, title: string, width: number): readonly string[] {
+    if (width < MIN_CARD_WIDTH) {
+      return [...wrapText(title, width), ...wrapText(body, width)]
+    }
+
     const chunks: string[] = []
 
     const collector = new Writable({
@@ -380,10 +407,18 @@ export class Ui {
       },
     })
 
+    Object.assign(collector, { columns: width })
+
     try {
-      box(body, title, { output: collector, width })
+      box(body, title, {
+        output: collector,
+        width: "auto",
+        withGuide: false,
+        rounded: true,
+        formatBorder: theme.rail,
+      })
     } catch {
-      return [theme.title(title), body]
+      return [...wrapText(title, width), ...wrapText(body, width)]
     }
 
     const lines = chunks.join("").split("\n")
@@ -418,13 +453,18 @@ export class Ui {
    * @param options - 流程选项。
    */
   flowBegin(options: FlowOptions): void {
+    this.#groups.length = 0
+    this.depth = 0
+    this.columns = undefined
     this.#write("")
-    this.#write(theme.title(`${options.domain} · ${options.title}`))
+    this.#write(
+      `${theme.rail("╭─")} ${theme.accent(options.domain)} ${theme.rail("·")} ${theme.title(options.title)}`
+    )
     if (options.description) {
       this.note(options.description)
     }
 
-    this.#write("")
+    this.#write(theme.rail("│"))
   }
 
   /**
@@ -434,10 +474,13 @@ export class Ui {
    * @param message - 结束说明。
    */
   flowEnd(outcome: Outcome, message: string): void {
+    this.#groups.length = 0
     this.depth = 0
     this.columns = undefined
-    this.#write("")
-    this.#write(`${titlePrefix(outcome)} ${message}`)
+    this.#write(theme.rail("│"))
+    this.#write(
+      `${theme.rail("╰─")} ${titlePrefix(outcome)} ${statusColor(outcome)(message)}`
+    )
     this.#write("")
   }
 
@@ -472,6 +515,8 @@ export class Ui {
    * @param options - 分组选项。
    */
   groupBegin(options: GroupOptions): void {
+    this.#write(theme.rail("│"))
+
     this.#groups.push({
       title: options.title,
       ...(options.itemKey === undefined ? {} : { itemKey: options.itemKey }),
@@ -479,8 +524,15 @@ export class Ui {
     this.depth = this.#groups.length
     this.#write(formatGroupTitle(options.title, this.depth))
     if (options.description) {
-      this.#write(formatGroupNote(options.description, this.depth))
+      for (const line of wrapText(
+        options.description,
+        this.#columns() - 3 - this.depth * 2
+      )) {
+        this.#write(formatGroupNote(line, this.depth))
+      }
     }
+
+    this.#write(theme.rail("│"))
   }
 
   /**
@@ -492,7 +544,10 @@ export class Ui {
   groupEnd(outcome: Outcome, message: string): void {
     this.#groups.pop()
     this.depth = this.#groups.length
-    this.#write(`${"  ".repeat(this.depth + 1)}${titlePrefix(outcome)} ${message}`)
+    this.#write(
+      `${railPrefix(this.depth)}${titlePrefix(outcome)} ${statusColor(outcome)(message)}`
+    )
+    this.#write(theme.rail("│"))
   }
 
   /**
@@ -613,6 +668,8 @@ export class Ui {
 
     const shown = selectDetailLines(ordered, MAX_DETAIL_LINES)
 
+    const width = this.#columns() - visibleWidth(formatDetail("", this.depth))
+
     for (const [index, line] of shown.entries()) {
       const tone = classifyDetailLine(line.text)
 
@@ -622,18 +679,20 @@ export class Ui {
           ? `${line.text.slice(0, MAX_DETAIL_WIDTH - 1)}…`
           : line.text
 
-      this.#write(formatDetail(toneColor(tone)(text), this.depth, index === 0))
+      for (const [partIndex, part] of wrapText(text, width).entries()) {
+        this.#write(
+          formatDetail(toneColor(tone)(part), this.depth, index === 0 && partIndex === 0)
+        )
+      }
     }
 
     if (ordered.length > shown.length) {
-      this.#write(
-        formatDetail(
-          theme.dim(
-            `… 另有 ${ordered.length - shown.length} 行，设置 WORKFLOW_LOG=live 查看完整输出`
-          ),
-          this.depth
-        )
-      )
+      for (const line of wrapText(
+        `… 另有 ${ordered.length - shown.length} 行，设置 WORKFLOW_LOG=live 查看完整输出`,
+        width
+      )) {
+        this.#write(formatDetail(theme.dim(line), this.depth, false))
+      }
     }
   }
 
@@ -655,7 +714,7 @@ export class Ui {
     this.taskRow({ status: "running", ...targetOf(options), label: options.title })
     // 长驻服务的意义就是实时输出，不受全局日志模式影响。
     this.#logMode = "live"
-    const result = await run(command, args, { ...(cwd ? { cwd } : {}), capture: false })
+    const result = await this.exec(command, args, cwd ? { cwd } : {})
 
     if (result.code === 0) {
       this.taskRow({ status: "success", ...targetOf(options), label: options.title })
@@ -675,10 +734,17 @@ export class Ui {
   /**
    * 释放 UI 资源。
    *
-   * @remarks 动画已移除，此方法保留为幂等的收尾钩子。
+   * @remarks 清除动画与分组状态，可重复调用。
    */
   cleanup(): void {
+    if (this.#timer !== undefined) {
+      clearInterval(this.#timer)
+      this.#timer = undefined
+    }
+
+    this.#groups.length = 0
     this.depth = 0
+    this.#separated = false
   }
 
   /**
@@ -687,6 +753,13 @@ export class Ui {
    * @param line - 文本内容。
    */
   #write(line: string): void {
+    const separated = line === theme.rail("│")
+
+    if (separated && this.#separated) {
+      return
+    }
+
+    this.#separated = separated
     this.out.write(`${line}\n`)
   }
 
@@ -707,8 +780,10 @@ export class Ui {
         }
 
         this.#cancelled = true
-        this.out.write(
-          `${theme.warning("■")} 收到 ${signal === "SIGINT" ? "Ctrl+C" : "终止信号"}，正在结束流程。\n`
+        this.cleanup()
+        this.status(
+          "warning",
+          `收到 ${signal === "SIGINT" ? "Ctrl+C" : "终止信号"}，正在结束流程。`
         )
         process.exit(signal === "SIGINT" ? CANCELLED_EXIT_CODE : 143)
       })
@@ -753,26 +828,40 @@ function titlePrefix(tone: Tone | Outcome): string {
   switch (tone) {
     case "neutral":
     case "info":
-      return "▸"
+      return theme.accent("▸")
     case "success":
-      return "✔"
+      return theme.success("✔")
     case "warning":
-      return "■"
+      return theme.warning("■")
     case "cancelled":
-      return "■"
+      return theme.warning("■")
     case "error":
     case "failed":
-      return "✖"
+      return theme.error("✖")
   }
 }
 
 /**
- * 依据输出流设置颜色支持。
+ * 返回反馈语气对应的文字颜色。
  *
- * @param out - 输出流。
+ * @param tone - 反馈语气或流程结果。
+ * @returns 着色函数。
  */
-function setColorSupportOnStream(out: Writable): void {
-  setColorSupport((out as { isTTY?: boolean }).isTTY === true)
+function statusColor(tone: Tone | Outcome): (text: string) => string {
+  switch (tone) {
+    case "neutral":
+      return theme.text
+    case "info":
+      return theme.accent
+    case "success":
+      return theme.success
+    case "warning":
+    case "cancelled":
+      return theme.warning
+    case "error":
+    case "failed":
+      return theme.error
+  }
 }
 
 /** 结果语义类型的再导出，便于调用方类型收窄。 */

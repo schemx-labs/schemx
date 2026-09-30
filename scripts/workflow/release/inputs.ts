@@ -148,12 +148,33 @@ export async function selectVersionAction(
       )
     }
 
-    return await select(
-      channel === "latest" ? "版本动作" : "版本基线动作",
-      channel === "latest" ? LATEST_ACTION_CHOICES : PRERELEASE_ACTION_CHOICES
+    return await resolveVersionAction(
+      ui,
+      channel,
+      await select(
+        channel === "latest" ? "版本动作" : "版本基线动作",
+        channel === "latest" ? LATEST_ACTION_CHOICES : PRERELEASE_ACTION_CHOICES
+      )
     )
   }
 
+  return await resolveVersionAction(ui, channel, action)
+}
+
+/**
+ * 归一化版本动作，将 custom 转换为精确版本基线。
+ *
+ * @param ui - 终端 UI。
+ * @param channel - 发布通道。
+ * @param action - 版本动作、custom 或精确版本。
+ * @returns 版本动作或精确版本。
+ * @throws {WorkflowError} 动作非法或用户取消时抛出。
+ */
+async function resolveVersionAction(
+  ui: Ui,
+  channel: string,
+  action: string
+): Promise<string> {
   if (action === "custom") {
     return await selectExactVersion(ui, "")
   }
