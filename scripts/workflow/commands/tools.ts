@@ -104,7 +104,7 @@ export async function runTool(
         description: "启动 Vite Preview 服务。",
       })
       const exitCode = await ui.service(
-        { title: "启动 Vite Preview", spin: false },
+        { title: "运行 Vite Preview" },
         "pnpm",
         ["exec", "vite", "preview", ...args],
         root

@@ -9,7 +9,7 @@
  */
 
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
-import { defineComponent, h, nextTick } from "vue"
+import { defineComponent, h, nextTick, reactive } from "vue"
 import type { Component } from "vue"
 
 import { createForm } from "@schemx/core"
@@ -153,6 +153,44 @@ const DictionaryRenderer = defineComponent({
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("Field 集成测试", () => {
+  it("响应式 Renderer 保持字段绑定且不产生组件代理警告", async () => {
+    const form = createForm({
+      initialValues: { name: "Schemx" },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    form.registerRenderer("input", reactive(ControlledRenderer))
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    const wrapper = mount(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      global: {
+        provide: {
+          [SCHEMX_FORM_INSTANCE_KEY]: form,
+          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
+        },
+      },
+    })
+
+    try {
+      const input = wrapper.get<HTMLInputElement>("input")
+
+      expect(input.element.value).toBe("Schemx")
+      form.setFieldValue("name", "更新后的值")
+      await nextTick()
+      expect(input.element.value).toBe("更新后的值")
+
+      await input.setValue("输入后的值")
+      expect(form.getFieldValue("name")).toBe("输入后的值")
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      form.destroy()
+      warn.mockRestore()
+    }
+  })
+
   it("在创建 Renderer 前使用 transformProps 返回最终 Props", () => {
     const form = createForm({
       initialValues: { name: "Schemx" },

@@ -32,7 +32,7 @@ export const SPINNER_INTERVAL_MS = 100
 
 /** 结果符号。 */
 const RESULT_SYMBOL = {
-  /** 进行中；仅长驻服务在启动时出现。 */
+  /** 进行中；不使用动画时的静态任务状态。 */
   running: "▸",
   /** 成功。 */
   success: "✔",

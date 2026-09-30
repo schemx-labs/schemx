@@ -203,13 +203,17 @@ async function runPlan(
 
   try {
     planFile ||= planFilePath(root, channel, false)
-    await createPlan(
-      context,
-      channel,
-      target,
-      versionAction,
-      planFile,
-      planContextFrom(env)
+    await ui.task(
+      { title: "解析发布版本并冻结计划", throwOnError: true },
+      async () =>
+        await createPlan(
+          context,
+          channel,
+          target,
+          versionAction,
+          planFile,
+          planContextFrom(env)
+        )
     )
     renderPlan(ui, readPlan(planFile))
 
@@ -279,7 +283,18 @@ async function runCheck(context: Context, args: readonly string[]): Promise<numb
     planFile = planFilePath(root, channel, false)
 
     try {
-      await createPlan(context, channel, target, action, planFile, planContextFrom(env))
+      await ui.task(
+        { title: "解析发布版本并冻结计划", throwOnError: true },
+        async () =>
+          await createPlan(
+            context,
+            channel,
+            target,
+            action,
+            planFile,
+            planContextFrom(env)
+          )
+      )
       renderPlan(ui, readPlan(planFile))
       ui.groupEnd("success", "发布检查计划已冻结。")
     } catch (error) {
@@ -358,7 +373,11 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
       description: "查询 registry 并冻结各包的版本计划。",
     })
     planFile = planFilePath(root, channel, true)
-    await createPlan(context, channel, target, action, planFile, planContextFrom(env))
+    await ui.task(
+      { title: "解析发布版本并冻结计划", throwOnError: true },
+      async () =>
+        await createPlan(context, channel, target, action, planFile, planContextFrom(env))
+    )
     ui.groupEnd("success", "发布计划已冻结。")
 
     exitCode = await executePlan(context, planFile)

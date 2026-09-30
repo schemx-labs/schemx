@@ -91,7 +91,7 @@ export async function runDev(context: Context, args: readonly string[]): Promise
   }
 
   const exitCode = await ui.service(
-    { title: `启动 ${item.name}`, itemKey: item.name, spin: false },
+    { title: `运行 ${item.name}`, itemKey: item.name },
     "pnpm",
     ["--filter", item.name, "run", item.script],
     root

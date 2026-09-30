@@ -6,7 +6,7 @@
  * @module components/Field/slot
  */
 
-import { computed, h } from "vue"
+import { computed, h, markRaw, toRaw } from "vue"
 import type { Component, ShallowRef, Slots, VNodeChild } from "vue"
 
 import classnames from "classnames"
@@ -217,8 +217,9 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
         })
       : componentProps.value
 
+    // Registry 可能来自响应式配置；组件定义与字段 Props 分别处理，保留字段绑定。
     const columnElement = h(
-      rendererEntry.component as Component,
+      markRaw(toRaw(rendererEntry.component as Component)),
       transformedProps,
       childSlots
     )

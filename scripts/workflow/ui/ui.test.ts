@@ -5,12 +5,13 @@
  *
  * - 动画帧必须以换行结尾。若省略，光标会停在本行行尾，下一帧的 `cursorUp(1)` 就再多
  *   退一行，逐帧累积后动画会在终端里铺成一条斜线而不是原地转动。
- * - 透传模式下子进程直接写终端，行重绘机制会与之冲突，因此必须完全禁用动画；
- *   捕获模式下子进程走管道，动画独占输出流，才可以安全启用。
- * - 非 TTY 下没有动画，占位行只会让同一个任务在 CI 日志里出现两次。
+ * - 实时日志追加在动画上方，写入后恢复当前任务，防止覆盖日志。
+ * - 非 TTY 使用静态进行中状态，等待期间也能知道当前任务。
  * - 失败详情按「命令 → 其他输出 → 错误结论」重排，并去掉重复行；超长行截断。
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+
+import { usageError } from "../core/errors.ts"
 
 import { classifyDetailLine, setColorSupport, visibleWidth } from "./theme.ts"
 import { Ui } from "./ui.ts"
@@ -103,7 +104,7 @@ describe("转圈动画", () => {
     expect(strip(last)).toContain("✔")
   })
 
-  it("透传模式完全禁用动画，避免与子进程争抢终端", async () => {
+  it("实时模式在没有新日志时仍持续显示动画", async () => {
     const ui = makeUi({ isTTY: true })
 
     await ui.task({ title: "build", log: "live" }, async () => {
@@ -112,10 +113,10 @@ describe("转圈动画", () => {
       return { code: 0, stdout: "", stderr: "", output: "" }
     })
 
-    expect(capture.raw).not.toContain(`${ESC}[1A`)
+    expect(frames(capture.raw).length).toBeGreaterThan(1)
   })
 
-  it("非 TTY 下不输出占位行，一个任务一行", async () => {
+  it("非 TTY 下分别输出进行中与结果，不使用光标控制", async () => {
     const ui = makeUi({ isTTY: false }, { CI: "true" })
 
     await ui.task({ title: "a" }, async () => ({
@@ -132,10 +133,11 @@ describe("转圈动画", () => {
     }))
 
     expect(capture.raw).not.toContain(`${ESC}[1A`)
-    expect(strip(capture.raw).trim().split("\n")).toHaveLength(2)
+    expect(strip(capture.raw).trim().split("\n")).toHaveLength(4)
+    expect(capture.raw.match(/执行中/g)).toHaveLength(2)
   })
 
-  it("WORKFLOW_LOG=live 时即使 TTY 也不启用动画", async () => {
+  it("WORKFLOW_LOG=live 时同样启用动画", async () => {
     const ui = makeUi({ isTTY: true }, { WORKFLOW_LOG: "live" })
 
     await ui.task({ title: "a" }, async () => {
@@ -144,7 +146,107 @@ describe("转圈动画", () => {
       return { code: 0, stdout: "", stderr: "", output: "" }
     })
 
-    expect(capture.raw).not.toContain(`${ESC}[1A`)
+    expect(frames(capture.raw).length).toBeGreaterThan(1)
+  })
+
+  it("长任务名在窄终端仍显示单行动画", async () => {
+    const ui = makeUi({ isTTY: true })
+
+    Object.assign(capture.stream, { columns: 32 })
+    await ui.task({ title: "验证发布版本是否可用".repeat(8) }, async () => {
+      await new Promise((done) => setTimeout(done, 120))
+    })
+
+    const first = capture.raw.split("\n")[0] ?? ""
+
+    expect(visibleWidth(first)).toBeLessThan(32)
+    expect(strip(first)).toContain("…")
+    expect(frames(capture.raw).length).toBeGreaterThan(1)
+  })
+
+  it("内部说明写入后恢复正在生成计划的动画", async () => {
+    const ui = makeUi({ isTTY: true }, { NO_COLOR: "1" })
+
+    await ui.task({ title: "冻结发布计划" }, async () => {
+      ui.note("正在查询 registry")
+      await new Promise((done) => setTimeout(done, 120))
+    })
+
+    expect(capture.raw).toContain(
+      `${ESC}[1A${ESC}[2K\r│  正在查询 registry\n│  ⠋ 冻结发布计划\n`
+    )
+    expect(strip(frames(capture.raw).at(-1) ?? "")).toContain("✔ 冻结发布计划")
+  })
+
+  it("实时输出追加在动画上方，stdout、stderr 和尾部半行都保留", async () => {
+    const ui = makeUi({ isTTY: true }, { NO_COLOR: "1" })
+
+    await ui.task(
+      { title: "build", log: "live" },
+      async () =>
+        await ui.exec(process.execPath, [
+          "-e",
+          'process.stdout.write("first\\n"); process.stderr.write("warning\\n"); setTimeout(() => process.stdout.write("tail"), 220)',
+        ])
+    )
+
+    expect(capture.raw.match(/│ {4}first\n/g)).toHaveLength(1)
+    expect(capture.raw.match(/│ {4}warning\n/g)).toHaveLength(1)
+    expect(capture.raw.match(/│ {4}tail\n/g)).toHaveLength(1)
+    expect(capture.raw).toMatch(
+      new RegExp(`${ESC}\\[1A${ESC}\\[2K\\r│    first\\n│  [^\\n]*build\\n`)
+    )
+    expect(strip(frames(capture.raw).at(-1) ?? "")).toContain("✔ build")
+  })
+
+  it("计划生成失败时停止动画并保留原有用法错误", async () => {
+    const ui = makeUi({ isTTY: true })
+
+    const error = usageError("无效发布通道")
+
+    await expect(
+      ui.task({ title: "冻结发布计划", throwOnError: true }, async () => {
+        throw error
+      })
+    ).rejects.toBe(error)
+
+    const finished = capture.raw
+
+    await new Promise((done) => setTimeout(done, 120))
+    expect(capture.raw).toBe(finished)
+    expect(strip(frames(capture.raw).at(-1) ?? "")).toContain("✖")
+  })
+
+  it.each([1, 130])("退出码 %s 结束后不再输出动画帧", async (code) => {
+    const ui = makeUi({ isTTY: true })
+
+    expect(
+      await ui.task({ title: "检查" }, async () => ({
+        code,
+        stdout: "",
+        stderr: "",
+        output: "",
+      }))
+    ).toBe(code)
+
+    const finished = capture.raw
+
+    await new Promise((done) => setTimeout(done, 120))
+    expect(capture.raw).toBe(finished)
+  })
+
+  it("长驻服务持续显示运行状态并保留实时日志", async () => {
+    const ui = makeUi({ isTTY: true }, { NO_COLOR: "1" })
+
+    const code = await ui.service({ title: "运行服务" }, process.execPath, [
+      "-e",
+      'process.stdout.write("ready\\n"); setTimeout(() => {}, 220)',
+    ])
+
+    expect(code).toBe(0)
+    expect(capture.raw).toContain("│    ready\n")
+    expect(frames(capture.raw).length).toBeGreaterThan(1)
+    expect(strip(frames(capture.raw).at(-1) ?? "")).toContain("✔ 运行服务")
   })
 })
 
@@ -186,8 +288,8 @@ describe("失败详情块", () => {
       .split("\n")
       .filter((line) => line.trim() !== "")
 
-    // 第一行是任务结果行，其后才是失败详情块。
-    return lines.slice(1)
+    // 前两行分别是进行中和任务结果，其后才是失败详情块。
+    return lines.slice(2)
   }
 
   it("按命令、其他输出、错误结论的顺序重排", async () => {

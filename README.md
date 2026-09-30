@@ -222,7 +222,7 @@ node scripts/workflow.ts release verify /path/to/plan.json --keep-going
 
 All workflows share the same terminal feedback. Visual output goes to stderr; `release plan` writes the plan path to stdout for command substitution. Cancellation uses exit code `130`, while usage and argument validation errors use `2`. Enable non-interactive confirmation with `SCHEMX_UI_ASSUME_YES=true`.
 
-A light vertical guide connects the flow, with spacing between stages and distinct colors and symbols for headings, success, warnings, and errors. Batch tasks align their target, task, and duration columns; wrapped text retains the guide. Captured tasks can show an in-place spinner in a TTY. Child-process output is shown only on failure by default, ordered as commands → other output → error conclusions. Set `WORKFLOW_LOG=live` to stream logs along the guide with animation disabled. Non-TTY output and `NO_COLOR` retain symbols and hierarchy without colors.
+A light vertical guide connects the flow, with spacing between stages and distinct colors and symbols for headings, success, warnings, and errors. Batch tasks align their target, task, and duration columns; wrapped text retains the guide. Pending tasks show an in-place spinner in a TTY, replaced by the result on completion. Child-process output is shown only on failure by default, ordered as commands → other output → error conclusions. Set `WORKFLOW_LOG=live` to append logs above the loading indicator, which stays visible while the task runs. Non-TTY output shows a static running status; `NO_COLOR` disables colors only.
 
 Release is an independent command domain that uses the `release:*` prefix.
 

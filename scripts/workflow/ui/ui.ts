@@ -4,7 +4,7 @@
  * @remarks 对外契约保持不变：视觉输出全部写 stderr，stdout 只留给机器可读结果。
  *
  * @remarks 流程、分组、任务与摘要共用左侧导轨。阶段之间留白，颜色区分阶段与结果。
- * 捕获模式下原地更新任务动画，透传模式下保留子进程的实时输出。
+ * 捕获与实时模式共用底部任务动画，日志追加时先让出动画行再恢复。
  */
 import { Writable } from "node:stream"
 
@@ -51,8 +51,10 @@ export interface TaskOptions {
   itemKey?: string
   /** 输出模式；默认按 `WORKFLOW_LOG` 决定，`dev` 一类长驻服务强制 `live`。 */
   log?: LogMode
-  /** 保留字段：动画已移除，恒为无效。 */
+  /** 是否使用转圈动画；默认启用，关闭时仍显示静态进行中状态。 */
   spin?: boolean
+  /** 任务抛错后保留原异常，由调用方处理退出码；默认返回 1。 */
+  throwOnError?: boolean
   /** 是否为列表末项；提供时渲染树形连接符。 */
   last?: boolean
 }
@@ -118,6 +120,9 @@ const MIN_CARD_WIDTH = 36
 
 /** `WORKFLOW_LOG` 的合法取值。 */
 const LOG_MODES: ReadonlySet<string> = new Set(["live", "capture"])
+
+/** 光标停在动画下一行时，返回动画行并清空，保持后续日志从行首写入。 */
+const CLEAR_SPINNER_LINE = "\u001B[1A\u001B[2K\r"
 
 /**
  * 解析全局日志模式。
@@ -194,12 +199,11 @@ export class Ui {
   /**
    * 是否可以展示转圈动画。
    *
-   * @remarks 只有在**捕获模式**下才安全：此时子进程的 stdout/stderr 走管道，不会写
-   * 终端，转圈动画独占该 fd 不会被打断。透传模式下子进程直接写终端，两种行重绘机制
-   * 互相破坏——这正是上一版移除动画的原因，但当时把捕获模式也一并禁用了，属于过度收紧。
+   * @remarks 实时子进程输出同样经过 UI 写入，动画始终位于最后一行。
+   * 非 TTY 使用静态进行中状态，避免输出光标控制序列。
    */
   get canSpin(): boolean {
-    return this.#logMode === "capture" && (this.out as { isTTY?: boolean }).isTTY === true
+    return (this.out as { isTTY?: boolean }).isTTY === true
   }
 
   /**
@@ -208,19 +212,21 @@ export class Ui {
    * @remarks 任务串行执行，任意时刻至多一行处于进行中，因此只需向上移动一行即可
    * 原地重绘，无需管理多行光标。
    *
-   * @param label - 行文本，不含帧字符。
+   * @param row - 当前任务行。
+   * @param spin - 是否展示转圈动画。
    */
-  #startSpin(row: TaskRow): void {
-    // 非 TTY 下没有动画，占位行只会让 CI 日志里同一个任务出现两次（开始一次、结果
-    // 一次）。静默跳过，让日志回归「一行一个任务」。
-    if (
-      !this.canSpin ||
-      visibleWidth(formatTaskRow(row, this.depth, this.columns)) >= this.#columns()
-    ) {
+  #startSpin(row: TaskRow, spin = true): void {
+    this.#activeRow = row
+    this.#frame = 0
+
+    if (!this.canSpin || !spin) {
+      this.#write(
+        formatTaskRow({ ...row, pendingReason: "执行中" }, this.depth, this.columns)
+      )
+
       return
     }
 
-    this.#activeRow = row
     this.#write(this.#spinLine(0))
     this.#timer = setInterval(() => {
       this.#frame = (this.#frame + 1) % SPINNER_FRAMES.length
@@ -229,7 +235,7 @@ export class Ui {
       // 帧尾的换行不可省略：写入后光标必须停在该行的**下一行行首**，下一帧的
       // `cursorUp(1)` 才会正好回到这一行。若帧尾不换行，光标停在本行行尾，下一帧
       // 再上移一行就会逐帧向上爬，最终呈现在终端里铺成一条斜线。
-      this.out.write(`\u001B[1A\u001B[2K${this.#spinLine(this.#frame)}\n`)
+      this.out.write(`${CLEAR_SPINNER_LINE}${this.#spinLine(this.#frame)}\n`)
     }, SPINNER_INTERVAL_MS)
     this.#timer.unref?.()
   }
@@ -248,7 +254,8 @@ export class Ui {
 
     clearInterval(this.#timer)
     this.#timer = undefined
-    this.out.write(`\u001B[1A\u001B[2K${final}\n`)
+    this.out.write(CLEAR_SPINNER_LINE)
+    this.#write(final)
     this.#activeRow = { status: "running", label: "" }
   }
 
@@ -260,11 +267,18 @@ export class Ui {
    */
   #spinLine(frame: number): string {
     // 让转圈帧占据符号位，而不是追加在状态符号之前。
-    return formatTaskRow(
+    const line = formatTaskRow(
       { ...this.#activeRow, frame: theme.accent(SPINNER_FRAMES[frame] ?? "") },
       this.depth,
       this.columns
     )
+
+    if (visibleWidth(line) < this.#columns()) {
+      return line
+    }
+
+    // 动画必须保持一个物理行，长任务名缩短显示，完成结果仍保留全文。
+    return `${wrapText(line, this.#columns() - 2)[0] ?? ""}${theme.dim("…")}`
   }
 
   /**
@@ -590,6 +604,7 @@ export class Ui {
    * @param options - 任务选项。
    * @param execute - 任务逻辑。
    * @returns 退出码；130 表示用户取消。
+   * @throws 启用 throwOnError 时透传任务抛出的原始异常。
    */
   async task(
     options: TaskOptions,
@@ -600,8 +615,7 @@ export class Ui {
 
     const row = { ...targetOf(options), label: options.title, last: options.last }
 
-    // 先占一行：捕获模式下子进程不写终端，这一行可以安全地原地重绘为转圈动画。
-    this.#startSpin({ status: "running", ...row })
+    this.#startSpin({ status: "running", ...row }, options.spin ?? true)
 
     let result: RunResult
 
@@ -617,6 +631,11 @@ export class Ui {
           this.columns
         )
       )
+
+      if (options.throwOnError) {
+        throw error
+      }
+
       this.#writeDetail(message)
 
       return 1
@@ -711,24 +730,10 @@ export class Ui {
     args: readonly string[],
     cwd?: string
   ): Promise<number> {
-    this.taskRow({ status: "running", ...targetOf(options), label: options.title })
-    // 长驻服务的意义就是实时输出，不受全局日志模式影响。
-    this.#logMode = "live"
-    const result = await this.exec(command, args, cwd ? { cwd } : {})
-
-    if (result.code === 0) {
-      this.taskRow({ status: "success", ...targetOf(options), label: options.title })
-
-      return 0
-    }
-
-    this.taskRow({
-      status: result.code === CANCELLED_EXIT_CODE ? "cancelled" : "error",
-      ...targetOf(options),
-      label: options.title,
-    })
-
-    return result.code
+    return await this.task(
+      { ...options, log: "live" },
+      async () => await this.exec(command, args, cwd ? { cwd } : {})
+    )
   }
 
   /**
@@ -740,6 +745,7 @@ export class Ui {
     if (this.#timer !== undefined) {
       clearInterval(this.#timer)
       this.#timer = undefined
+      this.out.write(CLEAR_SPINNER_LINE)
     }
 
     this.#groups.length = 0
@@ -760,7 +766,16 @@ export class Ui {
     }
 
     this.#separated = separated
+
+    if (this.#timer !== undefined) {
+      this.out.write(CLEAR_SPINNER_LINE)
+    }
+
     this.out.write(`${line}\n`)
+
+    if (this.#timer !== undefined) {
+      this.out.write(`${this.#spinLine(this.#frame)}\n`)
+    }
   }
 
   /**
