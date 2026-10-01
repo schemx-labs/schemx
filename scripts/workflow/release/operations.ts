@@ -105,7 +105,7 @@ async function verifyPackageQuality(
   )
 
   if (artifactCode === 0) {
-    return 0
+    return firstFailure
   }
 
   if (artifactCode === 130) {
@@ -136,6 +136,11 @@ export async function verifyPlan(
 
   const plannedNames = new Set(plan.packages.map((item) => item.name))
 
+  // 已发布包只补齐后续标记，不再查询 npm 或重新验证本地产物。
+  const pendingPackages = plan.packages.filter(
+    (item) => !hasStep(planFile, item.package, "published")
+  )
+
   ui.groupBegin({
     title: "发布前检查",
     description:
@@ -147,8 +152,12 @@ export async function verifyPlan(
     ...(plan.channel === "latest"
       ? ([["验证正式发布分支", () => preflight.assertMainBranch()]] as const)
       : []),
-    ["验证 npm registry", () => preflight.assertRegistry(env)],
-    ["验证 npm 发布凭据", () => preflight.assertNpmAuth(env)],
+    ...(pendingPackages.length > 0
+      ? ([
+          ["验证 npm registry", () => preflight.assertRegistry(env)],
+          ["验证 npm 发布凭据", () => preflight.assertNpmAuth(env)],
+        ] as const)
+      : []),
   ]
 
   for (const [title, check] of gating) {
@@ -159,7 +168,10 @@ export async function verifyPlan(
     }
   }
 
-  if (plan.createGithubRelease) {
+  if (
+    plan.createGithubRelease &&
+    plan.packages.some((item) => !hasStep(planFile, item.package, "released"))
+  ) {
     const authCode = await runCheck(ui, "验证 GitHub 凭据", undefined, () =>
       preflight.assertGithubAuth()
     )
@@ -167,13 +179,11 @@ export async function verifyPlan(
     if (authCode !== 0) {
       return authCode
     }
+  }
 
-    for (const item of plan.packages) {
-      if (hasStep(planFile, item.package, "tagged")) {
-        continue
-      }
-
-      const code = await runCheck(ui, `验证 ${item.tag} 可用`, item.name, () =>
+  for (const item of plan.packages) {
+    if (plan.createTag && !hasStep(planFile, item.package, "tagged")) {
+      const code = await runCheck(ui, `验证 ${item.tag} Git Tag 可用`, item.name, () =>
         git.assertReleaseTagAvailable(item.tag)
       )
 
@@ -182,11 +192,7 @@ export async function verifyPlan(
       }
     }
 
-    for (const item of plan.packages) {
-      if (hasStep(planFile, item.package, "released")) {
-        continue
-      }
-
+    if (plan.createGithubRelease && !hasStep(planFile, item.package, "released")) {
       const code = await runCheck(
         ui,
         `验证 ${item.tag} GitHub Release 可用`,
@@ -200,12 +206,11 @@ export async function verifyPlan(
     }
   }
 
-  // 计划内的 workspace 依赖由拓扑发布顺序保证先发布；未选中依赖必须已经可安装。
-  for (const item of plan.packages) {
-    if (hasStep(planFile, item.package, "published")) {
-      continue
-    }
+  // 同一份计划共享的 workspace 依赖只查询一次。
+  const checkedDependencies = new Set<string>()
 
+  // 计划内的 workspace 依赖由拓扑发布顺序保证先发布；未选中依赖必须已经可安装。
+  for (const item of pendingPackages) {
     const target = catalog.find(item.package, catalog.publishable())
 
     if (!target) {
@@ -213,7 +218,7 @@ export async function verifyPlan(
     }
 
     for (const dependency of workspaceDependencyNames(target.manifest)) {
-      if (plannedNames.has(dependency)) {
+      if (plannedNames.has(dependency) || checkedDependencies.has(dependency)) {
         continue
       }
 
@@ -224,17 +229,15 @@ export async function verifyPlan(
       if (code !== 0) {
         return code
       }
+
+      checkedDependencies.add(dependency)
     }
   }
 
-  for (const item of plan.packages) {
-    if (hasStep(planFile, item.package, "published")) {
-      continue
-    }
-
+  for (const item of pendingPackages) {
     const available = await runCheck(
       ui,
-      `验证 ${item.name}@${item.version} 可用`,
+      `验证 ${item.name}@${item.version} npm 版本可用`,
       item.name,
       () => preflight.assertVersionAvailable(env, item.name, item.version)
     )
@@ -256,6 +259,12 @@ export async function verifyPlan(
 
   ui.groupEnd("success", "发布前检查完成。")
 
+  if (pendingPackages.length === 0) {
+    ui.status("info", "全部包已发布，跳过质量与产物检查。")
+
+    return 0
+  }
+
   ui.groupBegin({
     title: "质量与产物",
     description: "逐包执行质量任务；产物检查使用 pnpm 的实际发布文件规则。",
@@ -265,9 +274,9 @@ export async function verifyPlan(
 
   let firstFailure = 0
 
-  for (const [index, item] of plan.packages.entries()) {
+  for (const [index, item] of pendingPackages.entries()) {
     ui.groupBegin({
-      title: `[${index + 1}/${plan.packages.length}] ${item.name}`,
+      title: `[${index + 1}/${pendingPackages.length}] ${item.name}`,
       itemKey: item.name,
     })
 
@@ -308,7 +317,7 @@ export async function verifyPlan(
     return firstFailure
   }
 
-  ui.groupEnd("success", `质量与产物检查完成：${plan.packages.length} 个包全部通过。`)
+  ui.groupEnd("success", `质量与产物检查完成：${pendingPackages.length} 个包全部通过。`)
   ui.status(
     "success",
     "发布前检查完成：尚未执行 npm 发布、版本写入、Git Tag 或 GitHub Release。"
@@ -338,15 +347,15 @@ export function reportInterruption(
     tone: "error",
     content: `已发布：${published}\n失败：${failed}\n未执行：${pending || "无"}`,
   })
-  ui.status("error", "已成功发布的包无法撤回；其版本已记录在发布进度文件中。")
+  if (published !== "" && published !== "无") {
+    ui.status("error", "已成功发布的包无法撤回；其版本已记录在发布进度文件中。")
+  }
+
   ui.status(
     "warning",
     `修复失败原因后续跑：node scripts/workflow.ts release execute ${planFile}`
   )
-  ui.status(
-    "warning",
-    "续跑会跳过已发布的包，并补齐未完成的版本提交、Tag 与 GitHub Release。"
-  )
+  ui.status("warning", "续跑会读取已有进度，按冻结计划继续未完成的步骤。")
 }
 
 /**
@@ -379,8 +388,10 @@ export async function publishPackages(
 
     const directory = path.join(root, target.relativeDir)
 
-    // 续跑时同样写入版本：已发布的包需要保留版本改动交给版本提交，未发布的包会被回滚。
-    if (writeVersion) {
+    // 正式版已发布包仍需保留版本改动用于提交，预发布则跳过已完成包。
+    const alreadyPublished = hasStep(planFile, item.package, "published")
+
+    if (writeVersion && (!alreadyPublished || plan.channel === "latest")) {
       const code = await ui.task(
         { title: `写入 ${item.name}@${item.version}`, itemKey: item.name, log: "live" },
         async () => await writePackageVersion(directory, item.version)
@@ -391,7 +402,7 @@ export async function publishPackages(
       }
     }
 
-    if (hasStep(planFile, item.package, "published")) {
+    if (alreadyPublished) {
       published.push(`${item.name}@${item.version}`)
       ui.status("info", `跳过已发布的 ${item.name}@${item.version}。`)
       continue
@@ -399,7 +410,10 @@ export async function publishPackages(
 
     const code = await ui.task(
       { title: `发布 ${item.name}@${item.version}`, itemKey: item.name, log: "live" },
-      async () => await publishPackage(env, directory, plan.distTag)
+      async () =>
+        await publishPackage(env, directory, plan.distTag, (command, args, options) =>
+          ui.exec(command, args, options)
+        )
     )
 
     if (code === 0) {

@@ -70,7 +70,7 @@ export function renderPlan(ui: Ui, plan: ReleasePlan): void {
 }
 
 /**
- * 展示发布结果。
+ * 展示成功发布的结果，仅在发布及收尾步骤均成功后调用。
  *
  * @param ui - 终端 UI。
  * @param plan - 冻结计划。

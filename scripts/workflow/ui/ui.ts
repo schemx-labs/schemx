@@ -661,8 +661,8 @@ export class Ui {
       )
     )
 
-    // live 模式下子进程输出已经直接写进终端，这里不再重复渲染。
-    if (failed && this.#logMode !== "live") {
+    // 实时输出的 ui.exec 返回空 output；适配器返回的非空捕获结果仍需展示。
+    if (failed) {
       this.#writeDetail(result.output)
     }
 

@@ -3,7 +3,7 @@
  *
  * @remarks 只读取 Git 与包级说明文件，并将 Markdown 写入调用方指定文件。
  */
-import { accessSync, constants, readFileSync, writeFileSync } from "node:fs"
+import { accessSync, constants, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 import { failure } from "../core/errors.ts"
@@ -149,6 +149,9 @@ function existsReadable(filePath: string): boolean {
 export async function writeReleaseNotes(input: NotesInput): Promise<void> {
   const { root, packageName, version, tagName, targetRef, outputFile, env, relativeDir } =
     input
+
+  // scoped 包的 Tag 含有斜杠，输出路径可能包含多级目录。
+  mkdirSync(path.dirname(outputFile), { recursive: true })
 
   const previous = await previousTag(packageName, tagName, targetRef)
 

@@ -91,7 +91,11 @@ async function executeSteps(
 ): Promise<number> {
   const { ui, catalog } = context
 
-  const writeVersion = needsVersionWrite(plan)
+  // 预发布续跑只补标记时无需改写版本；正式版仍保留版本提交所需的恢复逻辑。
+  const writeVersion =
+    needsVersionWrite(plan) &&
+    (plan.channel === "latest" ||
+      plan.packages.some((item) => !hasStep(planFile, item.package, "published")))
 
   const backup = writeVersion ? VersionBackup.create(catalog, plan.packages) : undefined
 
@@ -147,10 +151,9 @@ async function executeSteps(
   }
 
   finalizeVersions(context, plan, planFile, backup)
-  renderOutcome(ui, plan, planFile)
 
   if (followUp !== 0) {
-    ui.groupEnd("failed", "发布已发布的包后，版本提交或标记步骤失败。")
+    ui.groupEnd("failed", "已发布包的版本提交或标记步骤失败。")
 
     return followUp
   }
@@ -161,6 +164,7 @@ async function executeSteps(
     return publish
   }
 
+  renderOutcome(ui, plan, planFile)
   ui.groupEnd("success", "发布步骤执行完成。")
 
   return 0
