@@ -268,6 +268,38 @@ describe("失败详情的语义分类", () => {
 })
 
 describe("失败详情块", () => {
+  it("实时任务返回适配器捕获的错误时仍展示失败原因", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const output = "ERR_PNPM_E403 npm 发布被拒绝"
+
+    const code = await ui.task({ title: "发布", log: "live" }, async () => ({
+      code: 1,
+      stdout: "",
+      stderr: output,
+      output,
+    }))
+
+    expect(code).toBe(1)
+    expect(capture.raw).toContain(output)
+  })
+
+  it("实际流式输出的错误不重复渲染", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const code = await ui.task(
+      { title: "发布", log: "live" },
+      async () =>
+        await ui.exec(process.execPath, [
+          "-e",
+          'process.stderr.write("ERR_PNPM_E403 npm 发布被拒绝\\n"); process.exitCode = 1',
+        ])
+    )
+
+    expect(code).toBe(1)
+    expect(capture.raw.match(/ERR_PNPM_E403/g)).toHaveLength(1)
+  })
+
   /**
    * 运行一次失败任务并返回渲染出的行。
    *

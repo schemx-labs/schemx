@@ -27,9 +27,10 @@ export function registryOf(env: NodeJS.ProcessEnv): string {
  * 创建一个包含 NPM_TOKEN 的一次性 npmrc。
  *
  * @param env - 环境变量。
+ * @param authKey - 绑定目标 registry 的认证键。
  * @returns npmrc 路径；未提供 token 时返回 undefined。
  */
-function createTokenConfig(env: NodeJS.ProcessEnv): string | undefined {
+function createTokenConfig(env: NodeJS.ProcessEnv, authKey: string): string | undefined {
   const token = env.NPM_TOKEN
 
   if (!token) {
@@ -38,15 +39,13 @@ function createTokenConfig(env: NodeJS.ProcessEnv): string | undefined {
 
   const registry = registryOf(env)
 
-  const host = registry.replace(/^https?:\/\//, "").replace(/\/$/, "")
-
   const directory = mkdtempSync(path.join(tmpdir(), "schemx-npmrc-"))
 
   const configFile = path.join(directory, "npmrc")
 
   writeFileSync(
     configFile,
-    `registry=${registry}\n//${host}/:_authToken=${token}\nalways-auth=true\n`,
+    `registry=${registry}\n${authKey}=${token}\nalways-auth=true\n`,
     { mode: 0o600 }
   )
 
@@ -68,14 +67,26 @@ export async function withNpmToken(
     return await execute(env)
   }
 
-  const configFile = createTokenConfig(env)
+  // 保留 registry 路径，兼容非根路径的私有源。
+  const host = registryOf(env)
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "")
+
+  // pnpm 的 auth.ini 优先于用户 npmrc，本次调用需用环境变量固定凭据。
+  const authKey = `//${host}/:_authToken`
+
+  const configFile = createTokenConfig(env, authKey)
 
   if (!configFile) {
     return await execute(env)
   }
 
   try {
-    return await execute({ ...env, NPM_CONFIG_USERCONFIG: configFile })
+    return await execute({
+      ...env,
+      NPM_CONFIG_USERCONFIG: configFile,
+      [`pnpm_config_${authKey}`]: env.NPM_TOKEN,
+    })
   } finally {
     rmSync(path.dirname(configFile), { recursive: true, force: true })
   }
@@ -230,12 +241,14 @@ export async function writePackageVersion(
  * @param env - 环境变量。
  * @param packageDirectory - 包目录。
  * @param distTag - npm dist-tag。
+ * @param execute - 发布命令执行器；调用方可提供 UI 实时输出，默认捕获结果。
  * @returns 执行结果。
  */
 export async function publishPackage(
   env: NodeJS.ProcessEnv,
   packageDirectory: string,
-  distTag: string
+  distTag: string,
+  execute: typeof run = run
 ): Promise<RunResult> {
   const args = [
     "--dir",
@@ -255,5 +268,5 @@ export async function publishPackage(
     args.push("--otp", env.NPM_OTP)
   }
 
-  return await withNpmToken(env, (scoped) => run("pnpm", args, { env: scoped }))
+  return await withNpmToken(env, (scoped) => execute("pnpm", args, { env: scoped }))
 }

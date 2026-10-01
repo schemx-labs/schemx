@@ -402,7 +402,7 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
     rmSync(planFile, { force: true })
     ui.flowEnd("success", "发布完成。")
   } else {
-    ui.status("warning", `已保留冻结计划与发布进度：${planFile}`)
+    ui.status("warning", `已保留冻结计划：${planFile}`)
     ui.flowEndFromExitCode(exitCode, {
       success: "发布完成。",
       failed: "发布流程失败。",

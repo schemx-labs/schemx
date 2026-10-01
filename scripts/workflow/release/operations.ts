@@ -338,15 +338,15 @@ export function reportInterruption(
     tone: "error",
     content: `已发布：${published}\n失败：${failed}\n未执行：${pending || "无"}`,
   })
-  ui.status("error", "已成功发布的包无法撤回；其版本已记录在发布进度文件中。")
+  if (published !== "" && published !== "无") {
+    ui.status("error", "已成功发布的包无法撤回；其版本已记录在发布进度文件中。")
+  }
+
   ui.status(
     "warning",
     `修复失败原因后续跑：node scripts/workflow.ts release execute ${planFile}`
   )
-  ui.status(
-    "warning",
-    "续跑会跳过已发布的包，并补齐未完成的版本提交、Tag 与 GitHub Release。"
-  )
+  ui.status("warning", "续跑会读取已有进度，按冻结计划继续未完成的步骤。")
 }
 
 /**
@@ -399,7 +399,10 @@ export async function publishPackages(
 
     const code = await ui.task(
       { title: `发布 ${item.name}@${item.version}`, itemKey: item.name, log: "live" },
-      async () => await publishPackage(env, directory, plan.distTag)
+      async () =>
+        await publishPackage(env, directory, plan.distTag, (command, args, options) =>
+          ui.exec(command, args, options)
+        )
     )
 
     if (code === 0) {

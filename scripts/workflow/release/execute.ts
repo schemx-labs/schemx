@@ -147,10 +147,9 @@ async function executeSteps(
   }
 
   finalizeVersions(context, plan, planFile, backup)
-  renderOutcome(ui, plan, planFile)
 
   if (followUp !== 0) {
-    ui.groupEnd("failed", "发布已发布的包后，版本提交或标记步骤失败。")
+    ui.groupEnd("failed", "已发布包的版本提交或标记步骤失败。")
 
     return followUp
   }
@@ -161,6 +160,7 @@ async function executeSteps(
     return publish
   }
 
+  renderOutcome(ui, plan, planFile)
   ui.groupEnd("success", "发布步骤执行完成。")
 
   return 0
