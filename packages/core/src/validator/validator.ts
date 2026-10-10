@@ -22,6 +22,7 @@ import {
   createValidationSuccess,
 } from "./result"
 import { createStandardSchemaAdapter } from "./standardSchema.adapter"
+import { createValidationRunManager } from "./validationRunManager"
 
 import type { PresetRuleEntry, PresetRuleRegistry } from "../registry"
 import type { Store } from "../store"
@@ -38,6 +39,7 @@ import type {
   ValidationRuleIssue,
   Validator,
 } from "./types"
+import type { ValidationRun } from "./validationRunManager"
 import type {
   DefinedFieldValue,
   FieldArrayChange,
@@ -92,16 +94,6 @@ export interface CreateValidatorOptions<TValues extends Values> {
   readonly validationConcurrency?: number
 }
 
-/**
- * 正在执行的单字段校验运行。
- */
-interface ValidationRun {
-  // 递增版本，用于拒绝陈旧运行的状态提交。
-  readonly version: number
-  // 供异步规则主动停止工作的信号。
-  readonly controller: AbortController
-}
-
 // 单个字段的原始规则记录；与字段元数据分开维护。
 interface FieldRuleRecord<TValues extends Values> {
   // 规则所属的字段路径。
@@ -148,11 +140,11 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   // 按注册顺序保存可识别字段规则的 adapter。
   private readonly adapters: ReadonlyMap<ValidationAdapterID, ValidationAdapter>
 
-  // 当前仍可能提交状态的单字段运行。
-  private readonly runs = new Map<string, ValidationRun>()
+  // 统一管理新轮替换、字段抢占、父子取消和运行清理。
+  private readonly runManager = createValidationRunManager()
 
-  // 用于生成单调递增运行版本的计数器。
-  private nextVersion = 0
+  // Validator 独立监听 Store，以覆盖完整重置和单字段重置。
+  private readonly unsubscribeResets: () => void
 
   // 销毁后阻止新的运行与状态写入。
   private destroyed = false
@@ -174,6 +166,9 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
       standardSchemaAdapter,
       asyncValidatorAdapter,
     ])
+    this.unsubscribeResets = this.fieldStore.subscribeResets(() =>
+      this.runManager.cancelAll()
+    )
   }
 
   /**
@@ -189,7 +184,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     const key = createFieldKey(config.name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
 
     const storedConfig = {
       name: config.name,
@@ -219,7 +214,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     const key = createFieldKey(name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
 
     if (rules === undefined) {
       this.fieldRules.delete(key)
@@ -241,7 +236,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     const key = createFieldKey(name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
     this.manualFieldRules.set(key, {
       name,
       rules: copyFieldRules(rules) as FieldRules<TValues, NamePath<TValues>>,
@@ -257,7 +252,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   public removeFieldRules(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
     this.fieldRules.delete(key)
     this.clearResolvedFieldErrors(name)
   }
@@ -265,7 +260,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   public removeManualFieldRules(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
     this.manualFieldRules.delete(key)
     this.clearResolvedFieldErrors(name)
   }
@@ -278,7 +273,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
   public removeField(name: NamePath<TValues>): void {
     const key = createFieldKey(name)
 
-    this.abortRun(key)
+    this.runManager.cancelField(key)
     const config = this.fieldConfigs.get(key)
 
     if (config && this.manualFieldRules.has(key)) {
@@ -304,40 +299,40 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
     for (const [key, config] of this.fieldConfigs) {
       if (createFieldKey(config.name) === createFieldKey(path)) {
-        this.abortRun(key)
+        this.runManager.cancelField(key)
 
         continue
       }
 
       if (isFieldArrayDescendantOutOfRange(config.name, path, change.nextLength)) {
         this.fieldConfigs.delete(key)
-        this.abortRun(key)
+        this.runManager.cancelField(key)
 
         continue
       }
 
       if (!isFieldArrayDescendantAffected(config.name, path, change)) continue
 
-      this.abortRun(key)
+      this.runManager.cancelField(key)
     }
 
     for (const [key, record] of this.fieldRules) {
       if (createFieldKey(record.name) === createFieldKey(path)) {
-        this.abortRun(key)
+        this.runManager.cancelField(key)
 
         continue
       }
 
       if (isFieldArrayDescendantOutOfRange(record.name, path, change.nextLength)) {
         this.fieldRules.delete(key)
-        this.abortRun(key)
+        this.runManager.cancelField(key)
 
         continue
       }
 
       if (!isFieldArrayDescendantAffected(record.name, path, change)) continue
 
-      this.abortRun(key)
+      this.runManager.cancelField(key)
     }
 
     this.fieldStore.invalidateFieldArrayErrors(path, change)
@@ -400,95 +395,110 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    * @typeParam TName - 字段路径类型。
    * @param name - 要校验的字段路径。
    * @param values - 本次运行使用的表单值快照。
+   * @param parentSignal - 本轮所属的全表取消信号；单字段调用可以省略。
    * @returns 成功、失败或显式取消结果。
    */
   public async validateField<TName extends NamePath<TValues>>(
     name: TName,
-    values: TValues
+    values: TValues,
+    parentSignal?: AbortSignal
   ): Promise<ValidationResult<TValues, TName>> {
-    if (this.destroyed) return createValidationCancelled(values)
+    if (this.destroyed) {
+      return createValidationCancelled(values)
+    }
 
     // 当前字段的稳定运行身份。
     const key = createFieldKey(name)
 
     // 唯一允许提交本次状态的运行令牌。
-    const run = this.startRun(key)
+    const run = this.runManager.startField(key, parentSignal)
 
-    // 在运行开始时读取字段元数据和原始规则。
-    const config = this.fieldConfigs.get(key)
-
-    const ruleRecord = this.manualFieldRules.get(key) ?? this.fieldRules.get(key)
-
-    const mutationRevision = this.fieldStore.getMutationRevision()
-
-    let rules: readonly ValidationRule[] = []
-
-    if (config?.active === false) {
-      this.runs.delete(key)
-      this.clearResolvedFieldErrors(name)
-
-      return createValidationSuccess(values)
+    if (!run) {
+      return createValidationCancelled(values)
     }
 
-    if (config || ruleRecord) {
-      try {
-        rules = this.resolveRules(
-          config ?? {
-            name,
-            label: "",
-            placeholder: "",
-            required: undefined,
-          },
-          ruleRecord?.rules
-        )
-        this.replaceFieldErrors(name, "configuration", [])
-      } catch (error) {
-        this.runs.delete(key)
-        this.replaceFieldErrors(name, "validation", [])
-        this.replaceFieldErrors(name, "configuration", [
-          {
-            type: "configuration",
-            message: "字段校验配置错误",
-            code: "validation_config",
-            cause: error,
-          },
-        ])
-        console.error(`[schemx] 字段 "${String(name)}" 校验配置错误`, error)
+    try {
+      // 在运行开始时读取字段元数据和原始规则。
+      const config = this.fieldConfigs.get(key)
 
-        return this.fieldResult(name, values)
+      const ruleRecord = this.manualFieldRules.get(key) ?? this.fieldRules.get(key)
+
+      const mutationRevision = this.fieldStore.getMutationRevision()
+
+      let rules: readonly ValidationRule[] = []
+
+      if (config?.active === false) {
+        this.clearResolvedFieldErrors(name)
+
+        return createValidationSuccess(values)
       }
+
+      if (config || ruleRecord) {
+        try {
+          rules = this.resolveRules(
+            config ?? {
+              name,
+              label: "",
+              placeholder: "",
+              required: undefined,
+            },
+            ruleRecord?.rules
+          )
+          if (!run.isCurrent()) {
+            return createValidationCancelled(values)
+          }
+
+          this.replaceFieldErrors(name, "configuration", [])
+        } catch (error) {
+          if (!run.isCurrent()) {
+            return createValidationCancelled(values)
+          }
+
+          this.replaceFieldErrors(name, "validation", [])
+          this.replaceFieldErrors(name, "configuration", [
+            {
+              type: "configuration",
+              message: "字段校验配置错误",
+              code: "validation_config",
+              cause: error,
+            },
+          ])
+          console.error(`[schemx] 字段 "${String(name)}" 校验配置错误`, error)
+
+          return this.fieldResult(name, values)
+        }
+      }
+
+      // 按当前路径从本次表单快照读取字段值。
+      const value = getByPath(values, name) as
+        | DefinedFieldValue<TValues, TName>
+        | undefined
+
+      // 传给每条规则的不可写执行上下文。
+      const context: ValidationRuleContext<TValues, TName> = {
+        name,
+        values,
+        signal: run.signal,
+      }
+
+      // 本次规则执行产生的问题；undefined 表示已中止。
+      const issues = await this.executeRules(rules, value, context)
+
+      if (
+        issues === undefined ||
+        !run.isCurrent() ||
+        this.destroyed ||
+        this.fieldStore.getMutationRevision() !== mutationRevision
+      ) {
+        return createValidationCancelled(values)
+      }
+
+      this.replaceFieldErrors(name, "validation", issues)
+
+      return this.fieldResult(name, values)
+    } finally {
+      run.finish()
     }
-
-    // 按当前路径从本次表单快照读取字段值。
-    const value = getByPath(values, name) as DefinedFieldValue<TValues, TName> | undefined
-
-    // 传给每条规则的不可写执行上下文。
-    const context: ValidationRuleContext<TValues, TName> = {
-      name,
-      values,
-      signal: run.controller.signal,
-    }
-
-    // 本次规则执行产生的问题；undefined 表示已中止。
-    const issues = await this.executeRules(rules, value, context)
-
-    if (
-      issues === undefined ||
-      run.controller.signal.aborted ||
-      this.destroyed ||
-      this.fieldStore.getMutationRevision() !== mutationRevision
-    ) {
-      return createValidationCancelled(values)
-    }
-
-    if (this.runs.get(key)?.version !== run.version) {
-      return createValidationCancelled(values)
-    }
-
-    this.runs.delete(key)
-    this.replaceFieldErrors(name, "validation", issues)
-
-    return this.fieldResult(name, values)
   }
 
   /**
@@ -498,35 +508,47 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    * @returns 成功、失败或任一字段被取消时的取消结果。
    */
   public async validate(values: TValues): Promise<ValidationResult<TValues>> {
-    if (this.destroyed) return createValidationCancelled(values)
-
-    const mutationRevision = this.fieldStore.getMutationRevision()
-
-    // 合并配置和规则字段，避免校验期间字段注册变化影响本轮范围。
-    const records = this.collectValidationRecords()
-
-    // 各字段独立运行，但限制并发数并在批次间让出主线程。
-    const results = await this.validateFieldsInBatches(records, values)
-
-    if (
-      results.some((result) => !result.valid && result.cancelled) ||
-      this.fieldStore.getMutationRevision() !== mutationRevision
-    ) {
+    if (this.destroyed) {
       return createValidationCancelled(values)
     }
 
-    // 最终从最新错误仓库读取，避免校验期间写入的 external 错误被旧结果覆盖。
-    const errors: ValidationError<NamePath<TValues>>[] = []
+    // 新一轮接管全表运行身份，并取消上一轮所属字段。
+    const run = this.runManager.startForm()
 
-    for (const entry of this.fieldStore.getFieldsErrors()) {
-      const fieldError = this.createFieldError(entry.field, entry.errors)
+    try {
+      const mutationRevision = this.fieldStore.getMutationRevision()
 
-      if (fieldError) errors.push(fieldError)
+      // 合并配置和规则字段，避免校验期间字段注册变化影响本轮范围。
+      const records = this.collectValidationRecords()
+
+      // 各字段独立运行，但限制并发数并在批次间让出主线程。
+      await this.validateFieldsInBatches(records, values, run)
+
+      if (
+        !run.isCurrent() ||
+        this.destroyed ||
+        this.fieldStore.getMutationRevision() !== mutationRevision
+      ) {
+        return createValidationCancelled(values)
+      }
+
+      // 最终从最新错误仓库读取，避免校验期间写入的 external 错误被旧结果覆盖。
+      const errors: ValidationError<NamePath<TValues>>[] = []
+
+      for (const entry of this.fieldStore.getFieldsErrors()) {
+        const fieldError = this.createFieldError(entry.field, entry.errors)
+
+        if (fieldError) {
+          errors.push(fieldError)
+        }
+      }
+
+      return errors.length === 0
+        ? createValidationSuccess(values)
+        : createValidationFailure(values, errors)
+    } finally {
+      run.finish()
     }
-
-    return errors.length === 0
-      ? createValidationSuccess(values)
-      : createValidationFailure(values, errors)
   }
 
   /**
@@ -536,45 +558,12 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     if (this.destroyed) return
 
     this.destroyed = true
-    for (const run of this.runs.values()) run.controller.abort()
-    this.runs.clear()
+    this.unsubscribeResets()
+    this.runManager.cancelAll()
     this.fieldConfigs.clear()
     this.fieldRules.clear()
     this.manualFieldRules.clear()
     this.fieldStore.clearAllErrors()
-  }
-
-  /**
-   * 启动字段新运行，并使同字段旧运行进入取消状态。
-   *
-   * @param key - 字段的稳定路径 key。
-   * @returns 新建的字段校验运行。
-   */
-  private startRun(key: string): ValidationRun {
-    this.abortRun(key)
-    const run = {
-      version: ++this.nextVersion,
-      controller: new AbortController(),
-    }
-
-    this.runs.set(key, run)
-
-    return run
-  }
-
-  /**
-   * 中止一个字段当前仍在执行的运行。
-   *
-   * @param key - 字段的稳定路径 key。
-   */
-  private abortRun(key: string): void {
-    // 仍可取消的当前字段运行。
-    const run = this.runs.get(key)
-
-    if (!run) return
-
-    run.controller.abort()
-    this.runs.delete(key)
   }
 
   /**
@@ -741,7 +730,10 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
       try {
         // 等待单条规则完成，随后再次确认运行未被中止。
-        const result = await rule.validate(value, context)
+        const result = await this.runManager.waitForRuleResult(
+          rule.validate(value, context),
+          context.signal
+        )
 
         if (context.signal.aborted) return undefined
 
@@ -796,31 +788,40 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
    *
    * @param records - 本轮要校验的字段记录。
    * @param values - 本轮运行使用的表单值快照。
-   * @returns 各字段校验结果，顺序与 `records` 保持一致。
+   * @param run - 全表运行句柄；字段取消时同时停止其他 worker。
    */
   private async validateFieldsInBatches(
     records: readonly FieldRuleRecord<TValues>[],
-    values: TValues
-  ): Promise<ValidationResult<TValues>[]> {
+    values: TValues,
+    run: ValidationRun
+  ): Promise<void> {
     if (records.length === 0) {
-      return []
+      return
     }
 
     const concurrency = normalizeValidationConcurrency(this.options.validationConcurrency)
 
-    const results: ValidationResult<TValues>[] = new Array(records.length)
-
+    // worker 共享字段游标；取消后不再领取下一项。
     let nextIndex = 0
 
     let fieldsSinceYield = 0
 
     const runWorker = async (): Promise<void> => {
-      while (nextIndex < records.length) {
+      while (run.isCurrent() && nextIndex < records.length) {
         const index = nextIndex++
 
         const record = records[index]
 
-        results[index] = await this.validateField(record.name, values)
+        const result = await this.validateField(record.name, values, run.signal)
+
+        if (!result.valid && result.cancelled) {
+          run.cancel()
+        }
+
+        if (!run.isCurrent()) {
+          return
+        }
+
         fieldsSinceYield += 1
 
         if (fieldsSinceYield >= concurrency) {
@@ -833,8 +834,6 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
     const workerCount = Math.min(concurrency, records.length)
 
     await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
-
-    return results
   }
 
   /**

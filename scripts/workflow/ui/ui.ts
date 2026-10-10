@@ -661,8 +661,15 @@ export class Ui {
       )
     )
 
-    // 实时输出的 ui.exec 返回空 output；适配器返回的非空捕获结果仍需展示。
-    if (failed) {
+    // warning 不改变工具退出码，但成功任务也必须展示其捕获的诊断。
+    // 实时 ui.exec 返回空 output，因此不会重复渲染已输出的日志。
+    const hasDiagnostics = result.output.split("\n").some((line) => {
+      const tone = classifyDetailLine(line)
+
+      return tone === "warning" || tone === "error"
+    })
+
+    if (failed || hasDiagnostics) {
       this.#writeDetail(result.output)
     }
 
@@ -670,7 +677,7 @@ export class Ui {
   }
 
   /**
-   * 渲染子进程的失败输出。
+   * 渲染子进程的诊断详情。
    *
    * @remarks 整块染红会淹没真正需要被读到的错误结论。这里按行判定语义：命令回显
    * （`$ …`）属于上下文，弱化处理；明确的错误标记染红；其余保持弱化，形成 rustc 与
@@ -816,6 +823,8 @@ function toneColor(tone: DetailTone): (text: string) => string {
   switch (tone) {
     case "error":
       return theme.error
+    case "warning":
+      return theme.warning
     case "command":
       return theme.dim
     case "plain":
@@ -902,7 +911,12 @@ interface DetailLine {
  * @returns 重排并去重后的行。
  */
 function arrangeDetail(detail: string): readonly DetailLine[] {
-  const buckets: Record<DetailTone, string[]> = { command: [], plain: [], error: [] }
+  const buckets: Record<DetailTone, string[]> = {
+    command: [],
+    plain: [],
+    warning: [],
+    error: [],
+  }
 
   for (const text of detail.split("\n")) {
     const trimmed = text.trimEnd()
@@ -914,7 +928,7 @@ function arrangeDetail(detail: string): readonly DetailLine[] {
     buckets[classifyDetailLine(trimmed)].push(trimmed)
   }
 
-  return (["command", "plain", "error"] as const)
+  return (["command", "plain", "warning", "error"] as const)
     .flatMap((tone) => buckets[tone])
     .filter((text, index, all) => index === 0 || text !== all[index - 1])
     .map((text) => ({ text, tone: classifyDetailLine(text) }))
@@ -924,7 +938,7 @@ function arrangeDetail(detail: string): readonly DetailLine[] {
  * 在行数预算内挑选要展示的行。
  *
  * @remarks 错误结论排在最后，若简单截断尾部，最需要看的内容反而会被丢掉。这里先为
- * 错误行预留额度，剩余额度再按原顺序补足前面的上下文。
+ * 错误与警告预留额度，剩余额度再按原顺序补足前面的上下文。
  *
  * @param lines - 全部候选行。
  * @param budget - 最多展示的行数。
@@ -938,30 +952,35 @@ function selectDetailLines(
     return lines
   }
 
+  // 错误优先于警告；两者都先于普通命令和成功日志保留。
   const errors = lines.filter((line) => line.tone === "error")
 
-  const errorQuota = Math.min(
-    errors.length,
+  const warnings = lines.filter((line) => line.tone === "warning")
+
+  const diagnosticQuota = Math.min(
+    errors.length + warnings.length,
     Math.max(budget - 8, Math.ceil(budget * 0.6))
   )
 
-  const keptErrors = errors.slice(-errorQuota)
+  const keptErrors = errors.slice(-Math.min(errors.length, diagnosticQuota))
 
-  const keptText = new Set(keptErrors.map((line) => line.text))
+  const warningQuota = diagnosticQuota - keptErrors.length
+
+  const keptWarnings = warnings.slice(Math.max(0, warnings.length - warningQuota))
 
   const head: DetailLine[] = []
 
   for (const line of lines) {
-    if (keptText.has(line.text) || line.tone === "error") {
+    if (line.tone === "error" || line.tone === "warning") {
       continue
     }
 
-    if (head.length >= budget - keptErrors.length) {
+    if (head.length >= budget - keptErrors.length - keptWarnings.length) {
       break
     }
 
     head.push(line)
   }
 
-  return [...head, ...keptErrors]
+  return [...head, ...keptWarnings, ...keptErrors]
 }

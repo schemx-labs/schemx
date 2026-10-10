@@ -59,17 +59,17 @@
   },
   "scripts": {
     "build": "pnpm run type-check && vp build",
-    "build:analyze": "vp build",
+    "build:analyze": "pnpm run build --mode analyze",
     "build:deps": "pnpm --filter \"@schemx/vant^...\" run build",
     "test": "vp test run --passWithNoTests",
-    "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
+    "lint": "pnpm --dir ../.. exec vp lint packages/vant/src && eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
+    "lint:fix": "pnpm --dir ../.. exec vp lint --fix packages/vant/src && eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "vp fmt \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "vp fmt --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "type-check": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run build:deps && pnpm run lint && pnpm run format:check && tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
     "prepublishOnly": "pnpm run build",
-    "pack-local": "node ../../scripts/workflow.ts pack-local --target packages/vant"
+    "pack-local": "node ../../scripts/workflow.ts pack-local packages/vant"
   },
   "license": "MIT",
   "devDependencies": {

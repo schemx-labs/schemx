@@ -13,7 +13,7 @@ import type {
   RendererRegistry,
 } from "../registry"
 import type { SchemaRuntime } from "../runtime/createSchemaRuntime"
-import type { Store } from "../store"
+import type { Store, StorePending } from "../store"
 import type {
   NamePath,
   SchemxFormApi,
@@ -210,9 +210,10 @@ export function createFormInstance<TValues extends Values>(
 
   const isLoading: SchemxInstance<TValues>["isLoading"] = () => loading.value
 
-  const waitForCriticalIdle = async (
-    resetRevision: number
-  ): Promise<{ readonly ready: boolean; readonly reset: boolean }> => {
+  const waitForCriticalIdle = async (): Promise<{
+    readonly ready: boolean
+    readonly reset: boolean
+  }> => {
     const runtime = getRuntime()
 
     if (!runtime) return { ready: true, reset: false }
@@ -236,10 +237,6 @@ export function createFormInstance<TValues extends Values>(
       return result
     } finally {
       unsubscribe()
-
-      if (model.store.getResetRevision() !== resetRevision) {
-        resolveReset = undefined
-      }
     }
   }
 
@@ -268,7 +265,7 @@ export function createFormInstance<TValues extends Values>(
   const validateField: SchemxInstance<TValues>["validateField"] = async (name) => {
     const resetRevision = model.store.getResetRevision()
 
-    const dependencyState = await waitForCriticalIdle(resetRevision)
+    const dependencyState = await waitForCriticalIdle()
 
     if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
       return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
@@ -282,13 +279,23 @@ export function createFormInstance<TValues extends Values>(
 
     refreshFieldValidationConfig(name)
 
-    return model.validation.validateField(name, model.store.getFieldsValue())
+    const result = await model.validation.validateField(
+      name,
+      model.store.getFieldsValue()
+    )
+
+    if (model.store.getResetRevision() !== resetRevision) {
+      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
+    }
+
+    return result
   }
 
   const validateAfterIdle = async (): Promise<ValidationResult<TValues>> => {
-    const createPendingResult = (): ValidationResult<TValues> => {
-      const pendingFields = model.store.getPendingFields()
-
+    // @param pendingFields - 本次检查发现的操作中字段，避免再次扫描 Store。
+    const createPendingResult = (
+      pendingFields: readonly StorePending<TValues, NamePath<TValues>>[]
+    ): ValidationResult<TValues> => {
       const defaultMessage = `存在正在操作中的字段: ${pendingFields.map((item) => item.field).join(", ")}，请等待完成后再提交`
 
       console.warn(`[schemx] ${defaultMessage}`)
@@ -296,7 +303,7 @@ export function createFormInstance<TValues extends Values>(
       // 在写入错误触发订阅回调前保留本次值快照。
       const values = model.store.getFieldsSnapshot()
 
-      // 复用同一组问题写入 Store 和创建公开结果。
+      // 返回本次 pending 问题；Store 中其他来源的错误另外保留。
       const errors = pendingFields.map<FieldValidationError<NamePath<TValues>>>(
         ({ field, message }) => {
           // 至少保留一条提示，使字段错误始终满足非空约束。
@@ -311,30 +318,47 @@ export function createFormInstance<TValues extends Values>(
             })),
           ]
 
-          model.store.setFieldErrors(field as NamePath<TValues>, issues)
-
-          return { scope: "field", name: field as NamePath<TValues>, issues }
+          return { scope: "field", name: field, issues }
         }
+      )
+
+      model.store.setFieldsErrors(
+        errors.map(({ name, issues }) => ({
+          field: name,
+          errors: [
+            ...model.store
+              .getFieldErrors(name)
+              .filter((issue) => issue.code !== "pending"),
+            ...issues,
+          ],
+        }))
       )
 
       return createValidationFailure(values, errors)
     }
 
-    if (model.store.getPendingFields().length > 0) {
-      return createPendingResult()
+    // 预检与收尾检查分别覆盖校验开始前和异步校验期间的业务操作。
+    const pendingFields = model.store.getPendingFields()
+
+    if (pendingFields.length > 0) {
+      return createPendingResult(pendingFields)
     }
 
     const result = await model.validation.validate(model.store.getFieldsValue())
 
     if (!result.valid && result.cancelled) return result
 
-    return model.store.getPendingFields().length > 0 ? createPendingResult() : result
+    const pendingAfterValidation = model.store.getPendingFields()
+
+    return pendingAfterValidation.length > 0
+      ? createPendingResult(pendingAfterValidation)
+      : result
   }
 
   const validate: SchemxInstance<TValues>["validate"] = withLock(async () => {
     const resetRevision = model.store.getResetRevision()
 
-    const dependencyState = await waitForCriticalIdle(resetRevision)
+    const dependencyState = await waitForCriticalIdle()
 
     if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
       return createValidationCancelled(model.store.getFieldsSnapshot())
@@ -344,7 +368,13 @@ export function createFormInstance<TValues extends Values>(
       return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
     }
 
-    return validateAfterIdle()
+    const result = await validateAfterIdle()
+
+    if (model.store.getResetRevision() !== resetRevision) {
+      return createValidationCancelled(model.store.getFieldsSnapshot())
+    }
+
+    return result
   })
 
   const submit: SchemxInstance<TValues>["submit"] = withLock(async () => {
@@ -353,7 +383,7 @@ export function createFormInstance<TValues extends Values>(
     try {
       setLoading(true)
 
-      const dependencyState = await waitForCriticalIdle(resetRevision)
+      const dependencyState = await waitForCriticalIdle()
 
       if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
         return createValidationCancelled(model.store.getFieldsSnapshot())
@@ -370,6 +400,10 @@ export function createFormInstance<TValues extends Values>(
       const validationRevision = model.store.getMutationRevision()
 
       const result = await validateAfterIdle()
+
+      if (model.store.getResetRevision() !== resetRevision) {
+        return createValidationCancelled(model.store.getFieldsSnapshot())
+      }
 
       if (result.valid && model.store.getMutationRevision() !== validationRevision) {
         return createValidationCancelled(model.store.getFieldsSnapshot())
@@ -502,8 +536,8 @@ export function createFormInstance<TValues extends Values>(
     validateField,
     validate,
     submit,
-    effect: model.effect,
-    batch: model.batch,
+    effect: model.effect.bind(model),
+    batch: model.batch.bind(model),
     setSchemas,
     updateSchemas,
     updateSchemaConfig,

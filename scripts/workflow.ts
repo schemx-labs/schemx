@@ -9,39 +9,49 @@ import { fixUsage, runFix } from "./workflow/commands/fix.ts"
 import { releaseUsage, runRelease } from "./workflow/commands/release.ts"
 import { runTool, toolsUsage } from "./workflow/commands/tools.ts"
 import { runWorkspaceTask, workspaceUsage } from "./workflow/commands/workspace.ts"
-import { type Context, createContext } from "./workflow/core/context.ts"
+import { createContext } from "./workflow/core/context.ts"
 import { usageError, WorkflowError } from "./workflow/core/errors.ts"
 import { resolveRoot } from "./workflow/core/root.ts"
 import { Ui } from "./workflow/ui/ui.ts"
+
+import type { Context } from "./workflow/core/context.ts"
 
 /** 走通用 workspace 批处理的任务。 */
 const WORKSPACE_TASKS = new Set([
   "build",
   "build:analyze",
   "check",
-  "code-check",
   "lint",
   "lint:fix",
   "format",
   "format:check",
   "type-check",
+  "type-check:tests",
   "test",
 ])
 
-/** 工作流自身的检查命令，不参与 workspace 批处理。 */
-const SELF_CHECKS: Readonly<
-  Record<
-    string,
-    { readonly title: string; readonly command: string; readonly args: readonly string[] }
-  >
-> = {
+// 旧命令统一分派到主命令，保持现有调用可用。
+const COMMAND_ALIASES: Readonly<Record<string, string>> = {
+  "code-check": "check",
+  "release:test": "test:scripts",
+}
+
+// 项目脚本自检的进程定义。
+interface SelfCheck {
+  readonly title: string
+  readonly command: string
+  readonly args: readonly string[]
+}
+
+// 项目脚本自检不参与 workspace 目标选择。
+const SELF_CHECKS: Readonly<Record<string, SelfCheck>> = {
   "type-check:scripts": {
-    title: "检查工作流脚本类型",
-    command: "tsc",
-    args: ["-p", "scripts/tsconfig.json", "--noEmit"],
+    title: "检查项目脚本类型",
+    command: "pnpm",
+    args: ["exec", "tsc", "-p", "scripts/tsconfig.json", "--noEmit"],
   },
   "test:scripts": {
-    title: "运行工作流脚本测试",
+    title: "运行项目脚本测试",
     command: "pnpm",
     args: ["exec", "vitest", "run", "scripts"],
   },
@@ -53,22 +63,36 @@ export function usage(): string {
     "用法：",
     "  pnpm workflow <command> [arguments]",
     "",
-    "workspace command：dev、build、build:analyze、check、code-check、fix、lint、lint:fix、format、format:check、type-check、test",
-    "workflow 自检：type-check:scripts、test:scripts",
+    "workspace command：dev、build、build:analyze、check、fix、lint、lint:fix、format、format:check、type-check、type-check:tests、test",
+    "项目脚本自检：type-check:scripts、test:scripts",
     "tool command：preview、pack-local、check:packages",
     "release command：release <check|pack|publish|plan|dry-run|verify|execute> [...]",
+    "兼容别名：code-check → check、release:test → test:scripts",
   ].join("\n")
 }
 
 /**
  * 分派一个工作流命令。
  *
+ * @param context - 执行上下文。
  * @param args - 命令及参数。
  * @returns 退出码。
  * @throws {WorkflowError} 命令非法或参数错误时抛出。
+ * @example
+ * await dispatch(context, ["check", "core"])
  */
-async function dispatch(context: Context, args: readonly string[]): Promise<number> {
-  const command = args[0] ?? ""
+export async function dispatch(
+  context: Context,
+  args: readonly string[]
+): Promise<number> {
+  const requested = args[0] ?? ""
+
+  const command = COMMAND_ALIASES[requested] ?? requested
+
+  const rest = args.slice(1)
+
+  // 帮助请求结束整个命令，不能继续执行附带的脚本自检。
+  const help = rest.some((arg) => arg === "help" || arg === "-h" || arg === "--help")
 
   if (command === "" || command === "help" || command === "-h" || command === "--help") {
     context.ui.note(usage())
@@ -77,28 +101,46 @@ async function dispatch(context: Context, args: readonly string[]): Promise<numb
   }
 
   if (command === "dev") {
-    return await runDev(context, args.slice(1))
+    return await runDev(context, rest)
   }
 
   if (command === "fix") {
-    return await runFix(context, args.slice(1))
+    return await runFix(context, rest)
   }
 
   if (command === "release") {
-    return await runRelease(context, args.slice(1))
+    return await runRelease(context, rest)
   }
 
   if (command === "preview" || command === "pack-local" || command === "check:packages") {
-    return await runTool(context, command, args.slice(1))
+    return await runTool(context, command, rest)
   }
 
   if (WORKSPACE_TASKS.has(command)) {
-    return await runWorkspaceTask(context, command, args.slice(1))
+    const exitCode = await runWorkspaceTask(context, command, rest)
+
+    const selfCheck = SELF_CHECKS[`${command}:scripts`]
+
+    if (exitCode !== 0 || help || !selfCheck) {
+      return exitCode
+    }
+
+    return await runSelfCheck(context, selfCheck)
   }
 
   const selfCheck = SELF_CHECKS[command]
 
   if (selfCheck) {
+    if (help) {
+      context.ui.note(`用法：pnpm ${command}`)
+
+      return 0
+    }
+
+    if (rest.length > 0) {
+      throw usageError(`${command} 不接受目标或额外参数。`)
+    }
+
     return await runSelfCheck(context, selfCheck)
   }
 
@@ -112,20 +154,13 @@ async function dispatch(context: Context, args: readonly string[]): Promise<numb
  * @param check - 检查定义。
  * @returns 退出码。
  */
-async function runSelfCheck(
-  context: Context,
-  check: {
-    readonly title: string
-    readonly command: string
-    readonly args: readonly string[]
-  }
-): Promise<number> {
+async function runSelfCheck(context: Context, check: SelfCheck): Promise<number> {
   const { ui, root } = context
 
   ui.flowBegin({
     domain: "workspace",
     title: check.title,
-    description: "只覆盖工作流脚本自身。",
+    description: "覆盖项目脚本自身。",
   })
   const exitCode = await ui.task(
     { title: check.title, log: "live" },
@@ -159,7 +194,9 @@ export async function main(argv: readonly string[]): Promise<number> {
       // 用法错误额外打印帮助，便于直接定位。
       if (error.exitCode === 2) {
         ui.status("error", error.message)
-        const command = argv[0] ?? ""
+        const requested = argv[0] ?? ""
+
+        const command = COMMAND_ALIASES[requested] ?? requested
 
         if (command === "release") {
           ui.note(releaseUsage())
@@ -202,6 +239,6 @@ export async function main(argv: readonly string[]): Promise<number> {
   }
 }
 
-const exitCode = await main(process.argv.slice(2))
-
-process.exitCode = exitCode
+if (import.meta.main) {
+  process.exitCode = await main(process.argv.slice(2))
+}

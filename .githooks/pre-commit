@@ -1,13 +1,33 @@
 #!/usr/bin/env bash
 
-# 提交前先修复暂存代码，再执行完整代码检查。
+# 提交前先修复暂存代码，再执行静态检查。
 # 副作用：可能修改并重新暂存当前已暂存文件；未暂存的其他文件不会被加入提交。
-# 退出码：任一修复或检查命令失败时阻止本次提交。
+# 退出码：Node 不兼容或任一修复、检查命令失败时阻止提交。
 
 set -euo pipefail
 
 hook_root="$(git rev-parse --show-toplevel)"
 cd "$hook_root"
 
+# Git/IDE 可能继承旧 PATH；保留兼容的 Node，旧版本才回退到 Homebrew 安装。
+hook_node_check='const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 18) ? 0 : 1)'
+if ! node -e "$hook_node_check" >/dev/null 2>&1; then
+  # 只选择满足项目引擎要求的安装目录。
+  hook_node_bin=""
+  for hook_node_candidate in /opt/homebrew/bin /usr/local/bin; do
+    if "$hook_node_candidate/node" -e "$hook_node_check" >/dev/null 2>&1; then
+      hook_node_bin="$hook_node_candidate"
+      break
+    fi
+  done
+
+  if [ -z "$hook_node_bin" ]; then
+    printf '%s\n' 'pre-commit 需要 Node >=22.18.0，请更新 Git/IDE 使用的 Node 后重试。' >&2
+    exit 1
+  fi
+
+  export PATH="$hook_node_bin:$PATH"
+fi
+
 pnpm fix --staged
-pnpm code-check
+pnpm check

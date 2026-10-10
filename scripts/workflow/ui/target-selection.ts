@@ -10,7 +10,7 @@ import {
   WORKSPACE_SCOPES,
   type WorkspacePackage,
 } from "../core/catalog.ts"
-import { cancelled, usageError } from "../core/errors.ts"
+import { usageError } from "../core/errors.ts"
 import { hasScript, type PackageManifest } from "../core/package-json.ts"
 
 import { type GroupChoice, groupMultiselect, select } from "./prompt.ts"
@@ -65,7 +65,7 @@ export interface BatchArguments {
 }
 
 /**
- * 解析 workspace 有限任务共用的 `--target` 与 `--keep-going`。
+ * 解析 workspace 有限任务共用的位置目标与 `--keep-going`。
  *
  * @param args - 命令参数。
  * @returns 解析结果。
@@ -222,7 +222,9 @@ export async function selectTargetIdentifiers(
  * @param requested - 命令行目标。
  * @param mode - 单选或多选。
  * @returns 命中的任务目标列表。
- * @throws {WorkflowError} 用户取消或单选模式收到多值时抛出。
+ * @throws {WorkflowError} 用户取消、目标无效或单选模式收到多值时抛出。
+ * @example
+ * await selectTaskTargets(ui, catalog, "check", "core,vue")
  */
 export async function selectTaskTargets(
   ui: Ui,
@@ -232,10 +234,6 @@ export async function selectTaskTargets(
   mode: SelectionMode = "multi"
 ): Promise<readonly TaskTarget[]> {
   const candidates = discoverTaskTargets(catalog, task)
-
-  if (candidates.length === 0) {
-    return []
-  }
 
   const selected = await selectTargetIdentifiers(ui, {
     title: `请选择 ${taskLabel(task)} 的目标`,
@@ -249,11 +247,25 @@ export async function selectTaskTargets(
   }
 
   if (mode === "single" && selected.includes(",")) {
-    throw cancelled("当前流程仅支持选择一个目标。")
+    throw usageError("当前流程仅支持选择一个目标。")
   }
 
   // 精确匹配三种可接受的标识形式，避免目录名互为前缀时误命中。
-  const wanted = new Set(selected.split(",").filter((item) => item !== ""))
+  const wanted = new Set(selected.split(",").map((item) => item.trim()))
+
+  // 校验每个显式目标，避免拼错目标或缺少 script 被误报为检查通过。
+  for (const identifier of wanted) {
+    if (
+      !candidates.some(
+        (item) =>
+          item.relativeDir === identifier ||
+          item.directory === identifier ||
+          item.name === identifier
+      )
+    ) {
+      throw usageError(`目标 ${identifier || "(空)"} 不存在或未定义 ${task} script。`)
+    }
+  }
 
   return candidates.filter(
     (item) =>
@@ -286,13 +298,14 @@ export function taskLabel(task: string): string {
     dev: "启动开发服务",
     build: "构建",
     "build:analyze": "构建分析",
-    check: "完整检查",
-    "code-check": "代码检查",
-    lint: "检查 lint",
-    "lint:fix": "修复 lint",
+    check: "静态检查",
+    "code-check": "静态检查",
+    lint: "代码规范检查",
+    "lint:fix": "修复代码规范",
     format: "格式化",
     "format:check": "检查格式",
     "type-check": "类型检查",
+    "type-check:tests": "测试代码类型检查",
     test: "测试",
   }
 

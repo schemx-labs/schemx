@@ -21,6 +21,9 @@ import {
 } from "../registry"
 import { isFieldNode } from "../runtime/node/helper"
 
+import type { StandardSchemaV1 } from "../types"
+import type { ValidationRuleContext, ValidationRuleResult } from "../validator"
+
 interface StudentFormValues {
   student: Array<{
     id: string
@@ -137,6 +140,317 @@ describe("校验与赋值一致性回归", () => {
     await expect(form.validate()).resolves.toMatchObject({ valid: true })
     expect(form.getFieldErrors("avatar")).toEqual([])
     form.destroy()
+  })
+
+  it.each(["external", "validation", "configuration"] as const)(
+    "pending 前后保留已有 %s 错误且不重复累积提示",
+    async (errorType) => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+      const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+      const form = createForm({
+        initialValues: { name: "" },
+        schemas: [
+          { name: "name", label: "名称", componentType: "input", required: true },
+        ],
+      })
+
+      try {
+        if (errorType === "external") {
+          form.setFieldErrors("name", ["服务端错误"])
+        } else {
+          if (errorType === "configuration") {
+            form.setFieldRules("name", {} as never)
+          }
+
+          await form.validate()
+        }
+
+        // 重复预检只替换本次 pending 提示，原有错误必须始终存在。
+        const previousErrors = form.getFieldErrors("name")
+
+        expect(previousErrors.length).toBeGreaterThan(0)
+        form.setFieldPending("name", true, "处理中")
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          await expect(form.validate()).resolves.toMatchObject({
+            valid: false,
+            errors: [{ issues: [{ code: "pending", message: "处理中" }] }],
+          })
+          expect(form.getFieldErrors("name")).toEqual([...previousErrors, "处理中"])
+        }
+
+        form.setFieldPending("name", false)
+        expect(form.getFieldErrors("name")).toEqual(previousErrors)
+        await expect(form.validate()).resolves.toMatchObject({ valid: false })
+      } finally {
+        form.destroy()
+        consoleError.mockRestore()
+        consoleWarn.mockRestore()
+      }
+    }
+  )
+
+  it.each([
+    ["validateField", "reset", false],
+    ["validateField", "resetField", false],
+    ["validateField", "resetFields", false],
+    ["validate", "reset", false],
+    ["validate", "resetField", false],
+    ["validate", "resetFields", false],
+    ["submit", "reset", false],
+    ["submit", "resetField", false],
+    ["submit", "resetFields", false],
+    ["validateField", "reset", true],
+    ["validate", "reset", true],
+    ["submit", "reset", true],
+  ] as const)(
+    "%s 执行未结束规则时 %s 及时取消，值变化：%s",
+    async (operation, resetMethod, changeValue) => {
+      let notifyStarted: (() => void) | undefined
+
+      let ruleSignal: AbortSignal | undefined
+
+      let ruleRuns = 0
+
+      const started = new Promise<void>((resolve) => {
+        notifyStarted = resolve
+      })
+
+      // 第一次规则故意忽略取消信号，后续调用用于确认入口和锁恢复。
+      const pendingRule = new Promise<ValidationRuleResult>(() => undefined)
+
+      const onFinish = vi.fn()
+
+      const onFinishFailed = vi.fn()
+
+      const form = createForm({
+        initialValues: { name: "initial" },
+        schemas: [
+          {
+            name: "name",
+            label: "名称",
+            componentType: "input",
+            rules: [
+              {
+                validate: (
+                  _value: unknown,
+                  context: ValidationRuleContext
+                ): ValidationRuleResult | Promise<ValidationRuleResult> => {
+                  ruleRuns += 1
+                  if (ruleRuns > 1) {
+                    return { valid: true }
+                  }
+
+                  ruleSignal = context.signal
+                  notifyStarted?.()
+
+                  return pendingRule
+                },
+              },
+            ],
+          },
+        ],
+        onFinish,
+        onFinishFailed,
+      })
+
+      try {
+        if (changeValue) {
+          form.setFieldValue("name", "changed")
+        }
+
+        const validation =
+          operation === "validateField" ? form.validateField("name") : form[operation]()
+
+        await started
+
+        if (resetMethod === "reset") {
+          form.reset()
+        } else if (resetMethod === "resetField") {
+          form.resetField("name")
+        } else {
+          form.resetFields(["name"])
+        }
+
+        await expect(validation).resolves.toEqual({
+          valid: false,
+          cancelled: true,
+          values: { name: "initial" },
+          errors: [],
+        })
+        expect(ruleSignal?.aborted).toBe(true)
+        expect(form.isLoading()).toBe(false)
+        expect(onFinish).not.toHaveBeenCalled()
+        expect(onFinishFailed).not.toHaveBeenCalled()
+
+        const nextValidation =
+          operation === "validateField" ? form.validateField("name") : form[operation]()
+
+        expect(nextValidation).not.toBe(validation)
+        await expect(nextValidation).resolves.toMatchObject({ valid: true })
+        expect(form.isLoading()).toBe(false)
+        expect(ruleRuns).toBe(2)
+        expect(onFinish).toHaveBeenCalledTimes(operation === "submit" ? 1 : 0)
+      } finally {
+        form.destroy()
+      }
+    }
+  )
+
+  it("新 submit 取消旧 validate，旧规则晚到后不再派发字段", async () => {
+    let resolveOldRule: ((result: ValidationRuleResult) => void) | undefined
+
+    let resolveNewRule: ((result: ValidationRuleResult) => void) | undefined
+
+    let notifyOldStarted: (() => void) | undefined
+
+    let notifyNewStarted: (() => void) | undefined
+
+    const oldStarted = new Promise<void>((resolve) => {
+      notifyOldStarted = resolve
+    })
+
+    const newStarted = new Promise<void>((resolve) => {
+      notifyNewStarted = resolve
+    })
+
+    const oldRule = new Promise<ValidationRuleResult>((resolve) => {
+      resolveOldRule = resolve
+    })
+
+    const newRule = new Promise<ValidationRuleResult>((resolve) => {
+      resolveNewRule = resolve
+    })
+
+    let firstFieldRuns = 0
+
+    const secondRule = vi.fn((): ValidationRuleResult => ({ valid: true }))
+
+    const onFinish = vi.fn()
+
+    const onFinishFailed = vi.fn()
+
+    const form = createForm({
+      initialValues: { first: "ok", second: "ok" },
+      validationConcurrency: 1,
+      schemas: [
+        {
+          name: "first",
+          label: "首字段",
+          componentType: "input",
+          rules: [
+            {
+              validate: () => {
+                firstFieldRuns += 1
+                if (firstFieldRuns === 1) {
+                  notifyOldStarted?.()
+
+                  return oldRule
+                }
+
+                notifyNewStarted?.()
+
+                return newRule
+              },
+            },
+          ],
+        },
+        {
+          name: "second",
+          label: "后续字段",
+          componentType: "input",
+          rules: [{ validate: secondRule }],
+        },
+      ],
+      onFinish,
+      onFinishFailed,
+    })
+
+    try {
+      const validation = form.validate()
+
+      await oldStarted
+      const submission = form.submit()
+
+      await newStarted
+      await expect(validation).resolves.toMatchObject({ cancelled: true, errors: [] })
+
+      // 旧请求完成后，仍不能领取第二个字段或影响正在执行的新请求。
+      resolveOldRule?.({
+        valid: false,
+        issues: [{ type: "validation", message: "旧错误" }],
+      })
+      await oldRule
+      expect(secondRule).not.toHaveBeenCalled()
+      expect(form.getFieldErrors("first")).toEqual([])
+
+      resolveNewRule?.({ valid: true })
+      await expect(submission).resolves.toMatchObject({ valid: true })
+      expect(secondRule).toHaveBeenCalledTimes(1)
+      expect(onFinish).toHaveBeenCalledTimes(1)
+      expect(onFinishFailed).not.toHaveBeenCalled()
+      expect(form.isLoading()).toBe(false)
+    } finally {
+      form.destroy()
+    }
+  })
+
+  it("异步规则执行期间开始的 pending 操作仍阻止提交", async () => {
+    let notifyStarted: (() => void) | undefined
+
+    let resolveRule: ((result: ValidationRuleResult) => void) | undefined
+
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve
+    })
+
+    const rule = new Promise<ValidationRuleResult>((resolve) => {
+      resolveRule = resolve
+    })
+
+    const onFinish = vi.fn()
+
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    const form = createForm({
+      initialValues: { name: "ok" },
+      schemas: [
+        {
+          name: "name",
+          label: "名称",
+          componentType: "input",
+          rules: [
+            {
+              validate: () => {
+                notifyStarted?.()
+
+                return rule
+              },
+            },
+          ],
+        },
+      ],
+      onFinish,
+    })
+
+    try {
+      const submission = form.submit()
+
+      await started
+      form.setFieldPending("name", true, "处理中")
+      resolveRule?.({ valid: true })
+      await expect(submission).resolves.toMatchObject({
+        valid: false,
+        errors: [{ issues: [{ code: "pending" }] }],
+      })
+      expect(onFinish).not.toHaveBeenCalled()
+      expect(form.isLoading()).toBe(false)
+    } finally {
+      form.destroy()
+      consoleWarn.mockRestore()
+    }
   })
 
   it("数组父路径赋值同步新增行并参与校验", async () => {
@@ -791,7 +1105,6 @@ describe("渲染器注册中心下沉 属性测试", () => {
  *
  * @module core/__tests__/createForm (renderer-registry unit tests)
  */
-import type { StandardSchemaV1 } from "../types"
 
 // 单元测试：验证 createForm 返回对象包含 getRenderer/registerRenderer/hasRenderer 方法
 describe("渲染器注册中心下沉 单元测试", () => {

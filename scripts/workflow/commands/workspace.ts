@@ -22,8 +22,9 @@ export function workspaceUsage(): string {
     "用法：",
     "  pnpm workflow <task> [target] [--keep-going]",
     "",
-    "task：build、build:analyze、check、code-check、lint、lint:fix、format、format:check、type-check、test",
+    "task：build、build:analyze、check、lint、lint:fix、format、format:check、type-check、type-check:tests、test",
     "target：all、packages/core、plugins/<name>、examples/<name>，或以英文逗号分隔的多个目标",
+    "check 执行静态检查；code-check 是兼容别名。type-check 与 test 完成后还会检查项目脚本。",
   ].join("\n")
 }
 

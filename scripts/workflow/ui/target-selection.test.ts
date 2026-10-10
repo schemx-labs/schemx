@@ -17,8 +17,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { dispatch } from "../../workflow.ts"
+import { runWorkspaceTask } from "../commands/workspace.ts"
 import { Catalog } from "../core/catalog.ts"
 
 import {
@@ -27,7 +29,9 @@ import {
   selectTaskTargets,
   taskLabel,
 } from "./target-selection.ts"
-import { type Ui } from "./ui.ts"
+
+import type { TaskOptions, Ui } from "./ui.ts"
+import type { RunResult } from "../core/exec.ts"
 
 let root = ""
 
@@ -142,9 +146,10 @@ describe("taskLabel", () => {
     expect(taskLabel("dev")).toBe("启动开发服务")
     expect(taskLabel("build")).toBe("构建")
     expect(taskLabel("build:analyze")).toBe("构建分析")
-    expect(taskLabel("check")).toBe("完整检查")
-    expect(taskLabel("code-check")).toBe("代码检查")
+    expect(taskLabel("check")).toBe("静态检查")
+    expect(taskLabel("code-check")).toBe("静态检查")
     expect(taskLabel("type-check")).toBe("类型检查")
+    expect(taskLabel("type-check:tests")).toBe("测试代码类型检查")
   })
 
   it("未知任务回退为“执行 <任务>”", () => {
@@ -297,7 +302,7 @@ describe("selectTaskTargets", () => {
       nonInteractiveUi,
       catalog,
       "build",
-      "vant,packages/core"
+      "vant, packages/core"
     )
 
     expect(selected.map((item) => item.directory)).toEqual(["core", "vant"])
@@ -352,10 +357,22 @@ describe("selectTaskTargets", () => {
     }
   })
 
-  it("未知目标返回空列表", async () => {
+  it("未知目标报错，不能误报成功", async () => {
     await expect(
       selectTaskTargets(nonInteractiveUi, catalog, "build", "nope")
-    ).resolves.toEqual([])
+    ).rejects.toThrow(/目标 nope 不存在或未定义 build script/)
+  })
+
+  it("多选中有未知目标时整体报错", async () => {
+    await expect(
+      selectTaskTargets(nonInteractiveUi, catalog, "build", "core,nope")
+    ).rejects.toThrow(/目标 nope/)
+  })
+
+  it("显式目标未定义任务 script 时仍报错", async () => {
+    await expect(
+      selectTaskTargets(nonInteractiveUi, catalog, "lint", "core")
+    ).rejects.toThrow(/未定义 lint script/)
   })
 
   it("没有候选包时返回空列表", async () => {
@@ -364,7 +381,7 @@ describe("selectTaskTargets", () => {
     ).resolves.toEqual([])
   })
 
-  it("single 模式收到多值抛取消错误", async () => {
+  it("single 模式收到多值抛用法错误", async () => {
     await expect(
       selectTaskTargets(nonInteractiveUi, catalog, "build", "core,vant", "single")
     ).rejects.toThrow(/仅支持选择一个目标/)
@@ -403,4 +420,176 @@ describe("selectTaskTargets", () => {
 
     expect(selected.map((item) => item.directory)).toEqual(["core"])
   })
+})
+
+describe("workspace 检查链", () => {
+  const success: RunResult = { code: 0, stdout: "", stderr: "", output: "" }
+
+  let exec = vi.fn<Ui["exec"]>()
+
+  let ui: Ui
+
+  beforeEach(() => {
+    exec = vi.fn<Ui["exec"]>().mockResolvedValue(success)
+    // 只替代终端渲染和外部进程，目标发现与检查链仍走真实实现。
+    ui = {
+      ...nonInteractiveUi,
+      exec,
+      async task(_options: TaskOptions, execute: () => Promise<RunResult | void>) {
+        return (await execute())?.code ?? 0
+      },
+      flowBegin: vi.fn(),
+      flowEndFromExitCode: vi.fn(),
+      groupBegin: vi.fn(),
+      groupEnd: vi.fn(),
+      taskPending: vi.fn(),
+      status: vi.fn(),
+      note: vi.fn(),
+      columns: undefined,
+    } as unknown as Ui
+    writePackage("packages/core", {
+      name: "@schemx/core",
+      version: "1.0.0",
+      scripts: {
+        build: "vite build",
+        lint: "eslint src",
+        "lint:fix": "eslint src --fix",
+        check: "pnpm lint && pnpm type-check",
+        "type-check": "tsc --noEmit",
+        "type-check:tests": "tsc -p tsconfig.test.json --noEmit",
+        test: "vitest run",
+      },
+    })
+  })
+
+  it.each(["lint", "lint:fix", "check", "code-check"])(
+    "%s 委托包脚本执行统一检查，工作流不重复叠加 Oxc",
+    async (task) => {
+      const code = await runWorkspaceTask({ root, catalog, ui, env: {} }, task, ["core"])
+
+      expect(code).toBe(0)
+      expect(exec).toHaveBeenCalledTimes(1)
+      expect(exec).toHaveBeenCalledWith(
+        "pnpm",
+        ["--dir", "packages/core", "run", task === "code-check" ? "check" : task],
+        { cwd: root }
+      )
+    }
+  )
+
+  it("包检查 warning 保留 0 退出码", async () => {
+    exec.mockResolvedValueOnce({
+      ...success,
+      stdout: "src/store.ts:888:29: warning unicorn(no-useless-spread): array",
+      output: "src/store.ts:888:29: warning unicorn(no-useless-spread): array",
+    })
+    await expect(
+      runWorkspaceTask({ root, catalog, ui, env: {} }, "code-check", ["core"])
+    ).resolves.toBe(0)
+    expect(exec).toHaveBeenCalledTimes(1)
+  })
+
+  it("包检查失败保留退出码", async () => {
+    exec.mockResolvedValueOnce({
+      ...success,
+      code: 2,
+      output: "src/a.ts:1:1: error rule",
+    })
+    await expect(
+      runWorkspaceTask({ root, catalog, ui, env: {} }, "check", ["core"])
+    ).resolves.toBe(2)
+    expect(exec).toHaveBeenCalledTimes(1)
+  })
+
+  it("静态检查失败不会被工作流覆盖", async () => {
+    exec.mockResolvedValueOnce({ ...success, code: 1 })
+    await expect(
+      runWorkspaceTask({ root, catalog, ui, env: {} }, "check", ["core"])
+    ).resolves.toBe(1)
+    expect(exec).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["build", "type-check"])("%s 保留原有检查链", async (task) => {
+    await expect(
+      runWorkspaceTask({ root, catalog, ui, env: {} }, task, ["core"])
+    ).resolves.toBe(0)
+    expect(exec).toHaveBeenCalledTimes(1)
+    expect(exec).toHaveBeenCalledWith("pnpm", ["--dir", "packages/core", "run", task], {
+      cwd: root,
+    })
+  })
+
+  it.each(["type-check", "test"])("%s 先检查指定包，再执行项目脚本自检", async (task) => {
+    await expect(dispatch({ root, catalog, ui, env: {} }, [task, "core"])).resolves.toBe(
+      0
+    )
+    expect(exec).toHaveBeenCalledTimes(2)
+    expect(exec).toHaveBeenNthCalledWith(
+      1,
+      "pnpm",
+      ["--dir", "packages/core", "run", task],
+      { cwd: root }
+    )
+    expect(exec).toHaveBeenNthCalledWith(
+      2,
+      "pnpm",
+      task === "type-check"
+        ? ["exec", "tsc", "-p", "scripts/tsconfig.json", "--noEmit"]
+        : ["exec", "vitest", "run", "scripts"],
+      { cwd: root }
+    )
+  })
+
+  it.each([
+    "type-check",
+    "test",
+    "type-check:scripts",
+    "test:scripts",
+    "pack-local",
+    "check:packages",
+  ])("%s --help 只显示帮助，不执行检查或打包", async (task) => {
+    await expect(
+      dispatch({ root, catalog, ui, env: {} }, [task, "--help"])
+    ).resolves.toBe(0)
+    expect(exec).not.toHaveBeenCalled()
+    expect(ui.note).toHaveBeenCalled()
+  })
+
+  it.each(["type-check", "test"])("%s 失败后不继续项目脚本自检", async (task) => {
+    exec.mockResolvedValueOnce({ ...success, code: 1 })
+    await expect(dispatch({ root, catalog, ui, env: {} }, [task, "core"])).resolves.toBe(
+      1
+    )
+    expect(exec).toHaveBeenCalledTimes(1)
+  })
+
+  it("code-check 与 check 使用相同的静态检查入口", async () => {
+    await expect(
+      dispatch({ root, catalog, ui, env: {} }, ["code-check", "core"])
+    ).resolves.toBe(0)
+    expect(exec).toHaveBeenCalledWith(
+      "pnpm",
+      ["--dir", "packages/core", "run", "check"],
+      { cwd: root }
+    )
+  })
+
+  it("release:test 兼容别名运行项目脚本测试", async () => {
+    await expect(
+      dispatch({ root, catalog, ui, env: {} }, ["release:test"])
+    ).resolves.toBe(0)
+    expect(exec).toHaveBeenCalledWith("pnpm", ["exec", "vitest", "run", "scripts"], {
+      cwd: root,
+    })
+  })
+
+  it.each(["type-check:scripts", "test:scripts", "check:packages"])(
+    "%s 拒绝被忽略的额外目标",
+    async (task) => {
+      await expect(
+        dispatch({ root, catalog, ui, env: {} }, [task, "core"])
+      ).rejects.toThrow(/不接受目标或额外参数/)
+      expect(exec).not.toHaveBeenCalled()
+    }
+  )
 })

@@ -24,7 +24,7 @@ export function fixUsage(): string {
     "  pnpm workflow fix [target] [--keep-going]",
     "  pnpm workflow fix --staged",
     "",
-    "默认模式执行 format 与 lint:fix；--staged 只修复当前暂存文件并重新暂存修复结果。",
+    "默认模式依次执行 lint:fix 与 format；--staged 只修复当前暂存文件并重新暂存修复结果。",
   ].join("\n")
 }
 
@@ -73,6 +73,17 @@ async function fixStaged(context: Context): Promise<number> {
   )
 
   if (linted.length > 0) {
+    // 与包内 lint:fix 一样从根配置运行 Oxc，再由 ESLint 补充规则。
+    const oxcExitCode = await ui.task(
+      { title: `修复 ${linted.length} 个文件的 Oxc 问题`, log: "live" },
+      async () =>
+        await ui.exec("pnpm", ["exec", "vp", "lint", "--fix", ...linted], { cwd: root })
+    )
+
+    if (oxcExitCode !== 0) {
+      return oxcExitCode
+    }
+
     const exitCode = await ui.task(
       { title: `修复 ${linted.length} 个文件的 lint 问题`, log: "live" },
       async () =>

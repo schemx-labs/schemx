@@ -175,23 +175,27 @@ pnpm --filter vant-demo dev
 pnpm --filter element-plus-demo dev
 ```
 
-| Command               | Description                                                                                                                              |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`            | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target. |
-| `pnpm build`          | Interactively select targets to build; non-interactive environments build all targets by default.                                        |
-| `pnpm build:analyze`  | Interactively select and run the build analysis script.                                                                                  |
-| `pnpm test`           | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                             |
-| `pnpm type-check`     | Check types for selected targets, then workflow scripts.                                                                                 |
-| `pnpm lint`           | Interactively select and run ESLint checks.                                                                                              |
-| `pnpm lint:fix`       | Interactively select and run automatic ESLint fixes.                                                                                     |
-| `pnpm format`         | Interactively select and run Vite+ formatting.                                                                                           |
-| `pnpm format:check`   | Interactively select and run Vite+ format checks.                                                                                        |
-| `pnpm check`          | Interactively select and run the target's complete static checks.                                                                        |
-| `pnpm fix`            | Select targets and run lint fixes followed by formatting; the pre-commit hook uses `--staged`.                                           |
-| `pnpm code-check`     | Run selected targets' `check` scripts; non-interactive environments select all targets.                                                  |
-| `pnpm pack-local`     | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
-| `pnpm check:packages` | Check workspace package configuration and build output external boundaries.                                                              |
-| `pnpm preview`        | Start Vite Preview.                                                                                                                      |
+| Command                   | Description                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target. |
+| `pnpm build`              | Interactively select targets to build; non-interactive environments build all targets by default.                                        |
+| `pnpm build:analyze`      | Run the same type checks as a regular build and generate a bundle analysis report.                                                       |
+| `pnpm test`               | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                             |
+| `pnpm type-check`         | Check types for selected targets, then project scripts.                                                                                  |
+| `pnpm type-check:tests`   | Check types in selected targets' test code.                                                                                              |
+| `pnpm type-check:scripts` | Check types in project scripts.                                                                                                          |
+| `pnpm test:scripts`       | Run project script tests.                                                                                                                |
+| `pnpm lint`               | Interactively select targets and run Oxc followed by ESLint.                                                                             |
+| `pnpm lint:fix`           | Interactively select targets and run Oxc fixes followed by ESLint fixes.                                                                 |
+| `pnpm format`             | Interactively select and run Vite+ formatting.                                                                                           |
+| `pnpm format:check`       | Interactively select and run Vite+ format checks.                                                                                        |
+| `pnpm check`              | Run static checks for selected targets: Oxc, ESLint, formatting, and types.                                                              |
+| `pnpm fix`                | Select targets and run lint fixes followed by formatting; the pre-commit hook uses `--staged`.                                           |
+| `pnpm code-check`         | Compatibility alias for `check`, with the same scope.                                                                                    |
+| `pnpm pack-local`         | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
+| `pnpm check:packages`     | Check workspace package configuration and build output external boundaries.                                                              |
+| `pnpm preview`            | Start Vite Preview.                                                                                                                      |
+| `pnpm workflow <command>` | Run a workflow command with its arguments.                                                                                               |
 
 ## Project Workflow
 
@@ -203,12 +207,12 @@ pnpm build
 pnpm lint
 pnpm test
 pnpm fix
-pnpm code-check
+pnpm check
 pnpm check:packages
 ```
 
 After `pnpm install` configures the versioned Git hook, each commit runs `pnpm fix --staged`
-and `pnpm code-check` before it is created.
+and `pnpm check` before it is created.
 
 Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
 
@@ -317,11 +321,11 @@ The Skill includes deterministic scripts, release policies, data Schemas, and Ma
 
 | Command                                                    | Description                                                                                                                                                       | Usage                                                                                                                                     |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm release:check [channel] [target] [version-action]`   | Freeze a plan and check the worktree, credentials, registry, dependencies, lint, types, tests, build, and package contents without release writes.                | Local pre-release check: `pnpm release:check`                                                                                             |
+| `pnpm release:check [channel] [target] [version-action]`   | Freeze a plan and check the worktree, credentials, registry, dependencies, lint, formatting, types, tests, build, and package contents without release writes.    | Local pre-release check: `pnpm release:check`                                                                                             |
 | `pnpm release:pack [target]`                               | Generate local tarballs to inspect the actual published-package contents.                                                                                         | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                               |
 | `pnpm release:publish [channel] [target] [version-action]` | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases.  | `pnpm release:dry-run beta core 1.0.0`                                                                                                    |
-| `pnpm release:test`                                        | Run all workflow script tests without publishing or changing versions.                                                                                            | Run after modifying release scripts: `pnpm release:test`                                                                                  |
+| `pnpm release:test`                                        | Compatibility alias for `test:scripts`; run project script tests.                                                                                                 | Run after modifying project scripts: `pnpm test:scripts`                                                                                  |
 
 ### Release Channels
 

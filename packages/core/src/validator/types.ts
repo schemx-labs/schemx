@@ -325,19 +325,21 @@ export interface Validator<TValues extends Values> {
   /**
    * 执行单个字段的规则，并更新该字段的错误状态。
    *
-   * 新一次调用会中止同一字段尚未完成的校验；旧调用仍会返回其本地结果。
+   * 新一次调用会中止同一字段尚未完成的校验；旧调用及时返回显式取消结果。
    *
    * @typeParam TName - 字段路径。
    * @param name - 要校验的字段路径。
    * @param values - 用于读取字段值和提供规则上下文的表单值快照。
+   * @param parentSignal - 可选的全表轮次取消信号，中止时同时取消该字段运行。
    * @returns 包含该字段错误的校验结果。
    */
   validateField<TName extends NamePath<TValues>>(
     name: TName,
-    values: TValues
+    values: TValues,
+    parentSignal?: AbortSignal
   ): Promise<ValidationResult<TValues, TName>>
   /**
-   * 并行执行全部已注册字段的规则。
+   * 并行执行全部已注册字段的规则；新一轮会取消上一轮并停止其后续字段派发。
    *
    * @param values - 用于全部规则的表单值快照。
    * @returns 聚合全部字段错误的校验结果。

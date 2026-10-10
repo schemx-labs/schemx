@@ -14,7 +14,14 @@ import { type Ui } from "../ui/ui.ts"
 
 /** 工具命令的用法说明。 */
 export function toolsUsage(): string {
-  return ["用法：", "  pnpm workflow <preview|pack-local|check:packages>"].join("\n")
+  return [
+    "用法：",
+    "  pnpm workflow preview [Vite Preview options]",
+    "  pnpm workflow pack-local [target]",
+    "  pnpm workflow check:packages",
+    "",
+    "target：all、packages/core 或 core,vue 等逗号分隔的目标",
+  ].join("\n")
 }
 
 /**
@@ -79,19 +86,32 @@ export async function runTool(
 ): Promise<number> {
   const { ui, root, catalog, env } = context
 
+  if (
+    command !== "preview" &&
+    args.some((arg) => arg === "help" || arg === "-h" || arg === "--help")
+  ) {
+    ui.note(toolsUsage())
+
+    return 0
+  }
+
   switch (command) {
     case "check:packages": {
+      if (args.length > 0) {
+        throw usageError("check:packages 不接受目标或额外参数。")
+      }
+
       ui.flowBegin({
         domain: "tools",
-        title: "包完整检查",
+        title: "包配置与产物检查",
         description: "运行包配置与构建产物边界检查。",
       })
       const exitCode = checkPackages(context)
 
       ui.flowEndFromExitCode(exitCode, {
-        success: "包完整检查完成。",
-        failed: "包完整检查失败。",
-        cancelled: "包完整检查已取消。",
+        success: "包配置与产物检查完成。",
+        failed: "包配置与产物检查失败。",
+        cancelled: "包配置与产物检查已取消。",
       })
 
       return exitCode
@@ -120,7 +140,7 @@ export async function runTool(
     }
 
     case "pack-local": {
-      if (args.length > 1) {
+      if (args.length > 1 || args[0]?.startsWith("-")) {
         throw usageError(toolsUsage())
       }
 

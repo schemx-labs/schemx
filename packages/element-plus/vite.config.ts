@@ -19,7 +19,7 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, __dirname, "")
   // VITE_USE_SOURCE 仅用于 dev 热更新（引用源码）；build 一律走外部依赖产物
   const useSource = command === "serve" && env.VITE_USE_SOURCE === "true"
-  const analyze = env.VITE_ANALYZE === "true"
+  const analyze = mode === "analyze"
   const isExternal = createExternalMatcher(externalPackages)
 
   return {

@@ -175,23 +175,27 @@ pnpm --filter vant-demo dev
 pnpm --filter element-plus-demo dev
 ```
 
-| 命令                  | 作用                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `pnpm dev`            | 交互单选并启动一个具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境必须显式指定单个目标。 |
-| `pnpm build`          | 交互选择并构建目标；非交互环境默认构建全部目标。                                      |
-| `pnpm build:analyze`  | 交互选择并执行构建分析脚本。                                                          |
-| `pnpm test`           | 交互选择并运行目标测试，随后运行工作流脚本测试；非交互环境默认选择全部目标。          |
-| `pnpm type-check`     | 交互选择并执行目标类型检查，随后检查工作流脚本类型。                                  |
-| `pnpm lint`           | 交互选择并执行 ESLint 检查。                                                          |
-| `pnpm lint:fix`       | 交互选择并执行 ESLint 自动修复。                                                      |
-| `pnpm format`         | 交互选择并执行 Vite+ 格式工具 格式化。                                                |
-| `pnpm format:check`   | 交互选择并执行 Vite+ 格式工具 格式检查。                                              |
-| `pnpm check`          | 交互选择并执行目标自身的完整静态检查。                                                |
-| `pnpm fix`            | 选择目标后依次执行 lint 自动修复与格式化；提交钩子使用 `--staged` 模式。              |
-| `pnpm code-check`     | 交互选择并执行目标的 `check` 脚本；非交互环境默认选择全部目标。                       |
-| `pnpm pack-local`     | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
-| `pnpm check:packages` | 检查 workspace 包配置与构建产物 external 边界。                                       |
-| `pnpm preview`        | 启动 Vite Preview。                                                                   |
+| 命令                      | 作用                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm dev`                | 交互单选并启动一个具有 `dev` 或 `dev:h5` 脚本的目标；非交互环境必须显式指定单个目标。 |
+| `pnpm build`              | 交互选择并构建目标；非交互环境默认构建全部目标。                                      |
+| `pnpm build:analyze`      | 执行与普通构建相同的类型检查，并生成构建分析报告。                                    |
+| `pnpm test`               | 交互选择并运行目标测试，随后运行工作流脚本测试；非交互环境默认选择全部目标。          |
+| `pnpm type-check`         | 交互选择并执行目标类型检查，随后检查项目脚本类型。                                    |
+| `pnpm type-check:tests`   | 检查所选目标中测试代码的类型。                                                        |
+| `pnpm type-check:scripts` | 检查项目脚本类型。                                                                    |
+| `pnpm test:scripts`       | 运行项目脚本测试。                                                                    |
+| `pnpm lint`               | 交互选择并依次执行 Oxc 与 ESLint 检查。                                               |
+| `pnpm lint:fix`           | 交互选择并依次执行 Oxc 与 ESLint 自动修复。                                           |
+| `pnpm format`             | 交互选择并执行 Vite+ 格式工具 格式化。                                                |
+| `pnpm format:check`       | 交互选择并执行 Vite+ 格式工具 格式检查。                                              |
+| `pnpm check`              | 执行所选目标的静态检查：Oxc、ESLint、格式和类型检查。                                 |
+| `pnpm fix`                | 选择目标后依次执行 lint 自动修复与格式化；提交钩子使用 `--staged` 模式。              |
+| `pnpm code-check`         | `check` 的兼容别名，检查范围相同。                                                    |
+| `pnpm pack-local`         | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
+| `pnpm check:packages`     | 检查 workspace 包配置与构建产物 external 边界。                                       |
+| `pnpm preview`            | 启动 Vite Preview。                                                                   |
+| `pnpm workflow <command>` | 运行指定工作流命令及其参数。                                                          |
 
 ## 项目工作流
 
@@ -207,12 +211,12 @@ pnpm build
 pnpm lint
 pnpm test
 pnpm fix
-pnpm code-check
+pnpm check
 pnpm check:packages
 ```
 
 `pnpm install` 会配置版本化 Git hook；配置完成后，每次提交都会先执行 `pnpm fix --staged`，
-再执行 `pnpm code-check`。
+再执行 `pnpm check`。
 
 有限批处理默认在首个失败后停止；构建、workspace 质量任务以及 `release check`、`release pack`、
 `release verify` 可传入 `--keep-going`，继续执行剩余目标并最终返回首个失败码。取消始终立即停止：
@@ -337,11 +341,11 @@ Skill 内部包含确定性脚本、发布策略、数据 Schema 与 Markdown �
 
 | 命令                                                       | 作用                                                                                                                         | 使用                                                                                                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm release:check [channel] [target] [version-action]`   | 冻结发布计划，检查工作区、凭据、registry、依赖、lint、类型、测试、构建和发布包内容；不执行发布写操作。                       | 发布前本地自检：`pnpm release:check`                                                                                                 |
+| `pnpm release:check [channel] [target] [version-action]`   | 冻结发布计划，检查工作区、凭据、registry、依赖、lint、格式、类型、测试、构建和发布包内容；不执行发布写操作。                 | 发布前本地自检：`pnpm release:check`                                                                                                 |
 | `pnpm release:pack [target]`                               | 生成本地 tarball，用于检查实际发布包内容。                                                                                   | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                          |
 | `pnpm release:publish [channel] [target] [version-action]` | 发布到指定通道。所有通道均支持 `patch`、`minor`、`major` 或 `x.y.z`；`current` 仅限 `latest`。目标可传 `all` 或 `core,vue`。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；公开 Beta：`pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。                                      | `pnpm release:dry-run beta core 1.0.0`                                                                                               |
-| `pnpm release:test`                                        | 运行全部工作流脚本测试，不发布、不改版本。                                                                                   | 修改发布脚本后执行：`pnpm release:test`                                                                                              |
+| `pnpm release:test`                                        | `test:scripts` 的兼容别名，运行项目脚本测试。                                                                                | 修改项目脚本后执行：`pnpm test:scripts`                                                                                              |
 
 ### 发布通道
 

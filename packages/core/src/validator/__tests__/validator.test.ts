@@ -693,6 +693,200 @@ describe("Validator", () => {
     }
   })
 
+  it("多 worker 的旧全表轮次取消后停止派发，晚到结果不影响新轮", async () => {
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({
+      fieldStore,
+      validationConcurrency: 2,
+    })
+
+    const oldResult = deferred<ValidationRuleResult>()
+
+    const signals: AbortSignal[] = []
+
+    let nameRuns = 0
+
+    let ageRuns = 0
+
+    const emailRule = vi.fn((): ValidationRuleResult => ({ valid: true }))
+
+    setTestRules(validator, "name", [
+      {
+        validate: (_value, context) => {
+          signals.push(context.signal)
+          nameRuns += 1
+
+          return nameRuns === 1 ? oldResult.promise : { valid: true }
+        },
+      },
+    ])
+    setTestRules(validator, "age", [
+      {
+        validate: (_value, context) => {
+          signals.push(context.signal)
+          ageRuns += 1
+
+          return ageRuns === 1 ? oldResult.promise : { valid: true }
+        },
+      },
+    ])
+    setTestRules(validator, "email", [{ validate: emailRule }])
+
+    try {
+      const oldValidation = validator.validate(baseValues)
+
+      expect(signals).toHaveLength(2)
+      const newValidation = validator.validate(baseValues)
+
+      await expect(oldValidation).resolves.toMatchObject({ cancelled: true, errors: [] })
+      expect(signals[0]?.aborted).toBe(true)
+      expect(signals[1]?.aborted).toBe(true)
+
+      await expect(newValidation).resolves.toMatchObject({ valid: true })
+      expect(signals[2]?.aborted).toBe(false)
+      expect(signals[3]?.aborted).toBe(false)
+      oldResult.resolve({
+        valid: false,
+        issues: [{ type: "validation", message: "旧错误" }],
+      })
+      await oldResult.promise
+
+      expect(emailRule).toHaveBeenCalledTimes(1)
+      expect(nameRuns).toBe(2)
+      expect(ageRuns).toBe(2)
+      expect(fieldStore.getFieldsErrors()).toEqual([])
+    } finally {
+      validator.destroy()
+    }
+  })
+
+  it("单字段新运行取消旧全表轮次，并中止其他 worker 而不取消新字段", async () => {
+    const validator = createTestValidator<TestForm>({ validationConcurrency: 2 })
+
+    const signals: AbortSignal[] = []
+
+    let nameRuns = 0
+
+    const emailRule = vi.fn((): ValidationRuleResult => ({ valid: true }))
+
+    setTestRules(validator, "name", [
+      {
+        validate: (_value, context) => {
+          signals.push(context.signal)
+          nameRuns += 1
+
+          return nameRuns === 1
+            ? new Promise<ValidationRuleResult>(() => undefined)
+            : { valid: true }
+        },
+      },
+    ])
+    setTestRules(validator, "age", [captureSignalRule(signals)])
+    setTestRules(validator, "email", [{ validate: emailRule }])
+
+    try {
+      const fullValidation = validator.validate(baseValues)
+
+      expect(signals).toHaveLength(2)
+      const fieldValidation = validator.validateField("name", baseValues)
+
+      await expect(fullValidation).resolves.toMatchObject({
+        cancelled: true,
+        errors: [],
+      })
+      await expect(fieldValidation).resolves.toMatchObject({ valid: true })
+      expect(signals[0]?.aborted).toBe(true)
+      expect(signals[1]?.aborted).toBe(true)
+      expect(signals[2]?.aborted).toBe(false)
+      expect(emailRule).not.toHaveBeenCalled()
+    } finally {
+      validator.destroy()
+    }
+  })
+
+  it("旧异步规则未结束也及时返回取消，晚到拒绝不会产生错误", async () => {
+    const fieldStore = createStore<TestForm>()
+
+    const validator = createTestValidator<TestForm>({ fieldStore })
+
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    let rejectOldRule: ((error: Error) => void) | undefined
+
+    const oldRule = new Promise<ValidationRuleResult>((_resolve, reject) => {
+      rejectOldRule = reject
+    })
+
+    let runs = 0
+
+    setTestRules(validator, "name", [
+      {
+        validate: () => {
+          runs += 1
+
+          return runs === 1 ? oldRule : { valid: true }
+        },
+      },
+    ])
+
+    try {
+      const oldValidation = validator.validateField("name", baseValues)
+
+      const newValidation = validator.validateField("name", baseValues)
+
+      await expect(oldValidation).resolves.toMatchObject({ cancelled: true, errors: [] })
+      await expect(newValidation).resolves.toMatchObject({ valid: true })
+
+      rejectOldRule?.(new Error("旧请求拒绝"))
+      await Promise.resolve()
+      expect(fieldStore.getFieldErrors("name")).toEqual([])
+      expect(consoleError).not.toHaveBeenCalled()
+    } finally {
+      validator.destroy()
+      consoleError.mockRestore()
+    }
+  })
+
+  it("destroy 及时结束忽略 signal 的规则等待", async () => {
+    const validator = createTestValidator<TestForm>()
+
+    const signals: AbortSignal[] = []
+
+    setTestRules(validator, "name", [captureSignalRule(signals)])
+
+    const validation = validator.validateField("name", baseValues)
+
+    validator.destroy()
+    await expect(validation).resolves.toMatchObject({ cancelled: true, errors: [] })
+    expect(signals[0]?.aborted).toBe(true)
+  })
+
+  it("已中止的父轮次不会抢占独立字段运行", async () => {
+    const validator = createTestValidator<TestForm>()
+
+    const signals: AbortSignal[] = []
+
+    const controller = new AbortController()
+
+    setTestRules(validator, "name", [captureSignalRule(signals)])
+
+    try {
+      const validation = validator.validateField("name", baseValues)
+
+      controller.abort()
+      await expect(
+        validator.validateField("name", baseValues, controller.signal)
+      ).resolves.toMatchObject({ cancelled: true, errors: [] })
+      expect(signals).toHaveLength(1)
+      expect(signals[0]?.aborted).toBe(false)
+      validator.destroy()
+      await expect(validation).resolves.toMatchObject({ cancelled: true })
+    } finally {
+      validator.destroy()
+    }
+  })
+
   it("旧异步结果不能覆盖新状态", async () => {
     const first = deferred<ValidationRuleResult>()
 

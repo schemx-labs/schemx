@@ -17,7 +17,7 @@ import * as preflight from "./preflight.ts"
 import { hasStep, markStep } from "./state.ts"
 
 /** 逐包执行的质量任务。 */
-const QUALITY_TASKS = ["lint", "type-check", "test", "build"] as const
+const QUALITY_TASKS = ["lint", "format:check", "type-check", "test", "build"] as const
 
 /**
  * 在任务中执行一次前置校验，并把失败原因作为错误输出。

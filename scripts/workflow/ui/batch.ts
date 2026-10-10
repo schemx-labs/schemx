@@ -119,7 +119,7 @@ export interface BatchFlowOptions<T> extends Omit<BatchOptions<T>, "label"> {
 const GROUP_DESCRIPTION = "按选中目标顺序执行；--keep-going 会在普通失败后继续。"
 
 /** 流程说明：描述整体行为。 */
-const FLOW_DESCRIPTION = "逐个执行选中目标的同名 script。"
+const FLOW_DESCRIPTION = "逐个执行选中目标的对应 script。"
 
 /**
  * 开启一次批处理流程并跑完，把 flow 与 group 的开闭也收敛到一处。

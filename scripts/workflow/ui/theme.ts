@@ -16,7 +16,7 @@ const PALETTE = {
   success: "green",
   /** 失败。 */
   error: "red",
-  /** 取消。 */
+  /** 警告与取消。 */
   warning: "yellow",
   /** 跳过与次要信息。 */
   muted: "gray",
@@ -159,10 +159,13 @@ const COMMAND_ECHO = /^\s*[$>]\s/
  * @remarks 只匹配明确的失败标记，避免把 `0 errors` 之类的普通行误判成错误。
  */
 const ERROR_LINE =
-  /(^|\s)(error TS\d+|- error\b|error:|Error:|ERROR:|ERR_[A-Z_]+|ELIFECYCLE|Command failed|[✗✖])/
+  /(^|\s)(error TS\d+|- error\b|error:|Error:|ERROR:|ERR_[A-Z_]+|ELIFECYCLE|Command failed|[✗✖×])|(^|\s)\d+:\d+\s+error\b|:\d+:\d+:\s*error\b|\[Error\//
+
+// ESLint、Oxc 与包管理器的警告，避免将 "0 warnings" 误判为诊断。
+const WARNING_LINE = /(^|\s)(warning\b|WARN\b|Warning:|WARNING:|⚠)|\[Warning\//
 
 /** 子进程输出中一行的语义类别。 */
-export type DetailTone = "command" | "error" | "plain"
+export type DetailTone = "command" | "error" | "warning" | "plain"
 
 /**
  * 判断子进程输出中一行的语义类别。
@@ -171,12 +174,24 @@ export type DetailTone = "command" | "error" | "plain"
  * @returns 语义类别。
  */
 export function classifyDetailLine(line: string): DetailTone {
-  if (COMMAND_ECHO.test(line)) {
+  // 工具可能强制启用颜色；诊断判定使用纯文本，展示仍保留原行。
+  const text = line.replace(ANSI_SGR, "")
+
+  if (COMMAND_ECHO.test(text)) {
     return "command"
   }
 
-  if (ERROR_LINE.test(line)) {
+  // ESLint 使用同一个符号汇总警告和错误，零错误的摘要应保留警告等级。
+  if (/^\s*[✗✖]\s+\d+\s+problems?\s+\(0 errors?, \d+ warnings?\)/.test(text)) {
+    return "warning"
+  }
+
+  if (ERROR_LINE.test(text)) {
     return "error"
+  }
+
+  if (WARNING_LINE.test(text)) {
+    return "warning"
   }
 
   return "plain"

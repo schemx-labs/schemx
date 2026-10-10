@@ -36,10 +36,9 @@ const VITE_SCRIPT_MANIFESTS = [
 
 /** 文件必须包含的文本。 */
 const REQUIRED_TEXT: readonly (readonly [string, readonly string[]])[] = [
-  ["packages/core/.env", ["VITE_ANALYZE="]],
-  ["packages/vue/.env", ["VITE_USE_SOURCE=", "VITE_ANALYZE="]],
-  ["packages/vant/.env", ["VITE_USE_SOURCE=", "VITE_ANALYZE="]],
-  ["packages/element-plus/.env", ["VITE_USE_SOURCE=", "VITE_ANALYZE="]],
+  ["packages/vue/.env", ["VITE_USE_SOURCE="]],
+  ["packages/vant/.env", ["VITE_USE_SOURCE="]],
+  ["packages/element-plus/.env", ["VITE_USE_SOURCE="]],
 ]
 
 /** 文件不得包含的文本。 */

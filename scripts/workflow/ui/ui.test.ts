@@ -9,7 +9,7 @@
  * - 非 TTY 使用静态进行中状态，等待期间也能知道当前任务。
  * - 失败详情按「命令 → 其他输出 → 错误结论」重排，并去掉重复行；超长行截断。
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 
 import { usageError } from "../core/errors.ts"
 
@@ -262,6 +262,17 @@ describe("失败详情的语义分类", () => {
     ["✗ 3 problems", "error"],
     ["All matched files use the correct format.", "plain"],
     ["0 errors found", "plain"],
+    ["  25:27  error  Missing trailing comma  comma-dangle", "error"],
+    ["src/a.ts:1:1: error eslint(no-unused-vars): x", "error"],
+    ["src/a.ts:1:1: warning unicorn(no-useless-spread): array", "warning"],
+    ["  92:3  warning  Expected blank line  padding-line-between-statements", "warning"],
+    ["[Warning/no-unused-vars] x", "warning"],
+    ["Warning: deprecated API", "warning"],
+    ["WARN Unsupported engine", "warning"],
+    ["✖ 3 problems (0 errors, 3 warnings)", "warning"],
+    ["Found 0 warnings and 0 errors.", "plain"],
+    ["0 warnings", "plain"],
+    ["\u001b[33msrc/a.ts:1:1: warning eslint(no-unused-vars): x\u001b[0m", "warning"],
   ] as const)("%s → %s", (line, expected) => {
     expect(classifyDetailLine(line)).toBe(expected)
   })
@@ -363,6 +374,89 @@ describe("失败详情块", () => {
     expect(lines.length).toBeLessThan(46)
     expect(capture.raw).toContain("error TS3")
     expect(capture.raw).toContain("WORKFLOW_LOG=live")
+  })
+
+  it("成功任务展示 Oxc warning 并保留 0 退出码", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const output =
+      "src/store.ts:888:29: warning unicorn(no-useless-spread): unnecessary array"
+
+    const code = await ui.task({ title: "oxlint" }, async () => ({
+      code: 0,
+      stdout: output,
+      stderr: "",
+      output,
+    }))
+
+    expect(code).toBe(0)
+    expect(capture.raw).toContain("warning unicorn(no-useless-spread)")
+    expect(strip(capture.raw)).toContain("✔ oxlint")
+  })
+
+  it("成功任务的普通输出仍静默", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const code = await ui.task({ title: "check" }, async () => ({
+      code: 0,
+      stdout: "All matched files use the correct format.",
+      stderr: "",
+      output: "All matched files use the correct format.",
+    }))
+
+    expect(code).toBe(0)
+    expect(capture.raw).not.toContain("correct format")
+    expect(capture.raw).not.toContain("┌")
+  })
+
+  it("实时 warning 不重复渲染", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const code = await ui.task({ title: "oxlint", log: "live" }, async () =>
+      ui.exec(process.execPath, [
+        "-e",
+        'process.stderr.write("src/a.ts:1:1: warning eslint(no-unused-vars): x\\n")',
+      ])
+    )
+
+    expect(code).toBe(0)
+    expect(capture.raw.match(/no-unused-vars/g)).toHaveLength(1)
+  })
+
+  it("普通输出很多时仍保留 warning", async () => {
+    const ui = makeUi({ isTTY: false })
+
+    const warning = "src/store.ts:888:29: warning unicorn(no-useless-spread): array"
+
+    const output = [
+      ...Array.from({ length: 60 }, (_, index) => `plain line ${index}`),
+      warning,
+    ].join("\n")
+
+    await ui.task({ title: "oxlint" }, async () => ({
+      code: 0,
+      stdout: output,
+      stderr: "",
+      output,
+    }))
+
+    expect(capture.raw).toContain("warning unicorn(no-useless-spread)")
+    expect(capture.raw).toContain("WORKFLOW_LOG=live")
+  })
+
+  it("大量 ESLint warning 不会挤掉真正的 error", async () => {
+    const warnings = Array.from(
+      { length: 60 },
+      (_, index) =>
+        `  ${index + 1}:1  warning  blank line  padding-line-between-statements`
+    )
+
+    await renderFailure(
+      [...warnings, "  689:63  error  Missing trailing comma  comma-dangle"].join("\n")
+    )
+
+    expect(capture.raw).toContain("689:63")
+    expect(capture.raw).toContain("Missing trailing comma")
   })
 
   it("成功后不渲染任何详情", async () => {

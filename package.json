@@ -37,6 +37,7 @@
     "vitest": "^5.0.2"
   },
   "scripts": {
+    "workflow": "node scripts/workflow.ts",
     "dev": "node scripts/workflow.ts dev",
     "build": "node scripts/workflow.ts build",
     "build:analyze": "node scripts/workflow.ts build:analyze",
@@ -47,9 +48,10 @@
     "lint:fix": "node scripts/workflow.ts lint:fix",
     "format": "node scripts/workflow.ts format",
     "format:check": "node scripts/workflow.ts format:check",
-    "type-check": "node scripts/workflow.ts type-check && pnpm run type-check:scripts",
+    "type-check": "node scripts/workflow.ts type-check",
+    "type-check:tests": "node scripts/workflow.ts type-check:tests",
     "type-check:scripts": "node scripts/workflow.ts type-check:scripts",
-    "test": "node scripts/workflow.ts test && pnpm run test:scripts",
+    "test": "node scripts/workflow.ts test",
     "test:scripts": "node scripts/workflow.ts test:scripts",
     "pack-local": "node scripts/workflow.ts pack-local",
     "check:packages": "node scripts/workflow.ts check:packages",

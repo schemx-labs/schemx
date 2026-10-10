@@ -3,6 +3,13 @@
 根目录 `package.json` 的开发、构建、质量、测试和发布命令统一由 `scripts/workflow.ts` 分派。
 使用 Node 原生类型剥离直接运行 `.ts`，没有构建步骤。
 
+`pnpm workflow <command>` 是通用入口。`check` 执行包的静态检查，`code-check` 是兼容别名；
+`test:scripts` 执行项目脚本测试，`release:test` 是兼容别名。测试代码的类型检查统一为
+`type-check:tests`，包内旧名称 `type-test`、`test:type-check` 保留为兼容别名。
+
+包内 `lint` 与 `lint:fix` 都先从根配置运行 Oxc，再执行 ESLint；根命令和发布检查复用包脚本。
+`build:analyze` 执行与 `build` 相同的类型检查，并用 `--mode analyze` 生成分析报告；普通构建不开启分析。
+
 ```text
 scripts/
 ├── workflow.ts             # 项目级命令入口
@@ -34,6 +41,8 @@ script 的目标；`dev` 使用单选。目标来源优先级为：命令行参�
 
 CI 和管道环境中，有限批处理默认执行所有符合条件的目标，`dev` 必须显式指定单个目标。
 目标标识接受 `packages/core`、`core` 和 `@schemx/core` 三种形式，匹配使用精确比较。
+显式目标不存在或未定义对应 script 时返回用法错误，多选中任一目标无效也会拒绝执行。
+`type-check` 与 `test` 完成目标任务后继续项目脚本自检；`--help` 只显示帮助。
 
 ## UI 约定
 

@@ -2,12 +2,12 @@
  * workspace 包配置检查的规则测试。
  *
  * @remarks 覆盖内容与对应约束：
- * - 4 个 package.json、4 个 .env 与根 .gitignore 全部合规时 `ok: true`；
+ * - 4 个 package.json、适配包 .env 与根 .gitignore 全部合规时 `ok: true`；
  * - 内部依赖必须声明在 `dependencies` 且使用 `workspace:*` 协议；
  * - 内部依赖不得同时出现在 `peerDependencies` / `devDependencies`（发布时会被二次改写）；
  * - 任何 script 都不得内联 `VITE_*` 环境变量（正则 `(?:^|\s)VITE_[A-Z0-9_]+=`），
  *   构建配置必须来自 .env，否则 CI 与本地行为不一致；
- * - .env 必须声明 `VITE_USE_SOURCE=` / `VITE_ANALYZE=`；
+ * - 适配包 .env 必须声明 `VITE_USE_SOURCE=`；分析构建由 mode 决定；
  * - standalone 产物链路已下线，因此 `packages/vant/package.json` 的 script、
  *   `packages/vant/.env` 的 `VITE_BUILD_STANDALONE` 与 `.gitignore` 的
  *   `packages/vant/.env.standalone` 条目都属于禁止文本（注意这条规则是「不得包含」，
@@ -19,7 +19,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 
 import { checkPackageConfig } from "./check-config.ts"
 
@@ -75,7 +75,7 @@ function writeCompliantWorkspace(): void {
   writeManifest("packages/core/package.json", {
     name: "@schemx/core",
     version: "1.0.0",
-    scripts: { build: "vp build", "build:analyze": "vp build --analyze" },
+    scripts: { build: "vp build", "build:analyze": "pnpm run build --mode analyze" },
   })
   writeManifest("packages/vue/package.json", {
     name: "@schemx/vue",
@@ -103,10 +103,10 @@ function writeCompliantWorkspace(): void {
     peerDependencies: { "element-plus": "^2.14.0", vue: "^3.0.0" },
   })
 
-  write("packages/core/.env", "VITE_USE_SOURCE=true\nVITE_ANALYZE=false\n")
-  write("packages/vue/.env", "VITE_USE_SOURCE=true\nVITE_ANALYZE=false\n")
-  write("packages/vant/.env", "VITE_USE_SOURCE=true\nVITE_ANALYZE=false\n")
-  write("packages/element-plus/.env", "VITE_USE_SOURCE=true\nVITE_ANALYZE=false\n")
+  write("packages/core/.env", "VITE_USE_SOURCE=true\n")
+  write("packages/vue/.env", "VITE_USE_SOURCE=true\n")
+  write("packages/vant/.env", "VITE_USE_SOURCE=true\n")
+  write("packages/element-plus/.env", "VITE_USE_SOURCE=true\n")
 
   write(".gitignore", "node_modules/\ndist/\n*.tgz\n")
 }
@@ -126,7 +126,7 @@ describe("checkPackageConfig 合规基线", () => {
   })
 
   it(".env 缺少 VITE_USE_SOURCE 时报告缺少项", () => {
-    write("packages/vue/.env", "VITE_ANALYZE=false\n")
+    write("packages/vue/.env", "")
 
     const result = checkPackageConfig(root)
 
@@ -258,15 +258,6 @@ describe("checkPackageConfig script 规则", () => {
 })
 
 describe("checkPackageConfig 文件内容规则", () => {
-  it(".env 缺少 VITE_ANALYZE= 时报错", () => {
-    write("packages/element-plus/.env", "VITE_USE_SOURCE=true\n")
-
-    const result = checkPackageConfig(root)
-
-    expect(result.ok).toBe(false)
-    expect(result.failures).toContain("packages/element-plus/.env: 缺少 VITE_ANALYZE=")
-  })
-
   it(".gitignore 出现 packages/vant/.env.standalone 时报错", () => {
     write(".gitignore", "node_modules/\ndist/\n*.tgz\npackages/vant/.env.standalone\n")
 
@@ -303,9 +294,9 @@ describe("checkPackageConfig 文件内容规则", () => {
   })
 
   it("文件缺失时报「文件不存在」而不是「缺少」", () => {
-    rmSync(path.join(root, "packages/core/.env"))
+    rmSync(path.join(root, "packages/vue/.env"))
 
-    expect(checkPackageConfig(root).failures).toContain("packages/core/.env: 文件不存在")
+    expect(checkPackageConfig(root).failures).toContain("packages/vue/.env: 文件不存在")
   })
 })
 
