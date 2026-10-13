@@ -1,12 +1,29 @@
 import { describe, expect, test } from "vite-plus/test"
 
 import * as elementPlusPackage from "../index"
-import { getGlobalSchemxConfig, presetRuleRegistry, rendererRegistry } from "../index"
+import { defaultConfig, getConfig, presetRuleRegistry, rendererRegistry } from "../index"
 import { ElementPlusCol } from "../layout/defaultCol"
 import { ElementPlusRow } from "../layout/defaultRow"
 import { DEFAULT_RENDERER_TYPES } from "../renderers"
 
 describe("@schemx/element-plus 根入口", () => {
+  test("导出可复用的默认配置，并保留 Registry 引用身份", () => {
+    for (const alias of [
+      "getGlobalSchemxConfig",
+      "mergeSchemxConfig",
+      "createFormContext",
+      "createFormConfigContext",
+    ]) {
+      expect(alias in elementPlusPackage).toBe(false)
+    }
+
+    expect("createSchemx" in elementPlusPackage).toBe(false)
+    expect("provideSchemxFormRuntime" in elementPlusPackage).toBe(false)
+    expect(defaultConfig.rendererRegistry).toBe(rendererRegistry)
+    expect(defaultConfig.presetRuleRegistry).toBe(presetRuleRegistry)
+    expect(getConfig().rendererRegistry).toBe(rendererRegistry)
+    expect(getConfig().presetRuleRegistry).toBe(presetRuleRegistry)
+  })
   test("导出 Element Plus Renderer 公共 API", () => {
     expect(elementPlusPackage).toMatchObject({
       InputRenderer: expect.any(Object),
@@ -63,7 +80,7 @@ describe("@schemx/element-plus 根入口", () => {
 
     expect(DEFAULT_RENDERER_TYPES.every((type) => rendererRegistry.has(type))).toBe(true)
 
-    expect(getGlobalSchemxConfig()).toMatchObject({
+    expect(defaultConfig).toMatchObject({
       rendererRegistry,
       presetRuleRegistry,
       colComponent: ElementPlusCol,

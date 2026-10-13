@@ -13,7 +13,7 @@ import Field from "./components/Field"
 import { provideSchemxAppConfig } from "./context/configProviderContext"
 import SchemxForm from "./formRuntime.js"
 
-import type { SchemxConfig } from "@schemx/core"
+import type { CreateSchemxOptions } from "@schemx/core"
 
 /**
  * SchemxForm 插件安装选项
@@ -30,7 +30,7 @@ import type { SchemxConfig } from "@schemx/core"
  * })
  * ```
  */
-export interface SchemxInstallOptions extends SchemxConfig {}
+export interface SchemxInstallOptions extends CreateSchemxOptions {}
 
 /**
  * 为组件挂载静态属性并保留原始类型
@@ -64,8 +64,11 @@ const SchemxFormExport = withInstall(SchemxForm, {
   /**
    * Vue 插件安装方法
    */
-  install(app: App, options: SchemxInstallOptions = {}) {
-    provideSchemxAppConfig(app, options)
+  install(app: App, options?: SchemxInstallOptions) {
+    if (options !== undefined) {
+      provideSchemxAppConfig(app, options)
+    }
+
     app.component("SchemxForm", SchemxForm)
   },
   /**

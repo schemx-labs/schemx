@@ -8,6 +8,7 @@ describe("@schemx/vue 根入口", () => {
       createFieldContext: expect.any(Function),
       createFormConfigContext: expect.any(Function),
       createFormContext: expect.any(Function),
+      provideSchemxFormRuntime: expect.any(Function),
       provideFormContext: expect.any(Function),
       useFormContextValue: expect.any(Function),
       useStableRef: expect.any(Function),
@@ -23,6 +24,11 @@ describe("@schemx/vue 根入口", () => {
       ConfigProvider: expect.any(Object),
     })
 
+    expect(vuePackage.createSchemx).toEqual(expect.any(Function))
+    expect("getFormCreationConfig" in vuePackage).toBe(false)
+    expect("normalizeCreateSchemxOptions" in vuePackage).toBe(false)
+    expect(Object.isFrozen(vuePackage.defaultConfig)).toBe(true)
+    expect(vuePackage.defaultConfig).not.toHaveProperty("rendererRegistry")
     expect("getCoreForm" in vuePackage).toBe(false)
     expect("Cell" in vuePackage).toBe(false)
     expect("useFieldArray" in vuePackage).toBe(false)

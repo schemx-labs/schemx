@@ -28,7 +28,13 @@ export { createFieldContext, useFieldContext } from "./fieldContext"
  * ConfigProvider 组件树级配置上下文注入与消费。
  */
 export {
+  provideSchemxAppConfig,
   createConfigProviderContext,
   useConfigProviderContext,
   useConfigProviderContextRef,
 } from "./configProviderContext"
+
+/**
+ * 连接适配包组件与同步创建器，不生成组件。
+ */
+export { provideSchemxFormRuntime } from "./schemxFormRuntime"

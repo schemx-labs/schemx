@@ -40,6 +40,7 @@ export type {
   NodeId,
   NodeType,
   SchemaNode,
+  StatefulPresentationNode,
 } from "./types"
 
 export { createNodeManager, type NodeManager } from "./nodeManager"

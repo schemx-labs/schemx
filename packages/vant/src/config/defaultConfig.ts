@@ -1,43 +1,40 @@
 /**
- * Vant 适配包的默认 Registry 与全局配置。
+ * Vant 适配包的默认 Registry 与局部配置。
  *
- * 根入口通过导出本模块的 Registry 触发默认配置初始化。
+ * 默认配置由本包表单组件和 Hook 提供，不写入 Core 或 Vue 全局。
  *
  * @module config/defaultConfig
  */
 
-import { configureSchemx } from "@schemx/core"
-import {
-  presetRuleRegistry as vuePresetRuleRegistry,
-  rendererRegistry as vueRendererRegistry,
-} from "@schemx/vue"
+import { createPresetRuleRegistry, createRendererRegistry } from "@schemx/core"
 
 import { VantCol } from "../layout/defaultCol"
 import { VantRow } from "../layout/defaultRow"
 import { defaultRenderers } from "../renderers/defaultRenderers"
 
-import type { PresetRuleRegistry, RendererRegistry } from "@schemx/core"
+import type {
+  CreateSchemxOptions,
+  PresetRuleRegistry,
+  RendererRegistry,
+} from "@schemx/core"
 
-/** Vant 与 Vue 共用的全局 Renderer Registry。 */
-export const rendererRegistry: RendererRegistry = vueRendererRegistry
+/** Vant 适配包独立的 Renderer Registry。 */
+export const rendererRegistry: RendererRegistry = createRendererRegistry("input")
 
-/** Vant 与 Vue 共用的全局预设规则 Registry。 */
-export const presetRuleRegistry: PresetRuleRegistry = vuePresetRuleRegistry
+/** Vant 适配包独立的预设规则 Registry。 */
+export const presetRuleRegistry: PresetRuleRegistry = createPresetRuleRegistry()
 
 rendererRegistry.registerAll(defaultRenderers)
 
 /**
- * 将 Vant 默认能力写入 Schemx 模块级全局配置。
- *
- * 业务可通过 Form Props 或 ConfigProvider 覆盖当前 Form；多个 UI 适配包同时导入时，
- * 最后执行的适配包配置会成为模块级全局默认值。
+ * 可通过 App 安装选项复用的 Vant 默认配置。
  */
-configureSchemx({
+export const defaultConfig: Readonly<CreateSchemxOptions> = Object.freeze({
   rendererRegistry,
   presetRuleRegistry,
   colComponent: VantCol,
   rowComponent: VantRow,
-  schemaConfig: {
+  schemaConfig: Object.freeze<NonNullable<CreateSchemxOptions["schemaConfig"]>>({
     col: { span: 24 },
     row: { gutter: [0, 0] },
     labelAlign: "right",
@@ -45,5 +42,5 @@ configureSchemx({
     contentAlign: "right",
     errorAlign: "right",
     bordered: true,
-  },
+  }),
 })

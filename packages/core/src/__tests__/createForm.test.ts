@@ -11,6 +11,7 @@ import fc from "fast-check"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFormStateAdapter } from "../adapter"
+import * as config from "../config"
 import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
@@ -21,7 +22,7 @@ import {
 } from "../registry"
 import { isFieldNode } from "../runtime/node/helper"
 
-import type { StandardSchemaV1 } from "../types"
+import type { StandardSchemaV1, ValidationTrigger } from "../types"
 import type { ValidationRuleContext, ValidationRuleResult } from "../validator"
 
 interface StudentFormValues {
@@ -35,6 +36,123 @@ interface StudentFormValues {
 }
 
 describe("字段初始值", () => {
+  it("无变化默认配置不刷新节点，真实变化和清理仍刷新", async () => {
+    const form = createForm({
+      schemaConfig: { readonly: true },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const initialView = form.getViewSchemas()
+
+    const onViewChange = vi.fn()
+
+    const unsubscribe = form.subscribeViewSchemas(onViewChange)
+
+    onViewChange.mockClear()
+
+    form.updateSchemaConfig({ readonly: true })
+    form.updateSchemaConfig({})
+    expect(form.getViewSchemas()).toBe(initialView)
+    expect(onViewChange).not.toHaveBeenCalled()
+    form.updateSchemaConfig({ disabled: true })
+    await vi.waitFor(() => expect(onViewChange).toHaveBeenCalled())
+    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true, disabled: true })
+    form.updateSchemaConfig({ readonly: undefined })
+    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: false })
+    unsubscribe()
+    form.destroy()
+  })
+  it("已合并配置通过单个参数传入，并保留初始值、回调与输入快照", () => {
+    const mergedConfig = config.resolveSchemxConfig<{ name: string }>({
+      schemaConfig: { readonly: true },
+    })
+
+    Object.freeze(mergedConfig.schemaConfig)
+    Object.freeze(mergedConfig)
+    const onValuesChange = vi.fn()
+
+    const form = createForm({
+      initialValues: { name: "before" },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+      onValuesChange,
+      ...mergedConfig,
+    })
+
+    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true })
+    expect(form.getFieldValue("name")).toBe("before")
+    form.setFieldValue("name", "after")
+    expect(onValuesChange).toHaveBeenCalled()
+    form.updateSchemaConfig({ readonly: false })
+    expect(mergedConfig.schemaConfig.readonly).toBe(true)
+    form.destroy()
+  })
+  it("嵌套基础默认值生效，字段声明仍优先", () => {
+    const form = createForm({
+      schemaConfig: {
+        readonly: true,
+        disabled: true,
+        visible: false,
+        validationTrigger: "submit",
+      },
+      schemas: [
+        {
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          visible: true,
+          readonly: false,
+        },
+      ],
+    })
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      readonly: false,
+      disabled: true,
+      visible: true,
+    })
+    form.destroy()
+  })
+  it("同引用数组原地修改后仍更新字段触发器", () => {
+    const validationTrigger: ValidationTrigger[] = ["blur"]
+
+    const form = createForm({
+      schemaConfig: { validationTrigger },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    validationTrigger.push("change")
+    form.updateSchemaConfig({ validationTrigger })
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      validationTrigger: ["blur", "change"],
+    })
+    form.destroy()
+  })
+
+  it("同引用对象原地修改后刷新视图，清理与重复清理保持正确", () => {
+    const required = { message: "原消息" }
+
+    const form = createForm({
+      schemaConfig: { required },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const initialView = form.getViewSchemas()
+
+    required.message = "新消息"
+    form.updateSchemaConfig({ required })
+
+    expect(form.getViewSchemas()).not.toBe(initialView)
+    expect(form.getViewSchemas()[0]).toMatchObject({ required: { message: "新消息" } })
+    form.updateSchemaConfig({ required: undefined })
+    expect(form.getViewSchemas()[0]).toMatchObject({ required: false })
+    const clearedView = form.getViewSchemas()
+
+    form.updateSchemaConfig({ required: undefined })
+    expect(form.getViewSchemas()).toBe(clearedView)
+    form.destroy()
+  })
+
   it("Schema initialValue 初始化不应触发 onValuesChange", () => {
     const onValuesChange = vi.fn()
 

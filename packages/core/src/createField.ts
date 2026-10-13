@@ -76,9 +76,9 @@ export interface SchemxFieldInstance<
    *
    * 在 effect 中调用时，读取过程会自动追踪字段变化。
    *
-   * @returns 当前表单值对象。
+   * @returns 当前表单值的独立副本，修改副本不会更新表单。
    */
-  getValues: () => Readonly<TValues>
+  getValues: () => TValues
 
   /**
    * 获取表单字段快照。
@@ -251,9 +251,9 @@ export function createField<
   }
 
   /**
-   * 读取表单当前值；调用处在 effect 中时会自动建立字段依赖。
+   * 读取表单当前值的独立副本；调用处在 effect 中时会自动建立字段依赖。
    */
-  const getValues = (): Readonly<TValues> => form.getFieldsValue()
+  const getValues = (): TValues => form.getFieldsValue()
 
   /**
    * 读取 name 当前无追踪快照。

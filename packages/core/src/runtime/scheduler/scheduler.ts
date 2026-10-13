@@ -67,14 +67,14 @@ export interface SchedulerIdleOptions {
    *
    * @defaultValue 10000
    */
-  readonly timeout?: number
+  timeout?: number
 
   /**
    * 是否等待 idle 队列和 idle 异步任务。
    *
    * @defaultValue true
    */
-  readonly includeIdle?: boolean
+  includeIdle?: boolean
 }
 
 /**
@@ -86,7 +86,7 @@ export interface SchedulerTrackOptions {
    *
    * @defaultValue "normal"
    */
-  readonly priority?: SchedulerTaskPriority
+  priority?: SchedulerTaskPriority
 }
 
 /**

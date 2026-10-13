@@ -48,7 +48,9 @@ describe("SchemxForm actions", () => {
   it("默认渲染操作区，并支持显式配置文本", () => {
     const defaultWrapper = mount(SchemxForm)
 
-    expect(defaultWrapper.find(".schemx-actions").exists()).toBe(true)
+    expect(
+      defaultWrapper.find(".schemx-row > .schemx-col > .schemx-actions").exists()
+    ).toBe(true)
 
     defaultWrapper.unmount()
 
@@ -63,6 +65,23 @@ describe("SchemxForm actions", () => {
     expect(visibleWrapper.get(".schemx-actions-button--reset").text()).toBe("重置")
 
     visibleWrapper.unmount()
+  })
+
+  it("操作列独占整行，隐藏全部操作时不创建列", () => {
+    const wrapper = mount(SchemxForm, { props: { col: { span: 12 } } })
+
+    const actionCol = wrapper.get(".schemx-row > .schemx-col")
+
+    expect(actionCol.element.getAttribute("style")).toContain("100%")
+    expect(actionCol.find(".schemx-actions").exists()).toBe(true)
+    wrapper.unmount()
+
+    const hidden = mount(SchemxForm, {
+      props: { submitter: false, resetter: false },
+    })
+
+    expect(hidden.find(".schemx-col").exists()).toBe(false)
+    hidden.unmount()
   })
 
   it("提交按钮跟随异步 onFinish 的 loading，并在期间禁用两个按钮", async () => {

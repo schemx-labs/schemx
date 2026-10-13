@@ -8,6 +8,7 @@
  * useForm - 表单状态管理
  */
 export { useForm } from "./useForm"
+export type { UseFormOptions, FormCreator } from "./useForm"
 
 /** Vue 兼容用的表单实例类型。 */
 export type { VueSchemxInstance } from "../bridge"

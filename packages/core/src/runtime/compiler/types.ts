@@ -27,9 +27,10 @@ export interface SchemaCompilerOptions<TValues extends Values> {
   /**
    * 表单级默认配置。
    *
-   * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
+   * 值类型为当前表单的 {@link SchemxSchemaConfig}，字段显式配置优先。
+   * Renderer Props 和 Form 实例通过其他选项传入。
    */
-  schemaConfig: SchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig<TValues>
   /**
    * 按 Renderer 类型配置的静态默认 Props。
    */
@@ -52,14 +53,18 @@ export type CompileOptions<TValues extends Values> = SchemaCompilerOptions<TValu
 /**
  * 创建 Compiler 时可覆盖的配置。
  *
- * `schemaConfig` 省略时由 Compiler 补齐 Core 默认值，其余选项保持可选。
+ * `schemaConfig` 省略时只生成当前 `TValues` 对应的 Core 默认配置；
+ * 传入时直接使用该配置，不再读取全局配置或重新解析默认值，其余选项保持可选。
  *
  * @typeParam TValues - 表单值类型。
  */
 export type CreateSchemaCompilerOptions<TValues extends Values = Values> = Partial<
   Omit<SchemaCompilerOptions<TValues>, "schemaConfig">
 > & {
-  readonly schemaConfig?: SchemxSchemaConfig
+  /**
+   * 当前表单的 Schema 默认配置；可单独构造 Compiler 的局部默认值。
+   */
+  readonly schemaConfig?: SchemxSchemaConfig<TValues>
 }
 
 /**

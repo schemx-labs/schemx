@@ -111,7 +111,7 @@ export type RendererPropsTransformer<
   TKey extends string = SchemxRendererKey<TValues>,
 > = (
   props: Readonly<SchemxComponentProps<TValues, TKey>>,
-  context: Readonly<RendererTransformContext<TValues>>
+  context: RendererTransformContext<TValues>
 ) => Record<string, unknown>
 
 /**
@@ -127,9 +127,9 @@ export interface RendererDescriptor<
   TKey extends string = SchemxRendererKey<TValues>,
 > {
   /** 实际渲染的 UI 组件。 */
-  readonly component: TRenderer
+  component: TRenderer
   /** 返回最终传给组件的 Props。 */
-  readonly transformProps: RendererPropsTransformer<TValues, TKey>
+  transformProps: RendererPropsTransformer<TValues, TKey>
 }
 
 /**

@@ -588,7 +588,7 @@ describe("SchemxForm 动态 schemas", () => {
 
     const adapter = createTestAdapter("vue-form-adapter", "adapter 校验失败")
 
-    const rule = adapter.rule
+    const rule = adapter.rule?.bind(adapter)
 
     if (!rule) {
       throw new Error("测试 adapter 必须提供 rule")

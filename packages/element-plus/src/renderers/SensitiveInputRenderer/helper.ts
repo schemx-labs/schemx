@@ -10,7 +10,7 @@
  * ```
  */
 export function defaultMaskFormatter(value: string): string {
-  const chars = [...value]
+  const chars = Array.from(value)
 
   const length = chars.length
 

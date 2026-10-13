@@ -90,12 +90,25 @@ export const defaultSchemxConfig = Object.freeze({
    * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
    */
   showRequiredMark: undefined as boolean | undefined,
-} as const)
+} as const satisfies Record<SchemxConfigKey, unknown>)
 
 /**
  * `defaultSchemxConfig` 的键集合，用于类型安全的配置访问。
+ * 显式字面量键供 Vue SFC 解析；默认配置通过 satisfies 校验键集合完整性。
  */
-export type SchemxConfigKey = keyof typeof defaultSchemxConfig
+export type SchemxConfigKey =
+  | "required"
+  | "readonly"
+  | "disabled"
+  | "visible"
+  | "labelIcon"
+  | "labelAlign"
+  | "labelPosition"
+  | "labelWidth"
+  | "contentAlign"
+  | "validationTrigger"
+  | "colon"
+  | "showRequiredMark"
 
 /**
  * `defaultSchemxConfig` 的所有键数组。

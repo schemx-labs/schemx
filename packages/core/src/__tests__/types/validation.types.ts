@@ -67,6 +67,14 @@ interface FormValues {
   files: File[]
 }
 
+// 对象规则不能通过可迭代对象绕过规则数组分支。
+const iterableRule = { [Symbol.iterator]: () => ["email"].values() }
+
+// @ts-expect-error 可迭代对象不能作为 adapter 对象规则。
+const invalidIterableRule: FieldRules<FormValues, "email"> = iterableRule
+
+void invalidIterableRule
+
 const configuredForm = createForm<FormValues>({
   schemaConfig: {
     readonly: true,
@@ -85,7 +93,7 @@ const schemaOptions: FormSchemaOptions<FormValues> = {
   },
 }
 
-// @ts-expect-error createForm 不再接受平铺的 Schema 配置。
+// @ts-expect-error createForm 的字段默认值只能放在 schemaConfig 中。
 createForm<FormValues>({ readonly: true })
 // @ts-expect-error 实例只提供 updateSchemaConfig，不再提供旧方法。
 configuredForm.updateDefaultProps({ disabled: true })

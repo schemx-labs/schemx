@@ -31,6 +31,7 @@ declare module "@schemx/core" {
   interface SchemxInstanceDefinition<TValues extends Values = Values> {
     /**
      * 定位当前 Vue 表单中的字段；折叠的祖先 Group 会依次展开。
+     * 方法不依赖 this，允许单独调用。
      *
      * @param name - 目标字段路径。
      * @param options - 滚动行为与对齐方式；默认为平滑滚动并垂直居中，且仅在需要时滚动。
@@ -42,6 +43,7 @@ declare module "@schemx/core" {
      * ```
      */
     scrollToField<TName extends NamePath<TValues>>(
+      this: void,
       name: TName,
       options?: ScrollToFieldOptions
     ): Promise<boolean>
@@ -202,51 +204,53 @@ declare module "@schemx/core" {
   }
 
   /**
-   * Vue 表单配置字段展示默认值扩展。
+   * Vue 整体配置的组件实现扩展。
+   *
+   * @typeParam TValues - 当前表单值类型。
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SchemxConfigDefinition<TValues extends Values = Values> {
     /**
-     * 当前 App、Provider 或 Form 的默认 Row 配置。
-     */
-    readonly row?: SchemxRowConfig
-
-    /**
      * 当前 App、Provider 或 Form 使用的 Col 实现。
      */
-    readonly colComponent?: SchemxColComponent
+    colComponent?: SchemxColComponent
 
     /**
      * 当前 App、Provider 或 Form 使用的 Row 实现。
      */
-    readonly rowComponent?: SchemxRowComponent
+    rowComponent?: SchemxRowComponent
 
     /**
      * 当前 App、Provider 或 Form 使用的 Icon Adapter。
      */
-    readonly iconComponent?: SchemxIconComponent
+    iconComponent?: SchemxIconComponent
   }
 
   /**
-   * Vue 表单级字段展示默认值扩展。
+   * `schemaConfig` 属性的 Vue 展示与布局类型扩展。
+   *
+   * 扩展 `SchemxConfig.schemaConfig` 的配置项类型；组件实现由顶层 `SchemxConfigDefinition` 声明。
+   *
+   * @typeParam TValues - 当前表单值类型。
    */
-  interface SchemxSchemaConfigDefinition {
+  interface SchemxSchemaConfigDefinition<TValues extends Values = Values> {
     /**
-     * Form、Group 和 Dynamic 使用的默认 Row 配置。
+     * 根列表和后代 Group、Dynamic 的继承 Row 默认值。
+     * 容器自身的 Row 属性按对应布局逻辑覆盖继承值。
      */
-    row?: SchemxRowConfig
+    row?: SchemxRowConfig<TValues>
 
     /**
      * 字段默认 Col 配置。
      */
-    col?: SchemxColConfig
+    col?: SchemxColConfig<TValues>
 
     /**
      * 旧版字段默认布局配置。
      *
      * @deprecated 请改用 {@link SchemxColConfig} 与 `col` 字段。
      */
-    layout?: SchemxLayout
+    layout?: SchemxLayout<TValues>
 
     /**
      * 表单级标签图标默认值。

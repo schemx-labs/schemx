@@ -14,7 +14,7 @@
 
 import { debounce } from "es-toolkit"
 
-import type { Values } from "../types"
+import type { Dynamic, Values } from "../types/form"
 
 /**
  * 动态属性类型
@@ -22,6 +22,7 @@ import type { Values } from "../types"
  * 支持静态值或函数形式，函数接收当前表单值并返回属性值（支持异步）。
  *
  * @typeParam TValue - 属性值类型
+ * @typeParam TValues - 动态函数接收的表单值类型。
  *
  * @example
  * ```ts
@@ -32,9 +33,10 @@ import type { Values } from "../types"
  * const prop: DynamicProp<boolean> = (values) => values.age > 18
  * ```
  */
-export type DynamicProp<TValue, TValues extends Values = Values> =
-  | ((values: TValues) => TValue | Promise<TValue>)
-  | TValue
+export type DynamicProp<TValue, TValues extends Values = Values> = Dynamic<
+  TValue,
+  TValues
+>
 
 /**
  * 批量解析的单个属性条目

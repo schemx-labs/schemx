@@ -138,3 +138,24 @@ field.pending.value = false
 field.errors.value.push("外部错误")
 
 void errors
+
+// 组件专属属性保留表单值泛型及 Vue class/style 的组合形式。
+const componentOnlyProps: SchemxFormProps<FormValues> = {
+  modelValue: { name: "姓名" },
+  form: formInstance,
+  loading: false,
+  class: ["custom-form", { active: true }],
+  style: [{ color: "red" }, "width: 100%"],
+  actionCol: { span: 8, offset: 16 },
+  submitter: { text: "保存" },
+  resetter: false,
+}
+
+// 受控值必须与当前表单值类型一致。
+const invalidModelProps: SchemxFormProps<FormValues> = {
+  // @ts-expect-error name 的字段值类型为字符串。
+  modelValue: { name: 1 },
+}
+
+void componentOnlyProps
+void invalidModelProps

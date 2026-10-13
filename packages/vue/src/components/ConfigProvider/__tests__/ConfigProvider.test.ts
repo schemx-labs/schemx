@@ -1,15 +1,27 @@
 import { defineComponent, h, markRaw, nextTick, ref } from "vue"
+import type { ComputedRef } from "vue"
 
-import { createRendererRegistry, type SchemxInstance } from "@schemx/core"
+import {
+  configureSchemx,
+  createRendererRegistry,
+  type SchemxInstance,
+} from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it } from "vite-plus/test"
 
+import { useConfigProviderContextRef } from "../../../context/configProviderContext"
 import { useFormConfigContext } from "../../../context/formContext.js"
 import SchemxForm from "../../../form.vue"
 import { useForm } from "../../../hooks/useForm"
 import ConfigProvider from "../index"
 
 import type { SchemxConfig } from "@schemx/core"
+
+declare module "@schemx/core" {
+  interface SchemxSchemaConfigDefinition {
+    configMergeTestMeta?: string
+  }
+}
 
 const ProviderRenderer = defineComponent({
   name: "ProviderRenderer",
@@ -86,8 +98,120 @@ function mountProviderForm(
   return { form, wrapper }
 }
 
+afterEach(() => configureSchemx())
+
 describe("ConfigProvider", () => {
-  it("将顶层配置提供给后代 useForm", () => {
+  it("父子 Provider 只合并自身来源，Row 整体替换且不注入 Vue 默认值", () => {
+    let config: ComputedRef<SchemxConfig> | undefined
+
+    const Host = defineComponent({
+      setup() {
+        config = useConfigProviderContextRef()
+
+        return () => h("div")
+      },
+    })
+
+    const wrapper = mount(ConfigProvider, {
+      props: {
+        schemaConfig: {
+          row: { gutter: 8, align: "middle" },
+          col: { span: 12, offset: 1 },
+        },
+      },
+      slots: {
+        default: () =>
+          h(
+            ConfigProvider,
+            {
+              schemaConfig: { row: { justify: "center" }, col: { span: 6 } },
+            },
+            { default: () => h(Host) }
+          ),
+      },
+    })
+
+    expect(config?.value.schemaConfig).toEqual({
+      row: { justify: "center" },
+      col: { span: 6 },
+    })
+    expect(config?.value).not.toHaveProperty("rendererRegistry")
+    wrapper.unmount()
+  })
+
+  it("直接 useForm 保留创建期 Provider 快照", async () => {
+    const { form, wrapper } = mountProviderForm(
+      { schemaConfig: { readonly: false } },
+      { schemas: [{ name: "name", label: "姓名", componentType: "input" }] }
+    )
+
+    await wrapper.setProps({ schemaConfig: { readonly: true } })
+    expect(form?.getViewSchemas()[0]).toMatchObject({ readonly: false })
+    wrapper.unmount()
+  })
+
+  it("Provider 撤销覆盖后回退 Core 内置默认值，其他 Core 状态继续保留", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ProviderRenderer))
+    configureSchemx({ schemaConfig: { readonly: true, disabled: true } })
+    const formRef = ref<SchemxInstance>()
+
+    const wrapper = mount(ConfigProvider, {
+      props: { rendererRegistry, schemaConfig: { readonly: true } },
+      slots: {
+        default: () =>
+          h(SchemxForm, {
+            ref: formRef,
+            schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+          }),
+      },
+    })
+
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      disabled: true,
+    })
+    await wrapper.setProps({ schemaConfig: {} })
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
+      readonly: false,
+      disabled: true,
+    })
+    wrapper.unmount()
+  })
+
+  it("旧声明合并字段在 Provider 中支持新增、更新和清理", async () => {
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ProviderRenderer))
+    const formRef = ref<SchemxInstance>()
+
+    const wrapper = mount(ConfigProvider, {
+      props: { rendererRegistry },
+      slots: {
+        default: () =>
+          h(SchemxForm, {
+            ref: formRef,
+            schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+          }),
+      },
+    })
+
+    await wrapper.setProps({ schemaConfig: { configMergeTestMeta: "added" } })
+    expect(
+      Reflect.get(formRef.value?.getViewSchemas()[0] ?? {}, "configMergeTestMeta")
+    ).toBe("added")
+    await wrapper.setProps({ schemaConfig: { configMergeTestMeta: "updated" } })
+    expect(
+      Reflect.get(formRef.value?.getViewSchemas()[0] ?? {}, "configMergeTestMeta")
+    ).toBe("updated")
+    await wrapper.setProps({ schemaConfig: {} })
+    expect(
+      Reflect.get(formRef.value?.getViewSchemas()[0] ?? {}, "configMergeTestMeta")
+    ).toBeUndefined()
+    wrapper.unmount()
+  })
+  it("将嵌套配置提供给后代 useForm", () => {
     const rendererRegistry = createRendererRegistry()
 
     rendererRegistry.register("provider", markRaw(ProviderRenderer))

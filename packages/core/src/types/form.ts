@@ -57,6 +57,9 @@ export type Values = Record<string, any>
  * 动态属性类型
  *
  * 支持静态值或函数形式，函数接收当前表单值并返回属性值（支持异步）。
+ *
+ * @typeParam TValue - 属性值类型。
+ * @typeParam TValues - 动态函数接收的表单值类型。
  */
 export type Dynamic<TValue, TValues extends Values = Values> =
   | ((values: TValues) => TValue | Promise<TValue>)
@@ -96,16 +99,51 @@ export type SchemxFieldRulesMap<TValues extends Values = Values> = {
 }
 
 /**
- * 表单级 Schema 配置的适配层扩展点。
+ * 表单级 Schema 默认值的扩展接口。
  *
- * Core 保留框架无关的字段状态与校验配置；展示适配层通过声明合并增加默认项。
+ * 扩展属性属于 {@link import("../config/schemxConfig").SchemxConfig} 的 `schemaConfig`，通常声明为可选属性。
+ * 该接口只描述默认配置；实际 Field、Group、Dynamic Schema 的属性分别由
+ * `SchemxFieldDefinition`、`SchemxGroupFieldDefinition`、
+ * `SchemxDynamicDefinition` 等接口扩展。需要同时支持局部 Schema 属性与
+ * 表单默认值时，应分别声明对应扩展。
+ *
+ * @typeParam TValues - 当前表单值类型，供适配层默认值和回调属性使用。
+ *
+ * @example
+ * declare module "@schemx/core" {
+ *   interface SchemxSchemaConfigDefinition {
+ *     emptyText?: string
+ *   }
+ *   interface SchemxFieldDefinition {
+ *     emptyText?: string
+ *   }
+ * }
  */
-export interface SchemxSchemaConfigDefinition {}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxSchemaConfigDefinition<TValues extends Values = Values> {}
 
 /**
- * 表单级默认配置。
+ * 当前表单的 Schema 默认配置，即 `SchemxConfig.schemaConfig` 的值类型。
  *
- * 这些配置会作为 schema 编译和字段呈现态的默认值，字段自身配置优先级更高。
+ * Core 基础默认项从 {@link SchemxBaseField} 派生；展示和布局默认项由
+ * {@link SchemxSchemaConfigDefinition} 补充。整体配置中的 Registry、
+ * Renderer Props、Validator Adapter，以及 schemas、初始值和生命周期回调
+ * 均在其他选项中声明。
+ *
+ * 字段自身配置优先；`false` 和空字符串是有效覆盖值，只有 `null` 或
+ * `undefined` 才继承这些默认值。
+ * Core 默认值由配置解析阶段补齐，适配层默认值由相应配置层提供。
+ *
+ * @typeParam TValues - 当前表单值类型；必填判断接收字段值联合，适配层回调保留该类型。
+ *
+ * @example
+ * const defaults: SchemxSchemaConfig<{ name: string }> = {
+ *   readonly: true,
+ *   required: { isEmpty: (value) => !value?.trim() },
+ * }
  */
-export type SchemxSchemaConfig = Pick<SchemxBaseField, SchemxConfigKey> &
-  SchemxSchemaConfigDefinition
+export type SchemxSchemaConfig<TValues extends Values = Values> = Pick<
+  SchemxBaseField<TValues>,
+  SchemxConfigKey
+> &
+  SchemxSchemaConfigDefinition<TValues>

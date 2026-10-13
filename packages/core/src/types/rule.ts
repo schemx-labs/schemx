@@ -82,8 +82,10 @@ export interface PresetRuleDefinition {}
 
 /**
  * 从声明合并的规则定义中提取规则名称。
+ *
+ * @internal
  */
-type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
+export type DeclaredPresetRuleName = Extract<keyof PresetRuleDefinition, string>
 
 /**
  * 与字段值类型兼容的已声明命名规则。
@@ -92,11 +94,13 @@ type DeclaredRuleName = Extract<keyof PresetRuleDefinition, string>
  *
  * @typeParam TValue - 字段值类型。
  */
-export type PresetRuleName<TValue> = [DeclaredRuleName] extends [never]
+export type PresetRuleName<TValue> = [DeclaredPresetRuleName] extends [never]
   ? string
   : {
-      [TKey in DeclaredRuleName]: TValue extends PresetRuleDefinition[TKey] ? TKey : never
-    }[DeclaredRuleName]
+      [TKey in DeclaredPresetRuleName]: TValue extends PresetRuleDefinition[TKey]
+        ? TKey
+        : never
+    }[DeclaredPresetRuleName]
 
 /**
  * 单条字段校验规则，可以是命名规则、原生规则、Standard Schema 或 adapter 专属对象。
@@ -129,10 +133,10 @@ export type FieldRule<
  * 可由 adapter 自行识别的对象规则。
  *
  * `object` 会同时匹配规则数组，使 `FieldRules` 的数组分支跳过逐项类型检查；
- * 这里显式排除带 `length` 的数组/类数组值，保留普通 descriptor 对象的扩展能力。
+ * 这里显式排除可迭代值，保留普通 descriptor 对象的扩展能力。
  */
 export type ValidationAdapterObjectRule = Record<string, unknown> & {
-  readonly [Symbol.iterator]?: never
+  [Symbol.iterator]?: never
 }
 
 /**

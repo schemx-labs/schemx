@@ -22,6 +22,8 @@ export function createVitePlugins({ analyze }: PackagePluginOptions): PluginOpti
       include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
       outDirs: "dist",
       tsconfigPath: "tsconfig.build.json",
+      // 保留泛型组件的手写类型桥接，避免发布声明退化为 any。
+      copyDtsFiles: true,
     }),
     analyze &&
       visualizer({

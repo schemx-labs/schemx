@@ -14,15 +14,14 @@ import type {
   SchemxColComponent,
   SchemxIconComponent,
   SchemxRowComponent,
-  SchemxRowConfig,
 } from "../../types"
+import type { CreateSchemxOptions } from "@schemx/core"
 import type {
   PresetRuleRegistry,
   RendererRegistry,
-  SchemxConfig,
+  SchedulerOptions,
   SchemxRendererKey,
   SchemxRendererPropsMap,
-  SchemxSchemaConfig,
   ValidationAdapterOption,
   Values,
 } from "@schemx/core"
@@ -34,15 +33,19 @@ import type {
  *
  * @typeParam TValues - 表单值类型。
  */
-export type ConfigProviderProps<TValues extends Values = Values> = SchemxConfig<TValues>
+export type ConfigProviderProps<TValues extends Values = Values> =
+  CreateSchemxOptions<TValues>
 
 const ConfigProvider = defineComponent({
   name: "SchemxConfigProvider",
   inheritAttrs: false,
 
   props: {
+    debug: { type: Boolean, default: undefined },
+    schedulerOptions: { type: Object as PropType<SchedulerOptions>, default: undefined },
+    validationConcurrency: { type: Number, default: undefined },
     schemaConfig: {
-      type: Object as PropType<Partial<SchemxSchemaConfig>>,
+      type: Object as PropType<CreateSchemxOptions["schemaConfig"]>,
       default: undefined,
     },
     rendererProps: {
@@ -77,10 +80,6 @@ const ConfigProvider = defineComponent({
       type: [Object, Function] as PropType<SchemxIconComponent>,
       default: undefined,
     },
-    row: {
-      type: Object as PropType<SchemxRowConfig>,
-      default: undefined,
-    },
   },
 
   /**
@@ -92,17 +91,8 @@ const ConfigProvider = defineComponent({
   setup(props, setupContext) {
     const { slots, attrs } = setupContext
 
-    const config = computed<SchemxConfig>(() => ({
-      schemaConfig: props.schemaConfig,
-      rendererProps: props.rendererProps,
-      validatorAdapters: props.validatorAdapters,
-      defaultRendererType: props.defaultRendererType,
-      rendererRegistry: props.rendererRegistry,
-      presetRuleRegistry: props.presetRuleRegistry,
-      colComponent: props.colComponent,
-      rowComponent: props.rowComponent,
-      iconComponent: props.iconComponent,
-      row: props.row,
+    const config = computed<CreateSchemxOptions>(() => ({
+      ...props,
       ...attrs,
     }))
 

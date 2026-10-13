@@ -32,6 +32,29 @@ function mountElementPlusForm(props: Record<string, unknown> = {}) {
 }
 
 describe("Element Plus Col layout adapter", () => {
+  it("未安装插件时入口组件的完整默认配置生效", () => {
+    const wrapper = mount(SchemxForm as Component, {
+      props: {
+        submitter: false,
+        resetter: false,
+        initialValues: { first: "A" },
+        schemas: [{ name: "first", label: "第一项", componentType: "input" }],
+      },
+    })
+
+    expect(wrapper.find(".el-input").exists()).toBe(true)
+    expect(wrapper.find(".el-row").exists()).toBe(true)
+    expect(wrapper.find(".el-col-12").exists()).toBe(true)
+    expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
+      "width: 120px"
+    )
+    expect(wrapper.get(".el-row").attributes("style")).toContain(
+      "--schemx-gutter-top: 7px"
+    )
+    expect(wrapper.get(".schemx-field-wrapper").classes()).not.toContain("is-bordered")
+    wrapper.unmount()
+  })
+
   it("应用 PC 端默认布局与字段展示配置", () => {
     const wrapper = mountElementPlusForm({
       initialValues: { first: "A" },

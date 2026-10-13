@@ -11,6 +11,8 @@
 import { createPresetRuleRegistry, type PresetRuleRegistry } from "@schemx/core"
 
 /**
+ * @deprecated
+ *
  * 全局预设规则注册实例
  *
  * @example

@@ -284,10 +284,17 @@ export interface SchemxBase<
 
 /**
  * 基础字段配置的精确分布式联合类型。
+ *
+ * 普通 Schema 与精确字段类型共用 Renderer 判别联合，分别传入路径联合或单个路径。
+ *
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 当前字段路径类型。
+ * @internal
  */
-type SchemxBaseFieldByName<TValues extends Values, TName extends NamePath<TValues>> = [
-  Extract<keyof SchemxRendererDefinition<TValues>, string>,
-] extends [never]
+export type SchemxBaseFieldByName<
+  TValues extends Values,
+  TName extends NamePath<TValues>,
+> = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
   ? SchemxBase<TValues, TName, string>
   : {
       [TKey in Extract<keyof SchemxRendererDefinition<TValues>, string>]: SchemxBase<

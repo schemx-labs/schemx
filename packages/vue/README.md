@@ -114,6 +114,7 @@ console.log(Schemx === schemxForm) // true
 | `onFieldsChange`                | `(changedFields, allFields) => void`             | `undefined`               | 字段路径变化后的回调 Prop                                                                                                       |
 | `onRuleError`                   | `FormCallbackOptions<T>["onRuleError"]`          | `undefined`               | 规则解析异常回调；内部创建实例时当前不会透传，需在外部 `form` 实例上配置                                                        |
 | `lifecycleHooks`                | `FormLifecycleOptions["lifecycleHooks"]`         | `undefined`               | Core Form 的 Runtime 生命周期钩子；当前 `<Schemx>` 创建内部实例时不会透传，需通过 `useForm()` 或 `createForm()` 配置。          |
+| `debug`                         | `boolean`                                        | `false`                   | 创建时启用 Runtime diagnostics 和 View debug DTO；省略时继承共享默认值。                                                     |
 | `schedulerOptions`              | `SchedulerOptions`                               | `undefined`               | Scheduler 时间片与 idle 队列配置                                                                                                |
 | `validationConcurrency`         | `number`                                         | `8`                       | 整表校验时同时运行的字段数                                                                                                      |
 | `loading`                       | `boolean`                                        | `undefined`               | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
@@ -326,6 +327,35 @@ app.use(Schemx, {
 安装配置属于当前 Vue App；不同 App 可以使用不同的 Registry、字段默认值、默认 renderer 类型和校验 adapter，适用于多应用和 SSR 隔离场景。配置优先级为表单显式配置、当前 App/Provider 配置、Vue/Core 模块级配置和 Core 内置默认值。导入 UI 适配包根入口后会自动安装其默认配置；需要隔离多个表单或 Vue App 时，再通过安装选项、Form Props 或 `ConfigProvider` 显式配置 Registry、布局组件和字段默认值。`validatorAdapters` 按该顺序合并，不同配置层的同 ID adapter 由高优先级配置覆盖，同一配置层内的重复 ID 仍需通过 `{ adapter, override: true }` 显式覆盖。`app.use()` 不会调用 Core 的模块级 `configureSchemx()`；该 API 仍可作为 Vue 与直接 `createForm()` 的业务基线。可安装组件还挂载了静态属性 `Schemx.Field`；`Group` 仅作为根入口命名导出，不是静态属性。
 
 `SchemxFormProps` 和 Vue 层 `FieldInstance` 也会从 `@schemx/vue` 根入口导出；业务代码通常仍可直接从组件或 Hook 调用处推导类型，不需要依赖深层路径。
+
+### 使用 Vue 默认值创建独立工厂
+
+Vue 的 `createSchemx` 在 Core 工厂创建时自动合入框架默认设置；每次调用创建独立配置与 Registry，调用方配置优先于 Vue 默认值。`SchemxApi`、`CreateSchemxOptions` 和 `SchemxConfigureOptions` 类型继续从 Core 导入。Vue 导出的 `defaultConfig` 是字段默认配置，消费端无需手动将它传入工厂。
+
+```ts
+import { createSchemx, useForm } from "@schemx/vue"
+
+const schemx = createSchemx()
+schemx.configureSchemx({
+  schemaConfig: { labelWidth: 140 },
+  debug: true,
+  schedulerOptions: { timeSliceMs: 4 },
+  validationConcurrency: 2,
+})
+const form = useForm({ initialValues: { name: "" } }, schemx.createForm)
+```
+
+工厂返回 `createForm`、`configureSchemx`、`getConfig`、`rendererRegistry` 和 `presetRuleRegistry` 五项。原来的 `schemx.useForm(options)` 改为 `useForm(options, schemx.createForm)`；Hook 读取普通 App/Provider 配置，并由 Vue scope 自动销毁表单。直接调用 `schemx.createForm(options)` 不读取组件上下文，由调用方销毁。
+
+配置优先级为表单显式选项、普通 Provider/App、业务覆盖层、调用方创建基线、Vue 默认值、Core 默认值。工厂不读取 Core 模块级全局配置。`configureSchemx(options)` 替换业务覆盖层，无参数恢复基线；`getConfig()` 返回冻结的当前共享默认值，不包含 App/Provider 或 Core 内置默认值。
+
+共享配置允许 `SchemxConfig` 的配置与扩展，以及 `debug`、`schedulerOptions`、`validationConcurrency`。实例数据、`fieldRules`、生命周期和业务回调被静默过滤，完整 `CreateFormOptions` 变量仍可复用；每次创建的实例选项不受过滤影响。声明合并扩展字段保留。调度对象浅复制并冻结，显式 `debug: false` 可关闭继承值；`row`、`col` 和 `schedulerOptions` 跨配置层整体替换，调度遗漏项由 Scheduler 默认值补齐。
+
+Registry 在创建时固定，默认每个工厂独立，显式传入时共享引用。配置更新不能包含 Registry 键；表单、App 和 Provider 仍可局部覆盖，注册内容通过 Registry 方法修改。
+
+App 与 ConfigProvider 共用普通 Vue 配置上下文，没有工厂作用域参数；同一 Provider 对后代所有 UI 包的 Form 生效。不同 App 保持上下文隔离；需要独立默认值时分别调用 Vue `createSchemx`。组件编写者在包装组件 `setup` 中调用 `provideSchemxFormRuntime(schemx.createForm)`，仅绑定直接内层 Form 的创建器。
+
+已有 Form 保存创建时的工厂默认值，随后 Provider/Props 的展示更新仍响应式生效，撤销覆盖会回退到捕获的默认值。工厂更新不会进入旧表单计算。调试、调度、并发、Registry 和 adapter 仅在创建时生效；外部 Form 不重建、不重配性能配置，也不由组件销毁。
 
 需要对组件树内多个表单统一设置展示默认值时，可以使用 `ConfigProvider`：
 
@@ -931,11 +961,12 @@ componentProps: {
 
 ```ts
 function useForm<TValues extends Values = Values>(
-  options?: CreateFormOptions<TValues>
+  options?: CreateFormOptions<TValues>,
+  creator?: FormCreator
 ): SchemxInstance<TValues>
 ```
 
-`options` 可选，Registry 按表单显式配置、Provider / App、Core 模块级配置和 Vue 模块级 Registry 的优先级解析。函数同步返回 `SchemxInstance<TValues>`，其中 `getFieldValue()`、`getFieldErrors()`、`isFieldTouched()`、`isFieldPending()`、`getFieldsValue()` 和聚合状态读取可被 Vue effect 追踪。`useForm()` 会读取 ConfigProvider / App 的配置上下文，但**不会自动提供表单上下文**；当前 Vue effect scope 销毁时会释放 Runtime 并销毁 Form。非 Vue scope 场景应改用 Core `createForm()` 并自行销毁。
+`options` 可选；提供 `creator` 时使用其默认配置，未提供时沿用原有 Vue/Core 创建路径。函数同步返回 `SchemxInstance<TValues>`，其中 `getFieldValue()`、`getFieldErrors()`、`isFieldTouched()`、`isFieldPending()`、`getFieldsValue()` 和聚合状态读取可被 Vue effect 追踪。`useForm()` 会读取 ConfigProvider / App 的配置上下文，但**不会自动提供表单上下文**；当前 Vue effect scope 销毁时会释放 Runtime 并销毁 Form。非 Vue scope 场景应改用 Core `createForm()` 并自行销毁。
 
 ```ts
 import { provideFormContext, useForm } from "@schemx/vue"
@@ -981,9 +1012,9 @@ function useFieldContext(): FieldInstance<Values>
 function createFormConfigContext(props: FormConfigContextValue): void
 function useFormConfigContext(): FormConfigContextValue
 
-function createConfigProviderContext(config: ComputedRef<SchemxConfig>): void
-function useConfigProviderContext(): SchemxConfig | undefined
-function useConfigProviderContextRef(): ComputedRef<SchemxConfig> | undefined
+function createConfigProviderContext(config: ComputedRef<CreateSchemxOptions>): void
+function useConfigProviderContext(): CreateSchemxOptions | undefined
+function useConfigProviderContextRef(): ComputedRef<CreateSchemxOptions> | undefined
 ```
 
 上面签名中的 `FieldInstance` 已从 `@schemx/vue` 根入口导出。`createFieldContext()` 当前只有 `TValues extends Values = Values`，**没有独立的 `TName` 泛型**；`field` 必须是 `useField()` 返回的 Vue 字段控制器，字段路径已由创建该返回值时的 `name` 捕获。调用方可以显式导入 `FieldInstance`，也可以依靠 `useField()` 推导参数。

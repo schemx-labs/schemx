@@ -724,6 +724,16 @@ export type ParentNode<TValues extends Values = Values> =
   | DynamicNode<TValues>
 
 /**
+ * 通过 Schema 配置维护呈现状态的容器节点，不包含根节点。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export type StatefulPresentationNode<TValues extends Values = Values> = Exclude<
+  ParentNode<TValues>,
+  RootNode<TValues>
+>
+
+/**
  * RootNode 创建选项。
  */
 export interface CreateRootNodeOptions {

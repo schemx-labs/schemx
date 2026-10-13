@@ -126,7 +126,7 @@
       flexWrap: "wrap",
       gap: "8px 12px",
       justifyContent: contentAlign.value,
-      ...(attrsStyle || {}),
+      ...attrsStyle,
     }
 
     return { ...attrsRest, ...rest, style }

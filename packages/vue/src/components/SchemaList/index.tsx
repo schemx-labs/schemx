@@ -40,6 +40,10 @@ export interface SchemxSchemaListProps<TValues extends Values = Values> {
    */
   rowConfig?: SchemxRowConfig
   /**
+   * 根列表已由 Form 包裹 Row 时关闭自身容器；递归列表默认开启。
+   */
+  rowEnabled?: boolean
+  /**
    * 根级 Field wrapper 的 class 解析器。
    */
   fieldClassResolver?: (schema: SchemxViewSchema<TValues>) => ClassValue
@@ -62,6 +66,10 @@ const SchemaList = defineComponent({
       type: Object as PropType<SchemxRowConfig>,
       required: false,
       default: undefined,
+    },
+    rowEnabled: {
+      type: Boolean,
+      default: true,
     },
     fieldClassResolver: {
       type: Function as PropType<(schema: SchemxViewSchema) => ClassValue>,
@@ -151,7 +159,7 @@ const SchemaList = defineComponent({
 
     return (): VNodeChild => {
       return (
-        <Row row={props.rowConfig} class="schemx-schema-list">
+        <Row row={props.rowConfig} enabled={props.rowEnabled} class="schemx-schema-list">
           {props.schemas.map(renderSchema)}
         </Row>
       )

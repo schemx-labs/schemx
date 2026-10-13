@@ -1,10 +1,46 @@
 # @schemx/vant
 
-`@schemx/vant` 是 Schemx 的 Vant 4 Renderer 集合。根入口提供 Vant Renderer、Registry 和布局组件，并重新导出 Vue 与 Core 的公开 API；导入根入口时会通过 `configureSchemx()` 写入 Vant 的模块级全局默认配置，也可以通过 Form Props 或 `ConfigProvider` 覆盖。
+`@schemx/vant` 是 Vant 4 的表单适配包。入口组件和本包的 `useForm` 自动提供 Renderer、Row/Col 和字段默认值，无需手动安装 `defaultConfig`；组件 Props 或 Hook 选项优先于外部 Provider/App，外部配置优先于 UI 默认值。
+
+导入包不会修改 Core 全局或 Vue Registry；Vant 使用独立的 Renderer 与预设规则 Registry。插件仅提供调用方的 App 配置，无参数安装不清除已有配置：
+
+```ts
+import SchemxForm from "@schemx/vant"
+
+app.use(SchemxForm, { schemaConfig: { labelWidth: 100 } })
+```
+
+本包的 `createForm` 自动使用 Vant 默认配置，可以在 Vue 生命周期之外同步创建表单，并由调用方销毁：
+
+```ts
+import { createForm } from "@schemx/vant"
+
+const form = createForm({ initialValues: { name: "" } })
+```
 
 适用于 Vue 3 + Vant 4 的移动端 Schema 表单。使用 Element Plus 时请改用 [`@schemx/element-plus`](../element-plus)；使用其他组件库或自研控件时，可使用 [`@schemx/vue`](../vue) 并自行注册 Renderer。
 
 `@schemx/vant` 不导出独立的 `Cell` 公共组件；内置弹窗 Renderer 使用 Vant 的 `Cell`，自定义 Renderer 的只读 / 禁用状态包装请使用 `@schemx/vue` 的 `Wrapper`。
+
+本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，不向消费端导出工厂、工厂专属类型或组件接入函数。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
+
+UI 根入口移除已弃用的 `getGlobalSchemxConfig`、`mergeSchemxConfig`、`createFormContext`、`createFormConfigContext` 和 `SchemxLayout`；分别改用 `getConfig`、`mergeConfig`、`provideFormContext` 和 `SchemxColConfig`。组件、`useForm` 及默认配置的调用方式保持不变。
+
+工厂默认值、App、`ConfigProvider` 和表单局部选项均支持 `debug`、`schedulerOptions`、`validationConcurrency`。局部选项优先，显式 `debug: false` 可关闭继承值；调度对象整体替换，并保存独立快照。这些选项只在创建时生效，更新配置不会重配已有表单。共享配置过滤实例数据、生命周期及业务回调，单次创建选项不受影响。
+
+`ConfigProvider`、App 安装配置和配置上下文函数与 Vue 共用普通上下文，对同一组件树中的所有 UI 包生效，不接受工厂作用域。同一 App 后一次显式安装配置替换根配置；不同 App 的上下文保持隔离。`row`、`col` 与调度对象整体替换，不继承低层对象属性。
+
+包内默认实例仍共享；多业务模块或 SSR 请求需要独立默认值时，从 Core 创建实例并通过 Vue Hook 接入：
+
+```ts
+import { createSchemx, useForm } from "@schemx/vue"
+import { defaultConfig } from "@schemx/vant"
+
+const schemx = createSchemx(defaultConfig)
+const form = useForm({ initialValues: { name: "" } }, schemx.createForm)
+```
+
+本包公开 `defaultConfig` 只声明 UI 自有设置；Vue 工厂自动补入框架默认值。两个 UI 包各创建一个实例，`configureSchemx` 互不影响，同一包消费端仍共享默认配置。工厂不读取 Core 全局配置；Registry 显式传入时共享原引用。已有表单捕获创建默认值，后续工厂更新不影响它；Provider/Props 的展示更新和撤销仍按固定创建基线处理。
 
 ## 安装
 

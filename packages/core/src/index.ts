@@ -7,16 +7,6 @@
  * @module core
  */
 
-import type { Values } from "./types/form"
-
-/**
- * Schemx Config 的适配层扩展接口。
- *
- * 适配层可通过声明合并增加框架专属的配置字段。
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface SchemxConfigDefinition<TValues extends Values = Values> {}
-
 export { createPresetRuleRegistry, createRendererRegistry } from "./registry"
 
 export type {
@@ -59,15 +49,18 @@ export type {
 export {
   configureSchemx,
   getGlobalSchemxConfig,
+  normalizeSchemxConfig,
   mergeConfig,
   mergeAndResolveSchemxConfig,
   mergeSchemxConfig,
   resolveSchemxConfig,
   type MergedSchemxConfig,
+  type MergeConfigOptions,
   defaultSchemxConfig,
   defaultSchemxConfigKeys,
   excludeSchemxConfigKeys,
   type SchemxConfig,
+  type SchemxConfigDefinition,
   type SchemxConfigKey,
   type ExcludeSchemxConfigKeys,
 } from "./config"
@@ -221,3 +214,6 @@ export {
   createValidationFailure,
   createValidationCancelled,
 } from "./validator/result"
+
+export { createSchemx, type SchemxApi, type SchemxConfigureOptions } from "./createSchemx"
+export type { CreateSchemxOptions } from "./config/schemxOptions"

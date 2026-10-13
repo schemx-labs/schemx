@@ -77,30 +77,9 @@ type FieldPayload<
 }
 
 /**
- * 多字段订阅回调的载荷。
+ * 多字段与全表订阅回调共用的变更载荷。
  */
 type FieldsPayload<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-> = {
-  /**
-   * 本次变更涉及的所有字段路径。
-   */
-  changedPaths: TName[]
-  /**
-   * 本次变更涉及的字段值（部分表单数据）。
-   */
-  changedValues: Partial<TValues>
-  /**
-   * 变更前对应字段的旧值（部分表单数据）。
-   */
-  prevValues: Partial<TValues>
-}
-
-/**
- * 全局订阅回调的载荷。
- */
-type GlobalPayload<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > = {
@@ -158,7 +137,7 @@ export type WatchFieldsCallback<TValues extends Values> = BaseSubscribeCallback<
  */
 export type WatchAllCallback<TValues extends Values> = BaseSubscribeCallback<
   TValues,
-  GlobalPayload<TValues>
+  FieldsPayload<TValues>
 >
 
 /**

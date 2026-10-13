@@ -1,6 +1,5 @@
 import { normalizeSchemxConfig } from "./normalizeSchemxConfig"
 
-import type { SchemxConfigDefinition } from "../index"
 import type { PresetRuleRegistry, RendererRegistry } from "../registry"
 import type {
   SchemxRendererKey,
@@ -11,15 +10,28 @@ import type {
 import type { ValidationAdapterOption } from "../validator/types"
 
 /**
- * Schemx 全局默认配置。
+ * Schemx 整体配置的适配层扩展接口。
+ *
+ * 通过声明合并扩展整体配置，例如框架组件实现或适配层选项。
+ * `schemaConfig` 内的默认值通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 扩展，
+ * 实际 Schema 元数据通过 Field、Group、Dynamic 等各自的扩展接口声明。
+ *
+ * @typeParam TValues - 当前表单值类型，供适配层配置使用。
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export interface SchemxConfigDefinition<TValues extends Values = Values> {}
+
+/**
+ * 全局、App、Provider 和 Form 可以继承的整体配置。
  *
  * `schemaConfig` 由后续 `createForm` 调用继承；表单显式传入的同名字段覆盖全局值。
- * 配置采用替换语义，未设置的项不会保留上一次调用的值。
+ * `configureSchemx()` 替换模块级配置；多层配置的优先级和合并规则由
+ * `mergeConfig()` 处理。
  *
  * 实例级数据（schemas / initialValues）、实例级回调
  * （onFinish 等）、`lifecycleHooks` 与 `onRuleError` 不纳入全局配置。
  *
- * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
+ * @typeParam TValues - 当前表单值类型，关联 Schema 默认值、Renderer Props 和适配层选项。
  */
 export interface SchemxConfig<
   TValues extends Values = Values,
@@ -27,10 +39,12 @@ export interface SchemxConfig<
   /**
    * 后续 Form 继承的字段默认值。
    *
-   * 仅包含 {@link SchemxSchemaConfig} 的字段呈现与行为配置；不包含 schemas、
-   * 表单值和生命周期回调等实例级选项。
+   * 值类型为 {@link SchemxSchemaConfig}，描述字段状态、校验及适配层展示默认值。
+   * Form 显式配置覆盖继承值，字段自身配置再覆盖这些默认值。
+   * 缺省属性继续继承；显式 `undefined` 清除低优先级同名值，解析时仅对
+   * Core 内置项补回默认值。Registry 和 Adapter 等整体选项保持在本接口的其他属性中。
    */
-  readonly schemaConfig?: Partial<SchemxSchemaConfig>
+  readonly schemaConfig?: Partial<SchemxSchemaConfig<TValues>>
   /**
    * 按 Renderer 类型配置的静态默认 Props。
    *
@@ -75,6 +89,7 @@ let globalConfig: SchemxConfig = EMPTY_SCHEMX_CONFIG
  * 每次调用都会替换此前的全局配置；无参数调用会清空全局配置。
  * 多个 Vue App 或 SSR 场景应使用 App/ConfigProvider/Form 级配置，避免共享全局状态。
  *
+ * @deprecated 请使用 @schemx/core 的 createSchemx 创建独立默认配置实例。
  * @param nextConfig - 替换当前模块级默认配置的配置对象；省略时清空配置。
  *
  * @example
@@ -89,6 +104,7 @@ export function configureSchemx(nextConfig: SchemxConfig = {}): void {
 /**
  * 读取当前模块级全局配置。
  *
+ * @deprecated 请使用 Core 工厂实例的 getConfig。
  * @returns 当前已标准化的全局配置快照。
  *
  * @example

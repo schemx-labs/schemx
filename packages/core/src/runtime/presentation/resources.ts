@@ -11,15 +11,7 @@ import { createPresentationDependenciesEffect } from "./dependenciesEffect"
 
 import type { SchemxContainerDependencies, Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
-import type { DependencyNode, DynamicNode, GroupNode } from "../node"
-
-/**
- * 需要维护容器状态的运行时节点类型。
- */
-type StatefulPresentationNode<TValues extends Values> =
-  | GroupNode<TValues>
-  | DependencyNode<TValues>
-  | DynamicNode<TValues>
+import type { StatefulPresentationNode } from "../node"
 
 /**
  * 挂载容器状态和动态属性 effect。

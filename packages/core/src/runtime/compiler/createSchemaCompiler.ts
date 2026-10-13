@@ -68,7 +68,8 @@ export function createSchemaCompiler<TValues extends Values = Values>(
 ): SchemaCompiler<TValues> {
   // 将可选配置归一为节点编译所需的完整选项。
   const compilerOptions: SchemaCompilerOptions<TValues> = {
-    schemaConfig: options.schemaConfig ?? mergeAndResolveSchemxConfig().schemaConfig,
+    schemaConfig:
+      options.schemaConfig ?? mergeAndResolveSchemxConfig<TValues>().schemaConfig,
     rendererProps: options.rendererProps,
     formInstance: options.formInstance ?? ({} as SchemxInstance<TValues>),
     debug: options.debug,

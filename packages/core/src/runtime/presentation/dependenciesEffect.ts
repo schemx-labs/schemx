@@ -13,17 +13,10 @@ import {
 import type { Values } from "../../types"
 import type { SchemaRuntimeContext } from "../context"
 import type {
-  DependencyNode,
-  DynamicNode,
-  GroupNode,
   PresentationDependencyOverrides,
   Scope,
+  StatefulPresentationNode,
 } from "../node"
-
-type StatefulPresentationNode<TValues extends Values> =
-  | GroupNode<TValues>
-  | DependencyNode<TValues>
-  | DynamicNode<TValues>
 
 /**
  * 容器依赖配置支持的动态属性键。

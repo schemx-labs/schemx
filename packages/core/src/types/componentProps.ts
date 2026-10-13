@@ -20,8 +20,8 @@ export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
 /**
  * Core 自身使用的轻量 Renderer 公共 Props。
  *
- * UI 适配层可通过 `SchemxComponentPropsDefinition` 增加框架专属属性；旧版
- * `SchemxBaseComponentProps` 仅保留 Core 公共字段。
+ * UI 适配层可通过 `SchemxComponentPropsDefinition` 增加框架专属属性；兼容旧版的
+ * `SchemxBaseComponentProps` 在此基础上保留值、事件和对齐属性。
  *
  * @typeParam TValues - 表单值类型。
  */

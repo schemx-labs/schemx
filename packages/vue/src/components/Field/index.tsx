@@ -149,7 +149,7 @@ const Field = defineComponent({
       schemaRef.value.onChange?.(v, form)
 
       if (canVerified.value && shouldValidateOn("change", trigger.value)) {
-        field.validate()
+        void field.validate()
       }
     }
 
@@ -163,7 +163,7 @@ const Field = defineComponent({
       schemaRef.value.onBlur?.(form)
 
       if (canVerified.value && shouldValidateOn("blur", trigger.value)) {
-        field.validate()
+        void field.validate()
       }
     }
 

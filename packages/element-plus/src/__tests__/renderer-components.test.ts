@@ -19,6 +19,10 @@ import MentionRenderer from "../renderers/MentionRenderer/index.vue"
 import RadioRendererComponent from "../renderers/RadioRenderer/index.vue"
 import RateRenderer from "../renderers/RateRenderer/index.vue"
 import SelectRenderer from "../renderers/SelectRenderer/index.vue"
+import {
+  getElementOptionLabel,
+  normalizeElementOptions,
+} from "../renderers/shared/options"
 import SliderRenderer from "../renderers/SliderRenderer/index.vue"
 import SwitchRenderer from "../renderers/SwitchRenderer/index.vue"
 import TimePickerRenderer from "../renderers/TimePickerRenderer/index.vue"
@@ -126,6 +130,27 @@ function mountRenderer(component: Component, props: Record<string, unknown> = {}
 }
 
 describe("Element Plus Renderer components", () => {
+  it.each([
+    ["展示", "fallback", "展示"],
+    [0, "fallback", "0"],
+    [false, "fallback", "false"],
+    ["", "fallback", ""],
+    [null, "fallback", "fallback"],
+    [undefined, "fallback", "fallback"],
+    [{ name: "invalid" }, "fallback", "fallback"],
+    [[], 7, "7"],
+    [{}, {}, ""],
+  ])("只将基础值转换为选项标签 %#", (label, value, expected) => {
+    // 自定义字段映射允许验证未知类型的标签和选项值。
+    const option = { text: label, id: value }
+
+    // 两个公开 helper 使用同一套标签回退规则。
+    const fieldNames = { label: "text", value: "id" }
+
+    expect(getElementOptionLabel(option, fieldNames)).toBe(expected)
+    expect(normalizeElementOptions([option], fieldNames)[0]?.label).toBe(expected)
+  })
+
   it.each([
     [AutocompleteRenderer, "ElAutocomplete", "next"],
     [ColorPickerRenderer, "ElColorPicker", "#409eff"],

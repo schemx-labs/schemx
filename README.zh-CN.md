@@ -102,7 +102,7 @@ raw schemas
 
 `@schemx/vue` 只负责 Vue 组件树的适配，不绑定具体组件库。业务可以通过 `rendererRegistry` 接入自己的输入框、选择器、上传组件或设计系统组件。
 
-`@schemx/vant` 提供 Vant 4 Renderer，面向移动端表单；`@schemx/element-plus` 提供 Element Plus Renderer，面向桌面端表单。导入适配包根入口后即可使用默认 Renderer 和布局。Vant 与 Vue 共用模块级 Registry，Element Plus 使用独立 Registry；需要按表单隔离时，可通过 Form Props 或 `ConfigProvider` 配置 Registry、布局组件和字段默认值。
+`@schemx/vant` 提供 Vant 4 Renderer，面向移动端表单；`@schemx/element-plus` 提供 Element Plus Renderer，面向桌面端表单。导入适配包根入口后即可使用默认 Renderer 和布局。Vant 与 Element Plus 各自通过内部工厂绑定独立 API 和 Registry；UI 消费端直接导入即可。Vue 消费端可使用 `@schemx/vue` 的 `createSchemx` 创建包含框架默认设置的独立实例；两个 UI 包各调用一次工厂，并通过 `useForm(options, creator)` 绑定创建器，包间配置互不影响。普通 Provider/App 配置对后代所有 UI Form 生效；Row、Col 和调度对象整体替换低层对象。
 
 `@schemx/core` 内置 async-validator 规则支持。Vue、Vant 和 Element Plus 适配包会自动安装必需的 Schemx 下层包；Vue 和对应 UI 组件库是 peer dependencies，需要由业务项目显式安装。业务代码直接导入其他 Schemx 包或其子路径时，也应显式声明对应依赖。
 

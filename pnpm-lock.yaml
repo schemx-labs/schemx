@@ -213,6 +213,9 @@ importers:
       vue:
         specifier: 'catalog:'
         version: 3.5.41(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^3.3.9
+        version: 3.3.9(typescript@5.9.3)
 
   packages/vant:
     dependencies:
@@ -241,6 +244,9 @@ importers:
       vue:
         specifier: 'catalog:'
         version: 3.5.41(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^3.3.9
+        version: 3.3.9(typescript@5.9.3)
 
   packages/vue:
     dependencies:

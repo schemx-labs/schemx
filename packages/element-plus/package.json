@@ -65,7 +65,7 @@
     "lint:fix": "pnpm --dir ../.. exec vp lint --fix packages/element-plus/src && eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "vp fmt \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "vp fmt --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-check": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
+    "type-check": "pnpm run build:deps && vue-tsc -p tsconfig.json --noEmit",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
     "prepublishOnly": "pnpm run build",
     "pack-local": "node ../../scripts/workflow.ts pack-local packages/element-plus"
@@ -75,6 +75,7 @@
     "@vue/test-utils": "^2.4.6",
     "@element-plus/icons-vue": "^2.3.1",
     "element-plus": "^2.14.0",
-    "vue": "catalog:"
+    "vue": "catalog:",
+    "vue-tsc": "^3.3.9"
   }
 }

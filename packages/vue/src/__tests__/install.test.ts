@@ -1,4 +1,4 @@
-import { defineComponent, effectScope, h, markRaw, nextTick } from "vue"
+import { defineComponent, effectScope, h, markRaw, nextTick, reactive, ref } from "vue"
 import type { ComputedRef } from "vue"
 
 import {
@@ -122,6 +122,183 @@ function mountUseForm(
 }
 
 describe("Schemx Vue 插件安装", () => {
+  it("createForm 与 useForm 使用相同的嵌套字段默认值", () => {
+    const options = {
+      schemaConfig: { labelWidth: 120, col: { span: 12 }, row: { gutter: 8 } },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    }
+
+    const coreForm = createForm(options)
+
+    const { form, wrapper } = mountUseForm({}, options)
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      labelWidth: 120,
+      col: { span: 12 },
+    })
+    expect(coreForm.getViewSchemas()[0]).toMatchObject({
+      labelWidth: 120,
+      col: { span: 12 },
+    })
+    wrapper.unmount()
+    coreForm.destroy()
+  })
+
+  it("Vue 组件默认值优先于 Core 全局值，缺省 Core 属性仍由 Core 处理", () => {
+    const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
+
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ConfiguredRenderer))
+    const formRef = ref<SchemxInstance>()
+
+    const Host = defineComponent(
+      () => () => h(Schemx, { ref: formRef, schemas, rendererRegistry })
+    )
+
+    configureSchemx({
+      schemaConfig: {
+        visible: false,
+        validationTrigger: "submit",
+        readonly: true,
+        labelAlign: "left",
+      },
+    })
+    const wrapper = mount(Host)
+
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
+      visible: true,
+      validationTrigger: ["blur", "change"],
+      readonly: true,
+      labelAlign: "right",
+    })
+    wrapper.unmount()
+    configureSchemx()
+    const defaults = mount(Host)
+
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
+      visible: true,
+      validationTrigger: ["blur", "change"],
+    })
+    defaults.unmount()
+  })
+
+  it("useForm 使用 Vue 展示与 Registry 默认值，Core 仍提供未设置的字段状态", () => {
+    const coreRegistry = createRendererRegistry()
+
+    coreRegistry.register("core-only", markRaw(ConfiguredRenderer))
+    configureSchemx({
+      rendererRegistry: coreRegistry,
+      schemaConfig: { readonly: true, labelAlign: "left", contentAlign: "right" },
+    })
+    const { form, wrapper } = mountUseForm(
+      {},
+      {
+        schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+      }
+    )
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      labelAlign: "right",
+      col: { span: 24 },
+    })
+    expect(form.hasRenderer("core-only")).toBe(false)
+    wrapper.unmount()
+  })
+
+  it("无关 Vue 配置变化不清除 Core 状态，创建后也不重新读取 Core 全局配置", async () => {
+    const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
+
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ConfiguredRenderer))
+    configureSchemx({ schemaConfig: { readonly: true, disabled: true } })
+    const wrapper = mount(Schemx, {
+      props: { schemas, rendererRegistry, labelWidth: 120 },
+    })
+
+    const form = wrapper.vm as unknown as SchemxInstance
+
+    configureSchemx({ schemaConfig: { readonly: false, disabled: false } })
+    await wrapper.setProps({ labelWidth: 140 })
+
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      disabled: true,
+      labelWidth: 140,
+    })
+    wrapper.unmount()
+  })
+
+  it("external form 只同步显式字段，撤销覆盖不改变生命周期", async () => {
+    const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
+
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ConfiguredRenderer))
+    const externalForm = createForm({
+      schemas,
+      rendererRegistry,
+      schemaConfig: { readonly: true, disabled: true },
+    })
+
+    const update = vi.spyOn(externalForm, "updateSchemaConfig")
+
+    const destroy = vi.spyOn(externalForm, "destroy")
+
+    const wrapper = mount(Schemx, {
+      props: { form: externalForm, schemas },
+      global: {
+        plugins: [[Schemx, { schemaConfig: { readonly: false, disabled: false } }]],
+      },
+    })
+
+    expect(update).not.toHaveBeenCalled()
+    expect(externalForm.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      disabled: true,
+    })
+    await wrapper.setProps({ readonly: false })
+    expect(update).toHaveBeenLastCalledWith({ readonly: false })
+    await wrapper.setProps({ readonly: undefined })
+    expect(update).toHaveBeenLastCalledWith({ readonly: undefined })
+    expect(externalForm.getViewSchemas()[0]).toMatchObject({
+      readonly: false,
+      disabled: true,
+    })
+    wrapper.unmount()
+    expect(destroy).not.toHaveBeenCalled()
+    externalForm.destroy()
+  })
+
+  it("同一对象内的嵌套修改仍同步，其他标量变化只提交对应字段", async () => {
+    const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
+
+    const rendererRegistry = createRendererRegistry()
+
+    rendererRegistry.register("input", markRaw(ConfiguredRenderer))
+    const externalForm = createForm({ schemas, rendererRegistry })
+
+    const update = vi.spyOn(externalForm, "updateSchemaConfig")
+
+    const col = reactive({ span: 12 })
+
+    const wrapper = mount(Schemx, { props: { form: externalForm, schemas, col } })
+
+    update.mockClear()
+
+    col.span = 8
+    await nextTick()
+    expect(update).toHaveBeenLastCalledWith({ col: { span: 8 } })
+    expect(externalForm.getViewSchemas()[0]).toMatchObject({ col: { span: 8 } })
+    update.mockClear()
+    await wrapper.setProps({ readonly: true })
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith({ readonly: true })
+    wrapper.unmount()
+    externalForm.destroy()
+  })
   it("注册组件并将安装配置限制在当前 App", () => {
     // 模拟 Vue App 的组件注册和 App 级 provide 能力。
     const app = {

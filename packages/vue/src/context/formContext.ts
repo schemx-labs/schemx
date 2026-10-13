@@ -1,8 +1,8 @@
 /**
  * 具体表单的 Vue provide/inject 适配。
  *
- * 一个 Form Context 同时保存 SchemxInstance 与该表单最终用于展示的
- * schemaConfig；其中包含从 ConfigProvider/App 继承的值，不保留 Provider 原始配置对象。
+ * 一个 Form Context 同时保存 SchemxInstance 与 Vue 层合并后的 schemaConfig。
+ * 配置包含局部、Provider/App 和 Vue 默认值；字段最终状态由 Core ViewSchema 提供。
  *
  * @module context/formContext
  */
@@ -13,7 +13,7 @@ import { useVueFormRuntime, type VueFormRuntime } from "../bridge"
 
 import type { SchemxIconComponent } from "../types/icon"
 import type { SchemxColComponent, SchemxRowComponent } from "../types/layout"
-import type { SchemxInstance, SchemxSchemaConfig, Values } from "@schemx/core"
+import type { SchemxConfig, SchemxInstance, Values } from "@schemx/core"
 
 /**
  * 表单实例的注入键。
@@ -32,11 +32,20 @@ export const SCHEMX_FORM_CONFIG_KEY: InjectionKey<FormConfigContextValue> =
   Symbol("schemx:form-config")
 
 /**
- * 表单展示配置 Context。
+ * 当前表单的展示默认配置与组件实现 Context。
+ *
+ * `schemaConfig` 与 {@link SchemxConfig} 的嵌套默认值保持同一类型，
+ * 手工提供 Context 时可传局部默认值；SchemxForm 提供 Vue 层合并结果，
+ * 不包含 Core 全局和内置默认值的解析结果。
+ * 组件实现单独存储，由 Row、Col 和 Icon 渲染入口消费。
+ *
+ * @typeParam TValues - 当前表单值类型。
  */
-export interface FormConfigContextValue {
-  /** 当前 Form 已解析的展示配置。 */
-  schemaConfig: Partial<SchemxSchemaConfig>
+export interface FormConfigContextValue<TValues extends Values = Values> {
+  /**
+   * 当前表单的 Vue 展示默认值，保留其 `TValues` 和适配层扩展。
+   */
+  schemaConfig: NonNullable<SchemxConfig<TValues>["schemaConfig"]>
   /** 当前 Form 使用的 Icon Adapter。 */
   iconComponent?: SchemxIconComponent
   /** 当前 Form 使用的 Row 组件。 */
@@ -47,16 +56,18 @@ export interface FormConfigContextValue {
 
 /**
  * 一个具体 Form 向后代暴露的运行上下文。
+ *
+ * @typeParam TValues - 当前表单值类型。
  */
 export interface FormContextValue<
   TValues extends Values = Values,
-> extends FormConfigContextValue {
+> extends FormConfigContextValue<TValues> {
   /** 当前 Form 的响应式实例。 */
   form: SchemxInstance<TValues>
 }
 
 /**
- * 一次性向后代提供具体 Form 的实例与最终展示配置。
+ * 一次性向后代提供具体 Form 的实例与 Vue 展示配置。
  *
  * @typeParam TValues - 表单值类型。
  * @param context - Form 实例、展示配置和可选的布局组件与 Icon Adapter。
@@ -76,7 +87,11 @@ export function provideFormContext<TValues extends Values = Values>(
   const form = useVueFormRuntime<TValues>(context.form).instance
 
   provide(SCHEMX_FORM_INSTANCE_KEY, form as SchemxInstance)
-  provide(SCHEMX_FORM_CONFIG_KEY, context)
+  // 同一注入键承载当前 Form 的类型参数，由提供方与消费方约定。
+  provide(
+    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
+    context
+  )
 
   return form
 }
@@ -85,7 +100,7 @@ export function provideFormContext<TValues extends Values = Values>(
  * 获取最近祖先提供的完整 Form Context。
  *
  * @typeParam TValues - 表单值类型。
- * @returns 最近的 Form 实例和最终展示配置。
+ * @returns 最近的 Form 实例和 Vue 展示配置。
  * @throws 当前组件树中没有 Form Context 时抛出错误。
  *
  * @example
@@ -133,7 +148,10 @@ export function useOptionalFormContextValue<TValues extends Values = Values>():
   | undefined {
   const form = inject(SCHEMX_FORM_INSTANCE_KEY, null)
 
-  const config = inject(SCHEMX_FORM_CONFIG_KEY, null)
+  const config = inject(
+    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
+    null
+  )
 
   if (form && config) {
     return {
@@ -217,6 +235,7 @@ export function useFormContext<
  *
  * @deprecated 请改用 {@link provideFormContext}({ form, schemaConfig })。
  *
+ * @typeParam TValues - 当前表单值类型。
  * @param props - 要提供给后代的 Form 展示配置。
  *
  * @example
@@ -227,14 +246,18 @@ export function useFormContext<
  * }
  * ```
  */
-export function createFormConfigContext(props: FormConfigContextValue): void {
-  provide(SCHEMX_FORM_CONFIG_KEY, props)
+export function createFormConfigContext<TValues extends Values = Values>(
+  props: FormConfigContextValue<TValues>
+): void {
+  provide(SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>, props)
 }
 
 /**
  * 获取当前 Form 的展示配置。
  *
- * @returns 最近 Form 提供的最终展示配置。
+ * @typeParam TValues - 当前表单值类型。
+ *
+ * @returns 最近 Form 提供的 Vue 展示配置。
  * @throws 当前组件树中没有 Form Config Context 时抛出错误。
  *
  * @example
@@ -245,8 +268,13 @@ export function createFormConfigContext(props: FormConfigContextValue): void {
  * }
  * ```
  */
-export function useFormConfigContext(): FormConfigContextValue {
-  const config = inject(SCHEMX_FORM_CONFIG_KEY, null)
+export function useFormConfigContext<
+  TValues extends Values = Values,
+>(): FormConfigContextValue<TValues> {
+  const config = inject(
+    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
+    null
+  )
 
   if (!config) {
     throw new Error(

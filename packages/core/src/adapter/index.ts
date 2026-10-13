@@ -22,3 +22,7 @@ export {
   type FormStateAdapter,
   type SnapshotSource,
 } from "./formStateAdapter"
+
+export { createFormWithConfig } from "../createForm"
+
+export { getFormCreationConfig, type FormCreationSnapshot } from "./formCreationConfig"

@@ -45,7 +45,7 @@ export const DEFAULT_PRESENTATION_STATE: PresentationState = {
  */
 function applyFieldSchemaDefaults<TValues extends Values>(
   schema: SchemxBaseField<TValues>,
-  schemaConfig: SchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig<TValues>
 ): SchemxBaseField<TValues> {
   const inheritedEntries = Object.entries(schemaConfig).filter(([key]) => {
     // 兼容期内，字段显式使用旧 layout 时不能被 Vue 层默认 col 覆盖；否则旧配置会

@@ -90,7 +90,7 @@ export type SchemxViewFieldSchema<TValues extends Values = Values> = Distributiv
   /**
    * 调试元数据，开发环境用于追踪 schema 来源
    */
-  readonly debug?: Readonly<SchemxViewDebugMeta>
+  readonly debug?: SchemxViewDebugMeta
 }
 
 /**
@@ -114,7 +114,7 @@ export type SchemxViewGroupSchema<TValues extends Values = Values> = Distributiv
   /**
    * 调试元数据
    */
-  readonly debug?: Readonly<SchemxViewDebugMeta>
+  readonly debug?: SchemxViewDebugMeta
 }
 
 /**
@@ -170,7 +170,7 @@ export type SchemxViewDynamicSchema<TValues extends Values = Values> = Omit<
   /**
    * 调试元数据。
    */
-  readonly debug?: Readonly<SchemxViewDebugMeta>
+  readonly debug?: SchemxViewDebugMeta
 }
 
 /**

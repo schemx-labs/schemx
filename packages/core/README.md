@@ -371,12 +371,34 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 
 `createField()` 返回的 `SchemxFieldInstance` 包含字段值、初始值、错误、规则、touched、pending、重置、校验和 `effect` 等单字段 API。所有 watch API 都返回取消监听函数；回调接收最新表单快照与变更 payload。
 
+## 独立默认配置工厂
+
+```ts
+import { createSchemx } from "@schemx/core"
+
+const schemx = createSchemx({ debug: true, validationConcurrency: 2 })
+const form = schemx.createForm({ initialValues: { name: "" } })
+schemx.configureSchemx({ debug: false })
+schemx.configureSchemx() // 恢复创建基线
+form.destroy()
+```
+
+工厂返回 `createForm`、`configureSchemx`、`getConfig`、`rendererRegistry` 和 `presetRuleRegistry` 五项；不包含框架 Hook、组件或安装功能。每次创建独立推导业务值类型。工厂不读取模块级全局配置，优先级为表单显式选项、业务覆盖层、创建基线、Core 内置默认值。
+
+`CreateSchemxOptions` 支持 `SchemxConfig` 与声明合并扩展，以及 `debug`、`schedulerOptions`、`validationConcurrency`。共享配置过滤 `schemas`、`initialValues`、`fieldRules`、`lifecycleHooks`、`onRuleError` 和表单业务回调，完整创建选项变量可复用，单次创建选项不受过滤影响。
+
+`configureSchemx(options)` 每次替换覆盖层，再与基线合并；无参数恢复基线，仅影响新表单。`getConfig()` 返回冻结的共享默认值，不包含内置默认值。`schemaConfig` 浅合并，Renderer Props 按类型和属性合并，adapter 按 ID 合并；Row、Col 等嵌套对象及调度对象整体替换。调度对象复制并冻结，显式 `debug: false` 保留。Registry 默认跨工厂独立，显式传入时共享；覆盖层不允许替换 Registry，失败抛出 `TypeError` 且配置不变，单个表单仍可覆盖。
+
+`mergeConfig` 统一过滤实例字段、合并共享配置并返回冻结快照；单个配置也可直接调用。缺省字段保持缺省，不补齐内置默认值，调度对象整体替换。受管层级复制和冻结不修改输入，也不深冻结 Registry、组件及扩展对象。创建表单时将实例数据和行为保留在原始选项中，例如 `createForm({ ...options, ...mergeConfig(options, defaults) })`。原 `/adapter` 的 `normalizeCreateSchemxOptions` 已移除，改用 Core 根入口的 `mergeConfig`。
+
+框架或 UI 默认配置可作为创建基线，例如 `createSchemx(defaultConfig)`。布局组件等扩展值由 Core 保留，具体渲染由框架负责。
+
 ## 全局配置与响应式工具
 
 | API                                                                         | 说明                                                                                      |
 | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `configureSchemx(config)`                                                   | 配置模块级全局默认值；每次调用替换此前配置，无参数调用会重置全局配置。                    |
-| `getGlobalSchemxConfig()`                                                   | 获取当前模块级全局配置。                                                                  |
+| `configureSchemx(config)`                                                   | 已弃用的模块级配置；保留原行为，新代码使用工厂实例的配置方法。                    |
+| `getGlobalSchemxConfig()`                                                   | 已弃用的模块级 getter；新代码使用工厂实例的 `getConfig()`。                                                                  |
 | `mergeConfig`、`resolveSchemxConfig`、`mergeAndResolveSchemxConfig`         | 供适配层合并、解析配置。                                                                  |
 | `defaultSchemxConfig`、`defaultSchemxConfigKeys`、`excludeSchemxConfigKeys` | Core 内置默认配置及其键列表；`excludeSchemxConfigKeys` 用于识别不属于 Schema 配置的选项。 |
 | `createSignalEffect(fn)`                                                    | 创建底层响应式副作用，返回清理函数。                                                      |
@@ -397,6 +419,6 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | 兼容类型        | `SchemxLayout`（已弃用；Vue 表单请改用 `@schemx/vue` 的 `SchemxColConfig`）                                                                                                                                                                                                                                                                              |
 | 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点；Vue 布局类型由 `@schemx/vue` 提供） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
-| `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter` 及表单状态快照相关类型，供 UI 适配层使用。                                                                                                                                                                                                                                                            |
+| `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter`、`getFormCreationConfig` 及快照相关类型，供 UI 适配层使用。                                                                                                                                                                                                                                                            |
 
 表单、Schema、Registry 和校验 API 从 `@schemx/core` 导入；`createFormStateAdapter()` 及其状态快照类型从 `@schemx/core/adapter` 导入。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。

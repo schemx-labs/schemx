@@ -60,6 +60,34 @@ describe("createField", () => {
     void assertTypeOnly
   })
 
+  it("getValues 返回可独立修改的表单值副本", () => {
+    // 同时覆盖顶层属性和嵌套对象的隔离。
+    const form = createForm<TypedForm>({
+      initialValues: {
+        name: "John",
+        age: 20,
+        user: { city: "Beijing" },
+      },
+    })
+
+    // 字段实例读取的全表值应保留原表单类型。
+    const field = createField(form, "name")
+
+    // 修改读取结果无需通过类型断言绕过只读约束。
+    const values = field.getValues()
+
+    expectTypeOf(values).toEqualTypeOf<TypedForm>()
+    values.name = "Jane"
+    values.user.city = "Shanghai"
+
+    expect(form.getFieldsValue()).toEqual({
+      name: "John",
+      age: 20,
+      user: { city: "Beijing" },
+    })
+    form.destroy()
+  })
+
   it("暴露字段错误 API", () => {
     const form = createForm<TypedForm>({
       initialValues: {

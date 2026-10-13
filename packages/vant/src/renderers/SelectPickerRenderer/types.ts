@@ -4,11 +4,11 @@
  * @module renderers/SelectPickerRenderer/types
  */
 
-import type { CheckboxProps, FieldProps, PopupProps, RadioProps } from "vant"
+import type { FieldProps, PopupProps, RadioProps } from "vant"
 
 import type { SchemxBaseComponentProps } from "@schemx/vue"
 
-export type SelectPickerPrimitiveValue = RadioProps["name"] | CheckboxProps["name"]
+export type SelectPickerPrimitiveValue = RadioProps["name"]
 export type SelectPickerValue = SelectPickerPrimitiveValue | SelectPickerPrimitiveValue[]
 
 export type SelectPickerType = "radio" | "checkbox"

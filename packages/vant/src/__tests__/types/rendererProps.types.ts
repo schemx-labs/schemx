@@ -1,8 +1,11 @@
+import SchemxForm, { useForm } from "../../index"
+
 import type {
   CreateFormOptions,
   SchemxFormProps,
   SchemxRendererPropsMap,
 } from "../../index"
+import type { SchemxFormPlugin, SchemxInstance } from "@schemx/vue"
 
 interface FormValues {
   name: string
@@ -42,6 +45,7 @@ const createFormOptions: CreateFormOptions<FormValues> = {
           const province: string = values.province
 
           // @ts-expect-error CreateFormOptions 应保留 FormValues，不存在 unknownField。
+          // oxlint-disable-next-line no-unused-expressions
           values.unknownField
 
           return [province]
@@ -59,7 +63,7 @@ const formProps: SchemxFormProps<FormValues> = {
           const name: string = values.name
 
           // @ts-expect-error SchemxFormProps 应保留 FormValues，不存在 unknownField。
-          values.unknownField
+          void values.unknownField
 
           return [name]
         },
@@ -73,3 +77,38 @@ void invalidInputProps
 void invalidInputPropType
 void createFormOptions
 void formProps
+
+// 包装入口的最小表单值类型。
+interface UiFormValues {
+  name: string
+}
+
+// UI 包装入口保留 Vue Form 的泛型调用契约。
+const uiPlugin: SchemxFormPlugin = SchemxForm
+
+SchemxForm<UiFormValues>({
+  initialValues: { name: "" },
+  onFinish: (values) => {
+    values.name.trim()
+    // @ts-expect-error 未声明的字段不能出现在包装组件的回调中。
+    void values.unknownField
+  },
+})
+
+const uiForm: SchemxInstance<UiFormValues> = useForm<UiFormValues>({
+  initialValues: { name: "" },
+  schemaConfig: {
+    required: {
+      isEmpty: (value) => {
+        // @ts-expect-error 默认值回调保留字段值类型。
+        return value.unknownField
+      },
+    },
+  },
+})
+
+// @ts-expect-error UI Hook 也只接受一个配置参数。
+useForm<UiFormValues>({}, {})
+
+void uiPlugin
+void uiForm

@@ -1,4 +1,4 @@
-import type { SchemxRendererPropsMap } from "../types"
+import type { SchemxRendererPropsMap, Values } from "../types"
 import type { SchemxConfig } from "./schemxConfig"
 
 /**
@@ -17,10 +17,12 @@ import type { SchemxConfig } from "./schemxConfig"
  * })
  * ```
  */
-export function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
+export function normalizeSchemxConfig<TValues extends Values = Values>(
+  source: SchemxConfig<TValues>
+): SchemxConfig<TValues> {
   return Object.freeze({
     ...source,
-    schemaConfig: Object.freeze({ ...(source.schemaConfig ?? {}) }),
+    schemaConfig: Object.freeze({ ...source.schemaConfig }),
     rendererProps: normalizeRendererProps(source.rendererProps),
     validatorAdapters: Object.freeze([...(source.validatorAdapters ?? [])]),
     defaultRendererType: source.defaultRendererType,
@@ -35,9 +37,9 @@ export function normalizeSchemxConfig(source: SchemxConfig): SchemxConfig {
  * @param source - 待标准化的 Renderer Props Map。
  * @returns 与输入隔离一层的只读配置。
  */
-function normalizeRendererProps(
-  source: SchemxRendererPropsMap | undefined
-): SchemxRendererPropsMap | undefined {
+function normalizeRendererProps<TValues extends Values>(
+  source: SchemxRendererPropsMap<TValues> | undefined
+): SchemxRendererPropsMap<TValues> | undefined {
   if (source === undefined) {
     return undefined
   }
@@ -46,5 +48,5 @@ function normalizeRendererProps(
     return [type, props === undefined ? undefined : Object.freeze({ ...props })]
   })
 
-  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
+  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap<TValues>
 }

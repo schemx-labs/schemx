@@ -29,6 +29,18 @@ const transformProps: RendererPropsTransformer<FormValues, "input"> = (
 
   void fieldName
 
+  // @ts-expect-error 转换器不能替换 Core 提供的 Schema 引用。
+  context.schema = { ...context.schema }
+  // @ts-expect-error 转换器不能替换 Core 提供的表单引用。
+  context.form = form
+  if (context.schema.debug) {
+    // @ts-expect-error 调试元数据成员仍由 Core 管理。
+    context.schema.debug.runtimeNodeId = 0
+  }
+
+  // @ts-expect-error ViewSchema 的调试元数据引用仍然只读。
+  context.schema.debug = undefined
+
   return { placeholder }
 }
 
@@ -36,6 +48,10 @@ const descriptor: RendererDescriptor<typeof component, FormValues, "input"> = {
   component,
   transformProps,
 }
+
+// 注册输入允许调用方调整组件和转换器。
+descriptor.component = { ...component }
+descriptor.transformProps = (props) => ({ ...props, disabled: true })
 
 const registration: RendererRegistration<typeof component, FormValues, "input"> =
   descriptor
@@ -108,6 +124,13 @@ registry.registerAll({
 })
 
 const entry = registry.getEntry("input")
+
+if (entry) {
+  // @ts-expect-error Registry 返回的条目不能替换组件。
+  entry.component = component
+  // @ts-expect-error Registry 返回的条目不能替换转换器。
+  entry.transformProps = transformProps
+}
 
 const entryComponent: unknown = entry?.component
 

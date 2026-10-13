@@ -8,9 +8,235 @@ import {
   resolveSchemxConfig,
 } from "../mergeSchemxConfig"
 
-import type { ValidationTrigger } from "../../types"
+import type { SchemxSchemaConfig, ValidationTrigger } from "../../types"
+import type { SchemxConfig } from "../schemxConfig"
+
+interface LayoutConfig extends SchemxConfig {
+  schemaConfig?: Partial<SchemxSchemaConfig> & {
+    row?: { gutter?: number; align?: string; justify?: string }
+    col?: { span: number; offset?: number }
+  }
+}
 
 describe("mergeConfig", () => {
+  it("过滤所有实例字段，保留共享扩展和原始创建选项", () => {
+    const callback = () => undefined
+
+    const input = {
+      schemaConfig: { readonly: true },
+      debug: true,
+      schemas: [],
+      initialValues: { name: "A" },
+      fieldRules: {},
+      lifecycleHooks: {},
+      onRuleError: callback,
+      onFinish: callback,
+      onFinishFailed: callback,
+      onReset: callback,
+      onLoadingChange: callback,
+      onValuesChange: callback,
+      onFieldsChange: callback,
+      extensionMarker: { theme: "custom" },
+    }
+
+    const result = mergeConfig(input)
+
+    for (const key of [
+      "schemas",
+      "initialValues",
+      "fieldRules",
+      "lifecycleHooks",
+      "onRuleError",
+      "onFinish",
+      "onFinishFailed",
+      "onReset",
+      "onLoadingChange",
+      "onValuesChange",
+      "onFieldsChange",
+    ]) {
+      expect(result).not.toHaveProperty(key)
+      expect(input).toHaveProperty(key)
+    }
+
+    expect(result.debug).toBe(true)
+    expect(result.schemaConfig?.readonly).toBe(true)
+    expect(Object.getOwnPropertyDescriptor(result, "extensionMarker")?.value).toBe(
+      input.extensionMarker
+    )
+    expect(Object.isFrozen(input.extensionMarker)).toBe(false)
+  })
+
+  it("隔离并冻结受管快照，Registry 与其他实现保持引用", () => {
+    const registry = createRendererRegistry()
+
+    const rules = createPresetRuleRegistry()
+
+    const adapter = { id: "snapshot", isRule: () => false, resolve: () => [] }
+
+    const nested = { theme: "light" }
+
+    const rendererProps = { input: { disabled: true, metadata: nested } }
+
+    const schemaConfig = { readonly: true }
+
+    const schedulerOptions = { timeSliceMs: 3, idleTimeout: 50 }
+
+    const validatorAdapters = [adapter]
+
+    const input = {
+      schemaConfig,
+      schedulerOptions,
+      rendererProps,
+      validatorAdapters,
+      rendererRegistry: registry,
+      presetRuleRegistry: rules,
+    }
+
+    const result = mergeConfig(input)
+
+    schemaConfig.readonly = false
+    schedulerOptions.timeSliceMs = 99
+    rendererProps.input.disabled = false
+    validatorAdapters.length = 0
+    nested.theme = "dark"
+    expect(result.schemaConfig?.readonly).toBe(true)
+    expect(result.schedulerOptions?.timeSliceMs).toBe(3)
+    expect(result.rendererProps?.input?.disabled).toBe(true)
+    expect(result.validatorAdapters).toEqual([adapter])
+    for (const value of [
+      result,
+      result.schemaConfig,
+      result.rendererProps,
+      result.rendererProps?.input,
+      result.validatorAdapters,
+      result.schedulerOptions,
+    ]) {
+      expect(Object.isFrozen(value)).toBe(true)
+    }
+
+    expect(result.rendererRegistry).toBe(registry)
+    expect(result.presetRuleRegistry).toBe(rules)
+    expect(
+      Object.getOwnPropertyDescriptor(result.rendererProps?.input ?? {}, "metadata")
+        ?.value
+    ).toBe(nested)
+    expect(nested.theme).toBe("dark")
+    for (const value of [
+      input,
+      schemaConfig,
+      rendererProps,
+      rendererProps.input,
+      validatorAdapters,
+      schedulerOptions,
+      nested,
+      adapter,
+      registry,
+      rules,
+    ]) {
+      expect(Object.isFrozen(value)).toBe(false)
+    }
+
+    registry.register("custom", "CUSTOM")
+    expect(result.rendererRegistry?.get("custom")).toBe("CUSTOM")
+  })
+
+  it("缺省保持缺省，调度对象整体替换，显式 false 优先", () => {
+    const empty = mergeConfig()
+
+    expect(Object.keys(empty)).toEqual([])
+    expect(Object.isFrozen(empty)).toBe(true)
+    expect(mergeConfig({ debug: false })).not.toHaveProperty("schemaConfig")
+    const result = mergeConfig(
+      { debug: false, schedulerOptions: { idleTimeout: 20 } },
+      { debug: true, schedulerOptions: { timeSliceMs: 3, collectDiagnostics: true } }
+    )
+
+    expect(result.debug).toBe(false)
+    expect(result.schedulerOptions).toEqual({ idleTimeout: 20 })
+    expect(
+      mergeConfig(
+        { schemaConfig: { readonly: undefined } },
+        { schemaConfig: { readonly: true } }
+      ).schemaConfig
+    ).toHaveProperty("readonly", undefined)
+  })
+  it("空调用、变参和数组调用均保留嵌套结构", () => {
+    const config = { schemaConfig: { readonly: true } }
+
+    expect(mergeConfig()).toEqual({})
+    expect(mergeConfig(config)).toEqual(config)
+    expect(mergeConfig([config])).toEqual(config)
+    expect(resolveSchemxConfig(config)).not.toHaveProperty("readonly")
+  })
+
+  it("Row 可选择替换或属性继承，其他字段保留选中引用", () => {
+    const row = { justify: "center" }
+
+    const col = { span: 12 }
+
+    const configs: LayoutConfig[] = [
+      { schemaConfig: { row, col } },
+      {
+        schemaConfig: {
+          row: { gutter: 8, align: "middle" },
+          col: { span: 24, offset: 1 },
+        },
+      },
+    ]
+
+    const replaced = mergeConfig(configs)
+
+    const inherited = mergeConfig(configs, { rowMerge: "inherit" })
+
+    expect(Reflect.get(replaced.schemaConfig ?? {}, "row")).toBe(row)
+    expect(inherited.schemaConfig).toEqual({
+      row: { gutter: 8, align: "middle", justify: "center" },
+      col,
+    })
+    expect(Reflect.get(inherited.schemaConfig ?? {}, "col")).toBe(col)
+    expect(inherited).not.toHaveProperty("row")
+    expect(inherited).not.toHaveProperty("col")
+    expect(configs[1].schemaConfig?.row).toEqual({ gutter: 8, align: "middle" })
+
+    const cleared: LayoutConfig[] = [{ schemaConfig: { row: undefined } }, configs[1]]
+
+    expect(
+      Reflect.get(mergeConfig(cleared, { rowMerge: "inherit" }).schemaConfig ?? {}, "row")
+    ).toBeUndefined()
+  })
+
+  it("合并不补齐内置默认值", () => {
+    const configs: LayoutConfig[] = [
+      { schemaConfig: { readonly: true, row: { gutter: 8 } } },
+    ]
+
+    const result = mergeConfig(configs, { rowMerge: "inherit" })
+
+    expect(result.schemaConfig).toEqual({ readonly: true, row: { gutter: 8 } })
+    expect(result.schemaConfig).not.toHaveProperty("visible")
+  })
+
+  it("合并适配层扩展的顶层配置，并保留对象引用与 undefined 的继承语义", () => {
+    const inheritedOptions = { theme: "low" }
+
+    const overridingOptions = { theme: "high" }
+
+    const lower = { defaultRendererType: "input", adapterOptions: inheritedOptions }
+
+    const higher = { defaultRendererType: undefined, adapterOptions: overridingOptions }
+
+    const result = mergeConfig(higher, lower)
+
+    expect(result).toMatchObject({
+      defaultRendererType: "input",
+      adapterOptions: overridingOptions,
+    })
+    expect(Object.getOwnPropertyDescriptor(result, "adapterOptions")?.value).toBe(
+      overridingOptions
+    )
+    expect(lower.adapterOptions).toBe(inheritedOptions)
+  })
+
   it("按从后到前的优先级合并标量配置和 Registry", () => {
     // 高优先级 Renderer Registry。
     const highPriorityRendererRegistry = createRendererRegistry()

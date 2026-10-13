@@ -68,9 +68,10 @@ export interface CreateSchemaRuntimeOptions<TValues extends Values> {
    */
   formApi: SchemxFormApi<TValues>
   /**
-   * 已合并的字段默认配置。
+   * 创建边界已合并并补齐 Core 默认值的字段默认配置。
+   * Runtime 复制配置外层，嵌套属性保留引用，随后与 Compiler 共享实例内的副本。
    */
-  schemaConfig: SchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig<TValues>
   /**
    * 按字段路径配置的表单级校验规则。
    */
@@ -109,11 +110,14 @@ export interface SchemaRuntime<TValues extends Values> {
    */
   mount(): void
   /**
-   * 更新字段默认属性并重新编译当前 Schema。
+   * 按属性更新当前表单默认值，失效编译缓存并刷新节点。
    *
-   * @param partial - 要覆盖的默认属性。
+   * 缺省属性保留当前值，显式 `undefined` 对 Core 内置项恢复默认值。
+   * 对象和数组整体替换；以相同引用提交时仍刷新，以支持原地修改。
+   *
+   * @param partial - 当前 `TValues` 对应的局部 Schema 默认值。
    */
-  updateSchemaConfig(partial: Partial<SchemxSchemaConfig>): void
+  updateSchemaConfig(partial: Partial<SchemxSchemaConfig<TValues>>): void
   /**
    * 获取字段用于规则注册的 label、placeholder 与 required 配置。
    *
@@ -216,9 +220,7 @@ export function createSchemaRuntime<TValues extends Values>(
   )
 
   // Runtime 与 Compiler 共享同一份配置引用，动态更新后无需重新装配 Compiler。
-  const { schemaConfig } = mergeAndResolveSchemxConfig({
-    schemaConfig: options.schemaConfig,
-  })
+  const schemaConfig = { ...options.schemaConfig }
 
   // 编译 Schema 并保留当前 Form 实例引用。
   const compiler = createSchemaCompiler({
@@ -297,20 +299,35 @@ export function createSchemaRuntime<TValues extends Values>(
   }
 
   /**
-   * 合并新的默认属性并使编译缓存失效。
+   * 合并默认值并使编译缓存失效；销毁后忽略更新，跳过无变化的标量提交。
+   *
+   * @param partial - 要提交的 Schema 默认属性；对象与数组提交始终触发刷新。
    */
-  const updateSchemaConfig = (partial: Partial<SchemxSchemaConfig>): void => {
+  const updateSchemaConfig = (partial: Partial<SchemxSchemaConfig<TValues>>): void => {
     if (disposed) {
       return
     }
 
-    Object.assign(
-      context.schemaConfig,
-      mergeAndResolveSchemxConfig(
-        { schemaConfig: partial },
-        { schemaConfig: context.schemaConfig }
-      ).schemaConfig
+    const nextConfig = mergeAndResolveSchemxConfig(
+      { schemaConfig: partial },
+      { schemaConfig: context.schemaConfig }
+    ).schemaConfig
+
+    // 相同对象引用也可能包含原地修改，含对象或数组的提交不能按引用跳过刷新。
+    const hasObjectValue = Object.values(partial).some(
+      (value) => value !== null && typeof value === "object"
     )
+
+    if (
+      !hasObjectValue &&
+      Object.keys(nextConfig).every((key) =>
+        Object.is(Reflect.get(nextConfig, key), Reflect.get(context.schemaConfig, key))
+      )
+    ) {
+      return
+    }
+
+    Object.assign(context.schemaConfig, nextConfig)
 
     compiler.invalidateConfigCache()
     reconciler.refresh()

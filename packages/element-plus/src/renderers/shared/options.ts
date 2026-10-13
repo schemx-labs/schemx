@@ -27,15 +27,13 @@ export function normalizeElementOptions(
   options: readonly ElementOption[] | undefined,
   fieldNames: ElementFieldNames = {}
 ): ElementOption[] {
-  const labelKey = fieldNames.label ?? "label"
-
   const valueKey = fieldNames.value ?? "value"
 
   const disabledKey = fieldNames.disabled ?? "disabled"
 
   return (options ?? []).map((option) => ({
     ...option,
-    label: String(option[labelKey] ?? option[valueKey] ?? ""),
+    label: getElementOptionLabel(option, fieldNames),
     value: option[valueKey] as ElementOptionValue | undefined,
     disabled: Boolean(option[disabledKey]),
   }))
@@ -57,6 +55,7 @@ export function getElementOptionValue(
 
 /**
  * 根据字段映射读取选项标签。
+ * 标签只转换支持的基础值，无有效标签时回退到选项值。
  *
  * @param option - 当前选项。
  * @param fieldNames - 选项字段名映射。
@@ -68,9 +67,13 @@ export function getElementOptionLabel(
 ): string {
   const label = option[fieldNames.label ?? "label"]
 
+  if (isElementOptionValue(label)) {
+    return String(label)
+  }
+
   const value = getElementOptionValue(option, fieldNames)
 
-  return String(label ?? value ?? "")
+  return isElementOptionValue(value) ? String(value) : ""
 }
 
 /**

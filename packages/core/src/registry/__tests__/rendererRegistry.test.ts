@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
   createRendererRegistry,
+  type RendererDescriptor,
   type RendererPropsTransformer,
 } from "../rendererRegistry"
 
@@ -65,9 +66,17 @@ describe("Registry", () => {
         placeholder: "转换后的占位符",
       })
 
-      reg.register("text", {
+      // 注册描述对象后，Registry 应保留注册时的组件和转换器。
+      const descriptor: RendererDescriptor<typeof Comp1> = {
         component: Comp1,
         transformProps,
+      }
+
+      reg.register("text", descriptor)
+      descriptor.component = Comp2
+      descriptor.transformProps = (props) => ({
+        ...props,
+        placeholder: "修改后的占位符",
       })
 
       expect(reg.get("text")).toBe(Comp1)

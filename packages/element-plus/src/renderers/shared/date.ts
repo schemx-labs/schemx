@@ -27,5 +27,7 @@ export function formatElementDateValue(
     return parsed.isValid() ? parsed.format(format) : String(value)
   }
 
-  return value === null || value === undefined || value === "" ? "" : String(value)
+  return value === null || value === undefined || value === ""
+    ? ""
+    : JSON.stringify(value)
 }

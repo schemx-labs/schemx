@@ -571,16 +571,19 @@ export type SchemxInstance<TValues extends Values = Values> = {
    * 更新表单默认配置。
    *
    * 合并传入属性到当前 schemaConfig，然后重新编译根 schemas 并 reconcile。
-   * 未设置的字段级属性会回退到这些默认值。
+   * 未设置的字段级属性会回退到这些默认值。`TValues` 与创建表单时一致，
+   * 必填判断保留字段值联合类型。缺省属性保留当前值；显式 `undefined` 对
+   * Core 内置项恢复默认值，其他扩展项清除当前值。对象与数组整体替换，
+   * 以相同引用提交时仍刷新；空更新和无变化的标量更新会跳过刷新。
    *
-   * @param partial - 要更新的默认配置（部分或全部）
+   * @param partial - 要更新的 `schemaConfig` 属性，直接传入默认值，无需再套一层 `schemaConfig`。
    *
    * @example
    * ```typescript
    * form.updateSchemaConfig({ visible: false, disabled: true })
    * ```
    */
-  updateSchemaConfig: (partial: Partial<SchemxSchemaConfig>) => void
+  updateSchemaConfig: (partial: Partial<SchemxSchemaConfig<TValues>>) => void
 
   /**
    * 获取当前 ViewSchemas。

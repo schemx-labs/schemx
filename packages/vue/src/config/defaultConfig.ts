@@ -1,9 +1,11 @@
+import { SchemxSchemaConfig } from "@schemx/core"
+
 /**
  * Vue 适配层的字段展示默认值。
  *
  * Vue 层拥有字段展示与布局默认值；Core 只处理框架无关的字段状态和校验默认值。
  */
-export const defaultVueSchemaConfig = Object.freeze({
+export const defaultConfig = Object.freeze({
   /**
    * 表单级标签图标默认值。
    */
@@ -53,11 +55,37 @@ export const defaultVueSchemaConfig = Object.freeze({
    * 是否在 field schema 后显示底部边框。
    */
   bordered: true,
-} as const)
+
+  visible: true,
+
+  validationTrigger: ["blur", "change"],
+} as const) as unknown as SchemxSchemaConfig
 
 /**
  * Vue 展示默认配置的键集合。
  */
-export const defaultVueSchemaConfigKeys = Object.keys(
-  defaultVueSchemaConfig
-) as (keyof typeof defaultVueSchemaConfig)[]
+export const defaultConfigKeys = Object.keys(
+  defaultConfig
+) as (keyof typeof defaultConfig)[]
+/**
+ * 组件平铺 Props 转换为 Schema 默认值时使用的键；Row 同时用于根级和容器布局。
+ */
+export const vueSchemaConfigKeys = [
+  "required",
+  "readonly",
+  "disabled",
+  "visible",
+  "validationTrigger",
+  "labelIcon",
+  "labelAlign",
+  "labelPosition",
+  "labelWidth",
+  "contentAlign",
+  "errorAlign",
+  "colon",
+  "showRequiredMark",
+  "col",
+  "layout",
+  "bordered",
+  "row",
+] as const

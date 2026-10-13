@@ -2,14 +2,13 @@ import { createRequiredValidationRule } from "../validator/built-in.rules"
 
 import type { RegistryOptions } from "./types"
 import type { AsyncValidatorDescriptor } from "../types/asyncValidator"
-import type { PresetRuleDefinition, RequiredConfig } from "../types/rule"
+import type {
+  DeclaredPresetRuleName,
+  PresetRuleDefinition,
+  RequiredConfig,
+} from "../types/rule"
 import type { StandardSchemaV1 } from "../types/standardSchema"
 import type { ValidationRule } from "../validator/types"
-
-/**
- * 从声明合并的规则定义中提取规则名称。
- */
-type DeclaredPresetRuleName = Extract<keyof PresetRuleDefinition, string>
 
 /**
  * 在存在声明规则与否的两种模式间选择规则 key 类型。

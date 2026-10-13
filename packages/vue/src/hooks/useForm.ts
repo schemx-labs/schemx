@@ -9,24 +9,38 @@
  */
 import { onScopeDispose } from "vue"
 
-import { createForm } from "@schemx/core"
+import { createForm, mergeConfig } from "@schemx/core"
 
 import { useVueFormRuntime } from "../bridge"
-import { mergeVueSchemxConfig } from "../config"
+import { defaultConfig } from "../config/defaultConfig"
+import { useConfigProviderContext } from "../context/configProviderContext"
 
 import type {
   CreateFormOptions,
-  SchemxConfig,
+  CreateSchemxOptions,
+  SchemxApi,
   SchemxInstance,
   Values,
 } from "@schemx/core"
+
+/**
+ * Vue 表单创建选项，支持嵌套 Schema 默认值及 Core 实例级配置。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export type UseFormOptions<TValues extends Values = Values> = CreateFormOptions<TValues>
+
+/**
+ * 保留每次调用表单值泛型的同步创建器。
+ */
+export type FormCreator = SchemxApi["createForm"]
 
 /**
  * 创建由当前 Vue effect scope 持有的表单实例。
  *
  * useForm 只负责以下职责：
  * 1. 合并表单显式、组件树 Provider、App 安装和 Vue 层默认配置；
- * 2. 同步创建 SchemxInstance；
+ * 2. 将配置通过单个参数交给 Core，同步创建 SchemxInstance；
  * 3. 在当前 effect scope 销毁时调用 instance.destroy()。
  *
  * useForm 不再自动调用 provide()。需要向后代组件暴露实例时，应由
@@ -39,6 +53,7 @@ import type {
  *
  * @typeParam TValues - 表单值类型
  * @param options - 表单创建配置
+ * @param creator - 可选的同步创建器；提供时不预填 Vue 默认值。
  * @returns 当前 scope 持有的 SchemxInstance
  *
  * @example
@@ -64,22 +79,18 @@ import type {
  * ```
  */
 export function useForm<TValues extends Values = Values>(
-  options: CreateFormOptions<TValues> = {}
+  options: UseFormOptions<TValues> = {},
+  creator?: FormCreator
 ): SchemxInstance<TValues> {
-  // 按表单、App、Vue 包默认值的优先级解析可继承配置。
-  const configuredOptions = mergeVueSchemxConfig<TValues>(
-    getUseFormSchemxConfig(options),
-    {}
+  // 创建器负责继承默认值；Vue 只将局部上下文作为本次选项传入。
+  const configuredOptions = mergeConfig<TValues>(
+    options,
+    (useConfigProviderContext() as CreateSchemxOptions<TValues> | undefined) ?? {},
+    ...(creator === undefined ? [{ schemaConfig: defaultConfig }] : [])
   )
 
-  // 将已合并配置写入 Form 创建选项，避免 Core 再按较低优先级覆盖 Vue 结果。
-  const mergedOptions: CreateFormOptions<TValues> = {
-    ...options,
-    ...configuredOptions,
-  }
-
-  // 表单实例是当前 scope 内的一次性资源，不需要使用 computed 包装。
-  const instance = createForm<TValues>(mergedOptions)
+  // 合并结果与实例选项统一通过第一个参数下传。
+  const instance = (creator ?? createForm)<TValues>({ ...options, ...configuredOptions })
 
   const form = useVueFormRuntime(instance).instance
 
@@ -89,32 +100,4 @@ export function useForm<TValues extends Values = Values>(
   })
 
   return form
-}
-
-/**
- * 从 useForm 选项中提取需要参与 Vue 优先级计算的可继承配置。
- *
- * @param options - useForm 的完整创建选项。
- * @returns 仅包含调用方实际提供字段的 SchemxConfig。
- */
-function getUseFormSchemxConfig<TValues extends Values>(
-  options: CreateFormOptions<TValues>
-): SchemxConfig<TValues> {
-  const {
-    schemaConfig = {},
-    rendererProps = undefined,
-    validatorAdapters = [],
-    defaultRendererType = undefined,
-    rendererRegistry = undefined,
-    presetRuleRegistry = undefined,
-  } = options
-
-  return {
-    schemaConfig,
-    rendererProps,
-    defaultRendererType,
-    rendererRegistry,
-    presetRuleRegistry,
-    validatorAdapters,
-  }
 }

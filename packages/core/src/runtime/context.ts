@@ -155,9 +155,10 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    */
   readonly debug: boolean
   /**
-   * schema 编译默认选项，供 root 与 dependency 子树复用。
+   * 当前表单的 Schema 默认配置，保留 `TValues` 并供根与 dependency 子树复用。
+   * 与 Compiler 共享实例内的配置对象，更新时合并属性而非替换对象引用。
    */
-  schemaConfig: SchemxSchemaConfig
+  schemaConfig: SchemxSchemaConfig<TValues>
   /**
    * 表单实例公开 API。
    */

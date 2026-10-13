@@ -81,6 +81,8 @@ describe("Vue SchemaList layout", () => {
 
     const wrapper = mount(SchemxForm, {
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         colComponent: TestCol,
         rowComponent: TestRow,
@@ -123,6 +125,8 @@ describe("Vue SchemaList layout", () => {
 
     const wrapper = mount(SchemxForm, {
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         colComponent: TestCol,
         rowComponent: TestRow,
@@ -191,6 +195,8 @@ describe("Vue SchemaList layout", () => {
 
     const wrapper = mount(SchemxForm, {
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         colComponent: TestCol,
         initialValues: {
@@ -264,6 +270,8 @@ describe("Vue SchemaList layout", () => {
 
     const wrapper = mount(SchemxForm, {
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         colComponent: TestCol,
         rowComponent: TestRow,
@@ -336,6 +344,8 @@ describe("Vue SchemaList layout", () => {
         plugins: [[Schemx, { colComponent: TestCol, rowComponent: TestRow }]],
       },
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         schemas: [
           {
@@ -372,6 +382,8 @@ describe("Vue SchemaList layout", () => {
         ],
       },
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         schemas: [
           {
@@ -395,6 +407,8 @@ describe("Vue SchemaList layout", () => {
 
     const wrapper = mount(SchemxForm, {
       props: {
+        submitter: false,
+        resetter: false,
         rendererRegistry,
         colComponent: TestCol,
         schemas: [

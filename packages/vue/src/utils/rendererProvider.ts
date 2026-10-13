@@ -11,6 +11,8 @@
 import { createRendererRegistry } from "@schemx/core/adapter"
 
 /**
+ * @deprecated
+ *
  * 全局渲染器注册实例
  *
  * @example

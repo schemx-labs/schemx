@@ -180,12 +180,12 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   }
 
   const compiler = createSchemaCompiler<TValues>({
-    schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
+    schemaConfig: mergeAndResolveSchemxConfig<TValues>().schemaConfig,
     formInstance: instance as any,
   })
 
   const context = {
-    schemaConfig: mergeAndResolveSchemxConfig().schemaConfig,
+    schemaConfig: mergeAndResolveSchemxConfig<TValues>().schemaConfig,
     fieldRules: {},
     instance,
     store,

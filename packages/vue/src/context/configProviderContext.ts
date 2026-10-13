@@ -9,50 +9,11 @@ import type { App, ComputedRef, InjectionKey } from "vue"
 
 import { mergeConfig } from "@schemx/core"
 
-import type { SchemxConfig, SchemxRendererPropsMap } from "@schemx/core"
+import type { CreateSchemxOptions } from "@schemx/core"
 
-const SCHEMX_CONFIG_PROVIDER_KEY: InjectionKey<ComputedRef<SchemxConfig>> = Symbol(
+const SCHEMX_CONFIG_PROVIDER_KEY: InjectionKey<ComputedRef<CreateSchemxOptions>> = Symbol(
   "schemx:config-provider"
 )
-
-/**
- * 复制并冻结 Core 配置的受管外层；扩展字段和 Registry 实例保留原引用。
- *
- * @param config - 当前 Vue App 的默认配置。
- * @returns 受管外层与调用方输入隔离的只读配置快照。
- */
-function normalizeSchemxAppConfig(config: SchemxConfig): SchemxConfig {
-  const schemaConfig = Object.freeze({ ...(config.schemaConfig ?? {}) })
-
-  const validatorAdapters = Object.freeze([...(config.validatorAdapters ?? [])])
-
-  return Object.freeze({
-    ...config,
-    schemaConfig,
-    rendererProps: normalizeRendererProps(config.rendererProps),
-    validatorAdapters,
-  })
-}
-
-/**
- * 浅复制 Renderer Props Map 外层及每个 Renderer 的 Props 对象。
- *
- * @param source - 待复制的 Renderer Props Map。
- * @returns 新的 Renderer Props Map；嵌套 Prop 值保留原引用。
- */
-function normalizeRendererProps(
-  source: SchemxRendererPropsMap | undefined
-): SchemxRendererPropsMap | undefined {
-  if (source === undefined) {
-    return undefined
-  }
-
-  const entries = Object.entries(source).map(([type, props]) => {
-    return [type, props === undefined ? undefined : Object.freeze({ ...props })]
-  })
-
-  return Object.freeze(Object.fromEntries(entries)) as SchemxRendererPropsMap
-}
 
 /**
  * 将安装配置作为当前 Vue App 的根配置上下文。
@@ -70,12 +31,12 @@ function normalizeRendererProps(
  * app.mount("#app")
  * ```
  */
-export function provideSchemxAppConfig(app: App, config: SchemxConfig = {}): void {
-  const normalizedConfig = normalizeSchemxAppConfig(config)
+export function provideSchemxAppConfig(app: App, config: CreateSchemxOptions = {}): void {
+  const snapshot = mergeConfig(config)
 
   app.provide(
     SCHEMX_CONFIG_PROVIDER_KEY,
-    computed<SchemxConfig>(() => normalizedConfig)
+    computed<CreateSchemxOptions>(() => snapshot)
   )
 }
 
@@ -83,6 +44,7 @@ export function provideSchemxAppConfig(app: App, config: SchemxConfig = {}): voi
  * 创建并注入合并后的组件树级配置上下文。
  *
  * 子级提供的配置优先于父级；省略的配置项沿用最近祖先的值。
+ * 此处仅合并 Provider/App 来源，Vue 默认值在表单创建边界追加。
  *
  * @param config - 当前 ConfigProvider 的响应式配置。
  *
@@ -94,29 +56,13 @@ export function provideSchemxAppConfig(app: App, config: SchemxConfig = {}): voi
  * }
  * ```
  */
-export function createConfigProviderContext(config: ComputedRef<SchemxConfig>): void {
+export function createConfigProviderContext(
+  config: ComputedRef<CreateSchemxOptions>
+): void {
   const parentConfig = inject(SCHEMX_CONFIG_PROVIDER_KEY, undefined)
 
-  const mergedConfig = computed<SchemxConfig>(() => {
-    const mergedCoreConfig = mergeConfig(config.value, parentConfig?.value ?? {})
-
-    const parentRow = parentConfig?.value.row
-
-    const localRow = config.value.row
-
-    return {
-      ...mergedCoreConfig,
-      colComponent: config.value.colComponent ?? parentConfig?.value.colComponent,
-      rowComponent: config.value.rowComponent ?? parentConfig?.value.rowComponent,
-      iconComponent: config.value.iconComponent ?? parentConfig?.value.iconComponent,
-      row:
-        localRow === undefined
-          ? parentRow
-          : {
-              ...parentRow,
-              ...localRow,
-            },
-    }
+  const mergedConfig = computed<CreateSchemxOptions>(() => {
+    return mergeConfig(config.value, parentConfig?.value ?? {})
   })
 
   provide(SCHEMX_CONFIG_PROVIDER_KEY, mergedConfig)
@@ -135,7 +81,7 @@ export function createConfigProviderContext(config: ComputedRef<SchemxConfig>): 
  * }
  * ```
  */
-export function useConfigProviderContext(): SchemxConfig | undefined {
+export function useConfigProviderContext(): CreateSchemxOptions | undefined {
   return useConfigProviderContextRef()?.value
 }
 
@@ -154,7 +100,9 @@ export function useConfigProviderContext(): SchemxConfig | undefined {
  * }
  * ```
  */
-export function useConfigProviderContextRef(): ComputedRef<SchemxConfig> | undefined {
+export function useConfigProviderContextRef():
+  | ComputedRef<CreateSchemxOptions>
+  | undefined {
   if (getCurrentInstance() === null) {
     return undefined
   }
