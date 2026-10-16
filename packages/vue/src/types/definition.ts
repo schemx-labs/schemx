@@ -253,6 +253,11 @@ declare module "@schemx/core" {
     layout?: SchemxLayout<TValues>
 
     /**
+     * 操作区的列布局配置；省略时使用满宽列，不继承字段默认 `col`。
+     */
+    actionCol?: SchemxColConfig<TValues>
+
+    /**
      * 表单级标签图标默认值。
      */
     labelIcon?: SchemxIconValue

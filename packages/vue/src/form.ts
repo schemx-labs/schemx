@@ -1,7 +1,7 @@
 /**
  * schemx 组件导出
  *
- * 为 SchemxForm 组件挂载静态方法（install、Field、registerRequest 等），
+ * 为基础组件和 UI 适配组件统一挂载 install、Field，
  * 并作为默认导出。
  *
  * @module formExport
@@ -33,26 +33,6 @@ import type { CreateSchemxOptions } from "@schemx/core"
 export interface SchemxInstallOptions extends CreateSchemxOptions {}
 
 /**
- * 为组件挂载静态属性并保留原始类型
- *
- * @param comp - 原始组件
- * @param extra - 要挂载的静态属性
- * @typeParam TComponent - 原始组件类型。
- * @typeParam TExtras - 待挂载的静态属性类型。
- *
- * @example
- * ```ts
- * const Plugin = withInstall(Component, { install(app) { app.component("Demo", Component) } })
- * ```
- */
-export function withInstall<
-  TComponent extends object,
-  TExtras extends Record<string, unknown>,
->(comp: TComponent, extra: TExtras) {
-  return Object.assign(comp, extra) as TComponent & TExtras
-}
-
-/**
  * 挂载了 Vue 插件安装方法和 `Field` 子组件的 Form 组件类型。
  */
 export type SchemxFormPlugin = typeof SchemxForm & {
@@ -60,21 +40,26 @@ export type SchemxFormPlugin = typeof SchemxForm & {
   Field: typeof Field
 }
 
-const SchemxFormExport = withInstall(SchemxForm, {
+/**
+ * 为指定 Form 组件挂载插件属性，安装时注册该组件自身。
+ * @param component - 待安装的组件定义，插件属性直接挂载到该定义。
+ * @example const Form = withInstall(SchemxForm)
+ */
+export function withInstall(component: typeof SchemxForm): SchemxFormPlugin {
   /**
-   * Vue 插件安装方法
+   * 显式配置作用于当前 App，省略时保留已有配置。
+   * @param app - 目标 Vue App。
+   * @param options - 当前 App 的共享配置。
    */
-  install(app: App, options?: SchemxInstallOptions) {
+  const install = (app: App, options?: SchemxInstallOptions): void => {
     if (options !== undefined) {
       provideSchemxAppConfig(app, options)
     }
 
-    app.component("SchemxForm", SchemxForm)
-  },
-  /**
-   * Field 子组件引用
-   */
-  Field,
-}) as unknown as SchemxFormPlugin
+    app.component("SchemxForm", component)
+  }
 
-export default SchemxFormExport
+  return Object.assign(component, { install, Field })
+}
+
+export default withInstall(SchemxForm)

@@ -1,3 +1,4 @@
+import * as vuePackage from "@schemx/vue"
 import { describe, expect, test } from "vite-plus/test"
 
 import * as elementPlusPackage from "../index"
@@ -7,17 +8,19 @@ import { ElementPlusRow } from "../layout/defaultRow"
 import { DEFAULT_RENDERER_TYPES } from "../renderers"
 
 describe("@schemx/element-plus 根入口", () => {
-  test("导出可复用的默认配置，并保留 Registry 引用身份", () => {
-    for (const alias of [
-      "getGlobalSchemxConfig",
-      "mergeSchemxConfig",
-      "createFormContext",
-      "createFormConfigContext",
-    ]) {
-      expect(alias in elementPlusPackage).toBe(false)
-    }
+  test("透传 Vue API，并保留本包默认配置与 Registry", () => {
+    expect(elementPlusPackage.createSchemx).toBe(vuePackage.createSchemx)
+    expect(elementPlusPackage.getGlobalSchemxConfig).toBe(
+      vuePackage.getGlobalSchemxConfig
+    )
+    expect(elementPlusPackage.mergeSchemxConfig).toBe(vuePackage.mergeSchemxConfig)
 
-    expect("createSchemx" in elementPlusPackage).toBe(false)
+    expect(elementPlusPackage.createFormContext).toEqual(expect.any(Function))
+    expect(elementPlusPackage.createFormConfigContext).toEqual(expect.any(Function))
+    expect(elementPlusPackage.provideSchemxAppConfig).toBe(
+      vuePackage.provideSchemxAppConfig
+    )
+    expect(elementPlusPackage.createFormComponent).toBe(vuePackage.createFormComponent)
     expect("provideSchemxFormRuntime" in elementPlusPackage).toBe(false)
     expect(defaultConfig.rendererRegistry).toBe(rendererRegistry)
     expect(defaultConfig.presetRuleRegistry).toBe(presetRuleRegistry)

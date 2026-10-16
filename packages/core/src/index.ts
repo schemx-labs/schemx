@@ -29,6 +29,7 @@ export type {
 
 export {
   createForm,
+  createFormWithConfig,
   type CreateFormOptions,
   type FormCallbackOptions,
   type FormLifecycleOptions,
@@ -37,6 +38,19 @@ export {
   type FormSchemaOptions,
   type ResolvedCreateFormOptions,
 } from "./createForm"
+
+export {
+  createFormStateAdapter,
+  type FieldSnapshotSource,
+  type FieldStateSnapshot,
+  type FormStateAdapter,
+  type SnapshotSource,
+} from "./adapter/formStateAdapter"
+
+export {
+  getFormCreationConfig,
+  type FormCreationSnapshot,
+} from "./adapter/formCreationConfig"
 
 export type {
   SchedulerDiagnostics,
@@ -56,6 +70,7 @@ export {
   resolveSchemxConfig,
   type MergedSchemxConfig,
   type MergeConfigOptions,
+  type SchemxConfigSnapshot,
   defaultSchemxConfig,
   defaultSchemxConfigKeys,
   excludeSchemxConfigKeys,

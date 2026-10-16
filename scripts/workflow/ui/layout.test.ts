@@ -12,7 +12,7 @@
  * - `last` 决定 `├─` 还是 `└─`；
  * - 全部内容保留同一左侧导轨，详情块按所在 group 层级缩进。
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 
 import {
   computeColumns,

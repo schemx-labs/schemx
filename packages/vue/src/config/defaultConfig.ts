@@ -88,4 +88,5 @@ export const vueSchemaConfigKeys = [
   "layout",
   "bordered",
   "row",
+  "actionCol",
 ] as const

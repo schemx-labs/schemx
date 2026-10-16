@@ -13,7 +13,7 @@ import { createForm, mergeConfig } from "@schemx/core"
 
 import { useVueFormRuntime } from "../bridge"
 import { defaultConfig } from "../config/defaultConfig"
-import { useConfigProviderContext } from "../context/configProviderContext"
+import { useConfigProviderContextRef } from "../context/configProviderContext"
 
 import type {
   CreateFormOptions,
@@ -29,11 +29,6 @@ import type {
  * @typeParam TValues - 表单值类型。
  */
 export type UseFormOptions<TValues extends Values = Values> = CreateFormOptions<TValues>
-
-/**
- * 保留每次调用表单值泛型的同步创建器。
- */
-export type FormCreator = SchemxApi["createForm"]
 
 /**
  * 创建由当前 Vue effect scope 持有的表单实例。
@@ -80,12 +75,13 @@ export type FormCreator = SchemxApi["createForm"]
  */
 export function useForm<TValues extends Values = Values>(
   options: UseFormOptions<TValues> = {},
-  creator?: FormCreator
+  creator?: SchemxApi["createForm"]
 ): SchemxInstance<TValues> {
   // 创建器负责继承默认值；Vue 只将局部上下文作为本次选项传入。
   const configuredOptions = mergeConfig<TValues>(
     options,
-    (useConfigProviderContext() as CreateSchemxOptions<TValues> | undefined) ?? {},
+    (useConfigProviderContextRef()?.value as CreateSchemxOptions<TValues> | undefined) ??
+      {},
     ...(creator === undefined ? [{ schemaConfig: defaultConfig }] : [])
   )
 

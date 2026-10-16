@@ -30,8 +30,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElCheckbox, ElCheckboxGroup } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type {
     CheckboxOption,

@@ -8,7 +8,7 @@
  * @module utils/rendererProvider
  */
 
-import { createRendererRegistry } from "@schemx/core/adapter"
+import { createRendererRegistry } from "@schemx/core"
 
 /**
  * @deprecated

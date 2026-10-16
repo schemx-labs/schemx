@@ -57,8 +57,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElIcon, ElInput } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { isEmptyDisplayValue } from "@/utils"
+  import { isEmptyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import { defaultMaskFormatter } from "./helper"
 

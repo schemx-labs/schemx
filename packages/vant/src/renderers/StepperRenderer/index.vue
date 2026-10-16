@@ -33,7 +33,7 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
 
   import type { StepperRendererProps, StepperValue } from "./types"
 

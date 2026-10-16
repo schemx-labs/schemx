@@ -16,7 +16,8 @@
       "@schemx/element-plus": ["./packages/element-plus/src/index.ts"],
       "@schemx/element-plus/*": ["./packages/element-plus/src/*"]
     },
-    "noEmit": true
+    "noEmit": true,
+    "allowJs": true
   },
   "files": [
     "packages/vue/src/components/Group/index.tsx",
@@ -32,7 +33,9 @@
     "examples/*/src/**/*.ts",
     "examples/*/src/**/*.tsx",
     "examples/*/src/**/*.vue",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "plugins/*/bin/**/*.mjs",
+    "plugins/*/test/**/*.ts"
   ],
   "exclude": ["node_modules", "dist", "build"]
 }

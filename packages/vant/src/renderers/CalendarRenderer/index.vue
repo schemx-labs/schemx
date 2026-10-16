@@ -43,7 +43,7 @@
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
 
   import type { CalendarRendererProps, CalendarValue } from "./types"
 

@@ -1,15 +1,6 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": ["../../tsconfig.base.json", "./tsconfig.workspace-source.json"],
   "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"],
-      "@schemx/core": ["../../packages/core/src/index.ts"],
-      "@schemx/core/*": ["../../packages/core/src/*"],
-      "@schemx/vue": ["../../packages/vue/src/index.ts"],
-      "@schemx/vue/*": ["../../packages/vue/src/*"],
-      "@schemx/element-plus": ["../../packages/element-plus/src/index.ts"],
-      "@schemx/element-plus/*": ["../../packages/element-plus/src/*"]
-    },
     "noEmit": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],

@@ -8,7 +8,6 @@ import { computed, nextTick, ref, watch } from "vue"
 import type { ComputedRef } from "vue"
 
 import {
-  appendGroupScrollPath,
   provideGroupScrollPath,
   useFieldScrollRegistry,
   useGroupScrollPath,
@@ -46,7 +45,7 @@ export function useGroupCollapse(
 ): UseGroupCollapseResult {
   const fieldScrollRegistry = useFieldScrollRegistry()
 
-  const groupPath = appendGroupScrollPath(useGroupScrollPath(), options.getSchema().key)
+  const groupPath = [...useGroupScrollPath(), options.getSchema().key]
 
   provideGroupScrollPath(groupPath)
 

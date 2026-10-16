@@ -58,7 +58,7 @@
     "es-toolkit": "catalog:"
   },
   "scripts": {
-    "build": "pnpm run type-check && vp build",
+    "build": "pnpm run type-check:build && vp build",
     "build:analyze": "pnpm run build --mode analyze",
     "build:deps": "pnpm --filter \"@schemx/vant^...\" run build",
     "test": "vp test run --passWithNoTests",
@@ -66,10 +66,11 @@
     "lint:fix": "pnpm --dir ../.. exec vp lint --fix packages/vant/src && eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "vp fmt \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "vp fmt --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-check": "pnpm run build:deps && vue-tsc -p tsconfig.json --noEmit",
+    "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
     "prepublishOnly": "pnpm run build",
-    "pack-local": "node ../../scripts/workflow.ts pack-local packages/vant"
+    "pack-local": "node ../../scripts/workflow.ts pack-local packages/vant",
+    "type-check:build": "pnpm run build:deps && vue-tsc -p tsconfig.build.json --noEmit"
   },
   "license": "MIT",
   "devDependencies": {

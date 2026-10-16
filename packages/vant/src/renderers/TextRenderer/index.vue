@@ -54,8 +54,8 @@
   import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxInput from "@/components/Input"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import SchemxInput from "../../components/Input"
+  import { getReadonlyDisplayValue } from "../../utils"
 
   import type { TextRendererProps } from "./types"
 

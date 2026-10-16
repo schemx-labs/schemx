@@ -28,6 +28,12 @@ scripts/
 - 外部工具只有 `git`、`pnpm`、`gh` 和 `npm`。终端颜色使用 Node 内置的 `util.styleText`，
   交互控件使用 `@clack/prompts`；没有额外的二进制依赖。
 
+## 源码映射与构建
+
+`workspace-source.config.ts` 统一登记包根入口和样式资源。项目环境中的 `VITE_USE_SOURCE=true` 让开发、测试和类型检查引用 workspace 依赖源码；设为 `false` 时使用依赖产物。`pnpm source:sync` 构建本地插件并同步各项目生成的 `tsconfig.workspace-source.json`，安装和示例开发脚本也会执行同步。
+
+库构建始终使用依赖产物，`build` 先执行 `type-check:build`，按 workspace 依赖顺序构建所需包。四个库包的公开 API 均只从根 `index.ts` 导出，Vue 和 UI 包另有 `style.css` 资源入口。
+
 ## 输出边界
 
 视觉输出全部写 **stderr**，`release plan` 的计划路径写 **stdout**。这样可以用命令替换读取

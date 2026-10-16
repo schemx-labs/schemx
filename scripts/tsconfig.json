@@ -21,6 +21,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../workspace-source.config.ts"],
   "exclude": ["../node_modules", "dist", "build"]
 }

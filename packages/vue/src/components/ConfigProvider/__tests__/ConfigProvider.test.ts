@@ -10,7 +10,7 @@ import { mount, type VueWrapper } from "@vue/test-utils"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
 import { useConfigProviderContextRef } from "../../../context/configProviderContext"
-import { useFormConfigContext } from "../../../context/formContext.js"
+import { useFormConfigContext } from "../../../context/formContext.compat"
 import SchemxForm from "../../../form.vue"
 import { useForm } from "../../../hooks/useForm"
 import ConfigProvider from "../index"

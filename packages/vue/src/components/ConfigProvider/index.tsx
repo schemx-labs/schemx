@@ -8,7 +8,7 @@
 
 import { computed, defineComponent, type PropType } from "vue"
 
-import { createConfigProviderContext } from "../../context"
+import { provideConfigProviderContext } from "../../context/configProviderContext"
 
 import type {
   SchemxColComponent,
@@ -96,7 +96,7 @@ const ConfigProvider = defineComponent({
       ...attrs,
     }))
 
-    createConfigProviderContext(config)
+    provideConfigProviderContext(config)
 
     return () => slots.default?.()
   },

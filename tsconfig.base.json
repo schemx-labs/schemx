@@ -14,9 +14,7 @@
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@": ["./src"],
-      "@schemx/core/*": ["./packages/core/src/*"],
-      "@schemx/core": ["./packages/core/src"]
+      "@": ["./src"]
     }
   }
 }

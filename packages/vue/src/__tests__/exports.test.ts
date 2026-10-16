@@ -8,7 +8,6 @@ describe("@schemx/vue 根入口", () => {
       createFieldContext: expect.any(Function),
       createFormConfigContext: expect.any(Function),
       createFormContext: expect.any(Function),
-      provideSchemxFormRuntime: expect.any(Function),
       provideFormContext: expect.any(Function),
       useFormContextValue: expect.any(Function),
       useStableRef: expect.any(Function),
@@ -22,10 +21,18 @@ describe("@schemx/vue 根入口", () => {
       Icon: expect.any(Object),
       Wrapper: expect.any(Object),
       ConfigProvider: expect.any(Object),
+      createFormComponent: expect.any(Function),
+      provideSchemxAppConfig: expect.any(Function),
+      createFormStateAdapter: expect.any(Function),
+      createFormWithConfig: expect.any(Function),
+      getFormCreationConfig: expect.any(Function),
     })
 
+    expect("provideSchemxFormRuntime" in vuePackage).toBe(false)
     expect(vuePackage.createSchemx).toEqual(expect.any(Function))
-    expect("getFormCreationConfig" in vuePackage).toBe(false)
+    expect("createFieldHook" in vuePackage).toBe(false)
+    expect("useViewSchema" in vuePackage).toBe(false)
+    expect("getGroupScrollPathKey" in vuePackage).toBe(false)
     expect("normalizeCreateSchemxOptions" in vuePackage).toBe(false)
     expect(Object.isFrozen(vuePackage.defaultConfig)).toBe(true)
     expect(vuePackage.defaultConfig).not.toHaveProperty("rendererRegistry")

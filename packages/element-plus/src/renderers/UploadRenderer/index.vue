@@ -80,7 +80,7 @@
   import { useFieldContext, Wrapper } from "@schemx/vue"
   import { ElButton, ElIcon, ElImage, ElMessage, ElUpload } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
+  import { getElementProps } from "../shared/props"
 
   import FileDisplay from "./file-display.vue"
   import FilePreview from "./preview.vue"

@@ -403,7 +403,7 @@ class PresetRuleRegistryImpl implements PresetRuleRegistry {
    * 向订阅者广播已完成的注册表变更。
    */
   private emit(change: PresetRuleRegistryChange): void {
-    for (const listener of [...this.listeners]) listener(change)
+    for (const listener of this.listeners) listener(change)
   }
 }
 

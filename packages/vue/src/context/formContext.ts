@@ -1,35 +1,11 @@
-/**
- * 具体表单的 Vue provide/inject 适配。
- *
- * 一个 Form Context 同时保存 SchemxInstance 与 Vue 层合并后的 schemaConfig。
- * 配置包含局部、Provider/App 和 Vue 默认值；字段最终状态由 Core ViewSchema 提供。
- *
- * @module context/formContext
- */
+import { getCurrentInstance, inject, provide } from "vue"
+import type { ComponentInternalInstance, InjectionKey } from "vue"
 
-import { inject, type InjectionKey, provide } from "vue"
-
-import { useVueFormRuntime, type VueFormRuntime } from "../bridge"
+import { useVueFormRuntime } from "../bridge/formBridge"
 
 import type { SchemxIconComponent } from "../types/icon"
 import type { SchemxColComponent, SchemxRowComponent } from "../types/layout"
 import type { SchemxConfig, SchemxInstance, Values } from "@schemx/core"
-
-/**
- * 表单实例的注入键。
- *
- * @internal
- */
-export const SCHEMX_FORM_INSTANCE_KEY: InjectionKey<SchemxInstance> =
-  Symbol("schemx:instance")
-
-/**
- * 表单展示配置的注入键。
- *
- * @internal
- */
-export const SCHEMX_FORM_CONFIG_KEY: InjectionKey<FormConfigContextValue> =
-  Symbol("schemx:form-config")
 
 /**
  * 当前表单的展示默认配置与组件实现 Context。
@@ -66,57 +42,116 @@ export interface FormContextValue<
   form: SchemxInstance<TValues>
 }
 
+// 旧提供函数允许分别注册实例和配置，因此内部状态可以不完整。
+interface FormContextState<TValues extends Values = Values> {
+  form?: SchemxInstance<TValues>
+  config?: FormConfigContextValue<TValues>
+  value?: FormContextValue<TValues>
+}
+
+// 新旧入口共享一个注入键和每个组件的提供状态。
+const formContextKey: InjectionKey<FormContextState> = Symbol("schemx:form")
+
+const providedContexts = new WeakMap<ComponentInternalInstance, FormContextState>()
+
 /**
- * 一次性向后代提供具体 Form 的实例与 Vue 展示配置。
- *
- * @typeParam TValues - 表单值类型。
- * @param context - Form 实例、展示配置和可选的布局组件与 Icon Adapter。
- * @returns Vue Runtime 包装后的 Form 实例。
- *
- * @example
- * ```ts
- * setup() {
- *   const form = useForm({ initialValues: { name: "" } })
- *   provideFormContext({ form, schemaConfig: {} })
- * }
- * ```
+ * 读取祖先提供的内部状态，不读取当前组件自身的提供记录。
+ * @typeParam TValues - 当前表单值类型。
+ * @example const state = injectFormContextState()
+ */
+export function injectFormContextState<TValues extends Values = Values>():
+  | FormContextState<TValues>
+  | undefined {
+  return inject(formContextKey as InjectionKey<FormContextState<TValues>>, undefined)
+}
+
+/**
+ * 合并当前组件提供的部分上下文，保留未覆盖的祖先来源。
+ * @typeParam TValues - 当前表单值类型。
+ * @param context - 本次提供的实例或配置来源。
+ * @example provideFormContextState({ form })
+ */
+export function provideFormContextState<TValues extends Values = Values>(
+  context: Pick<FormContextState<TValues>, "form" | "config">
+): void {
+  const owner = getCurrentInstance()
+
+  let state = owner
+    ? (providedContexts.get(owner) as FormContextState<TValues> | undefined)
+    : undefined
+
+  if (state === undefined) {
+    const parent = injectFormContextState<TValues>()
+
+    state = { form: parent?.form, config: parent?.config }
+    if (owner !== null) {
+      providedContexts.set(owner, state as FormContextState)
+    }
+  }
+
+  Object.assign(state, context)
+
+  if (
+    state.value === undefined &&
+    state.form !== undefined &&
+    state.config !== undefined
+  ) {
+    // 完整视图仅在两项都存在时创建；后续提供只替换来源，不移除任一项。
+    const source = state
+
+    const value: FormContextValue<TValues> = {
+      get form() {
+        return source.form as SchemxInstance<TValues>
+      },
+      get schemaConfig() {
+        return (source.config as FormConfigContextValue<TValues>).schemaConfig
+      },
+      get iconComponent() {
+        return source.config?.iconComponent
+      },
+      get rowComponent() {
+        return source.config?.rowComponent
+      },
+      get colComponent() {
+        return source.config?.colComponent
+      },
+    }
+
+    state.value = value
+  }
+
+  provide(formContextKey as InjectionKey<FormContextState<TValues>>, state)
+}
+
+/**
+ * 一次提供 Vue 表单实例与展示配置；不接管外部实例的销毁。
+ * @typeParam TValues - 当前表单值类型。
+ * @param context - 实例和响应式展示配置来源。
+ * @returns Vue Runtime 包装后的实例。
+ * @example provideFormContext({ form, schemaConfig: {} })
  */
 export function provideFormContext<TValues extends Values = Values>(
   context: FormContextValue<TValues>
 ): SchemxInstance<TValues> {
-  const form = useVueFormRuntime<TValues>(context.form).instance
+  const form = useVueFormRuntime(context.form).instance
 
-  provide(SCHEMX_FORM_INSTANCE_KEY, form as SchemxInstance)
-  // 同一注入键承载当前 Form 的类型参数，由提供方与消费方约定。
-  provide(
-    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
-    context
-  )
+  provideFormContextState({ form, config: context })
 
   return form
 }
 
 /**
- * 获取最近祖先提供的完整 Form Context。
- *
- * @typeParam TValues - 表单值类型。
- * @returns 最近的 Form 实例和 Vue 展示配置。
- * @throws 当前组件树中没有 Form Context 时抛出错误。
- *
- * @example
- * ```ts
- * setup() {
- *   const context = useFormContextValue()
- *   context.form.submit()
- * }
- * ```
+ * 获取最近祖先提供的完整表单上下文。
+ * @typeParam TValues - 当前表单值类型。
+ * @throws 未同时提供实例与配置时抛出错误。
+ * @example const { form } = useFormContextValue()
  */
 export function useFormContextValue<
   TValues extends Values = Values,
 >(): FormContextValue<TValues> {
   const context = useOptionalFormContextValue<TValues>()
 
-  if (context) {
+  if (context !== undefined) {
     return context
   }
 
@@ -127,181 +162,32 @@ export function useFormContextValue<
 }
 
 /**
- * 尝试读取当前 Form Context。
- *
- * 供可直接挂载的 Group、Dynamic 等底层组件在存在 Form 上下文时消费展示配置；
- * 脱离 Form 时返回 `undefined`，由组件自身的兼容 Props 提供回退。
- *
- * @typeParam TValues - 表单值类型。
- * @returns 最近的 Form Context；未在 Form 后代中调用时返回 `undefined`。
- *
- * @example
- * ```ts
- * setup() {
- *   const context = useOptionalFormContextValue()
- *   return { rowComponent: context?.rowComponent }
- * }
- * ```
+ * 供可独立挂载的展示组件读取上下文；不完整或缺失时返回 undefined。
+ * @typeParam TValues - 当前表单值类型。
+ * @example const context = useOptionalFormContextValue()
  */
 export function useOptionalFormContextValue<TValues extends Values = Values>():
   | FormContextValue<TValues>
   | undefined {
-  const form = inject(SCHEMX_FORM_INSTANCE_KEY, null)
-
-  const config = inject(
-    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
-    null
-  )
-
-  if (form && config) {
-    return {
-      form: form as SchemxInstance<TValues>,
-      get schemaConfig() {
-        return config.schemaConfig
-      },
-      get iconComponent() {
-        return config.iconComponent
-      },
-      get rowComponent() {
-        return config.rowComponent
-      },
-      get colComponent() {
-        return config.colComponent
-      },
-    }
-  }
-
-  return undefined
+  return injectFormContextState<TValues>()?.value
 }
 
 /**
- * 向后代提供表单实例的兼容 API。
- *
- * @deprecated 请改用 {@link provideFormContext}({ form, schemaConfig })。
- *
- * @param instance - 要提供给后代组件的 SchemxInstance。
- * @returns Vue Runtime 包装后的 Form 实例。
- *
- * @example
- * ```ts
- * setup() {
- *   const form = useForm()
- *   provideFormContext({ form, schemaConfig: {} })
- * }
- * ```
+ * 读取内部逻辑所需的实例，兼容仅提供实例的旧组件树。
+ * @typeParam TValues - 当前表单值类型。
+ * @example const form = readFormContextInstance()
  */
-export function createFormContext<TValues extends Values = Values>(
-  instance: SchemxInstance<TValues>
-): SchemxInstance<TValues> {
-  const form = useVueFormRuntime<TValues>(instance).instance
-
-  provide(SCHEMX_FORM_INSTANCE_KEY, form as SchemxInstance)
-
-  return form
-}
-
-/**
- * 获取最近祖先提供的表单实例。
- *
- * @typeParam TValues - 表单值类型。
- * @returns 最近的 SchemxInstance。
- * @throws 当前组件树中没有 Form 实例时抛出错误。
- *
- * @example
- * ```ts
- * setup() {
- *   const form = useFormContext()
- *   form.getFieldsValue()
- * }
- * ```
- */
-export function useFormContext<
+export function readFormContextInstance<
   TValues extends Values = Values,
 >(): SchemxInstance<TValues> {
-  const instance = inject(SCHEMX_FORM_INSTANCE_KEY, null)
+  const form = injectFormContextState<TValues>()?.form
 
-  if (!instance) {
+  if (form === undefined) {
     throw new Error(
       "[schemx] useFormContext() must be called inside a <SchemxForm> descendant. " +
         "Ensure provideFormContext({ form, schemaConfig }) is called synchronously during setup()."
     )
   }
 
-  return instance as SchemxInstance<TValues>
-}
-
-/**
- * 向后代提供表单展示配置的兼容 API。
- *
- * @deprecated 请改用 {@link provideFormContext}({ form, schemaConfig })。
- *
- * @typeParam TValues - 当前表单值类型。
- * @param props - 要提供给后代的 Form 展示配置。
- *
- * @example
- * ```ts
- * setup() {
- *   const form = useForm()
- *   provideFormContext({ form, ...props })
- * }
- * ```
- */
-export function createFormConfigContext<TValues extends Values = Values>(
-  props: FormConfigContextValue<TValues>
-): void {
-  provide(SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>, props)
-}
-
-/**
- * 获取当前 Form 的展示配置。
- *
- * @typeParam TValues - 当前表单值类型。
- *
- * @returns 最近 Form 提供的 Vue 展示配置。
- * @throws 当前组件树中没有 Form Config Context 时抛出错误。
- *
- * @example
- * ```ts
- * setup() {
- *   const { schemaConfig } = useFormConfigContext()
- *   console.log(schemaConfig.readonly)
- * }
- * ```
- */
-export function useFormConfigContext<
-  TValues extends Values = Values,
->(): FormConfigContextValue<TValues> {
-  const config = inject(
-    SCHEMX_FORM_CONFIG_KEY as InjectionKey<FormConfigContextValue<TValues>>,
-    null
-  )
-
-  if (!config) {
-    throw new Error(
-      "[schemx] useFormConfigContext() must be called inside a <SchemxForm> descendant. " +
-        "Ensure provideFormContext({ form, schemaConfig }) is called synchronously during setup()."
-    )
-  }
-
-  return config
-}
-
-/**
- * 获取当前表单的 Vue Runtime。
- *
- * @typeParam TValues - 表单值类型。
- * @returns 当前 Form 对应的 Vue Runtime。
- *
- * @example
- * ```ts
- * setup() {
- *   const runtime = useFormRuntimeContext()
- *   return { values: runtime.instance.getFieldsValue() }
- * }
- * ```
- */
-export function useFormRuntimeContext<
-  TValues extends Values = Values,
->(): VueFormRuntime<TValues> {
-  return useVueFormRuntime(useFormContext<TValues>())
+  return form
 }

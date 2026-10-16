@@ -22,8 +22,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElSwitch } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { SwitchRendererProps, SwitchValue } from "./types"
 

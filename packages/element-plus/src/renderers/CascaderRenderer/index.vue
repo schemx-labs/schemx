@@ -25,8 +25,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElCascader } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { CascaderRendererProps, CascaderValueType } from "./types"
   import type { CascaderInstance, CascaderOption, CascaderValue } from "element-plus"

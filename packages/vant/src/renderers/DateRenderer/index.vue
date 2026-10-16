@@ -51,7 +51,7 @@
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
 
   import type { DateRendererProps, DateValue } from "./types"
 

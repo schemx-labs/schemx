@@ -52,11 +52,11 @@ export function provideSchemxAppConfig(app: App, config: CreateSchemxOptions = {
  * ```ts
  * setup() {
  *   const config = computed(() => ({ schemaConfig: { readonly: true } }))
- *   createConfigProviderContext(config)
+ *   provideConfigProviderContext(config)
  * }
  * ```
  */
-export function createConfigProviderContext(
+export function provideConfigProviderContext(
   config: ComputedRef<CreateSchemxOptions>
 ): void {
   const parentConfig = inject(SCHEMX_CONFIG_PROVIDER_KEY, undefined)
@@ -69,7 +69,20 @@ export function createConfigProviderContext(
 }
 
 /**
+ * 提供配置的旧入口。
+ * @deprecated 业务侧请使用 ConfigProvider 组件。
+ * @param config - 当前组件的响应式配置。
+ * @example createConfigProviderContext(computed(() => ({ schemaConfig: {} })))
+ */
+export function createConfigProviderContext(
+  config: ComputedRef<CreateSchemxOptions>
+): void {
+  provideConfigProviderContext(config)
+}
+
+/**
  * 获取最近祖先 ConfigProvider 的当前配置。
+ * @deprecated 请改用 useConfigProviderContextRef()?.value。
  *
  * @returns 最近 Provider 的配置；没有 Provider 时返回 `undefined`。
  *

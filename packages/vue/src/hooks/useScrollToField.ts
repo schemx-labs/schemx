@@ -11,11 +11,7 @@ import { createFieldKey, isViewDynamicSchema, isViewGroupSchema } from "@schemx/
 import scrollIntoView from "scroll-into-view-if-needed"
 
 import { registerVueScrollToFieldHandler } from "../bridge/scrollToField"
-import {
-  appendGroupScrollPath,
-  getGroupScrollPathKey,
-  provideFieldScrollRegistry,
-} from "../context/fieldScrollContext"
+import { provideFieldScrollRegistry } from "../context/fieldScrollContext"
 
 import type {
   FieldScrollRegistry,
@@ -38,6 +34,20 @@ interface UseScrollToFieldOptions<TValues extends Values> {
   form: SchemxInstance<TValues>
   /** 提供字段与 Group 路径查找所需的最新 ViewSchema。 */
   viewSchemas: ShallowRef<readonly SchemxViewSchema<TValues>[]>
+}
+
+/**
+ * 将 Group key 路径编码为不会混淆层级边界的注册表 key。
+ *
+ * @param path - 从表单根节点开始的 Group key 路径。
+ *
+ * @example
+ * ```ts
+ * const key = getGroupScrollPathKey(["basic", "details"])
+ * ```
+ */
+function getGroupScrollPathKey(path: readonly string[]): string {
+  return JSON.stringify(path)
 }
 
 /**
@@ -109,7 +119,7 @@ function findFieldGroupPath<TValues extends Values>(
     }
 
     if (isViewGroupSchema(schema)) {
-      const childPath = appendGroupScrollPath(groupPath, schema.key)
+      const childPath = [...groupPath, schema.key]
 
       const nestedPath = findFieldGroupPath(schema.children, fieldKey, childPath)
 

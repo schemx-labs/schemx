@@ -93,7 +93,7 @@
   import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
 
   import type {
     SelectPickerConfirmEventParams,

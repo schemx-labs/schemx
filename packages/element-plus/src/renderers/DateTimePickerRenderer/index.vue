@@ -25,9 +25,9 @@
   import { Wrapper } from "@schemx/vue"
   import { ElDatePicker } from "element-plus"
 
-  import { formatElementDateValue } from "@/renderers/shared/date"
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { formatElementDateValue } from "../shared/date"
+  import { getElementProps } from "../shared/props"
 
   import type { DateTimePickerRendererProps, DateTimePickerValue } from "./types"
   import type { DatePickerInstance } from "element-plus"

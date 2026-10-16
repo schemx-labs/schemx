@@ -1,5 +1,6 @@
-import { defineConfig, loadEnv } from "vite-plus"
+import { defineConfig } from "vite-plus"
 import { resolve } from "path"
+import { workspaceSource } from "vite-plugin-workspace-source"
 import { createVitePlugins } from "./vite.plugins"
 
 const externalPackages = ["vue", "@schemx/core", "classnames", "es-toolkit"]
@@ -8,10 +9,7 @@ function isExternal(id: string) {
   return externalPackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
 }
 
-export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, __dirname, "")
-  // VITE_USE_SOURCE 仅用于 dev 热更新（引用源码）；build 一律走外部依赖产物
-  const useSource = command === "serve" && env.VITE_USE_SOURCE === "true"
+export default defineConfig(({ mode }) => {
   const analyze = mode === "analyze"
 
   return {
@@ -22,33 +20,21 @@ export default defineConfig(({ command, mode }) => {
       // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
       clearMocks: false,
     },
-    resolve: {
-      alias: [
-        { find: "@", replacement: resolve(__dirname, "src") },
-        ...(useSource
-          ? [
-              {
-                find: /^@schemx\/core\/(.+)$/,
-                replacement: `${resolve(__dirname, "../core/src")}/$1`,
-              },
-              {
-                find: /^@schemx\/core$/,
-                replacement: resolve(__dirname, "../core/src/index.ts"),
-              },
-            ]
-          : []),
-      ],
-    },
-    plugins: createVitePlugins({ analyze }),
+    plugins: [
+      workspaceSource({ projectRoot: __dirname }),
+      ...createVitePlugins({ analyze }),
+    ],
     build: {
       lib: {
-        entry: resolve(__dirname, "src/index.ts"),
+        entry: {
+          index: resolve(__dirname, "src/index.ts"),
+        },
         cssFileName: "style",
         name: "schemxCore",
         formats: ["es", "cjs"],
-        fileName: (format) => {
-          if (format === "es") return "index.mjs"
-          return "index.cjs"
+        fileName: (format, entryName) => {
+          if (format === "es") return `${entryName}.mjs`
+          return `${entryName}.cjs`
         },
       },
       rollupOptions: {

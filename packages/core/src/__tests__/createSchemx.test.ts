@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { createFormWithConfig, getFormCreationConfig } from "../adapter"
-import { configureSchemx as configureCore, createForm, createSchemx } from "../index"
+import {
+  configureSchemx as configureCore,
+  createForm,
+  createFormWithConfig,
+  createSchemx,
+  getFormCreationConfig,
+} from "../index"
 
 import type { SchemxField, ValidationRuleResult } from "../index"
 

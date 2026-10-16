@@ -17,7 +17,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 
 import { checkBundleBoundaries } from "./check-bundle-boundaries.ts"
 
@@ -75,6 +75,10 @@ function writeCompliantArtifacts(): void {
 
   write("packages/vue/dist/index.mjs", esm("@schemx/core", "classnames", "es-toolkit"))
   write("packages/vue/dist/index.cjs", cjs("@schemx/core", "classnames", "es-toolkit"))
+  write(
+    "packages/vue/dist/index.d.ts",
+    "export { createFormComponent, provideSchemxAppConfig }\n"
+  )
 
   write(
     "packages/vant/dist/index.mjs",
@@ -279,6 +283,41 @@ describe("checkBundleBoundaries JS 产物规则", () => {
       "packages/vant/dist/index.mjs: 缺少 dayjs",
       "packages/vant/dist/index.mjs: 缺少 es-toolkit",
     ])
+  })
+})
+
+describe("checkBundleBoundaries 共享 chunk", () => {
+  it.each(["mjs", "cjs"])("%s 入口沿共享 chunk 收集 external，允许循环引用", (format) => {
+    const entry = "packages/vue/dist/index." + format
+
+    const chunk = "packages/vue/dist/shared." + format
+
+    const render = format === "mjs" ? esm : cjs
+
+    write(entry, render("./shared." + format))
+    write(chunk, render("./index." + format, "@schemx/core", "classnames", "es-toolkit"))
+    expect(checkBundleBoundaries(root)).toEqual({ ok: true, failures: [] })
+  })
+
+  it("共享 chunk 中的禁止依赖仍按入口报告", () => {
+    write("packages/vue/dist/index.mjs", esm("./shared.js"))
+    write(
+      "packages/vue/dist/shared.js",
+      esm("@schemx/core", "classnames", "es-toolkit", "simple-async-context")
+    )
+    expect(checkBundleBoundaries(root).failures).toContain(
+      "packages/vue/dist/index.mjs: 泄漏 simple-async-context"
+    )
+  })
+
+  it("共享 chunk 缺失时报告真实文件路径", () => {
+    write(
+      "packages/vue/dist/index.cjs",
+      cjs("./missing.cjs", "@schemx/core", "classnames", "es-toolkit")
+    )
+    expect(checkBundleBoundaries(root).failures).toContain(
+      "packages/vue/dist/missing.cjs: 文件不存在"
+    )
   })
 })
 

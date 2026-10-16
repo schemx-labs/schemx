@@ -141,7 +141,7 @@ export function createFieldNode<TValues extends Values>(
       showRequiredMark,
       placeholder,
       readonlyPlaceholder,
-      componentProps: resolveComponentProps({
+      componentProps: resolveComponentProps<TValues>({
         compiledProps: compiledSchemaValue.componentProps,
         dependencyComponentProps: dependencyOverridesValue.componentProps,
         resolvedStateProps: {

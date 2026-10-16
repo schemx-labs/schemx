@@ -43,8 +43,8 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import SchemxInput from "@/components/Input"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import SchemxInput from "../../components/Input"
+  import { getReadonlyDisplayValue } from "../../utils"
 
   import type { NumberRendererProps, NumberValue } from "./types"
 

@@ -10,7 +10,7 @@ import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
-import { createFormContext } from "../../context/formContext"
+import { createFormContext } from "../../context/formContext.compat"
 import { useField } from "../useField"
 
 import type { FieldInstance } from "../../types/field"

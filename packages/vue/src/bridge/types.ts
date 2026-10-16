@@ -16,7 +16,7 @@ import type {
   SchemxViewSchema,
   Values,
 } from "@schemx/core"
-import type { FormStateAdapter } from "@schemx/core/adapter"
+import type { FormStateAdapter } from "@schemx/core"
 
 /**
  * Vue 可追踪的表单实例旧类型名。

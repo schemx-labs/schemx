@@ -153,35 +153,3 @@ export function provideGroupScrollPath(path: readonly string[]): void {
 export function useGroupScrollPath(): readonly string[] {
   return inject(GROUP_SCROLL_PATH_KEY, [])
 }
-
-/**
- * 在祖先路径末尾追加当前 Group key，保留各层边界。
- *
- * @param parentPath - 祖先 Group 的 key 路径。
- * @param groupKey - 当前 Group 的 Schema key。
- *
- * @example
- * ```ts
- * const groupPath = appendGroupScrollPath(parentPath, schema.key)
- * ```
- */
-export function appendGroupScrollPath(
-  parentPath: readonly string[],
-  groupKey: string
-): readonly string[] {
-  return [...parentPath, groupKey]
-}
-
-/**
- * 将 Group key 路径编码为不会混淆层级边界的注册表 key。
- *
- * @param path - 从表单根节点开始的 Group key 路径。
- *
- * @example
- * ```ts
- * const key = getGroupScrollPathKey(["basic", "details"])
- * ```
- */
-export function getGroupScrollPathKey(path: readonly string[]): string {
-  return JSON.stringify(path)
-}

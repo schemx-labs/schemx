@@ -1,5 +1,5 @@
 import type { SchemxRendererPropsMap, Values } from "../types"
-import type { SchemxConfig } from "./schemxConfig"
+import type { SchemxConfig } from "./types"
 
 /**
  * 将 Schemx 配置复制为可复用的快照。

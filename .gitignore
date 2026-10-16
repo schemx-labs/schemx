@@ -83,6 +83,7 @@ build/Release
 # Output of 'npm pack'
 *.tgz
 
+**/tsconfig.workspace-source.json
 **/tsconfig.tsbuildinfo
 *.timestamp*.mjs
 

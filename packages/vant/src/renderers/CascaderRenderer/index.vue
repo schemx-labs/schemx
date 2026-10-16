@@ -51,7 +51,7 @@
   import classNames from "classnames"
   import { omitBy } from "es-toolkit"
 
-  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
 
   import type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"
 

@@ -44,8 +44,8 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import SchemxInput from "@/components/Input"
-  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
+  import SchemxInput from "../../components/Input"
+  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
 
   import type { TextAreaAutosize, TextAreaRendererProps } from "./types"
 

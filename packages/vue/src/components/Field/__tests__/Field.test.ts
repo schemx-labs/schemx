@@ -16,20 +16,53 @@ import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import {
-  type FormConfigContextValue,
-  SCHEMX_FORM_CONFIG_KEY,
-  SCHEMX_FORM_INSTANCE_KEY,
-} from "@/context/formContext"
-import { WithRemoteOptions } from "@/hocs/withRemoteOptions"
-
+import { useFieldContext } from "../../../context/fieldContext"
+import { provideFormContextState } from "../../../context/formContext"
+import { WithRemoteOptions } from "../../../hocs/withRemoteOptions"
 import Field from "../index"
 
+import type { FormConfigContextValue } from "../../../context/formContext"
 import type {
+  FieldInstance,
   SchemxFieldContentSlotProps,
   SchemxFieldSlotValue,
 } from "../../../types/field"
-import type { RendererPropsTransformer, SchemxBaseField } from "@schemx/core"
+import type {
+  RendererPropsTransformer,
+  SchemxBaseField,
+  SchemxInstance,
+  Values,
+} from "@schemx/core"
+import type { MountingOptions, VueWrapper } from "@vue/test-utils"
+
+// 保持原测试的 Core 实例来源，通过真实祖先组件提供统一内部状态。
+interface FormMountOptions<TValues extends Values> extends MountingOptions<
+  Record<string, unknown>
+> {
+  form: SchemxInstance<TValues>
+  config?: FormConfigContextValue<NoInfer<TValues>>
+}
+
+/**
+ * 挂载字段或 Renderer 并提供测试使用的实例与配置。
+ * @param component - 要挂载的字段或 Renderer。
+ * @param options - 挂载参数及上下文来源。
+ */
+function mountWithForm<TValues extends Values>(
+  component: Component,
+  options: FormMountOptions<TValues>
+): VueWrapper {
+  const Host = defineComponent({
+    setup() {
+      provideFormContextState({ form: options.form, config: options.config })
+
+      return () =>
+        h(component, Object.assign({}, options.attrs, options.props), options.slots)
+    },
+  })
+
+  return mount(Host, { global: options.global })
+}
 
 /**
  * 创建最小化的 FormContext 配置
@@ -153,6 +186,63 @@ const DictionaryRenderer = defineComponent({
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("Field 集成测试", () => {
+  it("共享 Runtime 同步 Schema、字段值和错误，卸载后释放并可重新挂载", async () => {
+    const form = createForm({
+      initialValues: { name: "initial" },
+      schemas: [{ name: "name", label: "原标签", componentType: "input" }],
+    })
+
+    form.registerRenderer("input", ControlledRenderer)
+    let field: FieldInstance | undefined
+
+    const Probe = defineComponent({
+      setup() {
+        field = useFieldContext()
+
+        return () => h("span")
+      },
+    })
+
+    const wrapper = mountWithForm(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      slots: { nameBefore: () => h(Probe) },
+      form,
+      config: createFormContext(),
+    })
+
+    expect(wrapper.get<HTMLInputElement>("input").element.value).toBe("initial")
+    form.updateSchemas((schemas) =>
+      schemas.map((schema) => ({ ...schema, label: "新标签" }))
+    )
+    form.setFieldValue("name", "updated")
+    form.setFieldErrors("name", ["字段错误"])
+    await nextTick()
+    await vi.waitFor(() =>
+      expect(wrapper.get(".schemx-field__label-text").text()).toContain("新标签")
+    )
+    expect(wrapper.get<HTMLInputElement>("input").element.value).toBe("updated")
+    expect(wrapper.get(".schemx-field__error").text()).toContain("字段错误")
+    expect(field?.value.value).toBe("updated")
+    expect(field?.errors.value).toEqual(["字段错误"])
+    wrapper.unmount()
+    form.setFieldValue("name", "after-unmount")
+    form.setFieldErrors("name", ["卸载后的错误"])
+    await nextTick()
+    expect(field?.value.value).toBe("updated")
+    expect(field?.errors.value).toEqual(["字段错误"])
+    expect(form.getFieldValue("name")).toBe("after-unmount")
+    const remounted = mountWithForm(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      form,
+      config: createFormContext(),
+    })
+
+    expect(remounted.get<HTMLInputElement>("input").element.value).toBe("after-unmount")
+    expect(remounted.get(".schemx-field__error").text()).toContain("卸载后的错误")
+    remounted.unmount()
+    form.destroy()
+  })
+
   it("响应式 Renderer 保持字段绑定且不产生组件代理警告", async () => {
     const form = createForm({
       initialValues: { name: "Schemx" },
@@ -163,14 +253,10 @@ describe("Field 集成测试", () => {
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     try {
@@ -217,14 +303,10 @@ describe("Field 集成测试", () => {
       transformProps,
     })
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     const input = wrapper.get<HTMLInputElement>('[data-testid="transform-renderer"]')
@@ -260,14 +342,10 @@ describe("Field 集成测试", () => {
       transformProps,
     })
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     expect(
@@ -302,7 +380,7 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input" as any, InputRenderer)
 
-    const wrapper = mount(Field as Component, {
+    const wrapper = mountWithForm(Field as Component, {
       props: {
         schema: form.getViewSchemas()[0],
         class: "parent-website",
@@ -317,12 +395,8 @@ describe("Field 集成测试", () => {
           h("span", { "data-testid": "website-slot" }, String(slotProps.value ?? "")),
         websiteAfter: () => h("span", { "data-testid": "after-slot" }),
       },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     const fieldWrapper = wrapper.get('[data-testid="website-wrapper"]')
@@ -381,7 +455,7 @@ describe("Field 集成测试", () => {
 
       form.registerRenderer("input", InputRenderer)
 
-      const wrapper = mount(Field as Component, {
+      const wrapper = mountWithForm(Field as Component, {
         props: { schema: form.getViewSchemas()[0] },
         slots: {
           "profile.nameLabel": (props: SchemxFieldSlotValue) => {
@@ -412,12 +486,8 @@ describe("Field 集成测试", () => {
             return h("span", { "data-testid": "error-slot" })
           },
         },
-        global: {
-          provide: {
-            [SCHEMX_FORM_INSTANCE_KEY]: form,
-            [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-          },
-        },
+        form,
+        config: createFormContext(),
       })
 
       for (const name of ["label", "before", "content", "after", "error"]) {
@@ -476,18 +546,14 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input", InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: {
         schema: form.getViewSchemas()[0],
         class: "parent-item",
         style: { color: "blue", marginTop: "4px" },
       },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     const itemWrapper = wrapper.find(".schemx-field-wrapper")
@@ -511,16 +577,12 @@ describe("Field 集成测试", () => {
 
     const form = createForm({ initialValues: {} })
 
-    const wrapper = mount(DictionaryRendererWithRemoteOptions, {
+    const wrapper = mountWithForm(DictionaryRendererWithRemoteOptions, {
       props: {
         fieldName: "city",
         dict: api,
       },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-        },
-      },
+      form,
     })
 
     await nextTick()
@@ -536,7 +598,7 @@ describe("Field 集成测试", () => {
       initialValues: { province: "GD", city: "Guangzhou" },
     })
 
-    const wrapper = mount(DictionaryRendererWithRemoteOptions, {
+    const wrapper = mountWithForm(DictionaryRendererWithRemoteOptions, {
       props: {
         fieldName: "city",
         dict: {
@@ -546,11 +608,7 @@ describe("Field 集成测试", () => {
           immediate: false,
         },
       },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-        },
-      },
+      form,
     })
 
     form.setFieldValue("province", "ZJ")
@@ -584,14 +642,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("dictionary" as any, DictionaryRendererWithRemoteOptions)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -623,14 +677,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("input", InputRenderer)
     await form.waitForDependencies()
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -665,14 +715,10 @@ describe("Field 集成测试", () => {
       visible: false,
     }
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -699,14 +745,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input", InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -732,14 +774,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("controlled" as any, ControlledRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -769,14 +807,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("change" as any, ChangeRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -806,14 +840,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -842,14 +872,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -883,14 +909,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -930,14 +952,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -976,14 +994,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("probe" as any, ProbeRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     const input = wrapper.get('[data-testid="probe-renderer"]')
@@ -1013,14 +1027,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input" as any, InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -1056,14 +1066,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("input" as any, InputRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -1092,14 +1098,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     const validateSpy = vi.spyOn(form, "validateField")
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -1138,14 +1140,10 @@ describe("Field 集成测试", () => {
 
       form.registerRenderer("input", InputRenderer)
 
-      const wrapper = mount(Field, {
+      const wrapper = mountWithForm(Field, {
         props: { schema: form.getViewSchemas()[0] },
-        global: {
-          provide: {
-            [SCHEMX_FORM_INSTANCE_KEY]: form,
-            [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-          },
-        },
+        form,
+        config: createFormContext(),
       })
 
       await nextTick()
@@ -1176,14 +1174,10 @@ describe("Field 集成测试", () => {
 
     form.registerRenderer("probe" as any, ProbeRenderer)
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()
@@ -1213,14 +1207,10 @@ describe("Field 集成测试", () => {
     form.registerRenderer("probe" as any, ProbeRenderer)
     await form.waitForDependencies()
 
-    const wrapper = mount(Field, {
+    const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
-      global: {
-        provide: {
-          [SCHEMX_FORM_INSTANCE_KEY]: form,
-          [SCHEMX_FORM_CONFIG_KEY]: createFormContext(),
-        },
-      },
+      form,
+      config: createFormContext(),
     })
 
     await nextTick()

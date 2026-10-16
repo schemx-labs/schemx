@@ -1,4 +1,4 @@
-import type { CreateSchemxOptions } from "../config/schemxOptions"
+import type { SchemxConfig } from "../config/types"
 import type { SchemxInstance, Values } from "../types"
 
 const creationConfigKey = Symbol("schemx:creation-config")
@@ -11,11 +11,11 @@ export interface FormCreationSnapshot<TValues extends Values = Values> {
   /**
    * 最终共享创建配置，包含实际 Registry 和 Core Schema 默认值。
    */
-  readonly config: Readonly<CreateSchemxOptions<TValues>>
+  readonly config: Readonly<SchemxConfig<TValues>>
   /**
    * 捕获的显式继承配置；旧模块级创建路径不提供此字段。
    */
-  readonly defaults?: Readonly<CreateSchemxOptions<TValues>>
+  readonly defaults?: Readonly<SchemxConfig<TValues>>
 }
 
 /**

@@ -42,8 +42,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElInput } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { InputRendererProps, InputValue } from "./types"
   import type { InputInstance } from "element-plus"

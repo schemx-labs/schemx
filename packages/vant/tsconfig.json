@@ -1,13 +1,6 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"],
-
-      "@schemx/vant": ["./src/index.ts"],
-      "@schemx/vant/*": ["./src/*"]
-    }
-  },
+  "extends": ["../../tsconfig.base.json", "./tsconfig.workspace-source.json"],
+  "compilerOptions": {},
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
   "exclude": ["node_modules", "dist", "build"]
 }

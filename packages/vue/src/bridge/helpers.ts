@@ -7,7 +7,7 @@
 import { shallowRef } from "vue"
 import type { ShallowRef } from "vue"
 
-import type { SnapshotSource } from "@schemx/core/adapter"
+import type { SnapshotSource } from "@schemx/core"
 
 /**
  * 创建类型为 `ShallowRef` 的 Vue 浅层 Ref。

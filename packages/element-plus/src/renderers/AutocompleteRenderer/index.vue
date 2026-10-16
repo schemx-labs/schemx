@@ -42,12 +42,9 @@
   import { Wrapper } from "@schemx/vue"
   import { ElAutocomplete } from "element-plus"
 
-  import {
-    getElementOptionLabel,
-    normalizeElementOptions,
-  } from "@/renderers/shared/options"
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementOptionLabel, normalizeElementOptions } from "../shared/options"
+  import { getElementProps } from "../shared/props"
 
   import type {
     AutocompleteOption,

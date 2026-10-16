@@ -98,13 +98,13 @@ raw schemas
 
 `@schemx/core` does not depend on a specific UI framework or render the DOM. It maintains form rules, field state, and runtime Schema, then outputs ViewSchemas for the UI layer to consume.
 
-`@schemx/core/adapter` is the public integration boundary for UI adapters. Use `createFormStateAdapter(form)` to consume stable snapshots and subscriptions for form values, touched fields, pending fields, loading, and individual field state; use `createRendererRegistry()` to register renderers.
+`@schemx/core` exposes UI integration APIs from its root entry. Use `createFormStateAdapter(form)` to consume stable snapshots and subscriptions for form values, touched fields, pending fields, loading, and individual field state; use `createRendererRegistry()` to register renderers. All packages expose APIs only through their root `index.ts`; Vue and UI packages also expose `style.css` as a stylesheet resource.
 
 `@schemx/vue` only adapts the form to a Vue component tree and does not bind to a specific component library. Business code can use `rendererRegistry` to connect its own inputs, selectors, upload components, or design-system components.
 
-`@schemx/vant` provides Vant 4 renderers for mobile forms; `@schemx/element-plus` provides Element Plus renderers for desktop forms. Importing an adapter's root entry installs its default renderers and layout. Vant and Element Plus each bind their APIs and Registries through an internal factory; UI consumers keep importing the ready-to-use APIs. Vue consumers can use `createSchemx` from `@schemx/vue` to maintain independent defaults with framework settings included. Each UI package calls that factory separately and binds its creator through `useForm(options, creator)`; UI configuration remains isolated between packages. Ordinary ConfigProvider and App options apply to all descendant UI forms. Row, Col, and scheduler objects replace lower-priority objects as a whole.
+`@schemx/vant` provides Vant 4 renderers for mobile forms; `@schemx/element-plus` provides Element Plus renderers for desktop forms. The adapter's Form, `createForm`, and `useForm` APIs use its default renderers and layout; importing the package does not change Core global configuration or Vue Registries. Vant and Element Plus each bind their APIs and Registries through an internal factory; UI consumers keep importing the ready-to-use APIs. Vue consumers can use `createSchemx` from `@schemx/vue` to maintain independent defaults with framework settings included. Each UI package calls that factory separately and binds its creator through `useForm(options, creator)`; UI configuration remains isolated between packages. Ordinary ConfigProvider and App options apply to all descendant UI forms. Row, Col, and scheduler objects replace lower-priority objects as a whole.
 
-`@schemx/core` includes async-validator descriptor support. The Vue, Vant, and Element Plus adapters install their required Schemx dependencies automatically; applications must install Vue and the chosen UI library as peer dependencies. If application code imports another Schemx package or its subpaths directly, declare that dependency explicitly as well.
+`@schemx/core` includes async-validator descriptor support. The Vue, Vant, and Element Plus adapters install their required Schemx dependencies automatically; applications must install Vue and the chosen UI library as peer dependencies. If application code imports another Schemx package or its public stylesheet directly, declare that dependency explicitly as well.
 
 ## When to Use
 
@@ -174,6 +174,8 @@ You can also bypass interactive selection and run a specific workspace directly:
 pnpm --filter vant-demo dev
 pnpm --filter element-plus-demo dev
 ```
+
+Source mappings are maintained in `workspace-source.config.ts`. Set `VITE_USE_SOURCE=true` in a project's environment or startup command to use workspace dependency source during development, tests, and type checks. Run `pnpm source:sync` after changing the flag to update the generated `tsconfig.workspace-source.json`; installation and dev scripts also synchronize it. Library builds always consume dependency artifacts and build their workspace dependencies first.
 
 | Command                   | Description                                                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

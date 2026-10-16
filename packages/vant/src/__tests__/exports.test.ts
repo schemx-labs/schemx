@@ -1,3 +1,4 @@
+import * as vuePackage from "@schemx/vue"
 import { describe, expect, test } from "vite-plus/test"
 
 import * as vantPackage from "../index"
@@ -6,17 +7,15 @@ import { VantCol } from "../layout/defaultCol"
 import { VantRow } from "../layout/defaultRow"
 
 describe("@schemx/vant 根入口", () => {
-  test("导出可复用的默认配置，并保留 Registry 引用身份", () => {
-    for (const alias of [
-      "getGlobalSchemxConfig",
-      "mergeSchemxConfig",
-      "createFormContext",
-      "createFormConfigContext",
-    ]) {
-      expect(alias in vantPackage).toBe(false)
-    }
+  test("透传 Vue API，并保留本包默认配置与 Registry", () => {
+    expect(vantPackage.createSchemx).toBe(vuePackage.createSchemx)
+    expect(vantPackage.getGlobalSchemxConfig).toBe(vuePackage.getGlobalSchemxConfig)
+    expect(vantPackage.mergeSchemxConfig).toBe(vuePackage.mergeSchemxConfig)
 
-    expect("createSchemx" in vantPackage).toBe(false)
+    expect(vantPackage.createFormContext).toEqual(expect.any(Function))
+    expect(vantPackage.createFormConfigContext).toEqual(expect.any(Function))
+    expect(vantPackage.provideSchemxAppConfig).toBe(vuePackage.provideSchemxAppConfig)
+    expect(vantPackage.createFormComponent).toBe(vuePackage.createFormComponent)
     expect("provideSchemxFormRuntime" in vantPackage).toBe(false)
     expect(defaultConfig.rendererRegistry).toBe(rendererRegistry)
     expect(defaultConfig.presetRuleRegistry).toBe(presetRuleRegistry)

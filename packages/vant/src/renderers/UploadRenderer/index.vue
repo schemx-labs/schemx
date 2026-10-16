@@ -15,7 +15,7 @@
   import { useFieldContext, Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { getFileName } from "@/utils"
+  import { getFileName } from "../../utils"
 
   import UploadCardList from "./UploadCardList.vue"
   import UploadList from "./UploadList.vue"

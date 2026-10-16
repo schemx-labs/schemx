@@ -15,11 +15,12 @@ import type { ClassValue, SlotsType, StyleValue, VNodeChild } from "vue"
 import { isSchemxViewFieldSchema } from "@schemx/core"
 import classnames from "classnames"
 
-import type { TriggerConfig } from "@/utils"
-
-import { createFieldContext, useFormContextValue } from "../../context"
-import { useField, useStableRef } from "../../hooks"
+import { useVueFormRuntime } from "../../bridge/formBridge"
+import { createFieldContext } from "../../context/fieldContext"
+import { useFormContextValue } from "../../context/formContext"
+import { createFieldHook } from "../../hooks/useField"
 import { useFieldScrollTarget } from "../../hooks/useFieldScrollTarget"
+import { useStableRef } from "../../hooks/useStableRef"
 import { useViewSchema } from "../../hooks/useViewSchemas"
 import {
   mergeTrigger,
@@ -32,6 +33,7 @@ import Col from "../Col"
 import { createFieldSlotRenderers } from "./slot"
 
 import type { SchemxFieldSlots } from "../../types/field"
+import type { TriggerConfig } from "../../utils"
 import type {
   FieldValue,
   NamePath,
@@ -96,12 +98,15 @@ const Field = defineComponent({
 
     const form = formContext.form
 
+    // Schema 与字段控制器复用当前 Field 的一个 Runtime owner。
+    const runtime = useVueFormRuntime(form)
+
     const inputSchema = computed<SchemxViewFieldSchema<Values>>(
       () => props.schema as SchemxViewFieldSchema<Values>
     )
 
     // 按 key 复用表单级 ViewSchema 订阅，避免每个 Field 建立独立 Core effect。
-    const latestSchema = useViewSchema(form, () => inputSchema.value.key)
+    const latestSchema = useViewSchema(runtime, () => inputSchema.value.key)
 
     // 优先使用桥接中的最新字段；首帧或字段暂不存在时回退到输入 schema。
     const schemaRef = computed<SchemxViewFieldSchema<Values>>(() => {
@@ -110,7 +115,7 @@ const Field = defineComponent({
         : inputSchema.value
     })
 
-    const field = useField(schemaRef.value.name)
+    const field = createFieldHook(runtime, schemaRef.value.name)
 
     createFieldContext(field)
 
@@ -181,13 +186,14 @@ const Field = defineComponent({
       (): SchemxComponentProps<Values> => {
         const currentComponentProps = schemaRef.value.componentProps ?? {}
 
+        // 运行时从同一字段组装 value 与事件，在此恢复 Renderer Props 的类型关联。
         return {
           ...currentComponentProps,
           value: field.value.value,
           onChange: handleChange,
           onBlur: handleBlur,
           "onUpdate:value": updateValue,
-        }
+        } as SchemxComponentProps<Values>
       }
     )
 

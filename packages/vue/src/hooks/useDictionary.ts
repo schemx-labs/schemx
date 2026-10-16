@@ -10,15 +10,14 @@
 
 import { onMounted, onScopeDispose, Ref, ref, shallowRef } from "vue"
 
-import type { SchemxDictionary } from "@/types/dictionary"
-
-import { useFormContext } from "../context/formContext"
+import { readFormContextInstance } from "../context/formContext"
 
 import { useWatchFields } from "./useWatch"
 
+import type { SchemxDictionary } from "../types/dictionary"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
-export type { SchemxDictionary, SchemxWithDictionary } from "@/types/dictionary"
+export type { SchemxDictionary, SchemxWithDictionary } from "../types/dictionary"
 
 /**
  * useDictionary 返回值。
@@ -127,7 +126,7 @@ export const useDictionary = <
   options: SchemxDictionary<TValues, TResponse, TOption>,
   fieldName?: TName
 ): UseDictionaryReturn<TOption> => {
-  const instance = useFormContext<TValues>()
+  const instance = readFormContextInstance<TValues>()
 
   const list = shallowRef<TOption[]>([])
 

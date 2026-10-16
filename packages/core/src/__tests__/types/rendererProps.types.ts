@@ -12,6 +12,7 @@ import type {
   SchedulerIdleOptions,
   SchedulerTrackOptions,
   SchemxConfig,
+  SchemxConfigSnapshot,
   SchemxRendererPropsMap,
   SchemxSchemaConfig,
   Values,
@@ -201,3 +202,80 @@ const genericDefaults: SchemxSchemaConfig<{ name: string }> = {
 }
 
 void genericDefaults
+
+// 已标注配置在变参和只读数组调用中均保留 TValues 推导。
+const inferredConfig = mergeConfig(coreDefaults, extendedConfig)
+
+const inferredArrayConfig = mergeConfig([coreDefaults, extendedConfig] as const, {
+  rowMerge: "inherit",
+})
+
+const inferredName: string | undefined = inferredConfig.configTypeTestValues?.name
+
+const inferredArrayName: string | undefined =
+  inferredArrayConfig.configTypeTestValues?.name
+
+// @ts-expect-error 推导结果不能将字符串字段退化为任意类型。
+const invalidInferredName: number | undefined = inferredConfig.configTypeTestValues?.name
+
+// @ts-expect-error 数组调用也必须保留默认配置回调的值类型。
+inferredArrayConfig.schemaConfig?.schemaTypeTestCallback?.({ name: 1 })
+
+// 显式泛型为 Schema 与 Renderer 回调提供相同的字段值上下文。
+const explicitConfig = mergeConfig<{ name: string }>({
+  schemaConfig: {
+    schemaTypeTestCallback: (values) => {
+      values.name.toUpperCase()
+      // @ts-expect-error 回调不能访问未声明的字段。
+      void values.missing
+
+      return values
+    },
+  },
+  rendererProps: {
+    custom: {
+      onChange: (value) => {
+        value?.toUpperCase()
+        // @ts-expect-error Renderer 回调接收字符串字段值。
+        value?.toFixed()
+      },
+    },
+  },
+})
+
+// 快照类型可从公共入口导入，且继续兼容表单创建选项。
+const snapshot: SchemxConfigSnapshot<{ name: string }> = explicitConfig
+
+createForm<{ name: string }>(snapshot)
+
+if (snapshot.schemaConfig !== undefined) {
+  // @ts-expect-error Schema 默认值所在层级已被冻结。
+  snapshot.schemaConfig.readonly = false
+
+  if (Array.isArray(snapshot.schemaConfig.validationTrigger)) {
+    // 属性引用的数组未被冻结，仍允许按原类型修改。
+    snapshot.schemaConfig.validationTrigger.push("blur")
+  }
+}
+
+if (snapshot.rendererProps !== undefined) {
+  // @ts-expect-error Renderer Map 已被冻结。
+  snapshot.rendererProps.custom = {}
+
+  if (snapshot.rendererProps.custom !== undefined) {
+    // @ts-expect-error 每个 Renderer 的 Props 对象已被冻结。
+    snapshot.rendererProps.custom.disabled = false
+  }
+}
+
+if (inferredConfig.configTypeTestValues !== undefined) {
+  // 共享扩展对象保留引用及可变语义，不递归标记只读。
+  inferredConfig.configTypeTestValues.name = "更新值"
+}
+
+// @ts-expect-error 配置变参后不能追加数组调用专用的合并策略。
+mergeConfig(coreDefaults, { rowMerge: "inherit" })
+
+void inferredName
+void inferredArrayName
+void invalidInferredName

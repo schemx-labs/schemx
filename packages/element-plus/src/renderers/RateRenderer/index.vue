@@ -22,7 +22,7 @@
   import { Wrapper } from "@schemx/vue"
   import { ElRate } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
+  import { getElementProps } from "../shared/props"
 
   import type { RateRendererProps, RateValue } from "./types"
 

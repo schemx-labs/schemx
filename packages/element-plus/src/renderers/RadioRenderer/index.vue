@@ -30,8 +30,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElRadio, ElRadioGroup } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { RadioOption, RadioRendererProps, RadioValue } from "./types"
 

@@ -535,7 +535,7 @@ describe("workspace 检查链", () => {
       "pnpm",
       task === "type-check"
         ? ["exec", "tsc", "-p", "scripts/tsconfig.json", "--noEmit"]
-        : ["exec", "vitest", "run", "scripts"],
+        : ["exec", "vp", "test", "run", "scripts"],
       { cwd: root }
     )
   })
@@ -578,7 +578,7 @@ describe("workspace 检查链", () => {
     await expect(
       dispatch({ root, catalog, ui, env: {} }, ["release:test"])
     ).resolves.toBe(0)
-    expect(exec).toHaveBeenCalledWith("pnpm", ["exec", "vitest", "run", "scripts"], {
+    expect(exec).toHaveBeenCalledWith("pnpm", ["exec", "vp", "test", "run", "scripts"], {
       cwd: root,
     })
   })

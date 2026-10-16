@@ -40,7 +40,7 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
 
   import type { RadioRendererProps, RadioValue } from "./types"
 

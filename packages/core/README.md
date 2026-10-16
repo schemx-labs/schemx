@@ -385,7 +385,7 @@ form.destroy()
 
 工厂返回 `createForm`、`configureSchemx`、`getConfig`、`rendererRegistry` 和 `presetRuleRegistry` 五项；不包含框架 Hook、组件或安装功能。每次创建独立推导业务值类型。工厂不读取模块级全局配置，优先级为表单显式选项、业务覆盖层、创建基线、Core 内置默认值。
 
-`CreateSchemxOptions` 支持 `SchemxConfig` 与声明合并扩展，以及 `debug`、`schedulerOptions`、`validationConcurrency`。共享配置过滤 `schemas`、`initialValues`、`fieldRules`、`lifecycleHooks`、`onRuleError` 和表单业务回调，完整创建选项变量可复用，单次创建选项不受过滤影响。
+`SchemxConfig` 定义可继承的共享默认配置，包含 `debug`、`schedulerOptions`、`validationConcurrency` 与声明合并扩展。`CreateSchemxOptions` 是它的工厂入参别名；`CreateFormOptions` 在共享配置上增加实例数据、回调和生命周期。共享配置过滤 `schemas`、`initialValues`、`fieldRules`、`lifecycleHooks`、`onRuleError` 和表单业务回调，完整创建选项变量可复用，单次创建选项不受过滤影响。
 
 `configureSchemx(options)` 每次替换覆盖层，再与基线合并；无参数恢复基线，仅影响新表单。`getConfig()` 返回冻结的共享默认值，不包含内置默认值。`schemaConfig` 浅合并，Renderer Props 按类型和属性合并，adapter 按 ID 合并；Row、Col 等嵌套对象及调度对象整体替换。调度对象复制并冻结，显式 `debug: false` 保留。Registry 默认跨工厂独立，显式传入时共享；覆盖层不允许替换 Registry，失败抛出 `TypeError` 且配置不变，单个表单仍可覆盖。
 
@@ -419,6 +419,6 @@ form.destroy()
 | 兼容类型        | `SchemxLayout`（已弃用；Vue 表单请改用 `@schemx/vue` 的 `SchemxColConfig`）                                                                                                                                                                                                                                                                              |
 | 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点；Vue 布局类型由 `@schemx/vue` 提供） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
-| `/adapter` 入口 | `createRendererRegistry`、`createFormStateAdapter`、`getFormCreationConfig` 及快照相关类型，供 UI 适配层使用。                                                                                                                                                                                                                                                            |
+| 状态适配 | `createFormStateAdapter`、`createFormWithConfig`、`getFormCreationConfig`，以及 `SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                                     |
 
-表单、Schema、Registry 和校验 API 从 `@schemx/core` 导入；`createFormStateAdapter()` 及其状态快照类型从 `@schemx/core/adapter` 导入。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。
+所有公开 API 和类型统一从 `@schemx/core` 根入口导入，包括状态适配与创建快照；包不开放代码子入口。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。

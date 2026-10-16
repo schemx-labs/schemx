@@ -17,7 +17,7 @@ import { createFormObserver } from "./form/observer"
 import { type CreateFormOptions, mergeCreateFormOptions } from "./form/options"
 import { createSchemaRuntime } from "./runtime/createSchemaRuntime"
 
-import type { CreateSchemxOptions } from "./config/schemxOptions"
+import type { SchemxConfig } from "./config/types"
 import type { SchemaRuntime } from "./runtime/createSchemaRuntime"
 import type { SchemxInstance, Values } from "./types"
 
@@ -49,10 +49,7 @@ export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
   // 旧入口保留全局继承；框架工厂直接调用显式配置入口。
-  return createFormWithSnapshot(
-    options,
-    getGlobalSchemxConfig() as CreateSchemxOptions<TValues>
-  )
+  return createFormWithSnapshot(options, getGlobalSchemxConfig() as SchemxConfig<TValues>)
 }
 
 /**
@@ -68,7 +65,7 @@ export function createForm<TValues extends Values>(
  */
 export function createFormWithConfig<TValues extends Values>(
   options: CreateFormOptions<TValues>,
-  config: CreateSchemxOptions<TValues>
+  config: SchemxConfig<TValues>
 ): SchemxInstance<TValues> {
   const defaults = mergeConfig(config)
 
@@ -86,8 +83,8 @@ export function createFormWithConfig<TValues extends Values>(
  */
 export function createFormWithSnapshot<TValues extends Values>(
   options: CreateFormOptions<TValues>,
-  config: CreateSchemxOptions<TValues>,
-  defaults?: Readonly<CreateSchemxOptions<TValues>>
+  config: SchemxConfig<TValues>,
+  defaults?: Readonly<SchemxConfig<TValues>>
 ): SchemxInstance<TValues> {
   // 所有 Form 子系统共享同一份标准化配置。
   const merged = mergeCreateFormOptions(options, config)

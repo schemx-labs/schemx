@@ -7,4 +7,4 @@ pnpm install
 pnpm --filter element-plus-demo dev
 ```
 
-需要直接引用 workspace 源码时，可设置 `VITE_USE_SOURCE=true`。
+项目的 `.env` 已设置 `VITE_USE_SOURCE=true`，开发时通过 `workspace-source.config.ts` 解析依赖源码，并同步 TypeScript 路径。切换为依赖产物时设置 `VITE_USE_SOURCE=false`，再从仓库根目录运行 `pnpm source:sync`。包 API 统一从 `@schemx/element-plus` 根入口导入。

@@ -4,7 +4,8 @@
   "name": "element-plus-demo",
   "version": "0.0.0",
   "scripts": {
-    "dev": "npx vite --config vite.config.ts"
+    "dev": "workspace-source sync --project . && vp dev --config vite.config.ts",
+    "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

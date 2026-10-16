@@ -1,5 +1,7 @@
 # @schemx/vant
 
+所有公开 API 和类型均从包根入口导入；仅样式保留 `style.css` 资源子路径。
+
 `@schemx/vant` 是 Vant 4 的表单适配包。入口组件和本包的 `useForm` 自动提供 Renderer、Row/Col 和字段默认值，无需手动安装 `defaultConfig`；组件 Props 或 Hook 选项优先于外部 Provider/App，外部配置优先于 UI 默认值。
 
 导入包不会修改 Core 全局或 Vue Registry；Vant 使用独立的 Renderer 与预设规则 Registry。插件仅提供调用方的 App 配置，无参数安装不清除已有配置：
@@ -22,15 +24,15 @@ const form = createForm({ initialValues: { name: "" } })
 
 `@schemx/vant` 不导出独立的 `Cell` 公共组件；内置弹窗 Renderer 使用 Vant 的 `Cell`，自定义 Renderer 的只读 / 禁用状态包装请使用 `@schemx/vue` 的 `Wrapper`。
 
-本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，不向消费端导出工厂、工厂专属类型或组件接入函数。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
+本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，根入口通过 `export *` 透传 `@schemx/vue` 的公共 API 和类型，包括 `createSchemx`；Form、`createForm`、`configureSchemx`、`getConfig`、`useForm`、默认配置与 Registry 使用本包实现。工厂类型与组件接入函数均可从本包根入口导入。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
 
-UI 根入口移除已弃用的 `getGlobalSchemxConfig`、`mergeSchemxConfig`、`createFormContext`、`createFormConfigContext` 和 `SchemxLayout`；分别改用 `getConfig`、`mergeConfig`、`provideFormContext` 和 `SchemxColConfig`。组件、`useForm` 及默认配置的调用方式保持不变。
+UI 根入口同步保留 Vue 的 `getGlobalSchemxConfig`、`mergeSchemxConfig` 和 `SchemxLayout` 兼容导出；推荐分别使用 `getConfig`、`mergeConfig` 和 `SchemxColConfig`。已发布的旧 Context API 保留并标为弃用；推荐使用 `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext` 和 `useConfigProviderContextRef`。旧 Form 提供函数改用 `provideFormContext`，旧实例/配置读取函数改从 `useFormContextValue()` 读取，旧 Provider 提供函数改用 `ConfigProvider`。组件、`useForm` 及默认配置的调用方式保持不变。本包的 Form 通过 `@schemx/vue` 绑定创建器，不向嵌套普通 Form 传播工厂。
 
 工厂默认值、App、`ConfigProvider` 和表单局部选项均支持 `debug`、`schedulerOptions`、`validationConcurrency`。局部选项优先，显式 `debug: false` 可关闭继承值；调度对象整体替换，并保存独立快照。这些选项只在创建时生效，更新配置不会重配已有表单。共享配置过滤实例数据、生命周期及业务回调，单次创建选项不受影响。
 
 `ConfigProvider`、App 安装配置和配置上下文函数与 Vue 共用普通上下文，对同一组件树中的所有 UI 包生效，不接受工厂作用域。同一 App 后一次显式安装配置替换根配置；不同 App 的上下文保持隔离。`row`、`col` 与调度对象整体替换，不继承低层对象属性。
 
-包内默认实例仍共享；多业务模块或 SSR 请求需要独立默认值时，从 Core 创建实例并通过 Vue Hook 接入：
+包内默认实例仍共享；多业务模块或 SSR 请求需要独立配置时，通过 Vue 工厂创建实例，再由基础 Vue Hook 接入：
 
 ```ts
 import { createSchemx, useForm } from "@schemx/vue"
@@ -40,7 +42,7 @@ const schemx = createSchemx(defaultConfig)
 const form = useForm({ initialValues: { name: "" } }, schemx.createForm)
 ```
 
-本包公开 `defaultConfig` 只声明 UI 自有设置；Vue 工厂自动补入框架默认值。两个 UI 包各创建一个实例，`configureSchemx` 互不影响，同一包消费端仍共享默认配置。工厂不读取 Core 全局配置；Registry 显式传入时共享原引用。已有表单捕获创建默认值，后续工厂更新不影响它；Provider/Props 的展示更新和撤销仍按固定创建基线处理。
+本包公开 `defaultConfig` 只声明 UI 自有设置；Vue 工厂自动补入框架默认值。两个 UI 包各创建一个实例，`configureSchemx` 互不影响，同一包消费端仍共享默认配置。工厂不读取 Core 全局配置；示例中的 `defaultConfig` 携带本包 Registry，因此新工厂仍共享其注册内容；需要隔离时应另建并注册 Renderer 和规则。已有表单捕获创建默认值，后续工厂更新不影响它；Provider/Props 的展示更新和撤销仍按固定创建基线处理。
 
 ## 安装
 
@@ -1018,4 +1020,4 @@ const schemas: SchemxField<AccountValues>[] = [
 - [Core Schema、校验和表单实例 API](../core/README.md)
 - [可运行的 Vant 示例](../../examples/vant/README.md)
 
-本包导出各 Renderer、对应的 Props / Value / Option 类型、`DEFAULT_RENDERER_TYPES` 和 [工具函数](#工具函数)。`@schemx/core/adapter` 的专用 API 仍需从该子路径导入。
+本包导出各 Renderer、对应的 Props / Value / Option 类型、`DEFAULT_RENDERER_TYPES` 和 [工具函数](#工具函数)。Core 状态适配 API 同样由根入口透传。

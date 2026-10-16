@@ -1,99 +1,24 @@
-import { defineConfig, loadEnv, type Plugin, lazyPlugins } from "vite-plus"
+import { defineConfig, lazyPlugins } from "vite-plus"
 import vue from "@vitejs/plugin-vue"
 import vueJsx from "@vitejs/plugin-vue-jsx"
 import { createRequire } from "node:module"
-import { existsSync, statSync } from "fs"
-import { resolve } from "path"
+import { workspaceSource } from "vite-plugin-workspace-source"
 
-const suffixes = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".vue",
-  "/index.ts",
-  "/index.tsx",
-  "/index.js",
-  "/index.jsx",
-  "/index.vue",
-]
-
-function tryResolveFile(basePath: string): string | null {
-  if (existsSync(basePath) && statSync(basePath).isFile()) return basePath
-
-  for (const suffix of suffixes) {
-    const candidate = basePath + suffix
-
-    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
-  }
-
-  return null
-}
-
-function dynamicAtAlias(packageRoots: Record<string, string>): Plugin {
-  return {
-    name: "dynamic-at-alias",
-    enforce: "pre",
-    resolveId(source, importer) {
-      if (!source.startsWith("@/") || !importer) return null
-
-      for (const root of Object.values(packageRoots)) {
-        if (!importer.startsWith(root)) continue
-
-        return tryResolveFile(resolve(root, source.slice(2)))
-      }
-
-      return null
-    },
-  }
-}
-
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, "")
-  const useSource = env.VITE_USE_SOURCE === "true"
-  const packagesDir = resolve(__dirname, "../../packages")
+export default defineConfig(() => {
+  // Keep Element Plus and Vue on the same @vue/shared implementation.
   const resolveFromConfig = createRequire(import.meta.url)
   const resolveFromVue = createRequire(resolveFromConfig.resolve("vue"))
   const vueSharedPath = resolveFromVue.resolve("@vue/shared")
-  const packageRoots = {
-    core: resolve(packagesDir, "core/src"),
-    vue: resolve(packagesDir, "vue/src"),
-    elementPlus: resolve(packagesDir, "element-plus/src"),
-  }
 
   return {
     resolve: {
-      alias: [
-        { find: /^@vue\/shared$/, replacement: vueSharedPath },
-        ...(useSource
-          ? [
-              { find: /^@schemx\/core\/(.+)$/, replacement: `${packageRoots.core}/$1` },
-              { find: /^@schemx\/core$/, replacement: `${packageRoots.core}/index.ts` },
-              { find: /^@schemx\/vue\/(.+)$/, replacement: `${packageRoots.vue}/$1` },
-              { find: /^@schemx\/vue$/, replacement: `${packageRoots.vue}/index.ts` },
-              {
-                find: /^@schemx\/element-plus\/style\.css$/,
-                replacement: `${packageRoots.elementPlus}/styles/index.scss`,
-              },
-              {
-                find: /^@schemx\/element-plus\/(.+)$/,
-                replacement: `${packageRoots.elementPlus}/$1`,
-              },
-              {
-                find: /^@schemx\/element-plus$/,
-                replacement: `${packageRoots.elementPlus}/index.ts`,
-              },
-            ]
-          : []),
-      ],
+      alias: [{ find: /^@vue\/shared$/, replacement: vueSharedPath }],
     },
     plugins: lazyPlugins(() => [
-      ...(useSource ? [dynamicAtAlias(packageRoots)] : []),
+      workspaceSource({ projectRoot: __dirname }),
       vue(),
       vueJsx(),
     ]),
-    server: {
-      host: "0.0.0.0",
-    },
+    server: { host: "0.0.0.0" },
   }
 })

@@ -45,12 +45,12 @@
   import { Wrapper } from "@schemx/vue"
   import { ElSelect } from "element-plus"
 
+  import { getReadonlyDisplayValue } from "../../utils"
   import {
     getElementOptionDisplayValue,
     normalizeElementSelection,
-  } from "@/renderers/shared/options"
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  } from "../shared/options"
+  import { getElementProps } from "../shared/props"
 
   import type { SelectRendererProps, SelectValue } from "./types"
   import type { ScrollbarDirection, SelectInstance } from "element-plus"

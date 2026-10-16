@@ -18,6 +18,7 @@ import VueForm, {
   rendererRegistry as vueRegistry,
   presetRuleRegistry as vueRules,
 } from "@schemx/vue"
+import { provideSchemxAppConfig } from "@schemx/vue"
 import { mount } from "@vue/test-utils"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -27,7 +28,6 @@ import SchemxForm, {
   createForm,
   createRendererRegistry,
   presetRuleRegistry,
-  provideSchemxAppConfig,
   rendererRegistry,
   schemxForm,
   useForm,

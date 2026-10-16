@@ -118,7 +118,7 @@ export function isDynamicSchema<TValues extends Values = Values>(
  */
 export function isFieldSchema<TValues extends Values = Values>(
   schema: SchemxField<TValues>
-): schema is SchemxBaseField<TValues> {
+): schema is SchemxField<TValues> & SchemxBaseField<TValues> {
   return getSchemaKind(schema) === "field"
 }
 

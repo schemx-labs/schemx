@@ -11,33 +11,32 @@ import { computed } from "vue"
 
 import { createField } from "@schemx/core"
 
-import { useFormContext, useFormRuntimeContext } from "../context/formContext"
+import { useVueFormRuntime } from "../bridge/formBridge"
+import { readFormContextInstance } from "../context/formContext"
 
-import type { VueFieldState } from "../bridge"
+import type { VueFormRuntime } from "../bridge/types"
 import type { FieldInstance } from "../types/field"
-import type { NamePath, SchemxInstance, Values } from "@schemx/core"
+import type { NamePath, Values } from "@schemx/core"
 
 /**
  * 创建一份字段控制器，并将所有读取状态投影到共享 Vue Field State。
  *
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 当前字段路径类型。
- * @param form - 当前响应式表单实例。
- * @param coreForm - 用于创建 Core 字段控制器的原始 Form。
+ * @param runtime - 调用方已经绑定到当前 scope 的 Runtime。
  * @param name - 当前字段路径。
- * @param fieldState - 当前字段的共享 Vue 状态。
  * @returns 同时提供 Core 字段操作和 Vue Ref 状态的字段控制器。
+ * @example const field = createFieldHook(runtime, "name")
  */
-function createFieldHook<
+export function createFieldHook<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
->(
-  form: SchemxInstance<TValues>,
-  coreForm: SchemxInstance<TValues>,
-  name: TName,
-  fieldState: VueFieldState<TValues, TName>
-): FieldInstance<TValues> {
-  const coreField = createField<TValues>(coreForm, name)
+>(runtime: VueFormRuntime<TValues>, name: TName): FieldInstance<TValues> {
+  const form = runtime.instance
+
+  const fieldState = runtime.getFieldState(name)
+
+  const coreField = createField<TValues>(form, name)
 
   const errors = computed(() => fieldState.errors.value)
 
@@ -86,13 +85,9 @@ function createFieldHook<
 export const useField = <TValues extends Values = Values>(
   name: NamePath<TValues>
 ): FieldInstance<TValues> => {
-  const form = useFormContext<TValues>()
+  const runtime = useVueFormRuntime(readFormContextInstance<TValues>())
 
-  const runtime = useFormRuntimeContext<TValues>()
-
-  const fieldState = runtime.getFieldState(name)
-
-  return createFieldHook(form, runtime.instance, name, fieldState)
+  return createFieldHook(runtime, name)
 }
 
 export default useField

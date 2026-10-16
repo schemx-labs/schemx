@@ -4,51 +4,97 @@
 
 - 目标版本：1.1.1
 - 发布包：@schemx/core
-- 生成日期：2026-09-29
-- 基准版本：@schemx/core@1.1.0
-- 比较范围：8c83a9e5e9f1b4bfa36e8e699eec3720b69fa45a..61c5b35351d301d48bf8496044a576619f270446
-- 目标提交：61c5b35
-- 当前分支：main
+- 生成日期：2026-10-16
+- 基准版本：@schemx/core@1.1.1
+- 比较范围：18326e882bd63c32e1d0c355cc411847c9eb8775..3281ed42fd90ca5db43a75c0985c42a75c3d09a7
+- 目标提交：3281ed4
+- 当前分支：dev
 
-Core 新增可复用的字段 key 工具，并调整表单实例扩展与动态回调 API 的类型边界。
+新增独立默认配置工厂与创建快照，统一共享配置合并和类型关联，并修复异步校验取消及 pending 错误保留。
+
+## Important Notices
+
+- 版本号沿用目标提交清单，与基准 Tag 版本相同；本文记录该 Tag 之后的已提交变更，正式发布前需确定发布版本。
+- 本说明不包含工作区暂存及未提交变更。
 
 ## Breaking Changes
 
-<a id="change-696e7374616e63652d747970652d657874656e73696f6e"></a>
+<a id="change-7368617265642d636f6e6669672d736e617073686f7473"></a>
 
-### 实例类型扩展改用专用声明入口 (@schemx/core)
+### 共享配置合并改为冻结快照
 
-SchemxInstance 和 SchemxFormApi 从可声明合并的接口改为类型别名。框架层应通过 SchemxInstanceDefinition 扩展实例类型；动态回调的 SchemxFormApi 仅包含实际提供的 Core 方法。
+`mergeConfig()` 现在返回冻结的共享配置快照，并过滤 `schemas`、`initialValues`、`fieldRules`、生命周期及业务回调。受管的 Schema 配置、Renderer Props、adapter 列表和调度选项会复制并冻结；Registry、组件和其他扩展对象保留引用。
 
-影响范围：直接对 SchemxInstance 或 SchemxFormApi 做模块声明合并的 TypeScript 适配层需要调整；动态回调中的 form 不再暴露 Vue 专属的 scrollToField 类型。
+影响范围：直接修改合并结果，或把合并器当作完整表单选项合并器的调用需要调整。
 
 #### 迁移说明
 
-影响范围：通过模块声明合并扩展 @schemx/core 的 SchemxInstance 或 SchemxFormApi 类型
+1. 将配置变更作为更高优先级输入重新调用 mergeConfig()，不要直接修改返回快照。
+2. 创建表单时保留原始实例选项，例如 createForm({ ...options, ...mergeConfig(options, defaults) })；不要只把共享合并结果传给创建函数。
 
-1. 把框架实例方法的声明合并迁移到 SchemxInstanceDefinition<TValues>。
-2. 在 Core Schema 回调中只调用 SchemxFormApi 声明且运行时实际提供的方法。
-3. 在 Vue 层通过 Vue 表单实例或组件 ref 调用 scrollToField。
-4. 若自定义回调需要额外方法，请同步定义回调类型并注入真实运行时实现。
+## Deprecations
+
+### @schemx/core
+
+<a id="change-6465707265636174652d676c6f62616c2d636f6e666967"></a>
+
+### 弃用模块级全局配置入口
+
+Core 的模块级 `configureSchemx()` 和 `getGlobalSchemxConfig()` 标记为弃用并保留原行为，新代码可使用独立工厂的配置方法。
+
+#### 迁移说明
+
+1. 通过 createSchemx(defaults) 创建默认配置工厂。
+2. 使用工厂的 createForm()、configureSchemx() 和 getConfig()；工厂不会读取旧模块级配置。
 
 ## Features
 
 ### @schemx/core
 
-- <a id="change-6372656174652d6669656c642d6b65792d6578706f7274"></a>Core 根入口新增 createFieldKey，可按 Core 的字段路径规则生成稳定 key，供 Renderer 与适配层复用。（影响范围：开发自定义 Renderer 或适配层时，可复用 Core 字段 key 规则，避免自行拼接路径身份。）
+- <a id="change-69736f6c617465642d636f6e6669672d666163746f7279"></a>新增 `createSchemx(config)`，返回 `createForm`、`configureSchemx`、`getConfig` 和两个 Registry。工厂不读取模块级全局配置；未显式提供 Registry 时创建独立注册表。配置覆盖层每次替换，无参数恢复创建基线；修改只影响后续表单。（影响范围：可按业务模块或请求隔离默认配置；共享默认值支持 debug、schedulerOptions 和 validationConcurrency。Registry 在工厂创建时固定，configureSchemx() 不接受 Registry 键，单个表单仍可局部覆盖。）
 
-- <a id="change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473"></a>传给动态 Schema 回调的 SchemxFormApi 现在包含 isLoading 和 clearErrors。（影响范围：动态回调可读取提交状态并清除全部表单错误。）
+- <a id="change-616461707465722d6372656174696f6e2d736e617073686f7473"></a>`@schemx/core/adapter` 新增 `createFormWithConfig(options, config)` 和 `getFormCreationConfig(form)`，以及 `FormCreationSnapshot` 类型。适配层可显式指定继承配置并读取创建时快照，避免后续展示更新重新读取全局默认值。
+
+- <a id="change-726f772d6d657267652d6f7074696f6e73"></a>`mergeConfig()` 新增配置数组调用方式和 `MergeConfigOptions`；通过 `{ rowMerge: "inherit" }` 可对 `schemaConfig.row` 按属性继承，默认仍整体替换。根入口同时新增 `normalizeSchemxConfig` 导出。
+
+## Fixes
+
+### @schemx/core
+
+- <a id="change-6173796e632d76616c69646174696f6e2d63616e63656c6c6174696f6e"></a>重置、销毁或新一轮校验接管时，旧调用会及时返回 `cancelled: true`，即使旧规则没有响应 `AbortSignal`。旧轮次停止派发后续字段，晚到结果或拒绝不会覆盖新错误状态，取消的提交也不会触发成功或失败业务回调。
+
+- <a id="change-70656e64696e672d6572726f722d707265736572766174696f6e"></a>表单因 pending 字段阻止校验或提交时，保留此前的外部错误、校验错误和配置错误。重复检查只替换本次 pending 提示；异步校验期间新出现的 pending 也会阻止提交。
+
+## Improvements
+
+### @schemx/core
+
+- <a id="change-736368656d612d636f6e6669672d72656672657368"></a>`updateSchemaConfig({})` 和无变化的标量更新跳过视图刷新；对象或数组即使沿用相同引用仍会刷新，支持原地修改后显式提交。传入 `undefined` 可清除扩展默认值，Core 内置项恢复其默认值。
+
+- <a id="change-74797065642d736368656d612d64656661756c7473"></a>`SchemxSchemaConfig<TValues>` 及其声明合并扩展现在贯穿配置合并、创建、编译和运行时更新；`required.isEmpty` 等回调保留当前表单字段值类型。
+
+- <a id="change-6d757461626c652d636f70792d7479706573"></a>`SchemxFieldInstance.getValues()` 的返回类型改为可写的 `TValues`，与实际返回独立副本的行为一致。Renderer 注册描述和调度选项可逐步组装；Registry 返回的条目及 Core 管理的上下文引用仍保持只读约束。
 
 ## API Changes
 
-- [导出 createFieldKey 字段 key 工具](#change-6372656174652d6669656c642d6b65792d6578706f7274) (@schemx/core)
-- [扩展动态回调的表单操作方法](#change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473) (@schemx/core)
+- [共享配置合并改为冻结快照](#change-7368617265642d636f6e6669672d736e617073686f7473)
+- [新增独立表单默认配置工厂](#change-69736f6c617465642d636f6e6669672d666163746f7279)
+- [新增适配层创建与配置快照入口](#change-616461707465722d6372656174696f6e2d736e617073686f7473)
+- [配置合并支持数组与 Row 策略](#change-726f772d6d657267652d6f7074696f6e73)
+- [默认配置保留表单值泛型](#change-74797065642d736368656d612d64656661756c7473)
+- [弃用模块级全局配置入口](#change-6465707265636174652d676c6f62616c2d636f6e666967)
 
 ## TypeScript Changes
 
-- [实例类型扩展改用专用声明入口](#change-696e7374616e63652d747970652d657874656e73696f6e) (@schemx/core)
-- [导出 createFieldKey 字段 key 工具](#change-6372656174652d6669656c642d6b65792d6578706f7274) (@schemx/core)
-- [扩展动态回调的表单操作方法](#change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473) (@schemx/core)
+- [新增独立表单默认配置工厂](#change-69736f6c617465642d636f6e6669672d666163746f7279)
+- [新增适配层创建与配置快照入口](#change-616461707465722d6372656174696f6e2d736e617073686f7473)
+- [配置合并支持数组与 Row 策略](#change-726f772d6d657267652d6f7074696f6e73)
+- [默认配置保留表单值泛型](#change-74797065642d736368656d612d64656661756c7473)
+- [放宽调用方输入与值副本的只读限制](#change-6d757461626c652d636f70792d7479706573)
+
+## Validation
+
+- 项目测试与构建：跳过 — 本次仅更新发布说明，未运行目标提交的项目测试或构建。
 
 ## Affected Packages
 

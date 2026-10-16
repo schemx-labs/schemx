@@ -110,7 +110,7 @@ export function compileFieldSchema<TValues extends Values>(
 
   const mergedReadonly = rest.readonly
 
-  const mergedPlaceholder = getPlaceholder(schema, rendererComponentProps)
+  const mergedPlaceholder = getPlaceholder<TValues>(schema, rendererComponentProps)
 
   const mergedReadonlyPlaceholder =
     componentProps?.readonlyPlaceholder ??

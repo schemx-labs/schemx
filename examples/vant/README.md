@@ -12,14 +12,14 @@
 ## 运行示例
 
 ```bash
-# 在仓库根目录（交互选择目标，选 Examples · vant）
+# 在仓库根目录交互选择 examples/vant
 pnpm dev
 
 # 或只运行示例包
 pnpm --filter vant-demo dev
 ```
 
-然后在浏览器中访问 <http://localhost:5173> 查看示例。
+浏览器访问终端输出的地址，默认是 <http://localhost:5173>。项目 `.env` 已设置 `VITE_USE_SOURCE=true`，开发时引用 workspace 依赖源码并同步 TypeScript 路径；切换为 `false` 后，在仓库根目录运行 `pnpm source:sync`。包 API 统一从 `@schemx/vant` 根入口导入。
 
 “动态表单”中，关闭“显示配送详情”可隐藏整个 Group；选择“自提”可查看只读继承，选择“其他”可查看禁用继承。“字段联动”中，“显示订单配置”和“订单配置权限”会控制 Dependency 动态生成的全部后代字段。
 

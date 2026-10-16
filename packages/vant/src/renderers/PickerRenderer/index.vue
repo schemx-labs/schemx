@@ -56,7 +56,7 @@
   import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
 
   import type { PickerFieldNames, PickerRendererProps, PickerValue } from "./types"
 

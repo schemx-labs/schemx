@@ -216,6 +216,47 @@ describe("mergeConfig", () => {
     expect(result.schemaConfig).not.toHaveProperty("visible")
   })
 
+  it("跨多层继承 Row，清除后不恢复已被清除的属性", () => {
+    // 中间层省略 Row 时继续继承，显式 undefined 则截断之前的累计值。
+    const configs: readonly LayoutConfig[] = [
+      { schemaConfig: { row: { justify: "center" } } },
+      { schemaConfig: { readonly: true } },
+      { schemaConfig: { row: { align: "middle" } } },
+      { schemaConfig: { row: { gutter: 8 } } },
+    ]
+
+    // Row 累计对象独立于输入，默认替换策略仍直接选用最高优先级引用。
+    const inherited = mergeConfig(configs, { rowMerge: "inherit" })
+
+    expect(inherited.schemaConfig).toEqual({
+      readonly: true,
+      row: { gutter: 8, align: "middle", justify: "center" },
+    })
+    expect(Reflect.get(inherited.schemaConfig ?? {}, "row")).not.toBe(
+      configs[0].schemaConfig?.row
+    )
+    expect(Reflect.get(mergeConfig(configs).schemaConfig ?? {}, "row")).toBe(
+      configs[0].schemaConfig?.row
+    )
+
+    // 清除发生在低优先级累计值与最高优先级 Row 之间。
+    const cleared = mergeConfig(
+      [configs[0], { schemaConfig: { row: undefined } }, ...configs.slice(1)],
+      { rowMerge: "inherit" }
+    )
+
+    expect(cleared.schemaConfig).toEqual({
+      readonly: true,
+      row: { justify: "center" },
+    })
+    expect(configs).toEqual([
+      { schemaConfig: { row: { justify: "center" } } },
+      { schemaConfig: { readonly: true } },
+      { schemaConfig: { row: { align: "middle" } } },
+      { schemaConfig: { row: { gutter: 8 } } },
+    ])
+  })
+
   it("合并适配层扩展的顶层配置，并保留对象引用与 undefined 的继承语义", () => {
     const inheritedOptions = { theme: "low" }
 
@@ -366,6 +407,45 @@ describe("mergeConfig", () => {
       placeholder: undefined,
       nested: highPriorityNested,
     })
+  })
+
+  it("跨多层累计 Renderer Props，省略整组配置时保留已合并结果", () => {
+    // 每层同时覆盖已有 Renderer 并引入新 Renderer。
+    const configs = [
+      { rendererProps: { input: { disabled: true }, picker: undefined } },
+      {
+        rendererProps: {
+          input: { placeholder: undefined, readonly: true },
+          toggle: { disabled: true },
+        },
+      },
+      {
+        rendererProps: {
+          input: { disabled: false, placeholder: "默认值" },
+          picker: { readonly: true },
+        },
+      },
+    ]
+
+    // 同一批输入可重复合并，不会被原地修改或冻结。
+    const result = mergeConfig(configs)
+
+    expect(result.rendererProps).toEqual({
+      input: { disabled: true, placeholder: undefined, readonly: true },
+      picker: { readonly: true },
+      toggle: { disabled: true },
+    })
+    expect(mergeConfig(configs)).toEqual(result)
+    expect(configs[2].rendererProps.input).toEqual({
+      disabled: false,
+      placeholder: "默认值",
+    })
+    expect(configs[1].rendererProps.input).toEqual({
+      placeholder: undefined,
+      readonly: true,
+    })
+    expect(Object.isFrozen(configs[2].rendererProps.input)).toBe(false)
+    expect(result.rendererProps?.picker).not.toBe(configs[2].rendererProps.picker)
   })
 
   it("按 ID 合并 validatorAdapters，并按高到低优先级排列", () => {

@@ -1,23 +1,26 @@
 import { computed, nextTick, onScopeDispose, toRaw, watch } from "vue"
 import type { ComputedRef, WatchStopHandle } from "vue"
 
-import { createForm as createCoreForm, isSchemxSchemas, mergeConfig } from "@schemx/core"
-import { getFormCreationConfig } from "@schemx/core/adapter"
+import {
+  createForm as createCoreForm,
+  getFormCreationConfig,
+  isSchemxSchemas,
+  mergeConfig,
+} from "@schemx/core"
 import { pick } from "es-toolkit"
 
 import { defaultConfig, vueSchemaConfigKeys } from "../config/defaultConfig"
 import { useConfigProviderContextRef } from "../context/configProviderContext"
 import { provideFormContext } from "../context/formContext"
-import { useSchemxFormRuntime } from "../context/schemxFormRuntime"
 
 import { useForm } from "./useForm"
 import { useFormSelector } from "./useFormSelector"
 
-import type { FormCreator } from "./useForm"
 import type { SchemxFormProps } from "../types/form"
 import type {
   CreateFormOptions,
   CreateSchemxOptions,
+  SchemxApi,
   SchemxConfig,
   SchemxInstance,
   Values,
@@ -51,17 +54,14 @@ export interface FormComponentRuntime<TValues extends Values> {
  * @typeParam TValues - 当前表单值类型。
  * @param props - 已补齐默认值的响应式组件 Props。
  * @param onModelValueChange - 向组件消费端发送模型快照的回调。
+ * @param formCreator - 组件定义绑定的可选创建器。
  * @example const runtime = useFormComponent(props, values => emit("update:modelValue", values))
  */
 export function useFormComponent<TValues extends Values>(
   props: FormComponentProps<TValues>,
-  onModelValueChange: (values: TValues) => void
+  onModelValueChange: (values: TValues) => void,
+  formCreator?: SchemxApi["createForm"]
 ): FormComponentRuntime<TValues> {
-  /**
-   * 组件支持的平铺字段默认值键，转换为嵌套配置后下传 Core。
-   */
-  const schemaConfigKeys = vueSchemaConfigKeys
-
   // Core 同步边界的字段默认值类型，从当前配置契约读取。
   type FormFieldDefaults = NonNullable<SchemxConfig<TValues>["schemaConfig"]>
 
@@ -70,7 +70,7 @@ export function useFormComponent<TValues extends Values>(
    */
   const pickSchemaConfig = (): FormFieldDefaults =>
     Object.fromEntries(
-      Object.entries(pick(props, schemaConfigKeys)).filter(
+      Object.entries(pick(props, vueSchemaConfigKeys)).filter(
         ([, value]) => value !== undefined
       )
     )
@@ -82,8 +82,6 @@ export function useFormComponent<TValues extends Values>(
 
   // 当前组件显式传入的、待同步到 Core 的 schema 配置。
   const schemaConfigProps = computed(pickSchemaConfig)
-
-  const formCreator = useSchemxFormRuntime()
 
   // 所有适配包共享普通 App/Provider 上下文。
   const providerConfig = useConfigProviderContextRef()
@@ -121,7 +119,7 @@ export function useFormComponent<TValues extends Values>(
   }))
 
   // 旧组件默认值在普通上下文合并后补入，保持其 Core 全局继承行为。
-  const legacyCreator: FormCreator = <TFormValues extends Values = Values>(
+  const legacyCreator: SchemxApi["createForm"] = <TFormValues extends Values = Values>(
     options: CreateFormOptions<TFormValues> = {}
   ) =>
     createCoreForm<TFormValues>({
@@ -335,7 +333,7 @@ export function useFormComponent<TValues extends Values>(
   }
 
   for (const key of new Set([
-    ...schemaConfigKeys,
+    ...vueSchemaConfigKeys,
     ...Object.keys(syncedSchemaConfig.value),
   ])) {
     watchFieldDefault(key, isExternalForm)

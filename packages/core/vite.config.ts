@@ -1,5 +1,6 @@
 import { defineConfig } from "vite-plus"
 import { resolve } from "path"
+import { workspaceSource } from "vite-plugin-workspace-source"
 import { createVitePlugins } from "./vite.plugins"
 
 const externalPackages = ["es-toolkit", "@preact/signals-core", "async-validator"]
@@ -19,17 +20,14 @@ export default defineConfig(({ mode }) => {
       // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
       clearMocks: false,
     },
-    resolve: {
-      alias: {
-        "@": resolve(__dirname, "src"),
-      },
-    },
-    plugins: createVitePlugins({ analyze }),
+    plugins: [
+      workspaceSource({ projectRoot: __dirname }),
+      ...createVitePlugins({ analyze }),
+    ],
     build: {
       lib: {
         entry: {
           index: resolve(__dirname, "src/index.ts"),
-          adapter: resolve(__dirname, "src/adapter/index.ts"),
         },
         name: "schemxCore",
         formats: ["es", "cjs"],

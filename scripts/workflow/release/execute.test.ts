@@ -14,7 +14,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { Writable } from "node:stream"
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { runRelease } from "../commands/release.ts"
 import { createContext } from "../core/context.ts"

@@ -26,8 +26,8 @@
   import dayjs from "dayjs"
   import { ElDatePicker } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { DatePickerRendererProps, DatePickerValue } from "./types"
   import type { DatePickerInstance } from "element-plus"

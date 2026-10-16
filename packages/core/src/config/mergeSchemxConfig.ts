@@ -2,7 +2,7 @@ import { mergeValidatorAdapters } from "../validator/adapters"
 
 import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./defaultSchemxConfig"
 
-import type { CreateSchemxOptions } from "./schemxOptions"
+import type { SchemxConfig } from "./types"
 import type { SchemxRendererPropsMap, SchemxSchemaConfig, Values } from "../types"
 import type { ValidationAdapterOption } from "../validator/types"
 
@@ -24,12 +24,35 @@ const instanceOptionKeys = new Set([
 /**
  * 合并过程使用的可写配置视图。
  *
- * 函数返回前会再次收敛为只读的 {@link CreateSchemxOptions} 公共契约。
+ * 函数返回前会收敛为 {@link SchemxConfigSnapshot} 公共契约。
  */
 type MutableSchemxConfig<TValues extends Values> = {
-  -readonly [
-    TKey in keyof CreateSchemxOptions<TValues>
-  ]: CreateSchemxOptions<TValues>[TKey]
+  -readonly [TKey in keyof SchemxConfig<TValues>]: SchemxConfig<TValues>[TKey]
+}
+
+// Props 对象只冻结一层，内部引用继续保留原有类型。
+type ReadonlyRendererPropsMap<TValues extends Values> = {
+  readonly [TKey in keyof SchemxRendererPropsMap<TValues>]: Readonly<
+    SchemxRendererPropsMap<TValues>[TKey]
+  >
+}
+
+/**
+ * 与合并结果实际冻结层级一致的共享配置快照。
+ *
+ * @typeParam TValues - 用于关联 Schema 默认值、Renderer Props 与扩展配置的表单值类型。
+ */
+export interface SchemxConfigSnapshot<TValues extends Values = Values> extends Readonly<
+  Omit<SchemxConfig<TValues>, "schemaConfig" | "rendererProps">
+> {
+  /**
+   * 属性被冻结，属性值引用的对象仍保留原有可变语义。
+   */
+  readonly schemaConfig?: Readonly<Partial<SchemxSchemaConfig<TValues>>>
+  /**
+   * Map 及每个 Renderer 的 Props 对象被冻结。
+   */
+  readonly rendererProps?: ReadonlyRendererPropsMap<TValues>
 }
 
 /**
@@ -42,13 +65,18 @@ export interface MergeConfigOptions {
   rowMerge?: "replace" | "inherit"
 }
 
+// 仅接受配置变参，或配置数组及其合并策略。
+type MergeConfigArgs<TValues extends Values> =
+  | readonly SchemxConfig<TValues>[]
+  | readonly [configs: readonly SchemxConfig<TValues>[], options?: MergeConfigOptions]
+
 /**
  * 补齐默认值后可直接交给 Form Runtime 的 Schemx 配置。
  *
  * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
  */
 export interface MergedSchemxConfig<TValues extends Values = Values> extends Omit<
-  CreateSchemxOptions<TValues>,
+  SchemxConfig<TValues>,
   "schemaConfig"
 > {
   /**
@@ -86,13 +114,15 @@ export interface MergedSchemxConfig<TValues extends Values = Values> extends Omi
  * 顶层配置项的 `undefined` 表示未配置。
  * 如需补齐 Core 内置默认值，请使用 {@link resolveSchemxConfig}；如需一步完成，
  * 请使用 {@link mergeAndResolveSchemxConfig}。
+ * 配置层数为 L、参与浅层合并的属性及 adapter 总项数为 K 时，时间与峰值空间均为 O(L + K)。
  */
 export function mergeConfig<TValues extends Values = Values>(
-  ...configs: readonly CreateSchemxOptions<TValues>[]
-): Readonly<CreateSchemxOptions<TValues>>
+  ...configs: readonly SchemxConfig<TValues>[]
+): SchemxConfigSnapshot<TValues>
 /**
  * 按可选 Row 策略合并配置数组。
  *
+ * @typeParam TValues - 用于关联 Schema 默认值、Renderer Props 与扩展配置的表单值类型。
  * @param configs - 按优先级从高到低排列的配置层。
  * @param options - 嵌套 Row 的替换或属性继承策略。
  * @returns 不含库默认值的冻结共享配置。
@@ -101,55 +131,66 @@ export function mergeConfig<TValues extends Values = Values>(
  * const config = mergeConfig([{ schemaConfig: { readonly: true } }])
  */
 export function mergeConfig<TValues extends Values = Values>(
-  configs: readonly CreateSchemxOptions<TValues>[],
+  configs: readonly SchemxConfig<TValues>[],
   options?: MergeConfigOptions
-): Readonly<CreateSchemxOptions<TValues>>
+): SchemxConfigSnapshot<TValues>
+// 将两种调用方式归一化；断言仅用于编译器无法关联的元组分支。
 export function mergeConfig<TValues extends Values = Values>(
-  ...args: readonly (
-    | CreateSchemxOptions<TValues>
-    | readonly CreateSchemxOptions<TValues>[]
-    | MergeConfigOptions
-    | undefined
-  )[]
-): Readonly<CreateSchemxOptions<TValues>> {
+  ...args: MergeConfigArgs<TValues>
+): SchemxConfigSnapshot<TValues> {
   const configs = (
     Array.isArray(args[0]) ? args[0] : args
-  ) as readonly CreateSchemxOptions<TValues>[]
+  ) as readonly SchemxConfig<TValues>[]
 
   const options = (Array.isArray(args[0]) ? args[1] : undefined) as
     | MergeConfigOptions
     | undefined
 
+  // 所有可写累计对象均由本次调用持有，不修改任何输入。
   const result: MutableSchemxConfig<TValues> = {}
 
   // Schema 默认值始终保留在嵌套配置中。
-  const fieldDefaults: Record<string, unknown> = {}
+  const fieldDefaults: Partial<SchemxSchemaConfig<TValues>> = {}
 
-  let hasSchemaConfig = false
+  // inherit 模式下复用独立 Row；显式清除后重新创建。
+  let inheritedRow: object | undefined
 
   // 从最低优先级（从后往前）开始累积，使后续处理的高优先级配置可以覆盖已有值。
   for (let index = configs.length - 1; index >= 0; index -= 1) {
     // 当前正在合并的一层配置。
     const config = configs[index]
 
-    hasSchemaConfig ||= config.schemaConfig !== undefined
-    const defaults: Record<string, unknown> = { ...config.schemaConfig }
+    if (config.schemaConfig !== undefined) {
+      // Core 不约束适配层 Row 的形状，保留被替换值供首次继承使用。
+      const previousRow: unknown = Reflect.get(fieldDefaults, "row")
 
-    if (options?.rowMerge === "inherit" && Object.hasOwn(defaults, "row")) {
-      const row = defaults.row
+      Object.assign(fieldDefaults, config.schemaConfig)
 
-      if (row !== undefined && typeof row === "object" && row !== null) {
-        defaults.row = { ...Object(fieldDefaults.row), ...row }
+      if (
+        options?.rowMerge === "inherit" &&
+        Object.prototype.propertyIsEnumerable.call(config.schemaConfig, "row")
+      ) {
+        // 读取复制后的值，避免重复求值输入上的 getter。
+        const row: unknown = Reflect.get(fieldDefaults, "row")
+
+        if (row !== null && typeof row === "object") {
+          // 只有首次继承需要复制旧值，其后复用本次调用创建的对象。
+          const targetRow: object = inheritedRow ?? { ...Object(previousRow) }
+
+          Object.assign(targetRow, row)
+          inheritedRow = targetRow
+          Reflect.set(fieldDefaults, "row", targetRow)
+        } else {
+          inheritedRow = undefined
+        }
       }
+
+      result.schemaConfig = fieldDefaults
     }
 
-    Object.assign(fieldDefaults, defaults)
-
     if (config.rendererProps !== undefined) {
-      result.rendererProps = mergeRendererProps(
-        result.rendererProps,
-        config.rendererProps
-      )
+      result.rendererProps ??= {}
+      assignRendererProps(result.rendererProps, config.rendererProps)
     }
 
     // 声明合并增加的顶层配置与内置标量遵循相同的优先级，嵌套配置仍使用各自的合并规则。
@@ -178,13 +219,16 @@ export function mergeConfig<TValues extends Values = Values>(
   const validatorAdapters = mergeValidatorAdapters(...adapterLists)
 
   if (validatorAdapters !== undefined) {
-    result.validatorAdapters = Object.freeze(validatorAdapters)
+    result.validatorAdapters = validatorAdapters
   }
 
-  if (hasSchemaConfig) {
-    result.schemaConfig = Object.freeze(fieldDefaults) as Partial<
-      SchemxSchemaConfig<TValues>
-    >
+  // 合并结束后仅冻结受管层级，Registry、组件与嵌套引用不递归冻结。
+  if (result.validatorAdapters !== undefined) {
+    Object.freeze(result.validatorAdapters)
+  }
+
+  if (result.schemaConfig !== undefined) {
+    Object.freeze(result.schemaConfig)
   }
 
   if (result.rendererProps !== undefined) {
@@ -195,7 +239,7 @@ export function mergeConfig<TValues extends Values = Values>(
       }
     }
 
-    result.rendererProps = Object.freeze(result.rendererProps)
+    Object.freeze(result.rendererProps)
   }
 
   if (result.schedulerOptions !== undefined) {
@@ -238,7 +282,7 @@ export const mergeSchemxConfig: typeof mergeConfig = mergeConfig
  * ```
  */
 export function resolveSchemxConfig<TValues extends Values = Values>(
-  config: CreateSchemxOptions<TValues> = {}
+  config: SchemxConfig<TValues> = {}
 ): MergedSchemxConfig<TValues> {
   // 尚未补齐默认值的 Schema 配置。
   const schemaConfig = config.schemaConfig ?? {}
@@ -280,7 +324,7 @@ export function resolveSchemxConfig<TValues extends Values = Values>(
  * ```
  */
 export function mergeAndResolveSchemxConfig<TValues extends Values = Values>(
-  ...configs: readonly CreateSchemxOptions<TValues>[]
+  ...configs: readonly SchemxConfig<TValues>[]
 ): MergedSchemxConfig<TValues> {
   // 先保留所有层级的显式值，再在最后统一回退到内置默认值。
   const mergedConfig = mergeConfig(...configs)
@@ -289,41 +333,35 @@ export function mergeAndResolveSchemxConfig<TValues extends Values = Values>(
 }
 
 /**
- * 合并两层 Renderer Props。
+ * 将一层 Renderer Props 写入本次合并持有的累计对象。
  *
  * Renderer 之间独立，单个 Renderer 内只做一层属性展开；嵌套对象和数组由高优先级
  * 属性整体替换。显式属性 `undefined` 也会覆盖低优先级同名属性。
  *
- * @param lowerPriority - 已合并的低优先级 Renderer Props。
- * @param higherPriority - 当前待应用的高优先级 Renderer Props。
- * @returns 新建的 Renderer Props Map，不修改任一输入对象。
+ * @typeParam TValues - 用于保持 Renderer key 与 Props 属性的类型关联。
+ * @param target - 本次调用独有的低优先级累计结果，允许原地写入。
+ * @param source - 当前待应用的高优先级 Renderer Props，不修改其对象。
  */
-function mergeRendererProps<TValues extends Values>(
-  lowerPriority: SchemxRendererPropsMap<TValues> | undefined,
-  higherPriority: SchemxRendererPropsMap<TValues>
-): SchemxRendererPropsMap<TValues> {
-  // 运行时只处理普通字符串 key 与 Props 记录，类型关联已在公开 Map 类型中约束。
-  type RendererPropsRecord = Record<string, Record<string, unknown> | undefined>
+function assignRendererProps<TValues extends Values>(
+  target: SchemxRendererPropsMap<TValues>,
+  source: SchemxRendererPropsMap<TValues>
+): void {
+  // Object.keys 丢失声明键类型，断言仅限此遍历边界。
+  for (const type of Object.keys(source) as (keyof SchemxRendererPropsMap<TValues>)[]) {
+    // undefined 的整组 Props 表示沿用低优先级配置。
+    const props = source[type]
 
-  // 将缺失的低优先级配置视为空 Map。
-  const lowerPriorityRecord = (lowerPriority ?? {}) as RendererPropsRecord
-
-  // 转为统一的运行时记录形态，以便按 key 遍历。
-  const higherPriorityRecord = higherPriority as RendererPropsRecord
-
-  // 先复制 Map 外层，使未被高优先级触及的 Renderer 直接继承。
-  const mergedRecord: RendererPropsRecord = { ...lowerPriorityRecord }
-
-  for (const [type, props] of Object.entries(higherPriorityRecord)) {
     if (props === undefined) {
       continue
     }
 
-    mergedRecord[type] = {
-      ...mergedRecord[type],
-      ...props,
+    // 首次创建时复制输入，后续只写入累计结果，且不复用原型上的同名对象。
+    const current = Object.hasOwn(target, type) ? target[type] : undefined
+
+    if (current === undefined) {
+      Object.assign(target, { [type]: { ...props } })
+    } else {
+      Object.assign(current, props)
     }
   }
-
-  return mergedRecord as SchemxRendererPropsMap<TValues>
 }

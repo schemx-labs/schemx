@@ -10,11 +10,11 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createFormStateAdapter } from "../adapter"
 import * as config from "../config"
 import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
+import { createFormStateAdapter } from "../index"
 import {
   createPresetRuleRegistry,
   createRendererRegistry,

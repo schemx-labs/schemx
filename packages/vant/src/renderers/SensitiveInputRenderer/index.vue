@@ -65,8 +65,8 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import SchemxInput from "@/components/Input"
-  import { isEmptyDisplayValue } from "@/utils"
+  import SchemxInput from "../../components/Input"
+  import { isEmptyDisplayValue } from "../../utils"
 
   import { defaultMaskFormatter } from "./helper"
 

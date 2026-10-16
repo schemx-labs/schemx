@@ -26,9 +26,9 @@
   import { Wrapper } from "@schemx/vue"
   import { ElTimeSelect } from "element-plus"
 
-  import { formatElementDateValue } from "@/renderers/shared/date"
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { formatElementDateValue } from "../shared/date"
+  import { getElementProps } from "../shared/props"
 
   import type { TimeSelectRendererProps, TimeSelectValue } from "./types"
   import type { TimeSelectInstance } from "element-plus"

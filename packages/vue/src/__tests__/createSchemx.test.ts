@@ -1,17 +1,18 @@
 // @vitest-environment happy-dom
 
 import { defineComponent, effectScope, h, nextTick, ref } from "vue"
-import type { App, Component, ComponentPublicInstance, ComputedRef } from "vue"
+import type { App, Component, ComputedRef } from "vue"
 
 import {
   configureSchemx as configureCore,
   createForm as createCoreForm,
   createSchemx,
+  getFormCreationConfig,
 } from "@schemx/core"
-import * as coreAdapter from "@schemx/core/adapter"
 import { mount } from "@vue/test-utils"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { createFormComponent, provideSchemxAppConfig } from "../index"
 import * as vueApi from "../index"
 
 import type { CreateSchemxOptions, SchemxApi } from "@schemx/core"
@@ -39,26 +40,7 @@ const Renderer = defineComponent({
  * @param api - 原始工厂对象。
  */
 function scopedForm(api: SchemxApi): Component {
-  return defineComponent({
-    inheritAttrs: false,
-    setup(_, { attrs, slots, expose }) {
-      vueApi.provideSchemxFormRuntime(api.createForm)
-      // 公开对象保持稳定，完整转发内层 Form API。
-      const exposed = {}
-
-      expose(exposed)
-      /**
-       * @param instance - 当前内层 Form 的公开实例。
-       */
-      const setRef = (instance: Element | ComponentPublicInstance | null): void => {
-        if (instance !== null) {
-          Object.assign(exposed, instance)
-        }
-      }
-
-      return () => h(vueApi.default, { ...attrs, ref: setRef }, slots)
-    },
-  })
+  return createFormComponent(api.createForm)
 }
 
 afterEach(() => {
@@ -124,7 +106,7 @@ describe("createSchemx", () => {
 
     expect(direct.getViewSchemas()[0]?.debug).toBeDefined()
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: true,
       schedulerOptions: { timeSliceMs: 3 },
@@ -146,15 +128,14 @@ describe("createSchemx", () => {
 
     expect(hooked?.getViewSchemas()[0]?.debug).toBeUndefined()
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: false,
       schedulerOptions: { idleTimeout: 20 },
       validationConcurrency: 2,
     })
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
-        .schedulerOptions
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config.schedulerOptions
     ).not.toHaveProperty("timeSliceMs")
     direct.destroy()
     scope.stop()
@@ -194,7 +175,7 @@ describe("createSchemx", () => {
     const wrapper = mount(Provider, {
       props: { schedulerOptions: { timeSliceMs: 7 }, validationConcurrency: 3 },
       global: {
-        plugins: [(app: App) => vueApi.provideSchemxAppConfig(app, appOptions)],
+        plugins: [(app: App) => provideSchemxAppConfig(app, appOptions)],
       },
       slots: {
         default: () =>
@@ -209,15 +190,14 @@ describe("createSchemx", () => {
     expect(config).not.toHaveProperty("schemas")
     expect(config).not.toHaveProperty("initialValues")
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: true,
       schedulerOptions: { timeSliceMs: 7 },
       validationConcurrency: 1,
     })
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
-        .schedulerOptions
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config.schedulerOptions
     ).not.toHaveProperty("idleTimeout")
     expect(form?.getViewSchemas()[0]?.debug).toBeDefined()
     expect(form?.getFieldsValue()).toEqual({ name: "A" })
@@ -272,7 +252,7 @@ describe("createSchemx", () => {
     expect(inherited.value?.getViewSchemas()[0]?.debug).toBeDefined()
     expect(local.value?.getViewSchemas()[0]?.debug).toBeUndefined()
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: false,
       schedulerOptions: { timeSliceMs: 8 },
@@ -293,7 +273,7 @@ describe("createSchemx", () => {
     await nextTick()
     expect(fresh.value?.getViewSchemas()[0]?.debug).toBeUndefined()
     expect(
-      coreAdapter.getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
+      getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: false,
       schedulerOptions: { idleTimeout: 40 },
@@ -360,11 +340,11 @@ describe("createSchemx", () => {
         plugins: [
           [
             (app: App) =>
-              vueApi.provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 200 } }),
+              provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 200 } }),
           ],
           [
             (app: App) =>
-              vueApi.provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 300 } }),
+              provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 300 } }),
           ],
         ],
       },
@@ -471,7 +451,7 @@ describe("createSchemx", () => {
       global: {
         plugins: [
           (app: App) =>
-            vueApi.provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 220 } }),
+            provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 220 } }),
         ],
       },
     })
@@ -480,7 +460,7 @@ describe("createSchemx", () => {
       global: {
         plugins: [
           (app: App) =>
-            vueApi.provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 320 } }),
+            provideSchemxAppConfig(app, { schemaConfig: { labelWidth: 320 } }),
         ],
       },
     })
@@ -538,9 +518,9 @@ describe("createSchemx", () => {
     }
 
     expect(originalForm.getViewSchemas()[0]).toMatchObject({ labelWidth: 150 })
-    expect(
-      coreAdapter.getFormCreationConfig(originalForm)?.defaults?.schemaConfig?.labelWidth
-    ).toBe(100)
+    expect(getFormCreationConfig(originalForm)?.defaults?.schemaConfig?.labelWidth).toBe(
+      100
+    )
 
     api.configureSchemx({ schemaConfig: { labelWidth: 200, disabled: true } })
     await wrapper.setProps({ schemaConfig: { readonly: true } })
@@ -561,7 +541,7 @@ describe("createSchemx", () => {
     wrapper.unmount()
   })
 
-  it("组件包装层不向后续后代表单注入旧工厂快照", async () => {
+  it("组件定义绑定的工厂不向后代传播旧快照", async () => {
     const api = createSchemx({ schemaConfig: { labelWidth: 100 } })
 
     const Form = scopedForm(api)
@@ -644,6 +624,56 @@ describe("createSchemx", () => {
       )
     )
     expect(wrapper.get("input").attributes("disabled")).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it("组件定义绑定不同工厂，嵌套普通 Form 不继承创建器", () => {
+    const first = createSchemx({ schemaConfig: { labelWidth: 120 } })
+
+    const second = createSchemx({ schemaConfig: { labelWidth: 240 } })
+
+    first.rendererRegistry.register("input", Renderer)
+    second.rendererRegistry.register("input", Renderer)
+    const createFirst = vi.spyOn(first, "createForm")
+
+    const createSecond = vi.spyOn(second, "createForm")
+
+    const First: Component = createFormComponent(first.createForm, "FirstForm")
+
+    const Second: Component = createFormComponent(second.createForm, "SecondForm")
+
+    const firstRef = ref<SchemxInstance<FormValues>>()
+
+    const secondRef = ref<SchemxInstance<FormValues>>()
+
+    const plainRef = ref<SchemxInstance<FormValues>>()
+
+    const props = { ...options, submitter: false, resetter: false }
+
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          return () =>
+            h(
+              First,
+              { ...props, ref: firstRef },
+              {
+                nameLabel: () =>
+                  h("div", [
+                    h(Second, { ...props, ref: secondRef }),
+                    h(vueApi.default, { ...props, schemas: [], ref: plainRef }),
+                  ]),
+              }
+            )
+        },
+      })
+    )
+
+    expect(firstRef.value?.getViewSchemas()[0]).toMatchObject({ labelWidth: 120 })
+    expect(secondRef.value?.getViewSchemas()[0]).toMatchObject({ labelWidth: 240 })
+    expect(plainRef.value).toBeDefined()
+    expect(createFirst).toHaveBeenCalledTimes(1)
+    expect(createSecond).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 })

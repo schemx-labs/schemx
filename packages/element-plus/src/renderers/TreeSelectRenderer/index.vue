@@ -46,9 +46,9 @@
   import { Wrapper } from "@schemx/vue"
   import { ElTreeSelect } from "element-plus"
 
-  import { normalizeElementSelection } from "@/renderers/shared/options"
-  import { getElementProps } from "@/renderers/shared/props"
-  import { findTreeItem, getReadonlyDisplayValue } from "@/utils"
+  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
+  import { normalizeElementSelection } from "../shared/options"
+  import { getElementProps } from "../shared/props"
 
   import type { TreeSelectRendererProps, TreeSelectValue } from "./types"
   import type { CheckedInfo, TreeNodeData, TreeSelectInstance } from "element-plus"

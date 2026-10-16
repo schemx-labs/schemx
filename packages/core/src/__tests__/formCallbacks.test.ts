@@ -6,8 +6,8 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createFormStateAdapter } from "../adapter"
 import { createForm } from "../createForm"
+import { createFormStateAdapter } from "../index"
 
 import type { SchemxFormApi } from "../types"
 

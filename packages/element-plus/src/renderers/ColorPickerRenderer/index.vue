@@ -27,8 +27,8 @@
   import { Wrapper } from "@schemx/vue"
   import { ElColorPicker } from "element-plus"
 
-  import { getElementProps } from "@/renderers/shared/props"
-  import { getReadonlyDisplayValue } from "@/utils"
+  import { getReadonlyDisplayValue } from "../../utils"
+  import { getElementProps } from "../shared/props"
 
   import type { ColorPickerRendererProps, ColorPickerValue } from "./types"
   import type { ColorPickerInstance } from "element-plus"

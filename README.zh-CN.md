@@ -98,13 +98,13 @@ raw schemas
 
 `@schemx/core` 不依赖具体 UI 框架，也不渲染 DOM。它只负责把表单规则、字段状态和运行时 Schema 维护好，并输出 UI 层可消费的 ViewSchemas。
 
-`@schemx/core/adapter` 是 UI 适配层的公开集成边界。可使用 `createFormStateAdapter(form)` 获取表单值、touched 字段、pending 字段、loading 和单字段状态的稳定快照与订阅；使用 `createRendererRegistry()` 注册 Renderer。
+`@schemx/core` 从根入口提供 UI 集成 API。可使用 `createFormStateAdapter(form)` 获取表单值、touched 字段、pending 字段、loading 和单字段状态的稳定快照与订阅；使用 `createRendererRegistry()` 注册 Renderer。所有包的 API 只通过根 `index.ts` 对外导出；Vue 和 UI 包另外保留 `style.css` 样式资源入口。
 
 `@schemx/vue` 只负责 Vue 组件树的适配，不绑定具体组件库。业务可以通过 `rendererRegistry` 接入自己的输入框、选择器、上传组件或设计系统组件。
 
-`@schemx/vant` 提供 Vant 4 Renderer，面向移动端表单；`@schemx/element-plus` 提供 Element Plus Renderer，面向桌面端表单。导入适配包根入口后即可使用默认 Renderer 和布局。Vant 与 Element Plus 各自通过内部工厂绑定独立 API 和 Registry；UI 消费端直接导入即可。Vue 消费端可使用 `@schemx/vue` 的 `createSchemx` 创建包含框架默认设置的独立实例；两个 UI 包各调用一次工厂，并通过 `useForm(options, creator)` 绑定创建器，包间配置互不影响。普通 Provider/App 配置对后代所有 UI Form 生效；Row、Col 和调度对象整体替换低层对象。
+`@schemx/vant` 提供 Vant 4 Renderer，面向移动端表单；`@schemx/element-plus` 提供 Element Plus Renderer，面向桌面端表单。适配包的 Form、`createForm` 和 `useForm` 自动使用本包默认 Renderer 和布局；导入包不会修改 Core 全局配置或 Vue Registry。Vant 与 Element Plus 各自通过内部工厂绑定独立 API 和 Registry；UI 消费端直接导入即可。Vue 消费端可使用 `@schemx/vue` 的 `createSchemx` 创建包含框架默认设置的独立实例；两个 UI 包各调用一次工厂，并通过 `useForm(options, creator)` 绑定创建器，包间配置互不影响。普通 Provider/App 配置对后代所有 UI Form 生效；Row、Col 和调度对象整体替换低层对象。
 
-`@schemx/core` 内置 async-validator 规则支持。Vue、Vant 和 Element Plus 适配包会自动安装必需的 Schemx 下层包；Vue 和对应 UI 组件库是 peer dependencies，需要由业务项目显式安装。业务代码直接导入其他 Schemx 包或其子路径时，也应显式声明对应依赖。
+`@schemx/core` 内置 async-validator 规则支持。Vue、Vant 和 Element Plus 适配包会自动安装必需的 Schemx 下层包；Vue 和对应 UI 组件库是 peer dependencies，需要由业务项目显式安装。业务代码直接导入其他 Schemx 包或其公开样式资源时，也应显式声明对应依赖。
 
 ## 何时使用
 
@@ -174,6 +174,8 @@ pnpm dev
 pnpm --filter vant-demo dev
 pnpm --filter element-plus-demo dev
 ```
+
+源码映射统一维护在 `workspace-source.config.ts`。在项目环境文件或启动命令中设置 `VITE_USE_SOURCE=true`，开发、测试和类型检查即可引用 workspace 依赖源码；修改开关后运行 `pnpm source:sync` 更新生成的 `tsconfig.workspace-source.json`，安装和开发脚本也会同步。库构建始终消费依赖产物，并先构建其 workspace 依赖。
 
 | 命令                      | 作用                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------- |

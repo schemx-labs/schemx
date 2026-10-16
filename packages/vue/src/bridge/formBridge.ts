@@ -9,7 +9,7 @@
 
 import { getCurrentScope, onScopeDispose } from "vue"
 
-import { createFormStateAdapter } from "@schemx/core/adapter"
+import { createFormStateAdapter } from "@schemx/core"
 
 import { getVueFieldState } from "./fieldBridge"
 import { createVueFormInstance } from "./formInstance"

@@ -13,9 +13,10 @@ export {
   resolveSchemxConfig,
   type MergedSchemxConfig,
   type MergeConfigOptions,
+  type SchemxConfigSnapshot,
 } from "./mergeSchemxConfig"
 
 export { configureSchemx, getGlobalSchemxConfig } from "./schemxConfig"
 export { normalizeSchemxConfig } from "./normalizeSchemxConfig"
 
-export type { SchemxConfig, SchemxConfigDefinition } from "./schemxConfig"
+export type { SchemxConfig, SchemxConfigDefinition } from "./types"

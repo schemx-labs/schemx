@@ -1,29 +1,27 @@
-import {
-  mergeAndResolveSchemxConfig,
-  type SchemxConfig,
-  type SchemxConfigDefinition,
-} from "../config"
-import { type SchemxSchemasInput } from "../createSchemas"
-import {
-  createPresetRuleRegistry,
-  createRendererRegistry,
-  type PresetRuleRegistry,
-  type RendererRegistry,
-} from "../registry"
+import { mergeAndResolveSchemxConfig } from "../config/mergeSchemxConfig"
+import { createPresetRuleRegistry, createRendererRegistry } from "../registry"
 
-import type { CreateSchemxOptions } from "../config/schemxOptions"
+import type { SchemxConfig } from "../config/types"
+import type { SchemxSchemasInput } from "../createSchemas"
+import type { PresetRuleRegistry, RendererRegistry } from "../registry"
 import type { NodeLifecycleHooks } from "../runtime/lifecycle"
 import type { ContainerNode } from "../runtime/node"
-import type { SchedulerOptions } from "../runtime/scheduler"
 import type { NamePath, SchemxFieldRulesMap, SchemxSchemaConfig, Values } from "../types"
 import type { CreateValidatorOptions, ValidationFailure } from "../validator"
 
+export type { FormPerformanceOptions, FormRegistryOptions } from "../config/types"
+
 /**
- * `createForm` 的表单数据配置。
+ * 表单数据与局部默认配置的兼容分组。
+ *
+ * 共享选项从 `SchemxConfig` 复用，实例数据由当前分组声明。
  *
  * @typeParam TValues - 表单值对象类型。
  */
-export interface FormSchemaOptions<TValues extends Values = Values> {
+export interface FormSchemaOptions<TValues extends Values = Values> extends Pick<
+  SchemxConfig<TValues>,
+  "schemaConfig" | "debug"
+> {
   /**
    * 初始 Schema 列表。
    */
@@ -34,47 +32,9 @@ export interface FormSchemaOptions<TValues extends Values = Values> {
   initialValues?: TValues
 
   /**
-   * 当前 Form 的局部 Schema 默认值，与整体配置的 `schemaConfig` 使用同一契约。
-   * 按属性覆盖继承配置，字段自身配置优先；缺省属性继续继承，
-   * 显式 `undefined` 清除继承值并在解析阶段回退 Core 默认值。
-   */
-  schemaConfig?: NonNullable<SchemxConfig<TValues>["schemaConfig"]>
-  /**
    * 按字段路径配置的字段规则兜底。
    */
   fieldRules?: SchemxFieldRulesMap<TValues>
-  /**
-   * 是否生成 Runtime diagnostics 与 View debug DTO，默认关闭。
-   */
-  debug?: boolean
-}
-
-/**
- * `createForm` 的 Renderer、Registry 与 Validator 配置。
- *
- * @typeParam TValues - 用于关联 Renderer 类型与默认 Props 的表单值类型。
- */
-export interface FormRegistryOptions<TValues extends Values = Values> {
-  /**
-   * 按 Renderer 类型配置的静态默认 Props。
-   */
-  rendererProps?: NonNullable<SchemxConfig<TValues>["rendererProps"]>
-  /**
-   * 自定义渲染器注册表。
-   */
-  rendererRegistry?: NonNullable<SchemxConfig<TValues>["rendererRegistry"]>
-  /**
-   * 未显式指定 componentType 时使用的默认渲染器类型。
-   */
-  defaultRendererType?: NonNullable<SchemxConfig<TValues>["defaultRendererType"]>
-  /**
-   * 自定义预设校验规则注册表。
-   */
-  presetRuleRegistry?: NonNullable<SchemxConfig<TValues>["presetRuleRegistry"]>
-  /**
-   * 第三方校验器适配器列表。
-   */
-  validatorAdapters?: NonNullable<SchemxConfig<TValues>["validatorAdapters"]>
 }
 
 type CallbackValues<TValues extends Values> = 0 extends 1 & TValues ? Values : TValues
@@ -141,24 +101,9 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
 }
 
 /**
- * `createForm` 的性能调度配置。
- */
-export interface FormPerformanceOptions {
-  /**
-   * Scheduler 时间片与 idle 队列配置。
-   */
-  schedulerOptions?: SchedulerOptions
-  /**
-   * 整表校验时同时运行的字段数，默认 `8`。
-   */
-  validationConcurrency?: number
-}
-
-/**
  * `createForm` 的公开配置。
  *
- * 这是 Core 层的聚合入口；具体能力按数据、配置、回调和生命周期拆分，
- * 便于框架适配层按需组合。
+ * 在共享默认配置 `SchemxConfig` 上增加实例数据、回调和生命周期。
  *
  * @typeParam TValues - 表单值对象类型。
  * @typeParam TName - 字段路径类型。
@@ -168,12 +113,10 @@ export interface CreateFormOptions<
   TName extends NamePath<TValues> = NamePath<TValues>,
 >
   extends
+    SchemxConfig<TValues>,
     FormSchemaOptions<TValues>,
-    FormRegistryOptions<TValues>,
     FormCallbackOptions<TValues, TName>,
-    FormLifecycleOptions<TValues>,
-    FormPerformanceOptions,
-    SchemxConfigDefinition<TValues> {}
+    FormLifecycleOptions<TValues> {}
 
 /**
  * `createForm` 的已归一化配置。
@@ -228,7 +171,7 @@ export interface ResolvedCreateFormOptions<
  */
 export function mergeCreateFormOptions<TValues extends Values>(
   options: CreateFormOptions<TValues>,
-  config: CreateSchemxOptions<TValues>
+  config: SchemxConfig<TValues>
 ): ResolvedCreateFormOptions<TValues> {
   // 提取需要单独归一化的配置，其余字段交给默认值解析器。
   const { schemas, initialValues = {} as TValues, onRuleError } = options

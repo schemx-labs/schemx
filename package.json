@@ -34,7 +34,8 @@
     "vite": "catalog:",
     "vite-plugin-dts": "^5.0.3",
     "vite-plus": "catalog:",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "vite-plugin-workspace-source": "workspace:*"
   },
   "scripts": {
     "workflow": "node scripts/workflow.ts",
@@ -61,7 +62,8 @@
     "release:publish": "node scripts/workflow.ts release publish",
     "release:test": "node scripts/workflow.ts test:scripts",
     "release:dry-run": "node scripts/workflow.ts release dry-run",
-    "prepare": "bash scripts/install-git-hooks.sh"
+    "prepare": "pnpm run source:sync && bash scripts/install-git-hooks.sh",
+    "source:sync": "pnpm --filter vite-plugin-workspace-source run build && workspace-source sync --all"
   },
   "repository": {
     "type": "git",

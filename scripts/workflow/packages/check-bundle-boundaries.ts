@@ -82,6 +82,11 @@ interface DeclarationRule {
 /** 类型声明的 token 断言表。 */
 const DECLARATION_RULES: readonly DeclarationRule[] = [
   {
+    file: "packages/vue/dist/index.d.ts",
+    required: ["createFormComponent", "provideSchemxAppConfig"],
+    forbidden: ["../../core/src", "../../vue/src"],
+  },
+  {
     file: "packages/vant/dist/index.d.ts",
     required: ["@schemx/vue"],
     forbidden: ["../../vue/src", "../../core/src"],
@@ -193,6 +198,52 @@ function readArtifact(
 }
 
 /**
+ * 沿内部 JS chunk 收集整个入口的依赖，避免多入口拆包后误报缺少 external。
+ * @param root - 仓库根目录。
+ * @param file - 当前入口或共享 chunk 的相对路径。
+ * @param failures - 缺失产物的失败记录。
+ * @param visited - 当前入口已经读取的 chunk，用于阻断循环引用。
+ * @returns 入口及共享 chunk 的依赖；文件缺失时返回 undefined。
+ */
+function collectArtifactSpecifiers(
+  root: string,
+  file: string,
+  failures: string[],
+  visited = new Set<string>()
+): ReadonlySet<string> | undefined {
+  if (visited.has(file)) {
+    return new Set<string>()
+  }
+
+  visited.add(file)
+  const source = readArtifact(root, file, failures)
+
+  if (source === undefined) {
+    return undefined
+  }
+
+  const imports = collectSpecifiers(source)
+
+  const found = new Set(imports)
+
+  for (const specifier of imports) {
+    if (!specifier.startsWith(".") || !/\.(?:mjs|cjs|js)$/.test(specifier)) {
+      continue
+    }
+
+    const chunk = path.normalize(path.join(path.dirname(file), specifier))
+
+    const dependencies = collectArtifactSpecifiers(root, chunk, failures, visited)
+
+    for (const dependency of dependencies ?? []) {
+      found.add(dependency)
+    }
+  }
+
+  return found
+}
+
+/**
  * 校验构建产物的 external 边界。
  *
  * @param root - 仓库根目录。
@@ -202,13 +253,11 @@ export function checkBundleBoundaries(root: string): BoundaryCheckResult {
   const failures: string[] = []
 
   for (const rule of BUNDLE_RULES) {
-    const source = readArtifact(root, rule.file, failures)
+    const specifiers = collectArtifactSpecifiers(root, rule.file, failures)
 
-    if (source === undefined) {
+    if (specifiers === undefined) {
       continue
     }
-
-    const specifiers = collectSpecifiers(source)
 
     for (const target of rule.required ?? []) {
       if (!references(specifiers, target)) {

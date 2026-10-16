@@ -36,7 +36,7 @@
 
   import { Wrapper } from "@schemx/vue"
 
-  import { getFieldProps, getReadonlyDisplayValue } from "@/utils"
+  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
 
   import Selector from "./Selector.vue"
 

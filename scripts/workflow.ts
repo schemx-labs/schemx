@@ -53,7 +53,7 @@ const SELF_CHECKS: Readonly<Record<string, SelfCheck>> = {
   "test:scripts": {
     title: "运行项目脚本测试",
     command: "pnpm",
-    args: ["exec", "vitest", "run", "scripts"],
+    args: ["exec", "vp", "test", "run", "scripts"],
   },
 }
 

@@ -17,7 +17,7 @@
  * 用法：这里只走 `groupEnd`、`summary`、`taskPending` 与 `columns` 四个渲染入口，
  * 因此用结构化字面量伪造 Ui 实例。
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 
 import { type BatchOptions, runBatch } from "./batch.ts"
 import { type Outcome, type SummaryOptions, type Ui } from "./ui.ts"
