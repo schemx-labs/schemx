@@ -4,9 +4,9 @@
  * @module types
  */
 
-import type { StyleValue } from "vue"
+import type { ClassValue, StyleValue } from "vue"
 
-import type { ScrollToFieldOptions } from "./form"
+import type { SchemxFormAction, ScrollToFieldOptions } from "./form"
 import type { SchemxIconComponent, SchemxIconValue } from "./icon"
 import type {
   SchemxColComponent,
@@ -15,6 +15,7 @@ import type {
   SchemxRowComponent,
   SchemxRowConfig,
 } from "./layout"
+import type { SchemxButtonComponent } from "../components/Button/types"
 import type { FieldValue, NamePath, SchemxConditionFn, Values } from "@schemx/core"
 
 /**
@@ -69,7 +70,7 @@ declare module "@schemx/core" {
     /**
      * 追加到 Field 外层容器元素上的自定义 CSS 类名。
      */
-    class?: string
+    class?: ClassValue
 
     /**
      * 应用到 Field 外层容器元素上的自定义内联样式。
@@ -129,7 +130,7 @@ declare module "@schemx/core" {
     /**
      * 追加到 Group 外层容器元素上的自定义 CSS 类名。
      */
-    class?: string
+    class?: ClassValue
 
     /**
      * 应用到 Group 外层容器元素上的自定义内联样式。
@@ -221,9 +222,29 @@ declare module "@schemx/core" {
     rowComponent?: SchemxRowComponent
 
     /**
+     * 当前 App、Provider 或 Form 使用的 Button 实现。
+     */
+    buttonComponent?: SchemxButtonComponent
+
+    /**
      * 当前 App、Provider 或 Form 使用的 Icon Adapter。
      */
     iconComponent?: SchemxIconComponent
+
+    /**
+     * 操作区的列布局配置；省略时使用满宽列，不继承字段默认 `col`。
+     */
+    actionCol?: SchemxColConfig<TValues>
+
+    /**
+     * 提交按钮配置；默认显示，设为 false 时隐藏。
+     */
+    submitter?: SchemxFormAction
+
+    /**
+     * 重置按钮配置；默认显示，设为 false 时隐藏。
+     */
+    resetter?: SchemxFormAction
   }
 
   /**
@@ -251,11 +272,6 @@ declare module "@schemx/core" {
      * @deprecated 请改用 {@link SchemxColConfig} 与 `col` 字段。
      */
     layout?: SchemxLayout<TValues>
-
-    /**
-     * 操作区的列布局配置；省略时使用满宽列，不继承字段默认 `col`。
-     */
-    actionCol?: SchemxColConfig<TValues>
 
     /**
      * 表单级标签图标默认值。

@@ -133,6 +133,7 @@
       name: "note",
       label: "备注",
       componentType: "input",
+      required: true,
       componentProps: {
         type: "textarea",
         autosize: { minRows: 2, maxRows: 5 },
@@ -142,6 +143,7 @@
       name: "suggestion",
       label: "自动补全",
       componentType: "autocomplete",
+      required: true,
       componentProps: {
         options: [
           { text: "Ada", id: "ada" },
@@ -154,29 +156,34 @@
       name: "favoriteColor",
       label: "颜色",
       componentType: "colorPicker",
+      required: true,
     },
     {
       name: "appointment",
       label: "预约时间",
       componentType: "datetimePicker",
+      required: true,
       componentProps: { valueFormat: "YYYY-MM-DD HH:mm:ss" },
     },
     {
       name: "tags",
       label: "标签",
       componentType: "inputTag",
+      required: true,
       componentProps: { trigger: "Enter", clearable: true },
     },
     {
       name: "otp",
       label: "验证码",
       componentType: "inputOtp",
+      required: true,
       componentProps: { length: 6, inputmode: "numeric" },
     },
     {
       name: "mention",
       label: "提及",
       componentType: "mention",
+      required: true,
       componentProps: {
         options: [
           { label: "Ada", value: "Ada" },
@@ -188,17 +195,20 @@
       name: "quantity",
       label: "数量",
       componentType: "inputNumber",
+      required: true,
       componentProps: { min: 0, max: 99, precision: 0 },
     },
     {
       name: "enabled",
       label: "启用状态",
       componentType: "switch",
+      required: true,
     },
     {
       name: "gender",
       label: "性别",
       componentType: "radio",
+      required: true,
       componentProps: {
         options: [
           { label: "男", value: "male" },
@@ -210,6 +220,7 @@
       name: "hobbies",
       label: "兴趣",
       componentType: "checkbox",
+      required: true,
       componentProps: {
         options: [
           { label: "编程", value: "coding" },
@@ -222,6 +233,7 @@
       name: "choice",
       label: "选择器",
       componentType: "select",
+      required: true,
       componentProps: {
         options: [
           { text: "选项 A", id: "a" },
@@ -235,6 +247,7 @@
       name: "virtualChoice",
       label: "虚拟化选择器",
       componentType: "virtualizedSelect",
+      required: true,
       componentProps: {
         options: [
           { label: "虚拟选项 A", value: "a" },
@@ -247,6 +260,7 @@
       name: "remoteChoice",
       label: "远程选择器",
       componentType: "select",
+      required: true,
       componentProps: {
         dict: {
           api: async () => [
@@ -261,24 +275,28 @@
       name: "birthday",
       label: "生日",
       componentType: "datePicker",
+      required: true,
       componentProps: { valueFormat: "YYYY-MM-DD", placeholder: "请选择日期" },
     },
     {
       name: "time",
       label: "时间",
       componentType: "timePicker",
+      required: true,
       componentProps: { valueFormat: "HH:mm:ss" },
     },
     {
       name: "fixedTime",
       label: "固定时间",
       componentType: "timeSelect",
+      required: true,
       componentProps: { start: "08:00", end: "18:00", step: "00:30" },
     },
     {
       name: "category",
       label: "树形选择",
       componentType: "treeSelect",
+      required: true,
       componentProps: {
         options: [
           {
@@ -295,6 +313,7 @@
       name: "region",
       label: "地区",
       componentType: "cascader",
+      required: true,
       componentProps: {
         options: [
           {
@@ -317,21 +336,25 @@
       name: "secret",
       label: "敏感信息",
       componentType: "sensitiveInput",
+      required: true,
     },
     {
       name: "score",
       label: "评分",
       componentType: "rate",
+      required: true,
     },
     {
       name: "progress",
       label: "进度",
       componentType: "slider",
+      required: true,
     },
     {
       name: "files",
       label: "附件",
       componentType: "upload",
+      required: true,
       componentProps: {
         accept: "image/*",
         uploader: async (file) => ({
@@ -360,17 +383,20 @@
           name: "basic.age",
           label: "年龄（number）",
           componentType: "inputNumber",
+          required: true,
           componentProps: { min: 0, max: 150 },
         },
         {
           name: "basic.notification",
           label: "通知开关（switch）",
           componentType: "switch",
+          required: true,
         },
         {
           name: "basic.gender",
           label: "性别（radio）",
           componentType: "radio",
+          required: true,
           componentProps: {
             options: [
               { label: "男", value: "male" },

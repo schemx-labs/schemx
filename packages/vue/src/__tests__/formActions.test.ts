@@ -4,10 +4,10 @@
  * @module vue/__tests__/formActions
  */
 
-import { h, nextTick } from "vue"
+import { defineComponent, h, markRaw, nextTick } from "vue"
 
 import { createForm, type Values } from "@schemx/core"
-import { mount } from "@vue/test-utils"
+import { flushPromises, mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import SchemxForm from "../form.vue"
@@ -45,6 +45,94 @@ async function waitForSubmitStart(): Promise<void> {
 }
 
 describe("SchemxForm actions", () => {
+  it("内部按钮的 type 表示外观，原生行为和点击事件不能被配置覆盖", async () => {
+    const onFinish = vi.fn()
+
+    const onClick = vi.fn()
+
+    // 模拟 JavaScript 调用方传入类型层已禁止的属性。
+    const buttonProps = {
+      type: "primary" as const,
+      nativeType: "submit" as const,
+      onClick,
+    }
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        resetter: false,
+        submitter: { buttonProps },
+        onFinish,
+      },
+    })
+
+    expect(wrapper.get("button").classes()).toContain("schemx-button--primary")
+    expect(wrapper.get("button").attributes("type")).toBe("button")
+    await wrapper.get("button").trigger("click")
+    await flushPromises()
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    expect(onClick).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it("通过 buttonComponent 替换操作按钮，并透传属性、状态和点击事件", async () => {
+    // 直接渲染原生按钮以检查操作区通过配置替换了实现。
+    const CustomButton = markRaw(
+      defineComponent({
+        inheritAttrs: false,
+        setup(_props, { attrs, slots }) {
+          return () =>
+            h("button", { ...attrs, "data-custom-button": "" }, slots.default?.())
+        },
+      })
+    )
+
+    const onFinish = vi.fn()
+
+    const onReset = vi.fn()
+
+    const wrapper = mount(SchemxForm, {
+      props: {
+        buttonComponent: CustomButton,
+        submitter: { text: "保存", buttonProps: { size: "large", title: "保存表单" } },
+        onFinish,
+        onReset,
+      },
+    })
+
+    expect(wrapper.findAll("[data-custom-button]")).toHaveLength(2)
+    expect(
+      wrapper.get(".schemx-actions-button--submit").attributes("type")
+    ).toBeUndefined()
+    expect(
+      wrapper.get(".schemx-actions-button--reset").attributes("size")
+    ).toBeUndefined()
+    expect(wrapper.get(".schemx-actions-button--submit").attributes("size")).toBe("large")
+    expect(wrapper.get(".schemx-actions-button--submit").attributes("title")).toBe(
+      "保存表单"
+    )
+    await wrapper.get(".schemx-actions-button--submit").trigger("click")
+    await flushPromises()
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    await wrapper.get(".schemx-actions-button--reset").trigger("click")
+    expect(onReset).toHaveBeenCalledTimes(1)
+
+    await wrapper.setProps({ loading: true })
+    expect(wrapper.get(".schemx-actions-button--submit").attributes("aria-busy")).toBe(
+      "true"
+    )
+    expect(
+      wrapper.get(".schemx-actions-button--submit").attributes("disabled")
+    ).toBeDefined()
+    expect(
+      wrapper.get(".schemx-actions-button--reset").attributes("disabled")
+    ).toBeDefined()
+
+    await wrapper.setProps({ buttonComponent: undefined })
+    expect(wrapper.find("[data-custom-button]").exists()).toBe(false)
+    expect(wrapper.findAll(".schemx-button")).toHaveLength(2)
+    wrapper.unmount()
+  })
+
   it("默认渲染操作区，并支持显式配置文本", () => {
     const defaultWrapper = mount(SchemxForm)
 

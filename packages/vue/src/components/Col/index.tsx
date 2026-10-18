@@ -8,9 +8,11 @@
  */
 
 import { computed, defineComponent, h, markRaw, type PropType, toRaw } from "vue"
-import type { ClassValue, StyleValue, VNodeChild } from "vue"
+import type { ClassValue, VNodeChild } from "vue"
 
 import { useOptionalFormContextValue } from "../../context/formContext"
+
+import DefaultCol from "./default.vue"
 
 import type {
   SchemxColComponent,
@@ -60,12 +62,10 @@ const Col = defineComponent({
     const resolvedComponent = computed(() => {
       const component = props.component ?? formContext?.colComponent
 
-      return component ? markRaw(toRaw(component)) : undefined
+      return component ? markRaw(toRaw(component)) : DefaultCol
     })
 
     return (): VNodeChild => {
-      const component = resolvedComponent.value
-
       const col = props.col ?? props.layout ?? {}
 
       const {
@@ -81,40 +81,13 @@ const Col = defineComponent({
 
       const { class: attrsClass, style: attrsStyle, ...restAttrs } = attrs
 
-      if (!component) {
-        const width = `${(span / 24) * 100}%`
-
-        const marginLeft = `${(offset / 24) * 100}%`
-
-        return h(
-          "div",
-          {
-            ...restAttrs,
-            class: ["schemx-col", attrsClass as ClassValue],
-            style: [
-              attrsStyle as StyleValue,
-              {
-                flex: `0 0 ${width}`,
-                maxWidth: width,
-                marginLeft,
-                paddingTop: "var(--schemx-gutter-top, 0px)",
-                paddingRight: "var(--schemx-gutter-right, 0px)",
-                paddingBottom: "var(--schemx-gutter-bottom, 0px)",
-                paddingLeft: "var(--schemx-gutter-left, 0px)",
-              },
-            ],
-          },
-          slots
-        )
-      }
-
       return h(
-        component,
+        resolvedComponent.value,
         {
           ...extensionProps,
           ...restAttrs,
           class: ["schemx-col", attrsClass as ClassValue],
-          style: attrsStyle as StyleValue,
+          style: attrsStyle,
           span,
           offset,
         },

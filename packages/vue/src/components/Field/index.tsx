@@ -119,6 +119,8 @@ const Field = defineComponent({
 
     createFieldContext(field)
 
+    const isError = computed(() => field.errors.value.length > 0)
+
     const trigger = computed<TriggerConfig>(() =>
       mergeTrigger(
         schemaRef.value.validationTrigger,
@@ -250,7 +252,8 @@ const Field = defineComponent({
             props.class,
             attrs.class,
             schemaRef.value.class,
-            schemaRef.value.bordered ? "is-bordered" : ""
+            schemaRef.value.bordered ? "is-bordered" : "",
+            isError.value ? "is-error" : ""
           )}
           style={[
             attrs.style,

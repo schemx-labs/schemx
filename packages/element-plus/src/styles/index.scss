@@ -8,6 +8,38 @@
   padding-block: var(--schemx-padding-sm);
 }
 
-.schemx .schemx-field--label-left > .schemx-field__content {
-  max-width: 80%;
+.schemx-field-wrapper.is-error {
+  .el-input__wrapper,
+  .el-textarea__inner,
+  .el-select__wrapper,
+  .el-input-tag__wrapper,
+  .el-input-otp__input-field {
+    &,
+    &:hover,
+    &:focus,
+    &.is-focus {
+      box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+    }
+  }
+
+  .el-color-picker__trigger {
+    &,
+    &:hover,
+    &:focus {
+      border-color: var(--el-color-danger);
+    }
+  }
+
+  .el-input-number__decrease,
+  .el-input-number__increase {
+    &:hover ~ .el-input:not(.is-disabled) {
+      .el-input__wrapper {
+        box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+      }
+    }
+  }
+}
+
+.schemx-element-plus-button {
+  flex: 1;
 }

@@ -8,6 +8,7 @@
 
 import { createPresetRuleRegistry, createRendererRegistry } from "@schemx/core"
 
+import { VantButton } from "../components/Button"
 import { VantCol } from "../layout/defaultCol"
 import { VantRow } from "../layout/defaultRow"
 import { defaultRenderers } from "../renderers/defaultRenderers"
@@ -29,18 +30,31 @@ rendererRegistry.registerAll(defaultRenderers)
 /**
  * 可通过 App 安装选项复用的 Vant 默认配置。
  */
-export const defaultConfig: Readonly<CreateSchemxOptions> = Object.freeze({
-  rendererRegistry,
-  presetRuleRegistry,
-  colComponent: VantCol,
-  rowComponent: VantRow,
-  schemaConfig: Object.freeze<NonNullable<CreateSchemxOptions["schemaConfig"]>>({
-    col: { span: 24 },
-    row: { gutter: [0, 0] },
-    labelAlign: "right",
-    labelPosition: "left",
-    contentAlign: "right",
-    errorAlign: "right",
-    bordered: true,
-  }),
-})
+export const defaultConfig: Readonly<CreateSchemxOptions> =
+  Object.freeze<CreateSchemxOptions>({
+    rendererRegistry,
+    presetRuleRegistry,
+    colComponent: VantCol,
+    rowComponent: VantRow,
+    buttonComponent: VantButton,
+    submitter: {
+      buttonProps: {
+        type: "primary",
+        class: "schemx-vant-button",
+      },
+    },
+    resetter: {
+      buttonProps: {
+        class: "schemx-vant-button",
+      },
+    },
+    schemaConfig: Object.freeze<NonNullable<CreateSchemxOptions["schemaConfig"]>>({
+      col: { span: 24 },
+      row: { gutter: [0, 0] },
+      labelAlign: "right",
+      labelPosition: "left",
+      contentAlign: "right",
+      errorAlign: "right",
+      bordered: true,
+    }),
+  })

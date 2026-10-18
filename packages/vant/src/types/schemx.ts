@@ -4,6 +4,8 @@
  * 将 Vant 渲染器的 componentType 和 componentProps 注册到 schemx 类型系统，
  * 使 schemas 配置获得完整的类型提示。
  */
+import type { ButtonProps } from "vant"
+
 import type {
   CalendarRendererProps,
   CascaderRendererProps,
@@ -51,6 +53,8 @@ declare module "@schemx/core" {
 }
 
 declare module "@schemx/vue" {
+  interface SchemxButtonDefinition extends Partial<ButtonProps> {}
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SchemxColDefinition<TValues extends Values = Values> {
     tag?: keyof HTMLElementTagNameMap

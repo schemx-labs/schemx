@@ -69,7 +69,8 @@
   --schemx-border-radius-xs: 2px;
   --schemx-border-radius-sm: 4px;
   --schemx-border-radius-md: 8px;
-  --schemx-border-radius-lg: 12px;
+  --schemx-border-radius-lg: 16px;
+  --schemx-border-radius-circle: 100%;
 
   /*
    * 表单容器

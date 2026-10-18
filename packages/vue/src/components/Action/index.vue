@@ -1,14 +1,14 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { computed, useSlots } from "vue"
 
-  import Button from "./components/Button"
-  import Col from "./components/Col"
+  import Button from "../Button"
+  import Col from "../Col"
 
   import type {
     SchemxColConfig,
     SchemxFormActionConfig,
     SchemxFormProps,
-  } from "./types/index"
+  } from "../../types/index"
   import type { SchemxInstance, Values } from "@schemx/core"
 
   /**
@@ -35,8 +35,6 @@
 
   // 操作区只读取布局属性，在组件边界擦除业务值泛型。
   const resolvedActionColConfig = computed(() => {
-    console.log(" > ~ props.actionCol:", props.actionCol)
-
     return props.actionCol as SchemxColConfig | undefined
   })
 
@@ -66,15 +64,15 @@
   const resetterConfig = computed(() => normalizeActionConfig(props.resetter))
 
   /**
-   * 操作区必须保护内部事件和 button type，不接受运行时透传的同名属性。
+   * 操作区管理原生按钮行为和点击事件，外观 type 保留给 UI 实现。
    *
    * @param config - 当前操作按钮的配置。
-   * @returns 过滤内部事件和 type 后的按钮属性。
+   * @returns 过滤内部事件和原生行为后的按钮属性。
    */
   const getButtonProps = (config: SchemxFormActionConfig) => {
     const buttonProps = Object.fromEntries(
       Object.entries(config.buttonProps ?? {}).filter(
-        ([name]) => name !== "type" && name !== "onClick"
+        ([name]) => name !== "nativeType" && name !== "native-type" && name !== "onClick"
       )
     )
 
@@ -154,7 +152,7 @@
         v-else-if="isResetterVisible"
         v-bind="resetterButtonProps"
         class="schemx-actions-button schemx-actions-button--reset"
-        type="button"
+        native-type="button"
         :disabled="isResetterDisabled"
         @click="handleReset"
       >
@@ -172,7 +170,7 @@
         v-else-if="isSubmitterVisible"
         v-bind="submitterButtonProps"
         class="schemx-actions-button schemx-actions-button--submit"
-        type="button"
+        native-type="button"
         :loading="effectiveLoading"
         :disabled="isSubmitterDisabled"
         @click="handleSubmit"

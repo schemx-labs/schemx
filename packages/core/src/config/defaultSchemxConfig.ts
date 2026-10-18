@@ -6,6 +6,11 @@
  */
 export const defaultSchemxConfig = Object.freeze({
   /**
+   * 外层容器元素上的自定义 CSS 类名。
+   */
+  class: "",
+
+  /**
    * 是否启用必填校验（静态默认值）
    *
    * `showRequiredMark` 独立控制必填视觉标记；未显式设置时，运行时标记会跟随有效的
@@ -109,6 +114,7 @@ export type SchemxConfigKey =
   | "validationTrigger"
   | "colon"
   | "showRequiredMark"
+  | "class"
 
 /**
  * `defaultSchemxConfig` 的所有键数组。

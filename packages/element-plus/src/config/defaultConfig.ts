@@ -8,6 +8,7 @@
 
 import { createPresetRuleRegistry, createRendererRegistry } from "@schemx/core"
 
+import { ElementPlusButton } from "../components/Button"
 import { ElementPlusCol } from "../layout/defaultCol"
 import { ElementPlusRow } from "../layout/defaultRow"
 import { defaultRenderers } from "../renderers/defaultRenderers"
@@ -37,17 +38,29 @@ export const defaultConfig: SchemxConfig = {
   presetRuleRegistry,
   colComponent: ElementPlusCol,
   rowComponent: ElementPlusRow,
+  buttonComponent: ElementPlusButton,
   schemaConfig: {
-    col: { span: 24 },
+    col: { span: 12 },
     row: { gutter: [14, 0] },
     labelAlign: "right",
     labelWidth: 120,
     labelPosition: "left",
     contentAlign: "left",
     bordered: false,
-    actionCol: {
-      offset: 6,
-      span: 12,
+  },
+  actionCol: {
+    offset: 7,
+    span: 10,
+  },
+  submitter: {
+    buttonProps: {
+      type: "primary",
+      class: "schemx-element-plus-button",
+    },
+  },
+  resetter: {
+    buttonProps: {
+      class: "schemx-element-plus-button",
     },
   },
 }

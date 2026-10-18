@@ -93,6 +93,11 @@ export interface SchemxBase<
   label: string
 
   /**
+   * 追加到 Field 外层容器元素上的自定义 CSS 类名。
+   */
+  class?: string
+
+  /**
    * 渲染组件类型
    *
    * 对应 SchemxRendererDefinition 中注册的组件键名，

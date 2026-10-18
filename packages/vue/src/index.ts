@@ -51,6 +51,7 @@ export { default as Field, type SchemxFieldProps } from "./components/Field"
 export { default as Group, type SchemxGroupProps } from "./components/Group"
 export { default as Col } from "./components/Col"
 export { default as Row } from "./components/Row"
+export { default as Button } from "./components/Button"
 export { default as Icon } from "./components/Icon"
 export { default as Wrapper } from "./components/Wrapper/index.vue"
 export {

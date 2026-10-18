@@ -11,6 +11,7 @@ import { computed, defineComponent, type PropType } from "vue"
 import { provideConfigProviderContext } from "../../context/configProviderContext"
 
 import type {
+  SchemxButtonComponent,
   SchemxColComponent,
   SchemxIconComponent,
   SchemxRowComponent,
@@ -74,6 +75,10 @@ const ConfigProvider = defineComponent({
     },
     rowComponent: {
       type: [Object, Function] as PropType<SchemxRowComponent>,
+      default: undefined,
+    },
+    buttonComponent: {
+      type: [Object, Function] as PropType<SchemxButtonComponent>,
       default: undefined,
     },
     iconComponent: {

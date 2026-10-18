@@ -8,10 +8,11 @@
  */
 
 import { computed, defineComponent, h, markRaw, type PropType, toRaw } from "vue"
-import type { ClassValue, StyleValue, VNodeChild } from "vue"
+import type { ClassValue, VNodeChild } from "vue"
 
 import { useOptionalFormContextValue } from "../../context/formContext"
-import { normalizeSchemxGutter } from "../../utils/layout"
+
+import DefaultRow from "./default.vue"
 
 import type { SchemxRowConfig } from "../../types/layout"
 
@@ -46,11 +47,13 @@ const Row = defineComponent({
     const resolvedComponent = computed(() => {
       const component = formContext?.rowComponent
 
-      return component ? markRaw(toRaw(component)) : undefined
+      return component ? markRaw(toRaw(component)) : DefaultRow
     })
 
     return (): VNodeChild => {
-      const component = resolvedComponent.value
+      if (!props.enabled) {
+        return slots.default?.() ?? null
+      }
 
       const row = props.row ?? {}
 
@@ -65,63 +68,15 @@ const Row = defineComponent({
 
       const rowClassValue = ["schemx-row", attrsClass] as ClassValue[]
 
-      const justifyContent =
-        justify === "start" ? "flex-start" : justify === "end" ? "flex-end" : justify
-
-      const alignItems =
-        align === "top"
-          ? "flex-start"
-          : align === "middle"
-            ? "center"
-            : align === "bottom"
-              ? "flex-end"
-              : undefined
-
-      const [gutterTop, gutterRight, gutterBottom, gutterLeft] =
-        normalizeSchemxGutter(gutter)
-
-      const paddingTop = gutterTop / 2
-
-      const paddingRight = gutterRight / 2
-
-      const paddingBottom = gutterBottom / 2
-
-      const paddingLeft = gutterLeft / 2
-
-      const internalRowStyle = [
-        attrsStyle as StyleValue,
-        {
-          "--schemx-gutter-top": `${paddingTop}px`,
-          "--schemx-gutter-right": `${paddingRight}px`,
-          "--schemx-gutter-bottom": `${paddingBottom}px`,
-          "--schemx-gutter-left": `${paddingLeft}px`,
-          margin: `-${paddingTop}px -${paddingRight}px -${paddingBottom}px -${paddingLeft}px`,
-          justifyContent,
-          alignItems,
-        },
-      ] as StyleValue
-
-      if (!props.enabled) {
-        return slots.default?.() ?? null
-      }
-
-      if (!component) {
-        return (
-          <div {...restAttrs} class={rowClassValue} style={internalRowStyle}>
-            {slots.default?.()}
-          </div>
-        )
-      }
-
       return h(
-        component,
+        resolvedComponent.value,
         {
           ...componentAttrs,
           gutter,
           justify,
           align,
           class: rowClassValue,
-          style: internalRowStyle as StyleValue,
+          style: attrsStyle,
         },
         slots
       )

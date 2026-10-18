@@ -30,7 +30,7 @@ const providerProps: ConfigProviderProps<FormValues> = {
 }
 
 // 嵌套默认值既可用于 App 配置，也可用于创建具体表单。
-const config: SchemxConfig<FormValues> = {
+const config = {
   schemaConfig: {
     readonly: true,
     col: { span: 12 },
@@ -40,7 +40,7 @@ const config: SchemxConfig<FormValues> = {
       isEmpty: (value) => !value?.trim(),
     },
   },
-}
+} satisfies SchemxConfig<FormValues>
 
 const formOptions: UseFormOptions<FormValues> = {
   ...config,
@@ -83,19 +83,15 @@ void invalidFlatForm
 // @ts-expect-error useForm 已合并配置也只能通过第一个参数传入。
 useForm<FormValues>(formOptions, config)
 
-// 组件专属字段不能进入共享配置或 Core 创建选项。
-type ComponentOnlyKeys =
-  | "modelValue"
-  | "form"
-  | "loading"
-  | "class"
-  | "style"
-  | "actionCol"
-  | "submitter"
-  | "resetter"
+// 实例展示状态和受控值不进入共享配置，操作区配置可以继承。
+type ComponentOnlyKeys = "modelValue" | "form" | "loading" | "class" | "style"
 
 // 布局组件实现仅在整体配置中声明。
-type ComponentImplementationKeys = "colComponent" | "rowComponent" | "iconComponent"
+type ComponentImplementationKeys =
+  | "colComponent"
+  | "rowComponent"
+  | "buttonComponent"
+  | "iconComponent"
 
 /**
  * 使任何不符合边界的属性键成为类型错误。

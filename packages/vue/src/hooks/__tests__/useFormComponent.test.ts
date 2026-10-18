@@ -178,38 +178,57 @@ describe("useFormComponent", () => {
       appConfig: {
         colComponent: appComponent,
         rowComponent: appComponent,
+        buttonComponent: appComponent,
         iconComponent: appComponent,
       },
       config: {
         colComponent: providerComponent,
         rowComponent: providerComponent,
+        buttonComponent: providerComponent,
         iconComponent: providerComponent,
       },
       props: {
         colComponent: formComponent,
         rowComponent: formComponent,
+        buttonComponent: formComponent,
         iconComponent: formComponent,
       },
     })
 
-    for (const key of ["colComponent", "rowComponent", "iconComponent"] as const) {
+    for (const key of [
+      "colComponent",
+      "rowComponent",
+      "buttonComponent",
+      "iconComponent",
+    ] as const) {
       expect(result.context[key]).toBe(formComponent)
       result.props[key] = undefined
     }
 
     await nextTick()
 
-    for (const key of ["colComponent", "rowComponent", "iconComponent"] as const) {
+    for (const key of [
+      "colComponent",
+      "rowComponent",
+      "buttonComponent",
+      "iconComponent",
+    ] as const) {
       expect(result.context[key]).toBe(providerComponent)
     }
 
     await result.wrapper.setProps({
       colComponent: undefined,
       rowComponent: undefined,
+      buttonComponent: undefined,
       iconComponent: undefined,
     })
 
-    for (const key of ["colComponent", "rowComponent", "iconComponent"] as const) {
+    for (const key of [
+      "colComponent",
+      "rowComponent",
+      "buttonComponent",
+      "iconComponent",
+    ] as const) {
       expect(result.context[key]).toBe(appComponent)
     }
 

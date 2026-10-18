@@ -152,6 +152,11 @@ describe("Element Plus Col layout adapter", () => {
     expect(row.attributes("style")).toContain("--schemx-gutter-top: 2px")
     expect(row.attributes("style")).toContain("margin: -2px -4px -6px -8px")
     expect(col.classes()).toContain("schemx-col")
+    // happy-dom 会丢弃 padding 中的 CSS 变量，检查实际传给 UI 组件的样式。
+    expect(wrapper.getComponent({ name: "ElCol" }).vm.$attrs.style).toMatchObject({
+      paddingTop: "var(--schemx-gutter-top, 0px)",
+      paddingLeft: "var(--schemx-gutter-left, 0px)",
+    })
 
     wrapper.unmount()
   })

@@ -30,7 +30,7 @@ import type {
 } from "../renderers"
 import type { Values } from "@schemx/core"
 import type { SchemxWithDictionary } from "@schemx/vue"
-import type { ColProps, RowProps } from "element-plus"
+import type { ButtonProps, ColProps, RowProps } from "element-plus"
 
 declare module "@schemx/core" {
   interface SchemxRendererDefinition<TValues extends Values> {
@@ -60,6 +60,8 @@ declare module "@schemx/core" {
 }
 
 declare module "@schemx/vue" {
+  interface SchemxButtonDefinition extends Partial<ButtonProps> {}
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SchemxColDefinition<TValues extends Values = Values> extends ColProps {}
 

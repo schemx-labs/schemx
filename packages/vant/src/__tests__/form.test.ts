@@ -49,6 +49,84 @@ afterEach(() => {
 })
 
 describe("Vant form entry", () => {
+  it("透传 Vant 外观配置，并从 useForm 继承操作按钮配置", async () => {
+    const scope = effectScope()
+
+    const form = scope.run(() =>
+      useForm({
+        submitter: {
+          text: "保存",
+          buttonProps: { type: "warning", size: "mini", square: true, hairline: true },
+        },
+        resetter: false,
+      })
+    )
+
+    if (!form) {
+      throw new Error("UI Hook 未创建 Form")
+    }
+
+    const wrapper = mount(SchemxForm as Component, { props: { form } })
+
+    expect(wrapper.findAll(".van-button")).toHaveLength(1)
+    expect(wrapper.get(".van-button").classes()).toEqual(
+      expect.arrayContaining([
+        "van-button--warning",
+        "van-button--mini",
+        "van-button--square",
+        "van-button--hairline",
+      ])
+    )
+    expect(wrapper.get(".van-button").attributes("type")).toBe("button")
+    expect(wrapper.get(".van-button").text()).toBe("保存")
+
+    await wrapper.setProps({
+      submitter: { buttonProps: { type: "danger", size: "normal", round: true } },
+    })
+    expect(wrapper.get(".van-button").classes()).toEqual(
+      expect.arrayContaining([
+        "van-button--danger",
+        "van-button--normal",
+        "van-button--round",
+      ])
+    )
+    expect(wrapper.get(".van-button").classes()).not.toContain("van-button--square")
+    wrapper.unmount()
+    scope.stop()
+  })
+
+  it("默认操作按钮使用 Vant，并适配尺寸、加载文案和原生 type", async () => {
+    const onReset = vi.fn()
+
+    const wrapper = mount(SchemxForm as Component, {
+      props: {
+        loading: true,
+        submitter: { buttonProps: { size: "large", loadingText: "保存中" } },
+        onReset,
+      },
+    })
+
+    expect(wrapper.findAll(".van-button")).toHaveLength(2)
+    expect(wrapper.get(".schemx-actions-button--submit").classes()).toContain(
+      "van-button--large"
+    )
+    expect(wrapper.get(".schemx-actions-button--submit").text()).toBe("保存中")
+    expect(wrapper.get(".schemx-actions-button--submit").attributes("type")).toBe(
+      "button"
+    )
+    expect(
+      wrapper.get(".schemx-actions-button--submit").attributes("disabled")
+    ).toBeDefined()
+    expect(
+      wrapper.get(".schemx-actions-button--reset").attributes("disabled")
+    ).toBeDefined()
+
+    await wrapper.setProps({ loading: false })
+    await wrapper.get(".schemx-actions-button--reset").trigger("click")
+    expect(onReset).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it("局部组件无需安装或默认 Props 即提供完整 UI 配置", () => {
     const wrapper = mount(SchemxForm as Component, {
       props: { schemas, initialValues: { name: "A" }, submitter: false, resetter: false },
@@ -89,9 +167,7 @@ describe("Vant form entry", () => {
     expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
       "width: 160px"
     )
-    expect(wrapper.get(".van-row").attributes("style")).toContain(
-      "justify-content: center"
-    )
+    expect(wrapper.get(".van-row").classes()).toContain("van-row--justify-center")
     expect(wrapper.get(".van-row").attributes("style")).toContain(
       "--schemx-gutter-top: 0px"
     )

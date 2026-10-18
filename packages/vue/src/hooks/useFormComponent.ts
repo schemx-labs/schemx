@@ -90,6 +90,8 @@ export function useFormComponent<TValues extends Values>(
    * 保持 SchemxForm 既有默认行为、且允许 Provider/App 覆盖的最低优先级配置。
    */
   const formFallbackConfig = {
+    submitter: true,
+    resetter: true,
     schemaConfig: {
       visible: true,
       validationTrigger: ["blur", "change"],
@@ -99,10 +101,17 @@ export function useFormComponent<TValues extends Values>(
   /**
    * 仅合并 Vue 配置来源；外部 Form 的字段默认值仅同步组件显式配置。
    */
-  const componentKeys = ["colComponent", "rowComponent", "iconComponent"] as const
+  const componentKeys = [
+    "colComponent",
+    "rowComponent",
+    "buttonComponent",
+    "iconComponent",
+  ] as const
 
   const configKeys = [
     ...componentKeys,
+    "submitter",
+    "resetter",
     "debug",
     "schedulerOptions",
     "validationConcurrency",
@@ -207,6 +216,9 @@ export function useFormComponent<TValues extends Values>(
     },
     get rowComponent() {
       return effectiveConfig.value.rowComponent
+    },
+    get buttonComponent() {
+      return effectiveConfig.value.buttonComponent
     },
   })
 

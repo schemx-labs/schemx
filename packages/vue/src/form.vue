@@ -9,8 +9,8 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { computed, getCurrentInstance, useSlots } from "vue"
 
-  import Action from "./action.vue"
   import { getFormCreator } from "./adapter/formCreators"
+  import Action from "./components/Action/index.vue"
   import Row from "./components/Row"
   import SchemaList from "./components/SchemaList"
   import { useViewSchemas } from "./hooks"
@@ -46,8 +46,8 @@
     onFieldsChange: undefined,
     loading: undefined,
     actionCol: undefined,
-    submitter: true,
-    resetter: true,
+    submitter: undefined,
+    resetter: undefined,
     rendererProps: undefined,
     rendererRegistry: undefined,
     presetRuleRegistry: undefined,
@@ -65,6 +65,7 @@
     bordered: undefined,
     col: undefined,
     colComponent: undefined,
+    buttonComponent: undefined,
     iconComponent: undefined,
     row: undefined,
     rowComponent: undefined,
@@ -164,10 +165,10 @@
 
       <Action
         :form="formInstance"
-        :action-col="effectiveConfig.schemaConfig?.actionCol"
+        :action-col="effectiveConfig?.actionCol"
         :loading="props.loading"
-        :submitter="props.submitter"
-        :resetter="props.resetter"
+        :submitter="effectiveConfig.submitter"
+        :resetter="effectiveConfig.resetter"
       >
         <template v-if="slots.resetter" #resetter="slotProps">
           <slot name="resetter" v-bind="slotProps" />

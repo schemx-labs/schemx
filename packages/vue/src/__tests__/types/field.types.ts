@@ -77,7 +77,7 @@ const actionProps: SchemxFormProps<FormValues> = {
 
 const invalidActionProps: SchemxFormProps<FormValues> = {
   submitter: {
-    // @ts-expect-error 内置操作按钮不允许覆盖 type。
+    // @ts-expect-error type 表示外观类型，不接受原生提交行为。
     buttonProps: { type: "submit" },
   },
 }

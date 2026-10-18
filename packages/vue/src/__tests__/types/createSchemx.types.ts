@@ -4,10 +4,10 @@ import type BaseForm from "../../formRuntime.js"
 import type { ConfigProviderProps, SchemxInstallOptions } from "../../index"
 import type { CreateSchemxOptions, SchemxInstance } from "@schemx/core"
 
-const defaults: CreateSchemxOptions = {
+const defaults = {
   debug: true,
   colComponent: undefined,
-}
+} satisfies CreateSchemxOptions
 
 const api = VueApi.createSchemx(defaults)
 

@@ -3,6 +3,7 @@ import type { ComponentInternalInstance, InjectionKey } from "vue"
 
 import { useVueFormRuntime } from "../bridge/formBridge"
 
+import type { SchemxButtonComponent } from "../components/Button/types"
 import type { SchemxIconComponent } from "../types/icon"
 import type { SchemxColComponent, SchemxRowComponent } from "../types/layout"
 import type { SchemxConfig, SchemxInstance, Values } from "@schemx/core"
@@ -13,7 +14,7 @@ import type { SchemxConfig, SchemxInstance, Values } from "@schemx/core"
  * `schemaConfig` 与 {@link SchemxConfig} 的嵌套默认值保持同一类型，
  * 手工提供 Context 时可传局部默认值；SchemxForm 提供 Vue 层合并结果，
  * 不包含 Core 全局和内置默认值的解析结果。
- * 组件实现单独存储，由 Row、Col 和 Icon 渲染入口消费。
+ * 组件实现单独存储，由 Row、Col、Button 和 Icon 渲染入口消费。
  *
  * @typeParam TValues - 当前表单值类型。
  */
@@ -28,6 +29,10 @@ export interface FormConfigContextValue<TValues extends Values = Values> {
   rowComponent?: SchemxRowComponent
   /** 当前 Form 使用的 Col 组件。 */
   colComponent?: SchemxColComponent
+  /**
+   * 当前 Form 使用的 Button 组件。
+   */
+  buttonComponent?: SchemxButtonComponent
 }
 
 /**
@@ -114,6 +119,9 @@ export function provideFormContextState<TValues extends Values = Values>(
       },
       get colComponent() {
         return source.config?.colComponent
+      },
+      get buttonComponent() {
+        return source.config?.buttonComponent
       },
     }
 

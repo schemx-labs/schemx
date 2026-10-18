@@ -2,4 +2,9 @@
 export { default } from "./index.vue"
 
 // 导出内置 Button 的 Props 与尺寸类型。
-export type { SchemxButtonProps, SchemxButtonSize } from "./types"
+export type {
+  SchemxButtonComponent,
+  SchemxButtonDefinition,
+  SchemxButtonProps,
+  SchemxButtonSize,
+} from "./types"

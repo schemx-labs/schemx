@@ -17,3 +17,11 @@ export * from "./field"
 export * from "./layout"
 
 export * from "./icon"
+
+export type {
+  SchemxButtonComponent,
+  SchemxButtonDefinition,
+  SchemxButtonOptions,
+  SchemxButtonProps,
+  SchemxButtonSize,
+} from "../components/Button/types"

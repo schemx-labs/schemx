@@ -1,12 +1,16 @@
 // @vitest-environment happy-dom
 
-import { defineComponent, h, markRaw } from "vue"
+import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
-import { createRendererRegistry } from "@schemx/core"
+import { createForm, createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
+import Button from "../components/Button"
+import Col from "../components/Col"
+import Row from "../components/Row"
 import SchemaList from "../components/SchemaList"
+import { provideFormContext } from "../context/formContext"
 import Schemx from "../form"
 import SchemxForm from "../form.vue"
 
@@ -58,6 +62,121 @@ const InputRenderer = defineComponent({
 })
 
 describe("Vue SchemaList layout", () => {
+  it("内部样式只作用于默认实现，切换外部组件后保留调用方样式和布局属性", async () => {
+    // 在同一表单上下文中动态替换三个组件实现。
+    const useExternal = ref(false)
+
+    const form = createForm({})
+
+    const TestButton = defineComponent({
+      inheritAttrs: false,
+      setup(_props, { attrs, slots }) {
+        return () =>
+          h("button", { ...attrs, "data-testid": "custom-button" }, slots.default?.())
+      },
+    })
+
+    const Host = defineComponent({
+      setup() {
+        provideFormContext({
+          form,
+          schemaConfig: {},
+          get rowComponent() {
+            return useExternal.value ? TestRow : undefined
+          },
+          get colComponent() {
+            return useExternal.value ? TestCol : undefined
+          },
+          get buttonComponent() {
+            return useExternal.value ? TestButton : undefined
+          },
+        })
+
+        return () =>
+          h(
+            Row,
+            {
+              row: { gutter: 16, justify: "end", align: "middle" },
+              style: { margin: "6px", display: "grid" },
+            },
+            () =>
+              h(
+                Col,
+                {
+                  col: { span: 12, offset: 2 },
+                  style: { padding: "3px", width: "75%" },
+                },
+                () =>
+                  h(
+                    Button,
+                    {
+                      class: "schemx-actions-button--submit",
+                      style: { color: "red" },
+                    },
+                    () => "保存"
+                  )
+              )
+          )
+      },
+    })
+
+    const wrapper = mount(Host)
+
+    for (const selector of [".schemx-row", ".schemx-col", ".schemx-button"]) {
+      expect(
+        wrapper
+          .get(selector)
+          .element.getAttributeNames()
+          .some((name) => name.startsWith("data-v-"))
+      ).toBe(true)
+    }
+
+    expect(wrapper.get(".schemx-row").attributes("style")).toContain(
+      "--schemx-gutter-top: 8px"
+    )
+    expect(wrapper.get(".schemx-col").attributes("style")).toContain("flex-basis: 50%")
+
+    useExternal.value = true
+    await nextTick()
+
+    for (const selector of [
+      ".schemx-row",
+      ".schemx-col",
+      '[data-testid="custom-button"]',
+    ]) {
+      expect(
+        wrapper
+          .get(selector)
+          .element.getAttributeNames()
+          .some((name) => name.startsWith("data-v-"))
+      ).toBe(false)
+    }
+
+    expect(wrapper.get(".schemx-row").attributes("style")).toBe(
+      "margin: 6px; display: grid;"
+    )
+    expect(wrapper.get(".schemx-col").attributes("style")).toBe(
+      "padding: 3px; width: 75%;"
+    )
+    expect(wrapper.get(".schemx-row").attributes("data-gutter")).toBe("16")
+    expect(wrapper.get(".schemx-col").attributes("data-span")).toBe("12")
+    expect(wrapper.get(".schemx-col").attributes("data-offset")).toBe("2")
+    expect(wrapper.find(".schemx-button").exists()).toBe(false)
+    expect(wrapper.get('[data-testid="custom-button"]').attributes("style")).toBe(
+      "color: red;"
+    )
+    expect(wrapper.text()).toBe("保存")
+
+    useExternal.value = false
+    await nextTick()
+    expect(wrapper.get(".schemx-row").attributes("style")).toContain(
+      "--schemx-gutter-top: 8px"
+    )
+    expect(wrapper.get(".schemx-button").text()).toBe("保存")
+    wrapper.unmount()
+    form.destroy()
+  })
+
   it("为 SchemaList 的列表输出增加包裹层", () => {
     const wrapper = mount(SchemaList, {
       props: {

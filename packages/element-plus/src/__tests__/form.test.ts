@@ -49,6 +49,75 @@ afterEach(() => {
 })
 
 describe("Element Plus form entry", () => {
+  it("透传 Element Plus 外观配置，并从 useForm 继承操作按钮配置", async () => {
+    const scope = effectScope()
+
+    const form = scope.run(() =>
+      useForm({
+        submitter: {
+          text: "保存",
+          buttonProps: { type: "danger", size: "default", plain: true, round: true },
+        },
+        resetter: false,
+      })
+    )
+
+    if (!form) {
+      throw new Error("UI Hook 未创建 Form")
+    }
+
+    const wrapper = mount(SchemxForm as Component, { props: { form } })
+
+    expect(wrapper.findAll(".el-button")).toHaveLength(1)
+    expect(wrapper.get(".el-button").classes()).toEqual(
+      expect.arrayContaining(["el-button--danger", "is-plain", "is-round"])
+    )
+    expect(wrapper.get(".el-button").attributes("type")).toBe("button")
+    expect(wrapper.get(".el-button").text()).toBe("保存")
+
+    await wrapper.setProps({
+      submitter: { buttonProps: { type: "success", size: "small", link: true } },
+    })
+    expect(wrapper.get(".el-button").classes()).toEqual(
+      expect.arrayContaining(["el-button--success", "el-button--small", "is-link"])
+    )
+    expect(wrapper.get(".el-button").classes()).not.toContain("is-plain")
+    wrapper.unmount()
+    scope.stop()
+  })
+
+  it("默认操作按钮使用 Element Plus，并适配尺寸、加载文案和原生 type", async () => {
+    const onReset = vi.fn()
+
+    const wrapper = mount(SchemxForm as Component, {
+      props: {
+        loading: true,
+        submitter: { buttonProps: { size: "large", loadingText: "保存中" } },
+        onReset,
+      },
+    })
+
+    expect(wrapper.findAll(".el-button")).toHaveLength(2)
+    expect(wrapper.get(".schemx-actions-button--submit").classes()).toContain(
+      "el-button--large"
+    )
+    expect(wrapper.get(".schemx-actions-button--submit").text()).toBe("保存中")
+    expect(wrapper.get(".schemx-actions-button--submit").attributes("type")).toBe(
+      "button"
+    )
+    expect(
+      wrapper.get(".schemx-actions-button--submit").attributes("disabled")
+    ).toBeDefined()
+    expect(
+      wrapper.get(".schemx-actions-button--reset").attributes("disabled")
+    ).toBeDefined()
+
+    await wrapper.setProps({ loading: false })
+    await wrapper.get(".schemx-actions-button--reset").trigger("click")
+    expect(onReset).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it("局部组件无需安装或默认 Props 即提供完整 UI 配置", () => {
     const wrapper = mount(SchemxForm as Component, {
       props: { schemas, initialValues: { name: "A" }, submitter: false, resetter: false },
@@ -89,9 +158,7 @@ describe("Element Plus form entry", () => {
     expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
       "width: 160px"
     )
-    expect(wrapper.get(".el-row").attributes("style")).toContain(
-      "justify-content: center"
-    )
+    expect(wrapper.get(".el-row").classes()).toContain("is-justify-center")
     expect(wrapper.get(".el-row").attributes("style")).not.toContain(
       "--schemx-gutter-top: 7px"
     )
