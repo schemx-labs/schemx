@@ -2,7 +2,6 @@ import { existsSync, readFileSync, statSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
-// oxlint-disable-next-line vite-plus/prefer-vite-plus-imports -- This independent plugin uses its Vite peer.
 import { loadEnv } from "vite"
 
 import type {

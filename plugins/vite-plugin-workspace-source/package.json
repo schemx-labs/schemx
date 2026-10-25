@@ -28,8 +28,8 @@
     "build": "tsc -p tsconfig.json",
     "type-check": "tsc -p tsconfig.test.json --noEmit",
     "test": "pnpm run build && vp test run",
-    "lint": "vp lint src test bin",
-    "format:check": "vp fmt --check src test bin",
+    "lint": "eslint src test bin",
+    "format:check": "prettier --check src test bin",
     "check": "pnpm run lint && pnpm run format:check && pnpm run type-check"
   }
 }

@@ -14,7 +14,6 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import * as ts from "typescript"
-// oxlint-disable-next-line vite-plus/prefer-vite-plus-imports -- Exercise the plugin's public Vite peer.
 import { createServer, resolveConfig } from "vite"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
