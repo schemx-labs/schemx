@@ -157,7 +157,7 @@ export function formatNumber(value: string, allowDot = true, allowMinus = true):
  * ```
  */
 export function getStringLength(str: string): number {
-  return [...String(str)].length
+  return str.length
 }
 
 /**
@@ -173,5 +173,5 @@ export function getStringLength(str: string): number {
  * ```
  */
 export function cutString(str: string, maxLength: number): string {
-  return [...String(str)].slice(0, maxLength).join("")
+  return str.slice(0, maxLength)
 }

@@ -45,7 +45,7 @@ const createFormOptions: CreateFormOptions<FormValues> = {
           const province: string = values.province
 
           // @ts-expect-error CreateFormOptions 应保留 FormValues，不存在 unknownField。
-          // oxlint-disable-next-line no-unused-expressions
+          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
           values.unknownField
 
           return [province]
