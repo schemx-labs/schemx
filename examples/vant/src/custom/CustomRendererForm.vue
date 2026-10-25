@@ -40,7 +40,7 @@
   import ContactCardRenderer from "./ContactCardRenderer.vue"
 
   import type { ContactCardValue } from "./types"
-  import type { SchemxExactBaseField, SchemxField, SchemxInstance } from "@schemx/vant"
+  import type { SchemxField, SchemxInstance } from "@schemx/vant"
 
   interface CustomRendererValues {
     contact: ContactCardValue

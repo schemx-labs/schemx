@@ -382,7 +382,7 @@
    *
    * @param values - 校验通过的表单数据
    */
-  const handleSubmit = (values) => {
+  const handleSubmit = (values: Record<string, any>) => {
     console.log("提交数据:", values)
     alert("提交成功！数据已打印到控制台")
   }

@@ -70,7 +70,6 @@
     inheritAttrs: false,
   })
 
-  // eslint-disable-next-line vue/prop-name-casing
   const props = defineProps<ContactCardRendererProps>()
 
   const field = useFieldContext()
