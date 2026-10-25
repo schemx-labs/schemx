@@ -11,7 +11,7 @@ import {
   provideGroupScrollPath,
   useFieldScrollRegistry,
   useGroupScrollPath,
-} from "../context/fieldScrollContext"
+} from "../context"
 
 import type { SchemxViewGroupSchema } from "@schemx/core"
 

@@ -9,7 +9,7 @@
 import { defineComponent, h, markRaw, toRaw, useAttrs } from "vue"
 import type { PropType } from "vue"
 
-import type { SchemxIconComponent, SchemxIconValue } from "../../types/icon"
+import type { SchemxIconComponent, SchemxIconValue } from "../../types"
 
 const Icon = defineComponent({
   name: "SchemxIcon",

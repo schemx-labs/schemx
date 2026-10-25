@@ -4,9 +4,10 @@
  * @module types/field
  */
 
-import type { ComputedRef, Ref, VNodeChild } from "vue"
+import type { ComputedRef, VNodeChild, WritableComputedRef } from "vue"
 
 import type {
+  DeepReadonly,
   FieldValue,
   NamePath,
   SchemxBaseComponentProps,
@@ -35,23 +36,30 @@ export type SchemxVueBaseComponentProps<
 /**
  * Vue 层字段控制器实例
  *
- * 继承 core 层的 {@link SchemxFieldInstance}，
- * 将其 Signal 驱动的字段状态桥接为 Vue Ref，
+ * 复用 Core 字段命令，将 Signal 驱动的只读状态桥接为 Vue Ref，
  * 供模板、computed、watchEffect 等响应式上下文直接使用。
  *
  * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 初始字段路径，用于保留值类型。
  */
 export interface FieldInstance<
   TValues extends Values = Values,
-> extends SchemxFieldInstance<TValues> {
+  TName extends NamePath<TValues> = NamePath<TValues>,
+> extends Omit<SchemxFieldInstance<TValues, TName>, "getValue"> {
   /**
    * 当前字段路径。
    */
-  readonly name: NamePath<TValues>
+  readonly name: NamePath<TValues> | undefined
   /**
-   * 当前字段值（Vue shallowRef，由共享 Field Bridge 驱动）。
+   * 当前字段的只读值；整体赋值通过 Core setValue 提交。
    */
-  value: Ref<FieldValue<TValues, NamePath<TValues>> | undefined>
+  readonly value: WritableComputedRef<
+    DeepReadonly<FieldValue<TValues, TName>> | undefined
+  >
+  /**
+   * 读取共享字段投影中的深层只读值。
+   */
+  getValue(): DeepReadonly<FieldValue<TValues, TName>> | undefined
   /**
    * 是否已被用户修改（只读 Vue computed）。
    */
@@ -88,7 +96,7 @@ export interface SchemxFieldSlotProps<
   /**
    * 当前字段控制器。
    */
-  field: FieldInstance<TValues>
+  field: FieldInstance<TValues, TName>
   /**
    * 当前表单实例。
    */

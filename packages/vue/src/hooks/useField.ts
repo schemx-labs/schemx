@@ -11,12 +11,12 @@ import { computed } from "vue"
 
 import { createField } from "@schemx/core"
 
-import { useVueFormRuntime } from "../bridge/formBridge"
-import { readFormContextInstance } from "../context/formContext"
+import { useVueFormRuntime } from "../bridge"
+import { readFormContextInstance } from "../context"
 
-import type { VueFormRuntime } from "../bridge/types"
-import type { FieldInstance } from "../types/field"
-import type { NamePath, Values } from "@schemx/core"
+import type { VueFormRuntime } from "../bridge"
+import type { FieldInstance } from "../types"
+import type { FieldValue, NamePath, Values } from "@schemx/core"
 
 /**
  * 创建一份字段控制器，并将所有读取状态投影到共享 Vue Field State。
@@ -31,33 +31,56 @@ import type { NamePath, Values } from "@schemx/core"
 export function createFieldHook<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
->(runtime: VueFormRuntime<TValues>, name: TName): FieldInstance<TValues> {
+>(runtime: VueFormRuntime<TValues>, name: TName): FieldInstance<TValues, TName> {
+  // 写入继续经过 Core 创建的控制器，保留原有命令和路径取消语义。
   const form = runtime.instance
 
-  const fieldState = runtime.getFieldState(name)
+  const coreField = createField<TValues, TName>(form, name)
 
-  const coreField = createField<TValues>(form, name)
+  // 读取投影与写入命令绑定同一个控制器，不再缓存初始路径的来源。
+  const fieldState = runtime.getBoundFieldState(coreField)
 
-  const errors = computed(() => fieldState.errors.value)
+  // 路径是原生字符串，深层只读包装不改变其约束；失效后由 Core 返回 undefined。
+  const getName = (): NamePath<TValues> | undefined =>
+    fieldState.name.value as NamePath<TValues> | undefined
 
-  const dirty = computed(() => fieldState.touched.value)
+  // 手动路径来源可以保留最终值，但控制器失效后仍按命令语义返回空值。
+  const getValue: FieldInstance<TValues, TName>["getValue"] = () =>
+    getName() === undefined ? undefined : fieldState.value.value
 
-  const pending = computed(() => fieldState.pending.value)
+  const getErrors: FieldInstance<TValues, TName>["getErrors"] = () =>
+    getName() === undefined ? [] : fieldState.errors.value
 
-  const getValue = (): ReturnType<typeof coreField.getValue> => fieldState.value.value
+  const isTouched = (): boolean => getName() !== undefined && fieldState.touched.value
 
-  const getErrors = (): ReturnType<typeof coreField.getErrors> => fieldState.errors.value
+  const isPending = (): boolean => getName() !== undefined && fieldState.pending.value
 
-  const isTouched = (): boolean => fieldState.touched.value
+  // 只组合已桥接的 Ref，不创建另一份 Core 订阅。
+  const errors = computed(getErrors)
 
-  const isPending = (): boolean => fieldState.pending.value
+  const dirty = computed(isTouched)
 
-  const getValues = (): Readonly<TValues> => form.getFieldsValue()
+  const pending = computed(isPending)
 
-  return {
+  /**
+   * Ref 整体赋值保持程序赋值语义，不触发用户交互回调或自动校验。
+   * @param nextValue - 当前路径对应的新值或同类型只读值。
+   */
+  const setValue = (nextValue: FieldInstance<TValues, TName>["value"]["value"]): void => {
+    // Core setValue 不修改传入值；只在命令边界恢复同一字段的输入类型。
+    coreField.setValue(nextValue as FieldValue<TValues, TName> | undefined)
+  }
+
+  // 复用同一来源读取，写入始终提交到当前 Core 绑定。
+  const value = computed({ get: getValue, set: setValue })
+
+  const getValues: FieldInstance<TValues, TName>["getValues"] = () =>
+    form.getFieldsValue()
+
+  // 先检查命令与投影的完整契约，只有 name 通过 getter 连接当前路径。
+  const field: Omit<FieldInstance<TValues, TName>, "name"> = {
     ...coreField,
-    name,
-    value: fieldState.value,
+    value,
     errors,
     dirty,
     pending,
@@ -67,12 +90,19 @@ export function createFieldHook<
     isPending,
     getValues,
   }
+
+  // defineProperty 已建立只读路径属性，此断言仅补齐其类型层面不可见的属性。
+  return Object.defineProperty(field, "name", {
+    enumerable: true,
+    get: getName,
+  }) as FieldInstance<TValues, TName>
 }
 
 /**
  * 获取单个字段的控制能力。
  *
  * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 初始字段路径；省略时保留旧的路径联合类型。
  * @param name - 字段路径（支持嵌套字段）。
  * @returns 包含 Vue Ref 状态和 Core 字段操作的控制器。
  *
@@ -82,9 +112,10 @@ export function createFieldHook<
  * field.value.value = "user@example.com"
  * ```
  */
-export const useField = <TValues extends Values = Values>(
-  name: NamePath<TValues>
-): FieldInstance<TValues> => {
+export function useField<
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+>(name: TName): FieldInstance<TValues, TName> {
   const runtime = useVueFormRuntime(readFormContextInstance<TValues>())
 
   return createFieldHook(runtime, name)

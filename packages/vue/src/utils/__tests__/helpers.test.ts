@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { getSectionPosition, normalizeId, normalizeNameKey } from "../helpers"
+import { getSectionPosition, normalizeId, normalizeNameKey } from ".."
 
 import type { SchemxViewSchema } from "@schemx/core"
 

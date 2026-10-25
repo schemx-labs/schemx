@@ -9,16 +9,14 @@
 <script lang="ts" setup generic="TValues extends Values = Values">
   import { computed, getCurrentInstance, useSlots } from "vue"
 
-  import { getFormCreator } from "./adapter/formCreators"
-  import Action from "./components/Action/index.vue"
+  import { getFormCreator } from "./adapter"
+  import Action from "./components/Action"
   import Row from "./components/Row"
   import SchemaList from "./components/SchemaList"
-  import { useViewSchemas } from "./hooks"
-  import { useFormComponent } from "./hooks/useFormComponent"
-  import { useScrollToField } from "./hooks/useScrollToField"
-  import { getSectionPosition } from "./utils/helpers"
+  import { useFormComponent, useScrollToField, useViewSchemas } from "./hooks"
+  import { getSectionPosition } from "./utils"
 
-  import type { SchemxFormProps, SchemxRowConfig } from "./types/index"
+  import type { SchemxFormProps, SchemxRowConfig } from "./types"
   import type { SchemxViewSchema, Values } from "@schemx/core"
 
   import "./styles/index.css"

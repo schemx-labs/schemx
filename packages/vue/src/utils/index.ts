@@ -5,25 +5,6 @@
  */
 
 /**
- * 动态属性解析
- */
-export {
-  type DependencieEntry,
-  resolveDependencie,
-  batchResolveDependencie,
-} from "./dynamic"
-
-/**
- * 校验触发工具
- */
-export {
-  type TriggerConfig,
-  type NormalizedTrigger,
-  shouldValidateOn,
-  mergeTrigger,
-} from "./validation"
-
-/**
  * 插槽工具
  */
 export { resolveSlot, extractChildSlots } from "./slot"
@@ -38,7 +19,6 @@ export { getSectionPosition, normalizeId, normalizeNameKey } from "./helpers"
  */
 export { normalizeSchemxGutter, type SchemxNormalizedGutter } from "./layout"
 
-/**
- * 对象差异工具。
- */
-export { diff } from "./diff"
+export { presetRuleRegistry } from "./presetRuleProvider"
+export { rendererRegistry } from "./rendererProvider"
+export { isShallowEqual } from "./equal"

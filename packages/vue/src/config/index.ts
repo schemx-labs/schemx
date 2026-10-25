@@ -7,4 +7,6 @@
 /**
  * Vue 字段展示默认配置。
  */
-export { defaultConfig, defaultConfigKeys } from "./defaultConfig"
+export { defaultConfig, defaultConfigKeys, vueSchemaConfigKeys } from "./defaultConfig"
+
+export { createLegacyForm } from "./createLegacyForm"

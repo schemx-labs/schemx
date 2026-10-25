@@ -15,8 +15,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import ConfigProvider from "../components/ConfigProvider"
 import Schemx from "../form"
-import { useForm } from "../hooks/useForm"
-import { rendererRegistry as vueRendererRegistry } from "../utils/rendererProvider"
+import { useForm } from "../hooks"
+import { rendererRegistry as vueRendererRegistry } from "../utils"
 
 import type { SchemxInstance } from "@schemx/core"
 
@@ -272,7 +272,7 @@ describe("Schemx Vue 插件安装", () => {
     externalForm.destroy()
   })
 
-  it("同一对象内的嵌套修改仍同步，其他标量变化只提交对应字段", async () => {
+  it("同一对象内的嵌套修改仍同步，标量变化整批提交当前显式配置", async () => {
     const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
 
     const rendererRegistry = createRendererRegistry()
@@ -295,7 +295,7 @@ describe("Schemx Vue 插件安装", () => {
     update.mockClear()
     await wrapper.setProps({ readonly: true })
     expect(update).toHaveBeenCalledTimes(1)
-    expect(update).toHaveBeenCalledWith({ readonly: true })
+    expect(update).toHaveBeenCalledWith({ col: { span: 8 }, readonly: true })
     wrapper.unmount()
     externalForm.destroy()
   })
@@ -651,8 +651,7 @@ describe("Schemx Vue 插件安装", () => {
     const providedConfig = app.provide.mock.calls[0]?.[1] as ComputedRef<SchemxConfig>
 
     const normalizedRendererProps = providedConfig.value.rendererProps as
-      | Record<string, Record<string, unknown>>
-      | undefined
+      Record<string, Record<string, unknown>> | undefined
 
     const normalizedConfiguredProps = normalizedRendererProps?.configured
 

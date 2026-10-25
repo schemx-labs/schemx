@@ -13,10 +13,10 @@ import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { provideFormContext } from "../../context/formContext"
-import { normalizeError, useDictionary, type UseDictionaryReturn } from "../useDictionary"
+import { normalizeError, useDictionary, type UseDictionaryReturn } from ".."
+import { provideFormContext } from "../../context"
 
-import type { SchemxDictionary } from "../../types/dictionary"
+import type { SchemxDictionary } from "../../types"
 
 // ========== normalizeError 单元测试 ==========
 

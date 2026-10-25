@@ -4,22 +4,22 @@
  * @module hooks/__tests__/useFormComponent
  */
 
-import { defineComponent, h, markRaw, nextTick, shallowReactive } from "vue"
+import { defineComponent, h, markRaw, nextTick, reactive, shallowReactive } from "vue"
 import type { App, Component } from "vue"
 
-import { createForm } from "@schemx/core"
+import { createForm, createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { useFormComponent } from ".."
 import ConfigProvider from "../../components/ConfigProvider"
-import { provideSchemxAppConfig } from "../../context/configProviderContext"
-import { useOptionalFormContextValue } from "../../context/formContext"
-import { useFormComponent } from "../useFormComponent"
+import { provideSchemxAppConfig, useOptionalFormContextValue } from "../../context"
+import { createSchemx } from "../../createSchemx"
 
-import type { FormContextValue } from "../../context/formContext"
-import type { SchemxFormProps } from "../../types/form"
-import type { FormComponentRuntime } from "../useFormComponent"
-import type { CreateSchemxOptions } from "@schemx/core"
+import type { FormComponentRuntime } from ".."
+import type { FormContextValue } from "../../context"
+import type { SchemxFormProps } from "../../types"
+import type { CreateSchemxOptions, SchemxApi } from "@schemx/core"
 import type { VueWrapper } from "@vue/test-utils"
 
 // 测试表单使用一个字符串字段。
@@ -36,6 +36,8 @@ interface MountFormOptions {
   appConfig?: CreateSchemxOptions
   config?: CreateSchemxOptions
   props?: SchemxFormProps<FormValues>
+  // 可选工厂用于验证创建时继承快照。
+  creator?: SchemxApi["createForm"]
 }
 
 // 暴露接入结果及响应式 Props，供测试验证配置覆盖和实例所有权。
@@ -77,7 +79,7 @@ function mountForm(options: MountFormOptions = {}): MountedForm {
   // 直接接入 Hook，使测试不受主组件 SFC 编译问题影响。
   const Host = defineComponent({
     setup() {
-      runtime = useFormComponent<FormValues>(props, () => {})
+      runtime = useFormComponent<FormValues>(props, () => {}, options.creator)
 
       return () => h(Child)
     },
@@ -135,6 +137,148 @@ const failingSchemas: NonNullable<SchemxFormProps<FormValues>["schemas"]> = [
 ]
 
 describe("useFormComponent", () => {
+  it("Renderer Props 支持响应式覆盖与撤销，按 Form、Provider、App 顺序回退", async () => {
+    const result = mountForm({
+      appConfig: { rendererProps: { input: { placeholder: "App" } } },
+      config: { rendererProps: { input: { placeholder: "Provider" } } },
+      props: { rendererProps: { input: { placeholder: "Form" } } },
+    })
+
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "Form" },
+    })
+    result.props.rendererProps = { input: { placeholder: "Updated" } }
+    await nextTick()
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "Updated" },
+    })
+    result.props.rendererProps = undefined
+    await nextTick()
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "Provider" },
+    })
+    await result.wrapper.setProps({
+      rendererProps: { input: { placeholder: "New provider" } },
+    })
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "New provider" },
+    })
+    await result.wrapper.setProps({ rendererProps: undefined })
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "App" },
+    })
+
+    result.wrapper.unmount()
+  })
+
+  it("Schema 与 Renderer Props 在一次更新内成批提交，保留字段状态", async () => {
+    const result = mountForm({
+      props: { rendererProps: { input: { placeholder: "Before" } } },
+    })
+
+    const form = result.runtime.form
+
+    form.setFieldErrors("name", ["外部错误"])
+    form.setFieldTouched("name", true)
+    form.setFieldPending("name", true)
+    const values = form.state.values.value
+
+    const submit = vi.spyOn(form, "setConfig")
+
+    const configChanges = vi.fn()
+
+    const stop = form.state.config.subscribe(configChanges)
+
+    configChanges.mockClear()
+    result.props.labelWidth = 180
+    result.props.labelAlign = "left"
+    result.props.rendererProps = { input: { placeholder: "After" } }
+    await nextTick()
+
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(configChanges).toHaveBeenCalledTimes(1)
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      labelWidth: 180,
+      labelAlign: "left",
+      componentProps: { placeholder: "After" },
+    })
+    expect(form.state.values.value).toBe(values)
+    expect(form.getFieldErrors("name")).toEqual(["外部错误"])
+    expect(form.isFieldTouched("name")).toBe(true)
+    expect(form.isFieldPending("name")).toBe(true)
+
+    stop()
+    result.wrapper.unmount()
+  })
+
+  it("Renderer Props 的原地修改也提交，并回退到创建时工厂快照", async () => {
+    const api = createSchemx({ rendererProps: { input: { placeholder: "Factory" } } })
+
+    const rendererProps = reactive({ input: { placeholder: "Local" } })
+
+    const result = mountForm({ creator: api.createForm, props: { rendererProps } })
+
+    rendererProps.input.placeholder = "Mutated"
+    await nextTick()
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "Mutated" },
+    })
+    api.configureSchemx({ rendererProps: { input: { placeholder: "Future factory" } } })
+    result.props.rendererProps = undefined
+    await nextTick()
+    expect(result.runtime.form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { placeholder: "Factory" },
+    })
+
+    result.wrapper.unmount()
+  })
+
+  it("创建选项的后续 Props 变化不会替换引擎或重新提交消费配置", async () => {
+    const original = createRendererRegistry()
+
+    const result = mountForm({ props: { rendererRegistry: original, debug: false } })
+
+    const submit = vi.spyOn(result.runtime.form, "setConfig")
+
+    const view = result.runtime.form.getViewSchemas()[0]
+
+    result.props.rendererRegistry = createRendererRegistry()
+    result.props.debug = true
+    await nextTick()
+
+    expect(submit).not.toHaveBeenCalled()
+    expect(result.runtime.config.value.rendererRegistry).toBe(original)
+    expect(result.runtime.config.value.debug).toBe(false)
+    expect(result.runtime.form.getViewSchemas()[0]).toBe(view)
+
+    result.wrapper.unmount()
+  })
+
+  it("外部 Form 在同一批内修改对象和撤销标量配置时只发布一次配置", async () => {
+    const external = createForm<FormValues>({ initialValues: { name: "External" } })
+
+    const col = reactive({ span: 12 })
+
+    const result = mountForm({ props: { form: external, readonly: false, col } })
+
+    const changes = vi.fn()
+
+    const stop = external.state.config.subscribe(changes)
+
+    changes.mockClear()
+    col.span = 8
+    result.props.readonly = undefined
+    await nextTick()
+
+    expect(changes).toHaveBeenCalledTimes(1)
+    expect(external.state.config.value.schemaConfig.col).toEqual({ span: 8 })
+    expect(external.getFieldsValue()).toEqual({ name: "External" })
+
+    stop()
+    result.wrapper.unmount()
+    external.destroy()
+  })
+
   it("从嵌套配置继承布局，保留 Provider 高于 App 的优先级", () => {
     const result = mountForm({
       appConfig: { schemaConfig: { col: { span: 12 }, row: { gutter: 4 } } },

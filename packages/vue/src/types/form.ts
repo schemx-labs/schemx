@@ -6,15 +6,15 @@
 
 import type { ClassValue, StyleValue } from "vue"
 
-import type { SchemxIconComponent } from "./icon"
 import type {
   SchemxColComponent,
   SchemxColConfig,
+  SchemxIconComponent,
   SchemxLayout,
   SchemxRowComponent,
   SchemxRowConfig,
-} from "./layout"
-import type { SchemxButtonComponent, SchemxButtonProps } from "../components/Button/types"
+} from "./index"
+import type { SchemxButtonComponent, SchemxButtonProps } from "../components/Button"
 import type {
   CreateFormOptions,
   SchemxInstance,

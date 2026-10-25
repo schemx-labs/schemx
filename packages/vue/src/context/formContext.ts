@@ -1,11 +1,15 @@
 import { getCurrentInstance, inject, provide } from "vue"
 import type { ComponentInternalInstance, InjectionKey } from "vue"
 
-import { useVueFormRuntime } from "../bridge/formBridge"
+import { useVueFormRuntime } from "../bridge"
 
-import type { SchemxButtonComponent } from "../components/Button/types"
-import type { SchemxIconComponent } from "../types/icon"
-import type { SchemxColComponent, SchemxRowComponent } from "../types/layout"
+import type { SchemxButtonComponent } from "../components/Button"
+import type {
+  SchemxColComponent,
+  SchemxIconComponent,
+  SchemxRowComponent,
+  SchemxInstance as VueInstance,
+} from "../types"
 import type { SchemxConfig, SchemxInstance, Values } from "@schemx/core"
 
 /**
@@ -65,8 +69,7 @@ const providedContexts = new WeakMap<ComponentInternalInstance, FormContextState
  * @example const state = injectFormContextState()
  */
 export function injectFormContextState<TValues extends Values = Values>():
-  | FormContextState<TValues>
-  | undefined {
+  FormContextState<TValues> | undefined {
   return inject(formContextKey as InjectionKey<FormContextState<TValues>>, undefined)
 }
 
@@ -140,7 +143,7 @@ export function provideFormContextState<TValues extends Values = Values>(
  */
 export function provideFormContext<TValues extends Values = Values>(
   context: FormContextValue<TValues>
-): SchemxInstance<TValues> {
+): VueInstance<TValues> {
   const form = useVueFormRuntime(context.form).instance
 
   provideFormContextState({ form, config: context })
@@ -175,8 +178,7 @@ export function useFormContextValue<
  * @example const context = useOptionalFormContextValue()
  */
 export function useOptionalFormContextValue<TValues extends Values = Values>():
-  | FormContextValue<TValues>
-  | undefined {
+  FormContextValue<TValues> | undefined {
   return injectFormContextState<TValues>()?.value
 }
 

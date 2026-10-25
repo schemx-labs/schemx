@@ -1,6 +1,6 @@
 import { createSchemx as createCoreSchemx, mergeConfig } from "@schemx/core"
 
-import { defaultConfig } from "./config/defaultConfig"
+import { defaultConfig } from "./config"
 import { presetRuleRegistry } from "./utils/presetRuleProvider"
 import { rendererRegistry } from "./utils/rendererProvider"
 
@@ -17,8 +17,8 @@ export function createSchemx(config: CreateSchemxOptions = {}): SchemxApi {
   return createCoreSchemx(
     mergeConfig(config, {
       schemaConfig: defaultConfig,
-      rendererRegistry,
-      presetRuleRegistry,
+      rendererRegistry: config.rendererRegistry ?? rendererRegistry,
+      presetRuleRegistry: config.presetRuleRegistry ?? presetRuleRegistry,
     })
   )
 }

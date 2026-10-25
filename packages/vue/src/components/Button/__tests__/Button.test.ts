@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
-import Button from "../index.vue"
+import Button from ".."
 
 describe("SchemxButton", () => {
   it("支持 loading、loadingText、disabled 和 size", async () => {

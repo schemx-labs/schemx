@@ -1,13 +1,14 @@
-import { useVueFormRuntime } from "../bridge/formBridge"
+import { useVueFormRuntime } from "../bridge"
 
 import {
   injectFormContextState,
   provideFormContextState,
   readFormContextInstance,
-} from "./formContext"
+} from "./index"
 
-import type { FormConfigContextValue } from "./formContext"
-import type { VueFormRuntime } from "../bridge/types"
+import type { FormConfigContextValue } from "./index"
+import type { VueFormRuntime } from "../bridge"
+import type { SchemxInstance as VueInstance } from "../types"
 import type { SchemxInstance, Values } from "@schemx/core"
 
 /**
@@ -19,7 +20,7 @@ import type { SchemxInstance, Values } from "@schemx/core"
  */
 export function createFormContext<TValues extends Values = Values>(
   instance: SchemxInstance<TValues>
-): SchemxInstance<TValues> {
+): VueInstance<TValues> {
   const form = useVueFormRuntime(instance).instance
 
   provideFormContextState({ form })

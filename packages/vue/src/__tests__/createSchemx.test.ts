@@ -6,6 +6,8 @@ import type { App, Component, ComputedRef } from "vue"
 import {
   configureSchemx as configureCore,
   createForm as createCoreForm,
+  createPresetRuleRegistry,
+  createRendererRegistry,
   createSchemx,
   getFormCreationConfig,
 } from "@schemx/core"
@@ -15,8 +17,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { createFormComponent, provideSchemxAppConfig } from "../index"
 import * as vueApi from "../index"
 
-import type { CreateSchemxOptions, SchemxApi } from "@schemx/core"
-import type { SchemxField, SchemxInstance } from "@schemx/core"
+import type {
+  CreateSchemxOptions,
+  SchemxApi,
+  SchemxField,
+  SchemxInstance,
+} from "@schemx/core"
 
 // 全部创建入口使用同一业务值与 Schema，比较配置而不依赖内部实现。
 interface FormValues {
@@ -49,7 +55,7 @@ afterEach(() => {
 })
 
 describe("createSchemx", () => {
-  it("Vue 工厂维护框架基线，默认 Registry 和配置互不共享", () => {
+  it("Vue 工厂共享默认 Registry，配置覆盖彼此独立", () => {
     const first = vueApi.createSchemx({
       schemaConfig: { labelWidth: 140, col: { span: 12 } },
     })
@@ -69,8 +75,10 @@ describe("createSchemx", () => {
       col: { span: 12 },
       validationTrigger: ["blur", "change"],
     })
-    expect(first.rendererRegistry).not.toBe(second.rendererRegistry)
-    expect(first.presetRuleRegistry).not.toBe(second.presetRuleRegistry)
+    expect(first.rendererRegistry).toBe(vueApi.rendererRegistry)
+    expect(second.rendererRegistry).toBe(first.rendererRegistry)
+    expect(first.presetRuleRegistry).toBe(vueApi.presetRuleRegistry)
+    expect(second.presetRuleRegistry).toBe(first.presetRuleRegistry)
     first.configureSchemx({ schemaConfig: { labelWidth: 200 }, debug: true })
     expect(second.getConfig().schemaConfig?.labelWidth).toBe("auto")
     const direct = first.createForm(options)
@@ -92,6 +100,20 @@ describe("createSchemx", () => {
     expect(first.getConfig().debug).toBeUndefined()
     direct.destroy()
     scope.stop()
+  })
+  it("显式提供 Registry 时按调用方要求共享", () => {
+    const rendererRegistry = createRendererRegistry()
+
+    const presetRuleRegistry = createPresetRuleRegistry()
+
+    const first = vueApi.createSchemx({ rendererRegistry, presetRuleRegistry })
+
+    const second = vueApi.createSchemx({ rendererRegistry, presetRuleRegistry })
+
+    first.rendererRegistry.register("input", Renderer)
+    expect(second.rendererRegistry.resolve("input")).toBe(Renderer)
+    expect(first.presetRuleRegistry).toBe(presetRuleRegistry)
+    expect(second.presetRuleRegistry).toBe(presetRuleRegistry)
   })
   it("直接创建与 Hook 创建传递全部默认项，显式 false 和性能选项优先", () => {
     const api = createSchemx({
@@ -627,7 +649,7 @@ describe("createSchemx", () => {
     wrapper.unmount()
   })
 
-  it("组件定义绑定不同工厂，嵌套普通 Form 不继承创建器", () => {
+  it("组件选项副本保留工厂绑定，嵌套普通 Form 不继承创建器", () => {
     const first = createSchemx({ schemaConfig: { labelWidth: 120 } })
 
     const second = createSchemx({ schemaConfig: { labelWidth: 240 } })
@@ -638,7 +660,11 @@ describe("createSchemx", () => {
 
     const createSecond = vi.spyOn(second, "createForm")
 
-    const First: Component = createFormComponent(first.createForm, "FirstForm")
+    // 模拟组件选项复制，创建器绑定应随可枚举元数据一起保留。
+    const First: Component = Object.assign(
+      {},
+      createFormComponent(first.createForm, "FirstForm")
+    )
 
     const Second: Component = createFormComponent(second.createForm, "SecondForm")
 

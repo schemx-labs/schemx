@@ -21,7 +21,7 @@
 
 import { type ShallowRef, shallowRef, watchEffect } from "vue"
 
-import { isShallowEqual } from "../utils/equal"
+import { isShallowEqual } from "../utils"
 
 /**
  * 创建一个引用稳定的 shallowRef。

@@ -14,8 +14,8 @@ import classnames from "classnames"
 import { extractChildSlots, normalizeNameKey, resolveSlot } from "../../utils"
 import Icon from "../Icon"
 
-import type { FormConfigContextValue } from "../../context/formContext"
-import type { FieldInstance } from "../../types/field"
+import type { FormConfigContextValue } from "../../context"
+import type { FieldInstance } from "../../types"
 import type {
   SchemxComponentProps,
   SchemxInstance,

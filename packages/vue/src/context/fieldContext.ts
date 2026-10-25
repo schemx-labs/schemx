@@ -6,7 +6,7 @@
 
 import { inject, type InjectionKey, provide } from "vue"
 
-import type { FieldInstance } from "../types/field"
+import type { FieldInstance } from "../types"
 import type { Values } from "@schemx/core"
 
 const SCHEMX_FIELD_CONTEXT_KEY: InjectionKey<FieldInstance<Values>> =

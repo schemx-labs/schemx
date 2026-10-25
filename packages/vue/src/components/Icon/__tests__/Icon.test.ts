@@ -6,10 +6,10 @@ import { createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
+import Icon from ".."
 import Schemx from "../../../form"
 import SchemxForm from "../../../form.vue"
 import ConfigProvider from "../../ConfigProvider"
-import Icon from "../index"
 
 const AdapterIcon = defineComponent({
   name: "AdapterIcon",

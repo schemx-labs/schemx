@@ -1,5 +1,6 @@
 import type {
   FieldInstance,
+  NamePath,
   SchemxComponentProps,
   SchemxField,
   SchemxFieldContentSlotProps,
@@ -138,6 +139,33 @@ field.pending.value = false
 field.errors.value.push("外部错误")
 
 void errors
+
+// 初始路径约束读写类型，不能退化为全部字段值的联合。
+declare const nameField: FieldInstance<{ name: string; age: number }, "name">
+
+const nameValue: string | undefined = nameField.getValue()
+
+nameField.value.value = "Ada"
+nameField.setValue("Grace")
+// @ts-expect-error name 字段不接受数字。
+nameField.value.value = 20
+// @ts-expect-error Core 命令同样保留初始路径的值类型。
+nameField.setValue(20)
+
+// 路径允许因节点销毁而失效，值中的嵌套对象仍为只读投影。
+declare const profileField: FieldInstance<{ profile: { tags: string[] } }, "profile">
+
+const currentName: NamePath<{ profile: { tags: string[] } }> | undefined =
+  profileField.name
+
+profileField.value.value = { tags: ["new"] }
+// @ts-expect-error 不通过快照原地修改 Core 值。
+profileField.value.value?.tags.push("mutated")
+// @ts-expect-error getValue 与 Ref 使用相同的只读来源。
+profileField.getValue()?.tags.push("mutated")
+
+void nameValue
+void currentName
 
 // 组件专属属性保留表单值泛型及 Vue class/style 的组合形式。
 const componentOnlyProps: SchemxFormProps<FormValues> = {

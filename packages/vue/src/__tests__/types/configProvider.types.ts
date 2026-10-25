@@ -88,10 +88,7 @@ type ComponentOnlyKeys = "modelValue" | "form" | "loading" | "class" | "style"
 
 // 布局组件实现仅在整体配置中声明。
 type ComponentImplementationKeys =
-  | "colComponent"
-  | "rowComponent"
-  | "buttonComponent"
-  | "iconComponent"
+  "colComponent" | "rowComponent" | "buttonComponent" | "iconComponent"
 
 /**
  * 使任何不符合边界的属性键成为类型错误。

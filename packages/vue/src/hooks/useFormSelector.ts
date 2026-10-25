@@ -9,7 +9,7 @@ import type { ShallowRef } from "vue"
 
 import { useVueFormRuntime } from "../bridge"
 
-import type { SchemxInstance, Values } from "@schemx/core"
+import type { DeepReadonly, SchemxInstance, Values } from "@schemx/core"
 
 /**
  * `useFormSelector` 的选中结果比较配置。
@@ -31,7 +31,7 @@ export interface UseFormSelectorOptions<TSelected> {
  * 将 Core 表单值按 selector 映射为 Vue 只读浅引用。
  *
  * selector 只应读取快照，不应通过快照修改表单值或调用表单写入方法。
- * `Readonly<TValues>` 仅表达顶层只读，嵌套字段应按不可变值使用；字段值需通过
+ * 快照由 `DeepReadonly<TValues>` 表达深层只读；字段值需通过
  * `setFieldValue()` 或 `setFieldsValue()` 更新，才能触发后续计算。
  *
  * @typeParam TValues - 表单值类型。
@@ -52,7 +52,7 @@ export interface UseFormSelectorOptions<TSelected> {
  */
 export function useFormSelector<TValues extends Values = Values, TSelected = unknown>(
   form: SchemxInstance<TValues>,
-  selector: (values: Readonly<TValues>) => TSelected,
+  selector: (values: DeepReadonly<TValues>) => TSelected,
   options: UseFormSelectorOptions<TSelected> = {}
 ): Readonly<ShallowRef<TSelected>> {
   const values = useVueFormRuntime(form).getValuesRef()

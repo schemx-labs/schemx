@@ -5,12 +5,12 @@ import { createFieldKey, createForm, createRendererRegistry } from "@schemx/core
 import { mount } from "@vue/test-utils"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { provideFieldScrollRegistry } from "../context/fieldScrollContext"
+import { provideFieldScrollRegistry } from "../context"
 import SchemxForm from "../form.vue"
-import { useFieldScrollTarget } from "../hooks/useFieldScrollTarget"
+import { useFieldScrollTarget } from "../hooks"
 
-import type { FieldScrollRegistry } from "../context/fieldScrollContext"
-import type { FieldScrollTargetRef } from "../hooks/useFieldScrollTarget"
+import type { FieldScrollRegistry } from "../context"
+import type { FieldScrollTargetRef } from "../hooks"
 import type { SchemxInstance } from "../index"
 import type { NamePath, Values } from "@schemx/core"
 

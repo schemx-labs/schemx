@@ -2,9 +2,9 @@
   import { computed, useAttrs } from "vue"
   import type { CSSProperties } from "vue"
 
-  import { normalizeSchemxGutter } from "../../utils/layout"
+  import { normalizeSchemxGutter } from "../../utils"
 
-  import type { SchemxGutter, SchemxRowConfig } from "../../types/layout"
+  import type { SchemxGutter, SchemxRowConfig } from "../../types"
 
   // 内置行仅实现公共布局语义，不约束外部 Row 组件的样式。
   interface Props {

@@ -114,8 +114,7 @@ export function useConfigProviderContext(): CreateSchemxOptions | undefined {
  * ```
  */
 export function useConfigProviderContextRef():
-  | ComputedRef<CreateSchemxOptions>
-  | undefined {
+  ComputedRef<CreateSchemxOptions> | undefined {
   if (getCurrentInstance() === null) {
     return undefined
   }

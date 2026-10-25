@@ -10,9 +10,130 @@ import { createForm } from "@schemx/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { acquireVueFormRuntime } from "../bridge"
-import { useForm } from "../hooks/useForm"
+import { useForm } from "../hooks"
+
+import type { SchemxApi } from "@schemx/core"
 
 describe("Vue Form Instance", () => {
+  it("保留 owner 时不预订阅聚合状态，首次读取后共用同一状态引用", () => {
+    const coreForm = createForm({ initialValues: { name: "Ada" } })
+
+    // 订阅数量反映实际启用的状态，不应由 Runtime 创建动作提前增加。
+    const values = vi.spyOn(coreForm.state.values, "subscribe")
+
+    const touched = vi.spyOn(coreForm.state.touchedFields, "subscribe")
+
+    const pending = vi.spyOn(coreForm.state.pendingFields, "subscribe")
+
+    const loading = vi.spyOn(coreForm.state.loading, "subscribe")
+
+    const first = acquireVueFormRuntime(coreForm)
+
+    const second = acquireVueFormRuntime(coreForm)
+
+    expect(values).not.toHaveBeenCalled()
+    expect(touched).not.toHaveBeenCalled()
+    expect(pending).not.toHaveBeenCalled()
+    expect(loading).not.toHaveBeenCalled()
+
+    first.runtime.instance.getFieldsValue()
+    first.runtime.instance.isLoading()
+
+    const state = first.runtime.getValuesRef()
+
+    expect(second.runtime.getValuesRef()).toBe(state)
+    expect(values).toHaveBeenCalledOnce()
+    expect(loading).toHaveBeenCalledOnce()
+    expect(touched).not.toHaveBeenCalled()
+    expect(pending).not.toHaveBeenCalled()
+
+    first.release()
+    coreForm.setFieldValue("name", "Grace")
+    expect(state.value.name).toBe("Grace")
+
+    second.release()
+    coreForm.setFieldValue("name", "Lin")
+    expect(state.value.name).toBe("Grace")
+
+    coreForm.destroy()
+  })
+
+  it("读取字段值只订阅值状态，完整字段投影继续复用已有订阅", () => {
+    const coreForm = createForm({ initialValues: { name: "Ada" } })
+
+    // 单属性读取与完整字段投影应共享原生状态，而非提前订阅其他属性。
+    const field = coreForm.state.field("name")
+
+    const value = vi.spyOn(field.value, "subscribe")
+
+    const errors = vi.spyOn(field.errors, "subscribe")
+
+    const touched = vi.spyOn(field.touched, "subscribe")
+
+    const pending = vi.spyOn(field.pending, "subscribe")
+
+    const acquired = acquireVueFormRuntime(coreForm)
+
+    expect(acquired.runtime.instance.getFieldValue("name")).toBe("Ada")
+    expect(acquired.runtime.instance.getFieldValue("name")).toBe("Ada")
+    expect(value).toHaveBeenCalledOnce()
+    expect(errors).not.toHaveBeenCalled()
+    expect(touched).not.toHaveBeenCalled()
+    expect(pending).not.toHaveBeenCalled()
+
+    const projected = acquired.runtime.getFieldState("name")
+
+    expect(value).toHaveBeenCalledOnce()
+    expect(errors).toHaveBeenCalledOnce()
+    expect(touched).toHaveBeenCalledOnce()
+    expect(pending).toHaveBeenCalledOnce()
+
+    coreForm.setFieldValue("name", "Grace")
+    expect(projected.value.value).toBe("Grace")
+
+    acquired.release()
+    coreForm.destroy()
+  })
+
+  it("useForm 在验证 scope 之前不会创建 Core 实例", () => {
+    const created = vi.fn()
+
+    const creator: SchemxApi["createForm"] = (options) => {
+      created()
+
+      return createForm(options)
+    }
+
+    expect(() => useForm({}, creator)).toThrow("requires an active Vue scope")
+    expect(created).not.toHaveBeenCalled()
+  })
+
+  it("创建过程中 scope 已停止时销毁 Core 实例", () => {
+    const scope = effectScope()
+
+    const destroyed = vi.fn()
+
+    const creator: SchemxApi["createForm"] = (options) => {
+      const instance = createForm(options)
+
+      const destroy = instance.destroy
+
+      instance.destroy = () => {
+        destroyed()
+        destroy()
+      }
+
+      scope.stop()
+
+      return instance
+    }
+
+    expect(() => scope.run(() => useForm({}, creator))).toThrow(
+      "scope was stopped during form creation"
+    )
+    expect(destroyed).toHaveBeenCalledOnce()
+  })
+
   it("useForm 返回 Vue Instance，并保持 Core API 结构兼容", () => {
     const scope = effectScope()
 
@@ -232,6 +353,9 @@ describe("Vue Form Instance", () => {
 
     const effect = vi.spyOn(coreForm, "effect")
 
+    // Instance 仍负责避免重复调用 Core destroy。
+    const destroy = vi.spyOn(coreForm, "destroy")
+
     const acquired = acquireVueFormRuntime(coreForm)
 
     const form = acquired.runtime.instance
@@ -249,14 +373,24 @@ describe("Vue Form Instance", () => {
     coreForm.setFieldValue("name", "Grace")
     await nextTick()
     form.destroy()
+    form.destroy()
     const effectCallsAfterDestroy = effect.mock.calls.length
 
     coreForm.setFieldValue("name", "Lin")
     form.getFieldValue("name")
+    form.getFieldErrors("name")
+    form.isFieldTouched("name")
+    form.isFieldPending("name")
+    form.getFieldsValue()
+    form.getFieldsValue(["name"])
+    form.getTouchedFields()
+    form.getPendingFields()
+    form.isLoading()
     await nextTick()
 
     expect(values).toEqual(["Ada", "Grace"])
     expect(effect).toHaveBeenCalledTimes(effectCallsAfterDestroy)
+    expect(destroy).toHaveBeenCalledOnce()
 
     acquired.release()
     scope.stop()

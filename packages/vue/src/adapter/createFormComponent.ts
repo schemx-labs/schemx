@@ -1,9 +1,8 @@
-import { withInstall } from "../form"
 import BaseForm from "../formRuntime.js"
 
-import { bindFormCreator } from "./formCreators"
+import { bindFormCreator, withInstall } from "./index"
 
-import type { SchemxFormPlugin } from "../form"
+import type { SchemxFormPlugin } from "./index"
 import type { SchemxApi } from "@schemx/core"
 
 /**

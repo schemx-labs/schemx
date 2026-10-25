@@ -10,14 +10,14 @@
 
 import { onMounted, onScopeDispose, Ref, ref, shallowRef } from "vue"
 
-import { readFormContextInstance } from "../context/formContext"
+import { readFormContextInstance } from "../context"
 
-import { useWatchFields } from "./useWatch"
+import { useWatchFields } from "./index"
 
-import type { SchemxDictionary } from "../types/dictionary"
+import type { SchemxDictionary } from "../types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
-export type { SchemxDictionary, SchemxWithDictionary } from "../types/dictionary"
+export type { SchemxDictionary, SchemxWithDictionary } from "../types"
 
 /**
  * useDictionary 返回值。

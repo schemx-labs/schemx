@@ -1,11 +1,11 @@
 <script setup lang="ts">
   import { computed, markRaw, toRaw, useAttrs } from "vue"
 
-  import { useOptionalFormContextValue } from "../../context/formContext"
+  import { useOptionalFormContextValue } from "../../context"
 
-  import DefaultButton from "./default.vue"
+  import { DefaultButton } from "./index"
 
-  import type { SchemxButtonOptions } from "./types"
+  import type { SchemxButtonOptions } from "./index"
 
   defineOptions({ name: "SchemxButton", inheritAttrs: false })
 

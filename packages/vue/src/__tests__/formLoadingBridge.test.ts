@@ -8,7 +8,7 @@ import { effectScope, nextTick, watchEffect } from "vue"
 
 import { describe, expect, it } from "vite-plus/test"
 
-import { useForm } from "../hooks/useForm"
+import { useForm } from "../hooks"
 
 /**
  * 创建可由测试主动完成的 Promise。

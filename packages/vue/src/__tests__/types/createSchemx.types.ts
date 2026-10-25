@@ -11,6 +11,32 @@ const defaults = {
 
 const api = VueApi.createSchemx(defaults)
 
+// 导入 Vue 后，Core 工厂的原生实例仍不要求框架方法。
+const coreOnly = api.createForm({ initialValues: { name: "Core" } })
+
+// @ts-expect-error 原生实例不提供 Vue 的 DOM 定位能力。
+void coreOnly.scrollToField("name")
+
+// Vue Hook 的公开返回类型明确包含桥接能力。
+const vueInstance: VueApi.SchemxInstance<{ name: string }> = VueApi.useForm(
+  { initialValues: { name: "Vue" } },
+  api.createForm
+)
+
+void vueInstance.scrollToField("name")
+// @ts-expect-error 桥接方法仍保留业务字段路径约束。
+void vueInstance.scrollToField("missing")
+
+// selector 输入来自只读快照，不能原地修改数组成员。
+const nested = api.createForm({ initialValues: { profile: { tags: ["first"] } } })
+
+VueApi.useFormSelector(nested, (values) => {
+  // @ts-expect-error 快照中的嵌套数组只读。
+  values.profile.tags.push("mutated")
+
+  return values.profile.tags
+})
+
 const first: SchemxInstance<{ name: string }> = VueApi.useForm(
   { initialValues: { name: "A" } },
   api.createForm

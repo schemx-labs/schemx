@@ -19,16 +19,14 @@ import type { ClassValue, PropType, SlotsType, StyleValue, VNodeChild } from "vu
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import classnames from "classnames"
 
-import { useGroupBodyTransition } from "../../hooks/useGroupBodyTransition"
-import { useGroupCollapse } from "../../hooks/useGroupCollapse"
-import { normalizeId, normalizeNameKey } from "../../utils"
+import { useGroupBodyTransition, useGroupCollapse } from "../../hooks"
+import { normalizeId } from "../../utils"
 import Col from "../Col"
 import Field from "../Field"
 
-import { createGroupSlotRenderers } from "./slot"
+import { createGroupSlotRenderers } from "./index"
 
-import type { SchemxGroupSlots } from "../../types/field"
-import type { SchemxRowConfig } from "../../types/layout"
+import type { SchemxGroupSlots, SchemxRowConfig } from "../../types"
 import type { SchemxViewGroupSchema, SchemxViewSchema } from "@schemx/core"
 
 /**
@@ -154,7 +152,7 @@ const Group = defineComponent({
         if (isViewGroupSchema(child)) {
           return (
             <Group
-              key={child.key}
+              key={child.nodeId}
               schema={child as SchemxViewGroupSchema}
               class={props.class}
               style={props.style}
@@ -163,13 +161,7 @@ const Group = defineComponent({
           )
         }
 
-        return (
-          <Field
-            key={`${child.key}:${normalizeNameKey(child.name)}`}
-            schema={child}
-            v-slots={slots}
-          />
-        )
+        return <Field key={child.nodeId} schema={child} v-slots={slots} />
       }
 
       const renderGroupChildren = (): VNodeChild => {
@@ -274,3 +266,5 @@ const Group = defineComponent({
 })
 
 export default Group
+
+export { createGroupSlotRenderers } from "./slot"

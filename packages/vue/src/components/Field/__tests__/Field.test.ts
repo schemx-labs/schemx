@@ -16,17 +16,16 @@ import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { useFieldContext } from "../../../context/fieldContext"
-import { provideFormContextState } from "../../../context/formContext"
-import { WithRemoteOptions } from "../../../hocs/withRemoteOptions"
-import Field from "../index"
+import Field from ".."
+import { provideFormContextState, useFieldContext } from "../../../context"
+import { WithRemoteOptions } from "../../../hocs"
 
-import type { FormConfigContextValue } from "../../../context/formContext"
+import type { FormConfigContextValue } from "../../../context"
 import type {
   FieldInstance,
   SchemxFieldContentSlotProps,
   SchemxFieldSlotValue,
-} from "../../../types/field"
+} from "../../../types"
 import type {
   RendererPropsTransformer,
   SchemxBaseField,
@@ -789,6 +788,7 @@ describe("Field 集成测试", () => {
     await input.setValue("schemx.dev")
 
     expect(form.getFieldValue("website")).toBe("schemx.dev")
+    expect(form.isFieldTouched("website")).toBe(false)
 
     wrapper.unmount()
     form.destroy()
@@ -838,7 +838,7 @@ describe("Field 集成测试", () => {
     })
 
     form.registerRenderer("probe" as any, ProbeRenderer)
-    const validateSpy = vi.spyOn(form, "validateField")
+    const change = vi.spyOn(form, "changeField")
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -849,7 +849,10 @@ describe("Field 集成测试", () => {
     await nextTick()
     await wrapper.get('[data-testid="probe-renderer"]').setValue("")
 
-    expect(validateSpy).toHaveBeenCalledWith("title")
+    expect(change).toHaveBeenCalledExactlyOnceWith("title", "")
+    await expect(change.mock.results[0]?.value).resolves.toMatchObject({ valid: false })
+    expect(form.isFieldTouched("title")).toBe(true)
+    expect(form.getFieldErrors("title")).toHaveLength(1)
 
     wrapper.unmount()
     form.destroy()
@@ -870,7 +873,9 @@ describe("Field 集成测试", () => {
     })
 
     form.registerRenderer("probe" as any, ProbeRenderer)
-    const validateSpy = vi.spyOn(form, "validateField")
+    const change = vi.spyOn(form, "changeField")
+
+    const blur = vi.spyOn(form, "blurField")
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -883,10 +888,13 @@ describe("Field 集成测试", () => {
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
     await input.setValue("")
-    expect(validateSpy).not.toHaveBeenCalled()
+    await expect(change.mock.results[0]?.value).resolves.toBeUndefined()
+    expect(form.getFieldErrors("title")).toEqual([])
 
     await input.trigger("blur")
-    expect(validateSpy).toHaveBeenCalledWith("title")
+    expect(blur).toHaveBeenCalledExactlyOnceWith("title")
+    await expect(blur.mock.results[0]?.value).resolves.toMatchObject({ valid: false })
+    expect(form.isFieldTouched("title")).toBe(true)
 
     wrapper.unmount()
     form.destroy()
@@ -907,7 +915,6 @@ describe("Field 集成测试", () => {
     })
 
     form.registerRenderer("probe" as any, ProbeRenderer)
-    const validateSpy = vi.spyOn(form, "validateField")
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -927,8 +934,9 @@ describe("Field 集成测试", () => {
     await input.setValue("")
     await input.trigger("blur")
 
-    expect(form.getFieldValue("title")).toBe("")
-    expect(validateSpy).not.toHaveBeenCalled()
+    expect(form.getFieldValue("title")).toBe("旧标题")
+    expect(form.isFieldTouched("title")).toBe(false)
+    expect(form.getFieldErrors("title")).toEqual([])
 
     wrapper.unmount()
     form.destroy()
@@ -950,7 +958,9 @@ describe("Field 集成测试", () => {
     })
 
     form.registerRenderer("probe" as any, ProbeRenderer)
-    const validateSpy = vi.spyOn(form, "validateField")
+    const change = vi.spyOn(form, "changeField")
+
+    const blur = vi.spyOn(form, "blurField")
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -965,19 +975,36 @@ describe("Field 集成测试", () => {
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
     await input.setValue("")
+    await expect(change.mock.results[0]?.value).resolves.toMatchObject({ valid: false })
     await input.trigger("blur")
+    await expect(blur.mock.results[0]?.value).resolves.toMatchObject({ valid: false })
 
-    expect(validateSpy).toHaveBeenCalledTimes(2)
-    expect(validateSpy).toHaveBeenCalledWith("title")
+    expect(change).toHaveBeenCalledExactlyOnceWith("title", "")
+    expect(blur).toHaveBeenCalledExactlyOnceWith("title")
 
     wrapper.unmount()
     form.destroy()
   })
 
   it("Vue Field 应调用 Schema 顶层 onChange 和 onBlur 回调", async () => {
-    const onChange = vi.fn()
+    // Core 同步提交状态和 Schema 回调后，组件回调仍只接收一次原始参数。
+    const order: string[] = []
 
-    const onBlur = vi.fn()
+    const onChange = vi.fn(() => {
+      order.push("schema-change")
+    })
+
+    const onBlur = vi.fn(() => {
+      order.push("schema-blur")
+    })
+
+    const rendererChange = vi.fn(() => {
+      order.push("renderer-change")
+    })
+
+    const rendererBlur = vi.fn(() => {
+      order.push("renderer-blur")
+    })
 
     const schema: SchemxBaseField = {
       name: "title",
@@ -985,6 +1012,7 @@ describe("Field 集成测试", () => {
       componentType: "probe" as any,
       onChange,
       onBlur,
+      componentProps: { onChange: rendererChange, onBlur: rendererBlur },
     }
 
     const form = createForm({
@@ -1005,8 +1033,217 @@ describe("Field 集成测试", () => {
     await input.setValue("新标题")
     await input.trigger("blur")
 
-    expect(onChange).toHaveBeenCalledWith("新标题", form)
-    expect(onBlur).toHaveBeenCalledWith(form)
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("新标题", form)
+    expect(onBlur).toHaveBeenCalledExactlyOnceWith(form)
+    expect(rendererChange).toHaveBeenCalledExactlyOnceWith("新标题")
+    expect(rendererBlur).toHaveBeenCalledExactlyOnceWith(expect.any(FocusEvent))
+    expect(order).toEqual([
+      "schema-change",
+      "renderer-change",
+      "schema-blur",
+      "renderer-blur",
+    ])
+    expect(form.isFieldTouched("title")).toBe(true)
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it.each(["model-first", "change-first"])(
+    "Renderer 同时发出 model 和 change 时，只提交一次值变化并校验一次：%s",
+    async (eventOrder) => {
+      // 模拟适配包的两种同步事件顺序，不在 Field 中增加去重标记。
+      const Renderer = defineComponent({
+        props: { value: String, onChange: Function },
+        emits: ["update:value"],
+        setup(props, { emit }) {
+          return () =>
+            h("input", {
+              value: props.value,
+              onInput(event: Event) {
+                const value = (event.target as HTMLInputElement).value
+
+                if (eventOrder === "model-first") {
+                  emit("update:value", value)
+                }
+
+                props.onChange?.(value)
+
+                if (eventOrder === "change-first") {
+                  emit("update:value", value)
+                }
+              },
+            })
+        },
+      })
+
+      const onValuesChange = vi.fn()
+
+      const onChange = vi.fn()
+
+      const rendererChange = vi.fn()
+
+      const validate = vi.fn(() => ({ valid: true as const }))
+
+      const form = createForm({
+        initialValues: { title: "Old" },
+        onValuesChange,
+        schemas: [
+          {
+            name: "title",
+            label: "标题",
+            componentType: "input",
+            validationTrigger: "change",
+            onChange,
+            componentProps: { onChange: rendererChange },
+            rules: { validate },
+          },
+        ],
+      })
+
+      form.registerRenderer("input", Renderer)
+      const change = vi.spyOn(form, "changeField")
+
+      const wrapper = mountWithForm(Field, {
+        props: { schema: form.getViewSchemas()[0] },
+        form,
+        config: createFormContext(),
+      })
+
+      await wrapper.get("input").setValue("New")
+      expect(change).toHaveBeenCalledExactlyOnceWith("title", "New")
+      await expect(change.mock.results[0]?.value).resolves.toMatchObject({ valid: true })
+      expect(form.getFieldValue("title")).toBe("New")
+      expect(form.isFieldTouched("title")).toBe(true)
+      expect(onValuesChange).toHaveBeenCalledTimes(1)
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("New", form)
+      expect(rendererChange).toHaveBeenCalledExactlyOnceWith("New")
+      expect(validate).toHaveBeenCalledTimes(1)
+
+      wrapper.unmount()
+      form.destroy()
+    }
+  )
+
+  it.each(["readonly", "disabled"] as const)(
+    "Core 忽略 %s 字段的 change 和 blur",
+    async (state) => {
+      const onChange = vi.fn()
+
+      const onBlur = vi.fn()
+
+      const validate = vi.fn(() => ({ valid: true as const }))
+
+      const form = createForm({
+        initialValues: { title: "Old" },
+        schemas: [
+          {
+            name: "title",
+            label: "标题",
+            componentType: "input",
+            [state]: true,
+            onChange,
+            onBlur,
+            rules: { validate },
+            validationTrigger: ["change", "blur"],
+          },
+        ],
+      })
+
+      form.registerRenderer("input", ProbeRenderer)
+      const change = vi.spyOn(form, "changeField")
+
+      const blur = vi.spyOn(form, "blurField")
+
+      const wrapper = mountWithForm(Field, {
+        props: { schema: form.getViewSchemas()[0] },
+        form,
+        config: createFormContext(),
+      })
+
+      await wrapper.get("input").setValue("Ignored")
+      await wrapper.get("input").trigger("blur")
+      await expect(change.mock.results[0]?.value).resolves.toBeUndefined()
+      await expect(blur.mock.results[0]?.value).resolves.toBeUndefined()
+      expect(form.getFieldValue("title")).toBe("Old")
+      expect(form.isFieldTouched("title")).toBe(false)
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onBlur).not.toHaveBeenCalled()
+      expect(validate).not.toHaveBeenCalled()
+
+      wrapper.unmount()
+      form.destroy()
+    }
+  )
+
+  it("空触发配置不被 Vue 默认值覆盖，交互仍标记 touched", async () => {
+    const validate = vi.fn(() => ({ valid: true as const }))
+
+    const form = createForm({
+      initialValues: { title: "Old" },
+      schemas: [
+        {
+          name: "title",
+          label: "标题",
+          componentType: "input",
+          validationTrigger: [],
+          rules: { validate },
+        },
+      ],
+    })
+
+    form.registerRenderer("input", ProbeRenderer)
+    const change = vi.spyOn(form, "changeField")
+
+    const blur = vi.spyOn(form, "blurField")
+
+    const wrapper = mountWithForm(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      form,
+      config: createFormContext({ schemaConfig: { validationTrigger: "change" } }),
+    })
+
+    await wrapper.get("input").setValue("New")
+    await wrapper.get("input").trigger("blur")
+    await expect(change.mock.results[0]?.value).resolves.toBeUndefined()
+    await expect(blur.mock.results[0]?.value).resolves.toBeUndefined()
+    expect(form.isFieldTouched("title")).toBe(true)
+    expect(validate).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+    form.destroy()
+  })
+
+  it("Core 交互的 Promise 拒绝交给 Vue errorHandler", async () => {
+    const error = new Error("Schema change failed")
+
+    const errorHandler = vi.fn()
+
+    const form = createForm({
+      initialValues: { title: "Old" },
+      schemas: [
+        {
+          name: "title",
+          label: "标题",
+          componentType: "input",
+          onChange() {
+            throw error
+          },
+        },
+      ],
+    })
+
+    form.registerRenderer("input", ProbeRenderer)
+    const wrapper = mountWithForm(Field, {
+      props: { schema: form.getViewSchemas()[0] },
+      form,
+      config: createFormContext(),
+      global: { config: { errorHandler } },
+    })
+
+    await wrapper.get("input").setValue("New")
+    expect(errorHandler).toHaveBeenCalledTimes(1)
+    expect(errorHandler.mock.calls[0]?.[0]).toBe(error)
 
     wrapper.unmount()
     form.destroy()
@@ -1096,7 +1333,9 @@ describe("Field 集成测试", () => {
     })
 
     form.registerRenderer("probe" as any, ProbeRenderer)
-    const validateSpy = vi.spyOn(form, "validateField")
+    const change = vi.spyOn(form, "changeField")
+
+    const blur = vi.spyOn(form, "blurField")
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -1113,9 +1352,12 @@ describe("Field 集成测试", () => {
     const input = wrapper.get('[data-testid="probe-renderer"]')
 
     await input.setValue("")
+    await expect(change.mock.results[0]?.value).resolves.toMatchObject({ valid: true })
     await input.trigger("blur")
+    await expect(blur.mock.results[0]?.value).resolves.toMatchObject({ valid: true })
 
-    expect(validateSpy).toHaveBeenCalledTimes(2)
+    expect(change).toHaveBeenCalledExactlyOnceWith("title", "")
+    expect(blur).toHaveBeenCalledExactlyOnceWith("title")
     expect(form.getFieldErrors("title")).toEqual([])
 
     wrapper.unmount()

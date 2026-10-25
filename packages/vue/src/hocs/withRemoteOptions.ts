@@ -10,10 +10,10 @@
 
 import { Component, computed, defineComponent, h, PropType, SetupContext } from "vue"
 
-import { useFieldContext } from "../context/fieldContext"
-import { useDictionary } from "../hooks/useDictionary"
+import { useFieldContext } from "../context"
+import { useDictionary } from "../hooks"
 
-import type { SchemxDictionary } from "../types/dictionary"
+import type { SchemxDictionary } from "../types"
 
 /**
  * WithRemoteOptions 注入给被包装组件的额外 Props

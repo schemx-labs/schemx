@@ -1,28 +1,21 @@
-import { computed, nextTick, onScopeDispose, toRaw, watch } from "vue"
-import type { ComputedRef, WatchStopHandle } from "vue"
+import { computed, watch } from "vue"
+import type { ComputedRef } from "vue"
 
-import {
-  createForm as createCoreForm,
-  getFormCreationConfig,
-  isSchemxSchemas,
-  mergeConfig,
-} from "@schemx/core"
-import { pick } from "es-toolkit"
+import { getFormCreationConfig, isSchemxSchemas, mergeConfig } from "@schemx/core"
+import { isEqual, omit, pick } from "es-toolkit"
 
-import { defaultConfig, vueSchemaConfigKeys } from "../config/defaultConfig"
-import { useConfigProviderContextRef } from "../context/configProviderContext"
-import { provideFormContext } from "../context/formContext"
+import { createLegacyForm, defaultConfig, vueSchemaConfigKeys } from "../config"
+import { provideFormContext, useConfigProviderContextRef } from "../context"
 
-import { useForm } from "./useForm"
-import { useFormSelector } from "./useFormSelector"
+import { useForm, useFormModel } from "./index"
 
-import type { SchemxFormProps } from "../types/form"
+import type { SchemxFormProps, SchemxInstance } from "../types"
 import type {
   CreateFormOptions,
   CreateSchemxOptions,
+  FormConfig,
   SchemxApi,
   SchemxConfig,
-  SchemxInstance,
   Values,
 } from "@schemx/core"
 
@@ -70,9 +63,10 @@ export function useFormComponent<TValues extends Values>(
    */
   const pickSchemaConfig = (): FormFieldDefaults =>
     Object.fromEntries(
-      Object.entries(pick(props, vueSchemaConfigKeys)).filter(
-        ([, value]) => value !== undefined
-      )
+      // 直接读取声明键，首次从缺省值新增的 Props 也建立响应式依赖。
+      vueSchemaConfigKeys
+        .map((key) => [key, props[key]])
+        .filter(([, value]) => value !== undefined)
     )
 
   // 是否由调用方传入并负责生命周期的外部 Form。
@@ -108,22 +102,27 @@ export function useFormComponent<TValues extends Values>(
     "iconComponent",
   ] as const
 
-  const configKeys = [
-    ...componentKeys,
-    "submitter",
-    "resetter",
+  // 这些能力在 Core 创建时固定，动态消费配置不能替换它们。
+  const creationKeys = [
     "debug",
     "schedulerOptions",
     "validationConcurrency",
-    "rendererProps",
     "rendererRegistry",
     "presetRuleRegistry",
     "validatorAdapters",
     "defaultRendererType",
   ] as const
 
+  const configKeys = [
+    ...componentKeys,
+    ...creationKeys,
+    "submitter",
+    "resetter",
+    "rendererProps",
+  ] as const
+
   const localConfig = computed(() => ({
-    ...pick(props, configKeys),
+    ...Object.fromEntries(configKeys.map((key) => [key, props[key]])),
     schemaConfig: schemaConfigProps.value,
   }))
 
@@ -131,11 +130,9 @@ export function useFormComponent<TValues extends Values>(
   const legacyCreator: SchemxApi["createForm"] = <TFormValues extends Values = Values>(
     options: CreateFormOptions<TFormValues> = {}
   ) =>
-    createCoreForm<TFormValues>({
+    createLegacyForm<TFormValues>({
       ...options,
-      ...mergeConfig<TFormValues>(options, formFallbackConfig, {
-        schemaConfig: defaultConfig,
-      }),
+      ...mergeConfig<TFormValues>(options, formFallbackConfig),
     })
 
   /**
@@ -180,9 +177,13 @@ export function useFormComponent<TValues extends Values>(
 
   const creationSnapshot = getFormCreationConfig(providedForm)
 
+  // 展示配置也读取实际选定的引擎能力，后续 Props 更新不会伪装成已替换 Registry。
+  const fixedCreationConfig = pick(creationSnapshot?.config ?? {}, creationKeys)
+
   // 动态覆盖撤销时使用捕获的继承层，不能回退到旧 Provider 的最终创建值。
   const effectiveConfig = computed(() =>
     mergeConfig<TValues>(
+      fixedCreationConfig,
       localConfig.value,
       isExternalForm
         ? pick(providerConfig?.value ?? {}, componentKeys)
@@ -222,74 +223,11 @@ export function useFormComponent<TValues extends Values>(
     },
   })
 
-  let syncingFromModel = false
-
-  /**
-   * 记录 Core 发出的、等待标准 v-model 回传的一次性快照身份。
-   */
-  const internalModelEchoes = new Set<TValues>()
-
-  /**
-   * 发出内部模型更新，并记录等待父级原样回传的快照。
-   *
-   * @param values - 要发出的最新表单值快照。
-   */
-  const emitModelValue = (values: TValues): void => {
-    const rawValues = toRaw(values)
-
-    internalModelEchoes.add(rawValues)
-    onModelValueChange(values)
-
-    void nextTick(() => {
-      internalModelEchoes.delete(rawValues)
-    })
-  }
-
-  /**
-   * 将外部 modelValue 同步到 Core，并标记窗口以阻止 v-model 回写。
-   *
-   * @param values - 外部传入的最新表单值。
-   */
-  watch(
+  useFormModel<TValues>(
+    formInstance,
     () => props.modelValue,
-    (values) => {
-      if (internalModelEchoes.delete(toRaw(values))) {
-        return
-      }
-
-      syncingFromModel = true
-
-      try {
-        formInstance.setFieldsValue(values)
-      } finally {
-        syncingFromModel = false
-      }
-    },
-    { deep: true, immediate: isExternalForm }
-  )
-
-  /**
-   * 通过共享 selector bridge 订阅完整快照，避免组件树重复注册 Core 监听。
-   *
-   * @param values - 当前表单的完整快照。
-   */
-  const formValues = useFormSelector(formInstance, (values) => values)
-
-  /**
-   * 将 Core 值同步回 v-model；外部 modelValue 写入期间跳过回写，避免循环。
-   *
-   * @param latestSnapshot - Core 发布的最新完整表单快照。
-   */
-  watch(
-    formValues,
-    (latestSnapshot) => {
-      if (syncingFromModel) {
-        return
-      }
-
-      emitModelValue(latestSnapshot)
-    },
-    { flush: "sync" }
+    onModelValueChange,
+    isExternalForm
   )
 
   /**
@@ -307,60 +245,68 @@ export function useFormComponent<TValues extends Values>(
     { immediate: isExternalForm }
   )
 
-  // 每个字段独立监听，避免其他配置变化导致重复同步。
-  const syncedSchemaConfig = isExternalForm ? schemaConfigProps : vueSchemaConfig
+  if (isExternalForm) {
+    // 外部 Form 的完整配置属于调用方，只批量同步组件显式的 Schema 默认值。
+    watch(
+      schemaConfigProps,
+      (next, previous) => {
+        // 仅包含组件显式配置；整体提交也覆盖对象原地修改与标量撤销同时发生的情况。
+        const patch: Partial<FormFieldDefaults> = { ...next }
 
-  const fieldWatchers = new Map<string, WatchStopHandle>()
+        for (const key of Object.keys(previous ?? {})) {
+          if (!Object.hasOwn(next, key)) {
+            Reflect.set(patch, key, undefined)
+          }
+        }
 
-  const watchFieldDefault = (key: string, immediate: boolean): void => {
-    if (fieldWatchers.has(key)) return
-
-    const fieldDefault = computed<unknown>(() =>
-      Reflect.get(syncedSchemaConfig.value, key)
-    )
-
-    const stop = watch(
-      fieldDefault,
-      (nextValue, previousValue) => {
-        const sameValue = Object.is(nextValue, previousValue)
-
-        const isObject = nextValue !== null && typeof nextValue === "object"
-
-        if (sameValue && !isObject) return
-
-        // 深度监听能捕获同一对象的嵌套修改；复制外层让 Core 识别本次变化。
-        const value =
-          sameValue && isObject
-            ? Array.isArray(nextValue)
-              ? [...nextValue]
-              : { ...nextValue }
-            : nextValue
-
-        formInstance.updateSchemaConfig({ [key]: value })
+        if (Object.keys(patch).length > 0) {
+          formInstance.updateSchemaConfig(patch)
+        }
       },
-      { deep: true, immediate }
+      { deep: true, immediate: true }
     )
+  } else {
+    // 仅提交运行期消费配置，创建选项始终由 Core 固定持有。
+    const consumerConfig = computed<FormConfig<TValues>>((previous) => {
+      const next = omit(effectiveConfig.value, creationKeys)
 
-    fieldWatchers.set(key, stop)
+      // 固定选项变化或等价输入不提交；深层原地修改仍由下面的 deep watch 捕获。
+      return previous && isEqual(previous, next) ? previous : next
+    })
+
+    // 旧全局路径保留“撤销曾提交属性即清除”的语义；独立工厂则恢复其固定继承值。
+    const legacySchemaKeys =
+      creationSnapshot?.defaults === undefined
+        ? new Set(Object.keys(vueSchemaConfig.value))
+        : undefined
+
+    // 一次 Vue 更新只向 Core 提交一次，让 Schema 与 Renderer Props 在同一配置边界生效。
+    watch(
+      consumerConfig,
+      (config) => {
+        if (legacySchemaKeys === undefined) {
+          formInstance.setConfig(config)
+
+          return
+        }
+
+        for (const key of Object.keys(config.schemaConfig ?? {})) {
+          legacySchemaKeys.add(key)
+        }
+
+        // 显式 undefined 持续保留旧入口的清除结果，不因其他属性更新而重新继承全局值。
+        const schemaConfig: FormFieldDefaults = Object.fromEntries(
+          [...legacySchemaKeys].map((key) => [
+            key,
+            Reflect.get(config.schemaConfig ?? {}, key),
+          ])
+        )
+
+        formInstance.setConfig({ ...config, schemaConfig })
+      },
+      { deep: true }
+    )
   }
-
-  for (const key of new Set([
-    ...vueSchemaConfigKeys,
-    ...Object.keys(syncedSchemaConfig.value),
-  ])) {
-    watchFieldDefault(key, isExternalForm)
-  }
-
-  // 默认值扩展也可在 Provider 更新时新增；覆盖撤销提交 undefined，由 Core 回退内置默认值。
-  watch(
-    () => Object.keys(syncedSchemaConfig.value),
-    (keys) => {
-      for (const key of keys) watchFieldDefault(key, true)
-    }
-  )
-  onScopeDispose(() => {
-    for (const stop of fieldWatchers.values()) stop()
-  })
 
   return { form: formInstance, config: effectiveConfig }
 }

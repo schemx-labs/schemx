@@ -3,7 +3,7 @@
  *
  * 基于 core 层的 {@link createWatch} 实现，
  * 自动读取祖先提供的表单实例，
- * 并在 `onUnmounted` 时自动取消监听，无需手动管理生命周期。
+ * 并在当前 Vue effect scope 停止时自动取消监听。
  *
  * 提供三种监听模式：
  * - 全局监听：`useWatch(callback, options?)` — 监听表单中任意字段变化
@@ -25,27 +25,27 @@
  * })
  *
  * // 单字段监听
- * useWatch('username', (current, prev) => {
- *   console.log('username changed:', prev, '->', current)
+ * useWatch('username', (_snapshot, { value, prevValue }) => {
+ *   console.log('username changed:', prevValue, '->', value)
  * }, { immediate: true })
  *
  * // 多字段监听
- * useWatch(['firstName', 'lastName'], (currentValues, prevValues) => {
- *   console.log('name changed:', currentValues)
+ * useWatch(['firstName', 'lastName'], (_snapshot, payload) => {
+ *   console.log('name changed:', payload.changedValues)
  * }, { inequality: true })
  * ```
  */
 
-import { onUnmounted } from "vue"
+import { getCurrentScope, onScopeDispose } from "vue"
 
 import { createWatch } from "@schemx/core"
 
-import { useVueFormRuntime } from "../bridge/formBridge"
-import { readFormContextInstance } from "../context/formContext"
+import { readFormContextInstance } from "../context"
 
-import type { NamePath, Values } from "@schemx/core"
 import type {
   CreateWatchOptions,
+  NamePath,
+  Values,
   WatchAllCallback,
   WatchFieldCallback,
   WatchFieldsCallback,
@@ -120,25 +120,50 @@ export function useWatch<TValues extends Values>(
  */
 export function useWatch<TValues extends Values>(
   nameOrNamesOrCallback:
-    | NamePath<TValues>
-    | NamePath<TValues>[]
-    | WatchAllCallback<TValues>,
+    NamePath<TValues> | NamePath<TValues>[] | WatchAllCallback<TValues>,
   callbackOrOptions?:
-    | WatchFieldCallback<TValues>
-    | WatchFieldsCallback<TValues>
-    | CreateWatchOptions,
+    WatchFieldCallback<TValues> | WatchFieldsCallback<TValues> | CreateWatchOptions,
   maybeOptions?: CreateWatchOptions
 ): () => void {
-  const runtime = useVueFormRuntime(readFormContextInstance<TValues>())
+  const scope = getCurrentScope()
 
-  const dispose = (createWatch as any)(
-    runtime.instance,
-    nameOrNamesOrCallback,
-    callbackOrOptions,
-    maybeOptions
-  )
+  if (!scope?.active) {
+    throw new Error("[schemx] useWatch() requires an active Vue scope.")
+  }
 
-  onUnmounted(dispose)
+  const form = readFormContextInstance<TValues>()
+
+  let dispose: () => void
+
+  if (typeof nameOrNamesOrCallback === "function") {
+    dispose = createWatch(
+      form,
+      nameOrNamesOrCallback,
+      typeof callbackOrOptions === "function" ? undefined : callbackOrOptions
+    )
+  } else if (Array.isArray(nameOrNamesOrCallback)) {
+    // 重载约定路径数组与多字段回调成对传入。
+    dispose = createWatch(
+      form,
+      nameOrNamesOrCallback,
+      callbackOrOptions as WatchFieldsCallback<TValues>,
+      maybeOptions
+    )
+  } else {
+    dispose = createWatch(
+      form,
+      nameOrNamesOrCallback,
+      callbackOrOptions as WatchFieldCallback<TValues>,
+      maybeOptions
+    )
+  }
+
+  // immediate 回调可能同步停止当前 scope，已创建的 Core 订阅仍须释放。
+  if (scope.active) {
+    onScopeDispose(dispose)
+  } else {
+    dispose()
+  }
 
   return dispose
 }
@@ -147,7 +172,7 @@ export function useWatch<TValues extends Values>(
  * 监听单个字段变化的便捷方法
  *
  * 等价于 `useWatch(name, callback, options)`，语义更明确。
- * 自动绑定 formContext 并在组件卸载时取消监听。
+ * 自动绑定 formContext 并在当前 scope 停止时取消监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param name - 要监听的字段路径
@@ -175,7 +200,7 @@ export function useWatchField<TValues extends Values = Values>(
  * 监听多个字段变化的便捷方法
  *
  * 等价于 `useWatch(names, callback, options)`，语义更明确。
- * 自动绑定 formContext 并在组件卸载时取消监听。
+ * 自动绑定 formContext 并在当前 scope 停止时取消监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param names - 要监听的字段路径数组
@@ -203,7 +228,7 @@ export function useWatchFields<TValues extends Values>(
  * 监听所有字段变化的便捷方法
  *
  * 等价于 `useWatch(callback, options)`，语义更明确。
- * 自动绑定 formContext 并在组件卸载时取消监听。
+ * 自动绑定 formContext 并在当前 scope 停止时取消监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param callback - 全局变化回调；payload 为 `{ changedPaths, changedValues, prevValues }`

@@ -5,7 +5,7 @@ import { h } from "vue"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import Dynamic from "../index"
+import Dynamic from ".."
 
 import type { SchemxViewDynamicSchema, SchemxViewSchema } from "@schemx/core"
 

@@ -7,19 +7,19 @@
  *
  * @module hooks/useForm
  */
-import { onScopeDispose } from "vue"
+import { getCurrentScope, onScopeDispose } from "vue"
 
-import { createForm, mergeConfig } from "@schemx/core"
+import { mergeConfig } from "@schemx/core"
 
 import { useVueFormRuntime } from "../bridge"
-import { defaultConfig } from "../config/defaultConfig"
-import { useConfigProviderContextRef } from "../context/configProviderContext"
+import { createLegacyForm } from "../config"
+import { useConfigProviderContextRef } from "../context"
 
+import type { SchemxInstance } from "../types"
 import type {
   CreateFormOptions,
   CreateSchemxOptions,
   SchemxApi,
-  SchemxInstance,
   Values,
 } from "@schemx/core"
 
@@ -77,16 +77,30 @@ export function useForm<TValues extends Values = Values>(
   options: UseFormOptions<TValues> = {},
   creator?: SchemxApi["createForm"]
 ): SchemxInstance<TValues> {
+  const scope = getCurrentScope()
+
+  if (!scope?.active) {
+    throw new Error("[schemx] useForm() requires an active Vue scope.")
+  }
+
   // 创建器负责继承默认值；Vue 只将局部上下文作为本次选项传入。
   const configuredOptions = mergeConfig<TValues>(
     options,
     (useConfigProviderContextRef()?.value as CreateSchemxOptions<TValues> | undefined) ??
-      {},
-    ...(creator === undefined ? [{ schemaConfig: defaultConfig }] : [])
+      {}
   )
 
   // 合并结果与实例选项统一通过第一个参数下传。
-  const instance = (creator ?? createForm)<TValues>({ ...options, ...configuredOptions })
+  const instance = (creator ?? createLegacyForm)<TValues>({
+    ...options,
+    ...configuredOptions,
+  })
+
+  if (!scope.active) {
+    instance.destroy()
+
+    throw new Error("[schemx] useForm() scope was stopped during form creation.")
+  }
 
   const form = useVueFormRuntime(instance).instance
 

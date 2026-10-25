@@ -9,31 +9,32 @@
  */
 
 /* eslint-disable vue/one-component-per-file */
-import { computed, defineComponent, PropType } from "vue"
-import type { ClassValue, SlotsType, StyleValue, VNodeChild } from "vue"
+import {
+  callWithAsyncErrorHandling,
+  computed,
+  defineComponent,
+  ErrorCodes,
+  getCurrentInstance,
+} from "vue"
+import type { ClassValue, PropType, SlotsType, StyleValue, VNodeChild } from "vue"
 
 import { isSchemxViewFieldSchema } from "@schemx/core"
 import classnames from "classnames"
 
-import { useVueFormRuntime } from "../../bridge/formBridge"
-import { createFieldContext } from "../../context/fieldContext"
-import { useFormContextValue } from "../../context/formContext"
-import { createFieldHook } from "../../hooks/useField"
-import { useFieldScrollTarget } from "../../hooks/useFieldScrollTarget"
-import { useStableRef } from "../../hooks/useStableRef"
-import { useViewSchema } from "../../hooks/useViewSchemas"
+import { useVueFormRuntime } from "../../bridge"
+import { createFieldContext, useFormContextValue } from "../../context"
 import {
-  mergeTrigger,
-  normalizeNameKey,
-  resolveSlot,
-  shouldValidateOn,
-} from "../../utils"
+  createFieldHook,
+  useFieldScrollTarget,
+  useStableRef,
+  useViewSchema,
+} from "../../hooks"
+import { normalizeNameKey, resolveSlot } from "../../utils"
 import Col from "../Col"
 
-import { createFieldSlotRenderers } from "./slot"
+import { createFieldSlotRenderers } from "./index"
 
-import type { SchemxFieldSlots } from "../../types/field"
-import type { TriggerConfig } from "../../utils"
+import type { SchemxFieldSlots } from "../../types"
 import type {
   FieldValue,
   NamePath,
@@ -121,57 +122,42 @@ const Field = defineComponent({
 
     const isError = computed(() => field.errors.value.length > 0)
 
-    const trigger = computed<TriggerConfig>(() =>
-      mergeTrigger(
-        schemaRef.value.validationTrigger,
-        formContext.schemaConfig.validationTrigger,
-        "onChange"
+    // Renderer 不一定返回回调 Promise，Core 交互的异步错误在 Field 边界交给 Vue。
+    const owner = getCurrentInstance()
+
+    /**
+     * 转发用户修改，由 Core 写值、标记 touched、调用 Schema 回调并安排校验。
+     * Renderer 回调在同步提交后执行一次，不再另行调用 Schema 回调。
+     *
+     * @param value - 渲染器提交的最新字段值。
+     */
+    const handleChange = (value: FieldValue<Values, NamePath<Values>>): void => {
+      // Schema 回调可能替换节点；本次 Renderer 回调仍属于事件开始时的组件。
+      const rendererProps = schemaRef.value.componentProps
+
+      callWithAsyncErrorHandling(
+        () => field.change(value),
+        owner,
+        ErrorCodes.COMPONENT_EVENT_HANDLER
       )
-    )
-
-    /**
-     * 是否需要进行校验。
-     *
-     * 当字段不可见、只读或禁用时，无需进行校验。
-     */
-    const canVerified = computed(() => {
-      const isOperate =
-        schemaRef.value.visible !== false &&
-        !schemaRef.value.readonly &&
-        !schemaRef.value.disabled
-
-      // Core 负责判断当前字段是否有 Schema、兜底或手动规则；ViewSchema
-      // 只包含声明规则，不能据此判断 fieldRules/setFieldRules 的存在。
-      return isOperate
-    })
-
-    /**
-     * 处理字段值变化，设置值后根据触发时机决定是否校验。
-     *
-     * @param v - 渲染器提交的最新字段值。
-     */
-    const handleChange = (v: FieldValue<Values, NamePath<Values>>) => {
-      field.setValue(v)
-      schemaRef.value.componentProps?.onChange?.(v)
-      schemaRef.value.onChange?.(v, form)
-
-      if (canVerified.value && shouldValidateOn("change", trigger.value)) {
-        void field.validate()
-      }
+      rendererProps?.onChange?.(value)
     }
 
     /**
-     * 处理字段失焦，并根据触发时机决定是否校验。
+     * 转发失焦，由 Core 标记 touched 和决定校验；Renderer 接收原事件参数。
      *
-     * @param v - 触发失焦事件时对应的字段值。
+     * @param value - Renderer 传入的失焦值或事件，保持原样传给组件回调。
      */
-    const handleBlur = (v: FieldValue<Values, NamePath<Values>>) => {
-      schemaRef.value.componentProps?.onBlur?.(v)
-      schemaRef.value.onBlur?.(form)
+    const handleBlur = (value: FieldValue<Values, NamePath<Values>>): void => {
+      // 保留原事件所属组件的回调，避免转发到同步替换后的节点。
+      const rendererProps = schemaRef.value.componentProps
 
-      if (canVerified.value && shouldValidateOn("blur", trigger.value)) {
-        void field.validate()
-      }
+      callWithAsyncErrorHandling(
+        () => field.blur(),
+        owner,
+        ErrorCodes.COMPONENT_EVENT_HANDLER
+      )
+      rendererProps?.onBlur?.(value)
     }
 
     /**
@@ -281,3 +267,5 @@ const Field = defineComponent({
 })
 
 export default Field
+
+export { createFieldSlotRenderers } from "./slot"

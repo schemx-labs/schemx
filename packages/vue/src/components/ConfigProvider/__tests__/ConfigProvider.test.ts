@@ -9,11 +9,10 @@ import {
 import { mount, type VueWrapper } from "@vue/test-utils"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 
-import { useConfigProviderContextRef } from "../../../context/configProviderContext"
-import { useFormConfigContext } from "../../../context/formContext.compat"
+import ConfigProvider from ".."
+import { useConfigProviderContextRef, useFormConfigContext } from "../../../context"
 import SchemxForm from "../../../form.vue"
-import { useForm } from "../../../hooks/useForm"
-import ConfigProvider from "../index"
+import { useForm } from "../../../hooks"
 
 import type { SchemxConfig } from "@schemx/core"
 
@@ -176,6 +175,13 @@ describe("ConfigProvider", () => {
     expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
       readonly: false,
       disabled: true,
+    })
+    // 旧入口的清除结果不能在下一次无关更新时重新继承全局 readonly。
+    await wrapper.setProps({ schemaConfig: { labelWidth: 160 } })
+    expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
+      readonly: false,
+      disabled: true,
+      labelWidth: 160,
     })
     wrapper.unmount()
   })

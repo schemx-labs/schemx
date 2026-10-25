@@ -4,19 +4,17 @@ import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
-import { useFieldContext } from "../../context/fieldContext"
-import {
-  provideFormContext,
-  useFormContextValue,
-  useOptionalFormContextValue,
-} from "../../context/formContext"
 import {
   createFormConfigContext,
   createFormContext,
+  provideFormContext,
+  useFieldContext,
   useFormConfigContext,
   useFormContext,
+  useFormContextValue,
   useFormRuntimeContext,
-} from "../../context/formContext.compat"
+  useOptionalFormContextValue,
+} from "../../context"
 
 const createConsumer = (consume: () => unknown) =>
   defineComponent({

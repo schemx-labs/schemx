@@ -10,15 +10,11 @@
 import { computed, defineComponent, h, markRaw, type PropType, toRaw } from "vue"
 import type { ClassValue, VNodeChild } from "vue"
 
-import { useOptionalFormContextValue } from "../../context/formContext"
+import { useOptionalFormContextValue } from "../../context"
 
-import DefaultCol from "./default.vue"
+import { DefaultCol } from "./index"
 
-import type {
-  SchemxColComponent,
-  SchemxColConfig,
-  SchemxLayout,
-} from "../../types/layout"
+import type { SchemxColComponent, SchemxColConfig, SchemxLayout } from "../../types"
 
 const Col = defineComponent({
   name: "SchemxCol",
@@ -98,3 +94,5 @@ const Col = defineComponent({
 })
 
 export default Col
+
+export { default as DefaultCol } from "./default.vue"

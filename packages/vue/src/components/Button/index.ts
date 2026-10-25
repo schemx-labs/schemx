@@ -7,4 +7,8 @@ export type {
   SchemxButtonDefinition,
   SchemxButtonProps,
   SchemxButtonSize,
+  SchemxDefaultButtonOptions,
+  SchemxButtonOptions,
 } from "./types"
+
+export { default as DefaultButton } from "./default.vue"

@@ -10,17 +10,13 @@ import type { ShallowRef } from "vue"
 import { createFieldKey, isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 import scrollIntoView from "scroll-into-view-if-needed"
 
-import { registerVueScrollToFieldHandler } from "../bridge/scrollToField"
-import { provideFieldScrollRegistry } from "../context/fieldScrollContext"
+import { registerVueScrollToFieldHandler } from "../bridge"
+import { provideFieldScrollRegistry } from "../context"
 
-import type {
-  FieldScrollRegistry,
-  GroupScrollController,
-} from "../context/fieldScrollContext"
-import type { ScrollToFieldOptions } from "../types/form"
+import type { FieldScrollRegistry, GroupScrollController } from "../context"
+import type { SchemxInstance, ScrollToFieldOptions } from "../types"
 import type {
   NamePath,
-  SchemxInstance,
   SchemxViewGroupSchema,
   SchemxViewSchema,
   Values,

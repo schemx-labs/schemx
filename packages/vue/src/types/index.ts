@@ -4,13 +4,15 @@
  * @module types
  */
 
-import "./definition"
+import "./index"
 
 export type { SchemxVueTypeAugmentations } from "./definition"
 
 export * from "./dictionary"
 
 export * from "./form"
+
+export type { SchemxInstance } from "./instance"
 
 export * from "./field"
 
@@ -24,4 +26,4 @@ export type {
   SchemxButtonOptions,
   SchemxButtonProps,
   SchemxButtonSize,
-} from "../components/Button/types"
+} from "../components/Button"

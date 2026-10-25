@@ -24,7 +24,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import Schemx from "../form"
 import SchemxForm from "../form.vue"
-import { presetRuleRegistry } from "../utils/presetRuleProvider"
+import { presetRuleRegistry } from "../utils"
 
 const InputRenderer = defineComponent({
   name: "InputRenderer",
@@ -367,8 +367,8 @@ describe("SchemxForm 动态 schemas", () => {
         .findAll('[data-testid="controlled-dynamic-input"]')
         .map((item) => item.text())
     ).toEqual(["Grace", "Ada Updated"])
-    expect(mountCount).toBe(4)
-    expect(unmountCount).toBe(2)
+    expect(mountCount).toBe(2)
+    expect(unmountCount).toBe(0)
 
     modelValue.value = {
       users: modelValue.value.users.map((user) => ({ ...user })),
@@ -385,6 +385,8 @@ describe("SchemxForm 动态 schemas", () => {
       initialKeys[1],
       initialKeys[0],
     ])
+    expect(mountCount).toBe(4)
+    expect(unmountCount).toBe(2)
 
     wrapper.unmount()
   })

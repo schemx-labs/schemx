@@ -8,7 +8,7 @@
 
 import { computed, defineComponent, type PropType } from "vue"
 
-import { provideConfigProviderContext } from "../../context/configProviderContext"
+import { provideConfigProviderContext } from "../../context"
 
 import type {
   SchemxButtonComponent,
@@ -16,8 +16,8 @@ import type {
   SchemxIconComponent,
   SchemxRowComponent,
 } from "../../types"
-import type { CreateSchemxOptions } from "@schemx/core"
 import type {
+  CreateSchemxOptions,
   PresetRuleRegistry,
   RendererRegistry,
   SchedulerOptions,

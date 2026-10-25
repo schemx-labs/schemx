@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { computed, useAttrs } from "vue"
 
-  import type { SchemxDefaultButtonOptions } from "./types"
+  import type { SchemxDefaultButtonOptions } from "./index"
 
   defineOptions({ name: "SchemxDefaultButton", inheritAttrs: false })
 

@@ -12,14 +12,13 @@ import type { ClassValue, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 
-import { normalizeNameKey } from "../../utils"
 import Dynamic from "../Dynamic"
 import Field from "../Field"
 import Group from "../Group"
 import Row from "../Row"
 
-import type { SchemxRowConfig } from "../../types/layout"
-import type { SchemxViewFieldSchema, SchemxViewSchema, Values } from "@schemx/core"
+import type { SchemxRowConfig } from "../../types"
+import type { SchemxViewSchema, Values } from "@schemx/core"
 
 import "./index.css"
 
@@ -80,15 +79,6 @@ const SchemaList = defineComponent({
 
   setup(props, { slots }) {
     /**
-     * 根据字段路径生成稳定的 Field 渲染 key。
-     *
-     * @param schema - 当前字段 ViewSchema。
-     * @returns 包含 Schema key 和字段路径的渲染 key。
-     */
-    const getFieldRenderKey = (schema: SchemxViewFieldSchema): string =>
-      `${schema.key}:${normalizeNameKey(schema.name)}`
-
-    /**
      * 递归创建子级 SchemaList，并复用当前 Form 的布局与字段渲染配置。
      *
      * @param schemas - 当前子级 ViewSchema 列表。
@@ -126,7 +116,7 @@ const SchemaList = defineComponent({
       if (isViewGroupSchema(schema)) {
         content = (
           <Group
-            key={schema.key}
+            key={schema.nodeId}
             schema={schema}
             rowConfig={props.rowConfig}
             renderChildren={renderChildren}
@@ -136,7 +126,7 @@ const SchemaList = defineComponent({
       } else if (isViewDynamicSchema(schema)) {
         content = (
           <Dynamic
-            key={schema.key}
+            key={schema.nodeId}
             schema={schema}
             rowConfig={props.rowConfig}
             renderChildren={renderChildren}
@@ -146,7 +136,7 @@ const SchemaList = defineComponent({
       } else {
         content = (
           <Field
-            key={getFieldRenderKey(schema)}
+            key={schema.nodeId}
             schema={schema}
             class={props.fieldClassResolver?.(schema)}
             v-slots={slots}

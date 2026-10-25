@@ -4,7 +4,7 @@
  * @module utils/layout
  */
 
-import type { SchemxGutter } from "../types/layout"
+import type { SchemxGutter } from "../types"
 
 /** 归一化后的上、右、下、左间距。 */
 export type SchemxNormalizedGutter = readonly [number, number, number, number]

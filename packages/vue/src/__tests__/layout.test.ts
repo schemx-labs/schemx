@@ -10,7 +10,7 @@ import Button from "../components/Button"
 import Col from "../components/Col"
 import Row from "../components/Row"
 import SchemaList from "../components/SchemaList"
-import { provideFormContext } from "../context/formContext"
+import { provideFormContext } from "../context"
 import Schemx from "../form"
 import SchemxForm from "../form.vue"
 

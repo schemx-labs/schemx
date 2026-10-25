@@ -6,17 +6,18 @@
 
 import type { ClassValue, StyleValue } from "vue"
 
-import type { SchemxFormAction, ScrollToFieldOptions } from "./form"
-import type { SchemxIconComponent, SchemxIconValue } from "./icon"
 import type {
   SchemxColComponent,
   SchemxColConfig,
+  SchemxFormAction,
+  SchemxIconComponent,
+  SchemxIconValue,
   SchemxLayout,
   SchemxRowComponent,
   SchemxRowConfig,
-} from "./layout"
-import type { SchemxButtonComponent } from "../components/Button/types"
-import type { FieldValue, NamePath, SchemxConditionFn, Values } from "@schemx/core"
+} from "./index"
+import type { SchemxButtonComponent } from "../components/Button"
+import type { FieldValue, SchemxConditionFn, Values } from "@schemx/core"
 
 /**
  * 保持 Vue 层 Core 声明合并文件出现在发布的类型入口中。
@@ -26,30 +27,6 @@ import type { FieldValue, NamePath, SchemxConditionFn, Values } from "@schemx/co
 export type SchemxVueTypeAugmentations = never
 
 declare module "@schemx/core" {
-  /**
-   * 为 Vue 表单实例声明字段定位能力。
-   */
-  interface SchemxInstanceDefinition<TValues extends Values = Values> {
-    /**
-     * 定位当前 Vue 表单中的字段；折叠的祖先 Group 会依次展开。
-     * 方法不依赖 this，允许单独调用。
-     *
-     * @param name - 目标字段路径。
-     * @param options - 滚动行为与对齐方式；默认为平滑滚动并垂直居中，且仅在需要时滚动。
-     * @returns 找到可见字段并发起滚动时返回 `true`；字段不可见、未渲染或无法展开时返回 `false`。
-     *
-     * @example
-     * ```ts
-     * await form.scrollToField("profile.nickname", { block: "center" })
-     * ```
-     */
-    scrollToField<TName extends NamePath<TValues>>(
-      this: void,
-      name: TName,
-      options?: ScrollToFieldOptions
-    ): Promise<boolean>
-  }
-
   /**
    * Vue Field 的展示与事件扩展。
    */

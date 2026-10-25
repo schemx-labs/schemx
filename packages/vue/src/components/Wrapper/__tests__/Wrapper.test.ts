@@ -5,7 +5,7 @@ import { h } from "vue"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import Wrapper from "../index.vue"
+import Wrapper from ".."
 
 describe("SchemxWrapper", () => {
   it("将 renderer 的 class、style 和 attrs 合并到唯一根节点", () => {

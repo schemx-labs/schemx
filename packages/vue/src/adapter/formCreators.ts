@@ -2,13 +2,13 @@ import type { Component } from "vue"
 
 import type { SchemxApi } from "@schemx/core"
 
-// 创建器绑定原始组件定义；可枚举的身份标记让组件选项复制后仍能复用绑定。
-const formDefinitionKey = Symbol("schemx:form-definition")
-
-const formCreators = new WeakMap<Component, SchemxApi["createForm"]>()
+// 可枚举的 Symbol 直接保存创建器，组件选项复制后继续保留绑定。
+const formCreatorKey = Symbol("schemx:form-creator")
 
 // 仅供组件创建和 setup 解析使用的内部元数据。
-type BoundFormComponent = Component & { [formDefinitionKey]?: Component }
+type BoundFormComponent = Component & {
+  [formCreatorKey]?: SchemxApi["createForm"]
+}
 
 /**
  * 绑定当前组件定义的创建器，不向组件树传播。
@@ -20,11 +20,7 @@ export function bindFormCreator(
   component: Component,
   creator: SchemxApi["createForm"]
 ): void {
-  Object.defineProperty(component, formDefinitionKey, {
-    value: component,
-    enumerable: true,
-  })
-  formCreators.set(component, creator)
+  Object.assign(component, { [formCreatorKey]: creator })
 }
 
 /**
@@ -35,7 +31,5 @@ export function bindFormCreator(
 export function getFormCreator(
   component: Component
 ): SchemxApi["createForm"] | undefined {
-  const definition = (component as BoundFormComponent)[formDefinitionKey] ?? component
-
-  return formCreators.get(definition)
+  return (component as BoundFormComponent)[formCreatorKey]
 }

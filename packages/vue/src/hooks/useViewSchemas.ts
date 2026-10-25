@@ -12,7 +12,7 @@ import type { ComputedRef, ShallowRef } from "vue"
 
 import { useVueFormRuntime } from "../bridge"
 
-import type { VueFormRuntime } from "../bridge/types"
+import type { VueFormRuntime } from "../bridge"
 import type { SchemxInstance, SchemxViewSchema, Values } from "@schemx/core"
 
 /**

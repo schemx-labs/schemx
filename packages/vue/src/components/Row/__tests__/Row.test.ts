@@ -5,7 +5,7 @@ import { h } from "vue"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it } from "vite-plus/test"
 
-import Row from "../index"
+import Row from ".."
 
 describe("Row", () => {
   it("未注册组件时使用内置 Row 实现", () => {

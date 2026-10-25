@@ -13,7 +13,7 @@ import type { PropType, VNodeChild } from "vue"
 
 import Col from "../Col"
 
-import type { SchemxRowConfig } from "../../types/layout"
+import type { SchemxRowConfig } from "../../types"
 import type { SchemxViewDynamicSchema, SchemxViewSchema } from "@schemx/core"
 
 /**

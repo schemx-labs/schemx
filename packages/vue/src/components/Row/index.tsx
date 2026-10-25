@@ -10,11 +10,11 @@
 import { computed, defineComponent, h, markRaw, type PropType, toRaw } from "vue"
 import type { ClassValue, VNodeChild } from "vue"
 
-import { useOptionalFormContextValue } from "../../context/formContext"
+import { useOptionalFormContextValue } from "../../context"
 
-import DefaultRow from "./default.vue"
+import { DefaultRow } from "./index"
 
-import type { SchemxRowConfig } from "../../types/layout"
+import type { SchemxRowConfig } from "../../types"
 
 const Row = defineComponent({
   name: "SchemxRow",
@@ -85,3 +85,5 @@ const Row = defineComponent({
 })
 
 export default Row
+
+export { default as DefaultRow } from "./default.vue"

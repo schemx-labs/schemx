@@ -9,7 +9,7 @@ import type { ComponentPublicInstance } from "vue"
 
 import { createFieldKey } from "@schemx/core"
 
-import { useFieldScrollRegistry } from "../context/fieldScrollContext"
+import { useFieldScrollRegistry } from "../context"
 
 import type { NamePath, Values } from "@schemx/core"
 
