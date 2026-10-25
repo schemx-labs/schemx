@@ -4,13 +4,13 @@
  * @module core/runtime/presentation/resources
  */
 
-import { areNamePathListsEqual } from "../../utils/path"
-import { isGroupNode } from "../node/helper"
+import { areNamePathListsEqual } from "../../utils"
+import { isGroupNode } from "../node"
 
-import { createPresentationDependenciesEffect } from "./dependenciesEffect"
+import { createPresentationDependenciesEffect } from "./index"
 
+import type { SchemaRuntimeContext } from ".."
 import type { SchemxContainerDependencies, Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { StatefulPresentationNode } from "../node"
 
 /**

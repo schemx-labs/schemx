@@ -8,7 +8,7 @@
  */
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { withLock } from "../async"
+import { withLock } from ".."
 
 // 验证 withLock 异步锁的首次执行、执行中复用、完成重入、异常释放、连续调用仅执行一次
 describe("withLock", () => {

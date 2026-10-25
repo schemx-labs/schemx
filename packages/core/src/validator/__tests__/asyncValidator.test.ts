@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { createForm } from "../../createForm"
 
-import type { ValidationAdapter } from "../types"
+import type { ValidationAdapter } from ".."
 
 describe("Core 内置 async-validator", () => {
   it("无需注册 adapter 即可校验 descriptor", async () => {

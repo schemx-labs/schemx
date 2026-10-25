@@ -4,20 +4,21 @@
  * @remarks 原实现每次访问包元数据都会重新 find + 逐包 jq 解析；这里把每个 scope
  * 的扫描结果缓存在实例上，拓扑排序与发布校验会反复读取同一份目录。
  */
-import { readdirSync } from "node:fs"
+import { execFile } from "node:child_process"
+import { readdirSync, statSync } from "node:fs"
 import path from "node:path"
+import { setImmediate } from "node:timers/promises"
+import { promisify } from "node:util"
+
+import { WORKFLOW_SCOPE_LABEL } from "../display-config.ts"
 
 import { isPublishable, type PackageManifest, readManifestSafe } from "./package-json.ts"
 
-/** 目录层级在交互控件中的显示名。 */
-const SCOPE_LABELS: Readonly<Record<string, string>> = {
-  packages: "Packages",
-  plugins: "Plugins",
-  examples: "Examples",
-}
+// Git 查询使用异步子进程，等待期间允许终端刷新。
+const executeFile = promisify(execFile)
 
 /** 项目内稳定的 scope 顺序。 */
-export const WORKSPACE_SCOPES = ["packages", "plugins", "examples"] as const
+export const WORKSPACE_SCOPES = ["packages", "plugins", "examples", "scripts"] as const
 
 /** workspace scope 名称。 */
 export type WorkspaceScope = (typeof WORKSPACE_SCOPES)[number]
@@ -39,13 +40,29 @@ export interface WorkspacePackage {
 }
 
 /**
+ * 根据实际文件生成的代码目录，不要求目录声明 npm script。
+ */
+export interface SourceDirectory {
+  /** 交互列表中的分组。 */
+  readonly scope: string
+  /** 可用于选择目标的目录简称。 */
+  readonly directory: string
+  /** 相对仓库根目录的路径；根目录使用 "."。 */
+  readonly relativeDir: string
+  /** 包名或目录路径。 */
+  readonly name: string
+  /** 本目录的文件，不包含其他目标拥有的文件。 */
+  readonly files: string[]
+}
+
+/**
  * 返回目录层级在树形选择控件中的显示名。
  *
  * @param scope - 目录层级。
  * @returns 显示名。
  */
 export function scopeLabel(scope: string): string {
-  return SCOPE_LABELS[scope] ?? scope
+  return WORKFLOW_SCOPE_LABEL[scope] ?? scope
 }
 
 /**
@@ -76,6 +93,89 @@ export class Catalog {
     }
 
     return packages
+  }
+
+  /**
+   * 按包目录或顶层目录归组实际文件，包含未跟踪文件并遵循 Git 忽略配置。
+   *
+   * @returns 不依赖固定 scope 或 package script 的目录列表。
+   * @example
+   * const directories = await new Catalog(root).discoverSources()
+   */
+  async discoverSources(): Promise<readonly SourceDirectory[]> {
+    // 使用 Git 的文件清单，避免遍历依赖、构建输出和被忽略的目录。
+    const { stdout: output } = await executeFile(
+      "git",
+      ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+      { cwd: this.#root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
+    )
+
+    // 跳过隐藏目录和已从工作区删除的索引文件，保留根目录配置文件。
+    const files: string[] = []
+
+    for (const [index, file] of [...new Set(output.split("\0"))].entries()) {
+      // 大型仓库分批归组，避免文件状态查询连续占用事件循环。
+      if (index % 64 === 0) {
+        await setImmediate()
+      }
+
+      if (
+        file &&
+        !file
+          .split("/")
+          .slice(0, -1)
+          .some((directory) => directory.startsWith(".")) &&
+        statSync(path.join(this.#root, file), { throwIfNoEntry: false })?.isFile()
+      ) {
+        files.push(file)
+      }
+    }
+
+    files.sort()
+
+    // 优先归入最近的包目录，保留 core、vue 等已有目标简称。
+    const packages = files
+      .filter((file) => file.endsWith("/package.json"))
+      .map((file) => path.posix.dirname(file))
+      .sort((left, right) => right.length - left.length)
+
+    // 根目录文件单独归组，避免选择根目录时重复处理所有子目录。
+    const directories = new Map<string, SourceDirectory>()
+
+    for (const [index, file] of files.entries()) {
+      if (index % 64 === 0) {
+        await setImmediate()
+      }
+
+      let relativeDir = packages.find((directory) => file.startsWith(directory + "/"))
+
+      if (!relativeDir) {
+        relativeDir = file.includes("/") ? (file.split("/")[0] ?? ".") : "."
+      }
+
+      let item = directories.get(relativeDir)
+
+      if (!item) {
+        const manifest = readManifestSafe(
+          path.join(this.#root, relativeDir, "package.json")
+        )
+
+        item = {
+          scope: relativeDir.split("/")[0] ?? ".",
+          directory: path.posix.basename(relativeDir),
+          relativeDir,
+          name: manifest?.name ?? relativeDir,
+          files: [],
+        }
+        directories.set(relativeDir, item)
+      }
+
+      item.files.push(file)
+    }
+
+    return [...directories.values()].sort((left, right) =>
+      left.relativeDir.localeCompare(right.relativeDir)
+    )
   }
 
   /**

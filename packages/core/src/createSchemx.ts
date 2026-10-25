@@ -1,11 +1,17 @@
-import { mergeConfig } from "./config/mergeSchemxConfig"
+import { mergeConfig } from "./config"
 import { createFormWithSnapshot } from "./createForm"
 import { createPresetRuleRegistry, createRendererRegistry } from "./registry"
 
-import type { CreateSchemxOptions } from "./config/schemxOptions"
-import type { CreateFormOptions } from "./form/options"
+import type { CreateFormOptions, SchemxConfig } from "./config"
 import type { PresetRuleRegistry, RendererRegistry } from "./registry"
 import type { SchemxInstance, Values } from "./types"
+
+/**
+ * `createSchemx` 的工厂入参，与共享默认配置使用同一契约。
+ *
+ * @typeParam TValues - Schema 默认值和 Renderer 配置关联的表单值类型。
+ */
+export type CreateSchemxOptions<TValues extends Values = Values> = SchemxConfig<TValues>
 
 /**
  * 替换业务覆盖层的配置；Registry 引用在工厂创建时固定。
@@ -103,13 +109,16 @@ export function createSchemx(config: CreateSchemxOptions = {}): SchemxApi {
     // 工厂不绑定业务值类型，创建边界关联本次调用的泛型。
     const defaults = currentConfig as CreateSchemxOptions<TValues>
 
-    return createFormWithSnapshot(options, defaults, defaults)
+    return createFormWithSnapshot(options, defaults)
   }
+
+  // 读取当前冻结配置，不在返回对象中创建行为。
+  const getConfig: SchemxApi["getConfig"] = () => currentConfig
 
   return {
     createForm,
     configureSchemx,
-    getConfig: () => currentConfig,
+    getConfig,
     rendererRegistry,
     presetRuleRegistry,
   }

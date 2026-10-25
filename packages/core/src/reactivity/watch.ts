@@ -1,8 +1,8 @@
 import { createDebouncedFn } from "../utils"
 
-import { createSignalEffect, runSignalUntracked } from "./effect"
+import { createSignalEffect, runSignalUntracked } from "./index"
 
-import type { SignalEffectDispose } from "./effect"
+import type { SignalEffectDispose } from "./index"
 import type { DebouncedFnOptions } from "../utils"
 
 /**

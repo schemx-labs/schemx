@@ -1,16 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { configureSchemx, getGlobalSchemxConfig } from ".."
 import { createForm } from "../../createForm"
 import { createRendererRegistry } from "../../registry"
-import { configureSchemx, getGlobalSchemxConfig } from "../schemxConfig"
 
-import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view/types"
+import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view"
 import type { SchemxRendererPropsMap, Values } from "../../types"
-import type {
-  AdapterRule,
-  ValidationAdapter,
-  ValidationRule,
-} from "../../validator/types"
+import type { AdapterRule, ValidationAdapter, ValidationRule } from "../../validator"
 
 function createTestAdapter<TInput>(
   id: string,

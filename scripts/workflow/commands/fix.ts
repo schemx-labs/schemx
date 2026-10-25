@@ -4,10 +4,17 @@
  * @remarks `--staged` 只修复并重新暂存当前暂存文件；默认模式把参数转交给
  * workspace 的 `lint:fix` 与 `format`。
  */
-import { execFileSync } from "node:child_process"
+import { existsSync } from "node:fs"
+import path from "node:path"
 
 import { type Context } from "../core/context.ts"
 import { CANCELLED_EXIT_CODE, failure, usageError } from "../core/errors.ts"
+import {
+  endWorkflowFlow,
+  formatWorkflowText,
+  runWorkflowCommand,
+} from "../presentation.ts"
+import { ESLINT_IGNORED_FILE_PATTERN } from "../target-selection.ts"
 
 import { runWorkspaceTask } from "./workspace.ts"
 
@@ -31,17 +38,24 @@ export function fixUsage(): string {
 /**
  * 列出当前已暂存的文件。
  *
- * @param root - 仓库根目录。
+ * @param context - 仓库目录及绑定了取消信号的终端。
  * @returns 相对路径列表。
  */
-function stagedFiles(root: string): readonly string[] {
-  const output = execFileSync(
-    "git",
-    ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
-    { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }
-  )
+async function stagedFiles(context: Context): Promise<readonly string[]> {
+  const result = await context.terminal.executeCommand({
+    command: "git",
+    args: ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
+    cwd: context.root,
+    outputMode: "capture",
+  })
 
-  return output.split("\0").filter((line) => line !== "")
+  if (result.exitCode !== 0) {
+    throw failure(result.stderr || "无法读取暂存文件。")
+  }
+
+  return result.stdout
+    .split("\0")
+    .filter((file) => file !== "" && existsSync(path.join(context.root, file)))
 }
 
 /**
@@ -52,12 +66,20 @@ function stagedFiles(root: string): readonly string[] {
  * @throws {WorkflowError} 修复命令失败时抛出。
  */
 async function fixStaged(context: Context): Promise<number> {
-  const { ui, root } = context
+  const { terminal, root } = context
 
-  const files = stagedFiles(root)
+  const files = await terminal.runTask({
+    title: "读取暂存文件",
+    parentId: context.parentId,
+    execute: () => stagedFiles(context),
+  })
 
   if (files.length === 0) {
-    ui.status("info", "没有已暂存文件，跳过代码修复。")
+    terminal.status({
+      tone: "info",
+      message: "没有已暂存文件，跳过代码修复。",
+      parentId: context.parentId,
+    })
 
     return 0
   }
@@ -73,36 +95,33 @@ async function fixStaged(context: Context): Promise<number> {
   )
 
   if (linted.length > 0) {
-    // 与包内 lint:fix 一样从根配置运行 Oxc，再由 ESLint 补充规则。
-    const oxcExitCode = await ui.task(
-      { title: `修复 ${linted.length} 个文件的 Oxc 问题`, log: "live" },
-      async () =>
-        await ui.exec("pnpm", ["exec", "vp", "lint", "--fix", ...linted], { cwd: root })
-    )
+    const eslintFiles = linted.filter((file) => !ESLINT_IGNORED_FILE_PATTERN.test(file))
 
-    if (oxcExitCode !== 0) {
-      return oxcExitCode
-    }
+    if (eslintFiles.length > 0) {
+      const exitCode = await runWorkflowCommand({
+        terminal: terminal,
+        title: `修复 ${eslintFiles.length} 个文件的 lint 问题`,
+        command: "pnpm",
+        args: ["exec", "eslint", "--fix", "--", ...eslintFiles],
+        cwd: root,
+        parentId: context.parentId,
+      })
 
-    const exitCode = await ui.task(
-      { title: `修复 ${linted.length} 个文件的 lint 问题`, log: "live" },
-      async () =>
-        await ui.exec("pnpm", ["exec", "eslint", "--fix", ...linted], { cwd: root })
-    )
-
-    if (exitCode !== 0) {
-      return exitCode
+      if (exitCode !== 0) {
+        return exitCode
+      }
     }
   }
 
   if (formatted.length > 0) {
-    const exitCode = await ui.task(
-      { title: `格式化 ${formatted.length} 个文件`, log: "live" },
-      async () =>
-        await ui.exec("pnpm", ["exec", "vp", "fmt", "--write", ...formatted], {
-          cwd: root,
-        })
-    )
+    const exitCode = await runWorkflowCommand({
+      terminal: terminal,
+      title: `格式化 ${formatted.length} 个文件`,
+      command: "pnpm",
+      args: ["exec", "prettier", "--write", "--", ...formatted],
+      cwd: root,
+      parentId: context.parentId,
+    })
 
     if (exitCode !== 0) {
       return exitCode
@@ -112,16 +131,24 @@ async function fixStaged(context: Context): Promise<number> {
   // 只重新暂存本次实际改写的文件，避免扩大提交范围。
   const touched = [...new Set([...linted, ...formatted])]
 
-  const restaged = await ui.task(
-    { title: "重新暂存修复结果", log: "live" },
-    async () => await ui.exec("git", ["add", "--", ...touched], { cwd: root })
-  )
+  const restaged = await runWorkflowCommand({
+    terminal: terminal,
+    title: "重新暂存修复结果",
+    command: "git",
+    args: ["add", "--", ...touched],
+    cwd: root,
+    parentId: context.parentId,
+  })
 
   if (restaged !== 0) {
     throw failure("重新暂存修复结果失败。")
   }
 
-  ui.status("success", `已修复并重新暂存 ${touched.length} 个文件。`)
+  terminal.status({
+    tone: "success",
+    message: `已修复并重新暂存 ${touched.length} 个文件。`,
+    parentId: context.parentId,
+  })
 
   return 0
 }
@@ -134,46 +161,62 @@ async function fixStaged(context: Context): Promise<number> {
  * @returns 退出码。
  */
 export async function runFix(context: Context, args: readonly string[]): Promise<number> {
-  const { ui } = context
+  const { terminal } = context
 
   if (args[0] === "--staged") {
     if (args.length !== 1) {
       throw usageError(fixUsage())
     }
 
-    ui.flowBegin({
+    const flowId1 = terminal.startFlow({
       domain: "workspace",
       title: "修复已暂存文件",
-      description: "只修复当前暂存内容。",
+      description: formatWorkflowText({ terminal, content: "只修复当前暂存内容。" }),
     })
-    const exitCode = await fixStaged(context)
 
-    ui.flowEndFromExitCode(exitCode, {
-      success: "已暂存文件修复完成。",
-      failed: "已暂存文件修复失败。",
-      cancelled: "已暂存文件修复已取消。",
+    const exitCode = await fixStaged({ ...context, parentId: flowId1 })
+
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId1,
+      exitCode: exitCode,
+      messages: {
+        success: "已暂存文件修复完成。",
+        failed: "已暂存文件修复失败。",
+        cancelled: "已暂存文件修复已取消。",
+      },
     })
 
     return exitCode
   }
 
   if (args[0] === "-h" || args[0] === "--help" || args[0] === "help") {
-    ui.note(fixUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: fixUsage() }),
+      parentId: context.parentId,
+    })
 
     return 0
   }
 
-  ui.flowBegin({
+  const flowId2 = terminal.startFlow({
     domain: "workspace",
     title: "修复代码",
-    description: "依次执行 lint 自动修复与格式化。",
+    description: formatWorkflowText({
+      terminal,
+      content: "依次执行 lint 自动修复与格式化。",
+    }),
   })
 
   // 原实现在两步之间不检查取消，一次 Ctrl+C 之后仍会继续执行第二步。
   const lintExitCode = await runWorkspaceTask(context, "lint:fix", args)
 
   if (lintExitCode === CANCELLED_EXIT_CODE) {
-    ui.flowEnd("cancelled", "代码修复已取消。")
+    terminal.endFlow({
+      flowId: flowId2,
+      outcome: "cancelled",
+      message: "代码修复已取消。",
+    })
 
     return lintExitCode
   }
@@ -182,10 +225,15 @@ export async function runFix(context: Context, args: readonly string[]): Promise
 
   const exitCode = lintExitCode !== 0 ? lintExitCode : formatExitCode
 
-  ui.flowEndFromExitCode(exitCode, {
-    success: "代码修复完成。",
-    failed: "代码修复未全部完成。",
-    cancelled: "代码修复已取消。",
+  endWorkflowFlow({
+    terminal: terminal,
+    flowId: flowId2,
+    exitCode: exitCode,
+    messages: {
+      success: "代码修复完成。",
+      failed: "代码修复未全部完成。",
+      cancelled: "代码修复已取消。",
+    },
   })
 
   return exitCode

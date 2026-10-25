@@ -7,6 +7,7 @@
  * @module core/store/types
  */
 
+import type { ReadonlyState } from "../reactivity"
 import type {
   FieldArrayChange,
   FieldArrayPath,
@@ -16,7 +17,60 @@ import type {
   SetValuesAction,
   Values,
 } from "../types"
-import type { ValidationRuleIssue } from "../validator/types"
+import type { ValidationRuleIssue } from "../validator"
+
+/**
+ * 与字段路径记录共用身份的原生只读状态。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ * @typeParam TName - 当前字段路径类型。
+ */
+export interface FieldState<
+  TValues extends Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+> {
+  /**
+   * 结构共享值树中的当前值；通过 Core 操作写入。
+   */
+  readonly value: ReadonlyState<FieldValue<TValues, TName> | undefined>
+  /**
+   * 当前字段面向用户的错误消息。
+   */
+  readonly errors: ReadonlyState<readonly string[]>
+  /**
+   * 当前字段是否已被触碰。
+   */
+  readonly touched: ReadonlyState<boolean>
+  /**
+   * 当前字段是否正在执行异步操作。
+   */
+  readonly pending: ReadonlyState<boolean>
+}
+
+/**
+ * Store 原生状态入口；直接复用路径记录与 computed，不经适配协议转换。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ */
+export interface StoreState<TValues extends Values> {
+  /**
+   * 当前完整值树；结构共享保证未变化子树的引用稳定。
+   */
+  readonly values: ReadonlyState<TValues>
+  /**
+   * 已触碰字段的稳定路径列表。
+   */
+  readonly touchedFields: ReadonlyState<readonly NamePath<TValues>[]>
+  /**
+   * 操作中的字段与提示。
+   */
+  readonly pendingFields: ReadonlyState<readonly StorePending<TValues>[]>
+  /**
+   * 复用现有路径记录上的字段状态，不建立另一份字段缓存。
+   * @param name - 要读取的字段路径。
+   */
+  field<TName extends NamePath<TValues>>(name: TName): FieldState<TValues, TName>
+}
 
 /**
  * Store 配置选项。
@@ -83,7 +137,8 @@ export interface ArrayStructureHandle {
    */
   getKeys(): readonly string[]
   /**
-   * 订阅结构变化，并返回取消订阅函数。
+   * 在 Core 批次内同步接收每次结构变化，先完成节点路径关联，再通知状态消费者。
+   * @param listener - 接收已应用结构变化的 Runtime 监听器。
    */
   subscribe(listener: (change: FieldArrayChange) => void): () => void
 }
@@ -102,6 +157,10 @@ export interface ArrayStructureHandle {
  * ```
  */
 export interface Store<TValues extends Values = Values> {
+  /**
+   * Store 持有的稳定只读状态入口。
+   */
+  readonly state: StoreState<TValues>
   /**
    * 创建指定数组路径的 Runtime 结构 Handle。
    *

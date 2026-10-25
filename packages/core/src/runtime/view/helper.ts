@@ -11,7 +11,7 @@ import type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./types"
+} from "./index"
 import type { Values } from "../../types"
 
 /**

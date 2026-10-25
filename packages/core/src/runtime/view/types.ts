@@ -14,7 +14,7 @@ import type {
   SchemxGroupField,
   Values,
 } from "../../types"
-import type { FieldDependencyOverrideKey } from "../node"
+import type { FieldDependencyOverrideKey, NodeId } from "../node"
 
 /**
  * 对联合类型逐项执行 Omit。
@@ -81,6 +81,12 @@ export type SchemxViewFieldSchema<TValues extends Values = Values> = Distributiv
    */
   readonly key: string
   /**
+   * Form 内唯一的运行时节点 ID。
+   *
+   * ID 在 Form 生命周期内不复用；节点移动或配置更新且运行时节点被复用时保持不变。
+   */
+  readonly nodeId: NodeId
+  /**
    * 最终是否显示必填视觉标记。
    *
    * 该值已按动态配置、静态配置和有效 `required` 的顺序完成解析，
@@ -107,6 +113,12 @@ export type SchemxViewGroupSchema<TValues extends Values = Values> = Distributiv
    * 运行时节点 key，形如 "group:0"
    */
   readonly key: string
+  /**
+   * Form 内唯一的运行时节点 ID。
+   *
+   * ID 在 Form 生命周期内不复用；节点移动或配置更新且运行时节点被复用时保持不变。
+   */
+  readonly nodeId: NodeId
   /**
    * 子级 ViewSchema 列表，dependency schema 已透明展开
    */
@@ -151,6 +163,12 @@ export type SchemxViewDynamicSchema<TValues extends Values = Values> = Omit<
    * Dynamic 节点的稳定运行时 key。
    */
   readonly key: string
+  /**
+   * Form 内唯一的运行时节点 ID。
+   *
+   * ID 在 Form 生命周期内不复用；节点移动或配置更新且运行时节点被复用时保持不变。
+   */
+  readonly nodeId: NodeId
   /**
    * 当前数组的行投影。
    */

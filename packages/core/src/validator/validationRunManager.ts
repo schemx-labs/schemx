@@ -6,7 +6,7 @@
  * @module core/validator/validationRunManager
  */
 
-import type { ValidationRuleResult } from "./types"
+import type { ValidationRuleResult } from "./index"
 
 /**
  * 单次字段或全表校验的运行句柄。

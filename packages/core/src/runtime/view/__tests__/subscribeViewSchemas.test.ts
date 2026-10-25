@@ -8,11 +8,10 @@
  */
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { attachRootViewSchemas, subscribeViewSchemas } from ".."
 import createForm from "../../../createForm"
+import { createNodeManager } from "../../node"
 import { createFieldNode } from "../../node/__tests__/nodeTestUtils"
-import { createNodeManager } from "../../node/nodeManager"
-import { subscribeViewSchemas } from "../subscribeViewSchemas"
-import { attachRootViewSchemas } from "../viewProjection"
 
 import type { RootNode } from "../../node"
 

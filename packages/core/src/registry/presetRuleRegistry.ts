@@ -1,14 +1,14 @@
-import { createRequiredValidationRule } from "../validator/built-in.rules"
+import { createRequiredValidationRule } from "../validator"
 
-import type { RegistryOptions } from "./types"
-import type { AsyncValidatorDescriptor } from "../types/asyncValidator"
+import type { RegistryOptions } from "./index"
 import type {
+  AsyncValidatorDescriptor,
   DeclaredPresetRuleName,
   PresetRuleDefinition,
   RequiredConfig,
-} from "../types/rule"
-import type { StandardSchemaV1 } from "../types/standardSchema"
-import type { ValidationRule } from "../validator/types"
+  StandardSchemaV1,
+} from "../types"
+import type { ValidationRule } from "../validator"
 
 /**
  * 在存在声明规则与否的两种模式间选择规则 key 类型。
@@ -28,9 +28,7 @@ type PresetRuleValue<TKey extends PresetRuleKey> = TKey extends DeclaredPresetRu
  * 规则注册表中已经解析、可直接执行的规则条目。
  */
 type ResolvedPresetRuleEntry<TValue> =
-  | ValidationRule<TValue>
-  | StandardSchemaV1<TValue, unknown>
-  | AsyncValidatorDescriptor
+  ValidationRule<TValue> | StandardSchemaV1<TValue, unknown> | AsyncValidatorDescriptor
 
 /**
  * 命名规则工厂可读取的字段元数据。
@@ -102,8 +100,7 @@ export type PresetRuleFactory<TValue = unknown> = {
  * @typeParam TValue - 规则接收的字段值类型。
  */
 export type PresetRuleEntry<TValue = unknown> =
-  | ResolvedPresetRuleEntry<TValue>
-  | PresetRuleFactory<TValue>
+  ResolvedPresetRuleEntry<TValue> | PresetRuleFactory<TValue>
 
 /**
  * 命名规则名称到注册条目的映射。

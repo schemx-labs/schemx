@@ -6,11 +6,15 @@
  * 而非交互路径（参数或 `SCHEMX_RELEASE_CUSTOM_VERSION`）却是正常的。两条路径必须收敛
  * 到同一套归一化逻辑。
  */
-import { Writable } from "node:stream"
+import { PassThrough, Writable } from "node:stream"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { Ui } from "../ui/ui.ts"
+import { createContext } from "../core/context.ts"
+import { createTerminal } from "../ui/index.ts"
+
+import type { Context } from "../core/context.ts"
+import type { Terminal } from "../ui/index.ts"
 
 const clackSelect = vi.fn()
 
@@ -28,12 +32,14 @@ vi.mock("@clack/prompts", () => ({
 const { selectVersionAction } = await import("./inputs.ts")
 
 /**
- * 构造一个处于交互模式的 Ui。
+ * 构造一个使用独立交互流的命令上下文。
  *
  * @param env - 环境变量。
  * @returns UI 实例。
  */
-function interactiveUi(env: NodeJS.ProcessEnv = {}): Ui {
+const terminals: Terminal[] = []
+
+function interactiveContext(env: NodeJS.ProcessEnv = {}): Context {
   const out = new Writable({
     write(_chunk, _encoding, done) {
       done()
@@ -42,20 +48,24 @@ function interactiveUi(env: NodeJS.ProcessEnv = {}): Ui {
 
   out.isTTY = true
 
-  return new Ui(out, { ...env }, { signals: false })
+  const input = new PassThrough()
+
+  Object.assign(input, { isTTY: true })
+  const terminal = createTerminal({ input, output: out, env, handleSignals: false })
+
+  terminals.push(terminal)
+
+  return createContext(process.cwd(), terminal, env)
 }
 
-let stdin: { isTTY?: boolean }
-
 beforeEach(() => {
-  stdin = { isTTY: true }
-  Object.defineProperty(process, "stdin", { configurable: true, value: stdin })
   clackSelect.mockReset()
   clackText.mockReset()
 })
-
 afterEach(() => {
-  Object.defineProperty(process, "stdin", { configurable: true, value: stdin })
+  for (const terminal of terminals.splice(0)) {
+    terminal.dispose()
+  }
 })
 
 describe("selectVersionAction", () => {
@@ -63,7 +73,7 @@ describe("selectVersionAction", () => {
     clackSelect.mockResolvedValue("custom")
     clackText.mockResolvedValue("2.4.0")
 
-    const action = await selectVersionAction(interactiveUi(), "beta", "")
+    const action = await selectVersionAction(interactiveContext(), "beta", "")
 
     expect(action).toBe("2.4.0")
     expect(clackText).toHaveBeenCalledTimes(1)
@@ -73,7 +83,7 @@ describe("selectVersionAction", () => {
     clackSelect.mockResolvedValue("custom")
 
     const action = await selectVersionAction(
-      interactiveUi({ SCHEMX_RELEASE_CUSTOM_VERSION: "1.9.3" }),
+      interactiveContext({ SCHEMX_RELEASE_CUSTOM_VERSION: "1.9.3" }),
       "beta",
       ""
     )
@@ -85,7 +95,7 @@ describe("selectVersionAction", () => {
   it("交互选择普通动作时不再询问版本", async () => {
     clackSelect.mockResolvedValue("patch")
 
-    const action = await selectVersionAction(interactiveUi(), "beta", "")
+    const action = await selectVersionAction(interactiveContext(), "beta", "")
 
     expect(action).toBe("patch")
     expect(clackText).not.toHaveBeenCalled()
@@ -93,7 +103,7 @@ describe("selectVersionAction", () => {
 
   it("命令行传入 custom 时归一化为精确版本", async () => {
     const action = await selectVersionAction(
-      interactiveUi({ SCHEMX_RELEASE_CUSTOM_VERSION: "3.1.4" }),
+      interactiveContext({ SCHEMX_RELEASE_CUSTOM_VERSION: "3.1.4" }),
       "beta",
       "custom"
     )
@@ -104,13 +114,13 @@ describe("selectVersionAction", () => {
 
   it("命令行传入非法动作时以用法错误终止", async () => {
     await expect(
-      selectVersionAction(interactiveUi(), "beta", "custom-ish")
+      selectVersionAction(interactiveContext(), "beta", "custom-ish")
     ).rejects.toThrow("无效版本动作：custom-ish")
   })
 
   it("预发布通道拒绝 current 动作", async () => {
-    await expect(selectVersionAction(interactiveUi(), "beta", "current")).rejects.toThrow(
-      "预发布通道必须选择 patch、minor、major 或精确 x.y.z 版本基线。"
-    )
+    await expect(
+      selectVersionAction(interactiveContext(), "beta", "current")
+    ).rejects.toThrow("预发布通道必须选择 patch、minor、major 或精确 x.y.z 版本基线。")
   })
 })

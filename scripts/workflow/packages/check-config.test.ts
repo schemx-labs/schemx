@@ -121,14 +121,14 @@ afterEach(() => {
 })
 
 describe("checkPackageConfig 合规基线", () => {
-  it("全部规则满足时返回 ok", () => {
-    expect(checkPackageConfig(root)).toEqual({ ok: true, failures: [] })
+  it("全部规则满足时返回 ok", async () => {
+    expect(await checkPackageConfig(root)).toEqual({ ok: true, failures: [] })
   })
 
-  it(".env 缺少 VITE_USE_SOURCE 时报告缺少项", () => {
+  it(".env 缺少 VITE_USE_SOURCE 时报告缺少项", async () => {
     write("packages/vue/.env", "")
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain("packages/vue/.env: 缺少 VITE_USE_SOURCE=")
@@ -136,13 +136,13 @@ describe("checkPackageConfig 合规基线", () => {
 })
 
 describe("checkPackageConfig 内部依赖规则", () => {
-  it("dependencies 缺少内部依赖时报错", () => {
+  it("dependencies 缺少内部依赖时报错", async () => {
     const manifest = readManifest("packages/vue/package.json")
 
     delete manifest.dependencies
     writeManifest("packages/vue/package.json", manifest)
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -150,7 +150,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
     )
   })
 
-  it("dependencies 使用非 workspace 协议时报错", () => {
+  it("dependencies 使用非 workspace 协议时报错", async () => {
     const manifest = readManifest("packages/vue/package.json")
 
     writeManifest("packages/vue/package.json", {
@@ -158,7 +158,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
       dependencies: { ...manifest.dependencies, "@schemx/core": "^1.0.0" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -166,7 +166,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
     )
   })
 
-  it("peerDependencies 重复声明内部依赖时报错", () => {
+  it("peerDependencies 重复声明内部依赖时报错", async () => {
     const manifest = readManifest("packages/vant/package.json")
 
     writeManifest("packages/vant/package.json", {
@@ -174,7 +174,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
       peerDependencies: { ...manifest.peerDependencies, "@schemx/vue": "^1.0.0" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -182,7 +182,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
     )
   })
 
-  it("devDependencies 重复声明内部依赖时报错", () => {
+  it("devDependencies 重复声明内部依赖时报错", async () => {
     const manifest = readManifest("packages/element-plus/package.json")
 
     writeManifest("packages/element-plus/package.json", {
@@ -190,7 +190,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
       devDependencies: { "@schemx/core": "workspace:*" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -198,7 +198,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
     )
   })
 
-  it("一个包的多条依赖问题一次性全部报告", () => {
+  it("一个包的多条依赖问题一次性全部报告", async () => {
     const manifest = readManifest("packages/vant/package.json")
 
     writeManifest("packages/vant/package.json", {
@@ -206,7 +206,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
       dependencies: { "@schemx/vue": "workspace:*" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -216,7 +216,7 @@ describe("checkPackageConfig 内部依赖规则", () => {
 })
 
 describe("checkPackageConfig script 规则", () => {
-  it("script 内联 VITE_FOO= 时报错", () => {
+  it("script 内联 VITE_FOO= 时报错", async () => {
     const manifest = readManifest("packages/core/package.json")
 
     writeManifest("packages/core/package.json", {
@@ -224,7 +224,7 @@ describe("checkPackageConfig script 规则", () => {
       scripts: { build: "VITE_FOO=bar vp build" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -232,7 +232,7 @@ describe("checkPackageConfig script 规则", () => {
     )
   })
 
-  it("变量出现在赋值之前也命中正则", () => {
+  it("变量出现在赋值之前也命中正则", async () => {
     const manifest = readManifest("packages/vue/package.json")
 
     writeManifest("packages/vue/package.json", {
@@ -240,12 +240,12 @@ describe("checkPackageConfig script 规则", () => {
       scripts: { build: "cross-env VITE_USE_SOURCE=false vp build" },
     })
 
-    expect(checkPackageConfig(root).failures).toContain(
+    expect((await checkPackageConfig(root)).failures).toContain(
       "packages/vue/package.json: scripts.build 不应内联 VITE_* 环境变量"
     )
   })
 
-  it("引用 VITE_ 字样但没有赋值不报错", () => {
+  it("引用 VITE_ 字样但没有赋值不报错", async () => {
     const manifest = readManifest("packages/core/package.json")
 
     writeManifest("packages/core/package.json", {
@@ -253,15 +253,15 @@ describe("checkPackageConfig script 规则", () => {
       scripts: { build: "node scripts/build.mjs --flag vite" },
     })
 
-    expect(checkPackageConfig(root).ok).toBe(true)
+    expect((await checkPackageConfig(root)).ok).toBe(true)
   })
 })
 
 describe("checkPackageConfig 文件内容规则", () => {
-  it(".gitignore 出现 packages/vant/.env.standalone 时报错", () => {
+  it(".gitignore 出现 packages/vant/.env.standalone 时报错", async () => {
     write(".gitignore", "node_modules/\ndist/\n*.tgz\npackages/vant/.env.standalone\n")
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -269,15 +269,15 @@ describe("checkPackageConfig 文件内容规则", () => {
     )
   })
 
-  it(".env 出现 VITE_BUILD_STANDALONE 时报错", () => {
+  it(".env 出现 VITE_BUILD_STANDALONE 时报错", async () => {
     write("packages/vant/.env", "VITE_USE_SOURCE=true\nVITE_BUILD_STANDALONE=true\n")
 
-    expect(checkPackageConfig(root).failures).toContain(
+    expect((await checkPackageConfig(root)).failures).toContain(
       "packages/vant/.env: 不应包含 standalone 逻辑 VITE_BUILD_STANDALONE"
     )
   })
 
-  it("vant 的 script 重新引入 standalone 模式时报错", () => {
+  it("vant 的 script 重新引入 standalone 模式时报错", async () => {
     const manifest = readManifest("packages/vant/package.json")
 
     writeManifest("packages/vant/package.json", {
@@ -285,7 +285,7 @@ describe("checkPackageConfig 文件内容规则", () => {
       scripts: { build: "vp build", "normalize-vant-dts": "dts --mode standalone" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -293,18 +293,20 @@ describe("checkPackageConfig 文件内容规则", () => {
     )
   })
 
-  it("文件缺失时报「文件不存在」而不是「缺少」", () => {
+  it("文件缺失时报「文件不存在」而不是「缺少」", async () => {
     rmSync(path.join(root, "packages/vue/.env"))
 
-    expect(checkPackageConfig(root).failures).toContain("packages/vue/.env: 文件不存在")
+    expect((await checkPackageConfig(root)).failures).toContain(
+      "packages/vue/.env: 文件不存在"
+    )
   })
 })
 
 describe("checkPackageConfig manifest 缺失时的行为", () => {
-  it("缺失的 package.json 单独报告", () => {
+  it("缺失的 package.json 单独报告", async () => {
     rmSync(path.join(root, "packages/core/package.json"))
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -312,7 +314,7 @@ describe("checkPackageConfig manifest 缺失时的行为", () => {
     )
   })
 
-  it("一个 package.json 缺失时，其余包的依赖规则仍然逐条检查", () => {
+  it("一个 package.json 缺失时，其余包的依赖规则仍然逐条检查", async () => {
     rmSync(path.join(root, "packages/vant/package.json"))
     const vue = readManifest("packages/vue/package.json")
 
@@ -322,7 +324,7 @@ describe("checkPackageConfig manifest 缺失时的行为", () => {
       devDependencies: { "@schemx/core": "workspace:*" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -340,7 +342,7 @@ describe("checkPackageConfig manifest 缺失时的行为", () => {
     )
   })
 
-  it("JSON 非法的 package.json 同样按缺失处理，且不影响其他包", () => {
+  it("JSON 非法的 package.json 同样按缺失处理，且不影响其他包", async () => {
     write("packages/element-plus/package.json", "{ not json")
     const vant = readManifest("packages/vant/package.json")
 
@@ -349,7 +351,7 @@ describe("checkPackageConfig manifest 缺失时的行为", () => {
       dependencies: { ...vant.dependencies, "@schemx/core": "1.0.0" },
     })
 
-    const result = checkPackageConfig(root)
+    const result = await checkPackageConfig(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(

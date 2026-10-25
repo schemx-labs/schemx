@@ -10,7 +10,7 @@ import { createDebouncedSignalWatch } from "../../reactivity"
 
 import type { Values } from "../../types"
 import type { RootNode } from "../node"
-import type { SchemxViewSchema } from "./types"
+import type { SchemxViewSchema } from "./index"
 
 /**
  * 订阅 ViewSchemas 变化。

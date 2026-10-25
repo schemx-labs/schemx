@@ -7,7 +7,7 @@
  * @module core/runtime/dynamic/resources
  */
 
-import { createSignalEffect, runSignalUntracked } from "../../reactivity"
+import { runSignalUntracked } from "../../reactivity"
 import {
   createFieldKey,
   getByPath,
@@ -16,6 +16,7 @@ import {
   isGroupSchema,
 } from "../../utils"
 
+import type { ChildReconciler, SchemaRuntimeContext } from ".."
 import type {
   FieldArrayPath,
   NamePath,
@@ -27,7 +28,6 @@ import type {
   SchemxFormApi,
   Values,
 } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { DynamicNode, DynamicRowState } from "../node"
 
 type DynamicDependencyRenderer<
@@ -47,30 +47,37 @@ interface CachedDynamicDependencyRenderer<TItem extends Values, TValues extends 
 }
 
 /**
- * 挂载 Dynamic 数组结构同步 effect。
+ * 挂载 Dynamic 数组结构同步监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param node - 要挂载的 Dynamic 节点。
  * @param context - Runtime 共享上下文。
+ * @param childReconciler - 同步提交数组行子树的协调能力。
+ * @example mountDynamicResources(node, context, childReconciler)
  */
 export function mountDynamicResources<TValues extends Values>(
   node: DynamicNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
-  recreateDynamicEffect(node, context)
+  recreateDynamicSubscription(node, context, childReconciler)
 }
 
 /**
- * 更新 Dynamic 的数组结构同步 effect。
+ * 更新 Dynamic 的数组结构同步监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param node - 当前 Dynamic 节点。
+ * @param previousNode - 更新前的 Dynamic 节点快照。
  * @param context - Runtime 共享上下文。
+ * @param childReconciler - 重建监听后同步提交数组行子树的协调能力。
+ * @example updateDynamicResources(node, previousNode, context, childReconciler)
  */
 export function updateDynamicResources<TValues extends Values>(
   node: DynamicNode<TValues>,
   previousNode: DynamicNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   const previousSchema = previousNode.compiledSchema.peek()
 
@@ -83,11 +90,11 @@ export function updateDynamicResources<TValues extends Values>(
     return
   }
 
-  recreateDynamicEffect(node, context)
+  recreateDynamicSubscription(node, context, childReconciler)
 }
 
 /**
- * 释放 Dynamic 的数组结构同步 effect。
+ * 释放 Dynamic 的数组结构同步监听。
  *
  * @typeParam TValues - 表单值类型。
  * @param node - 要释放的 Dynamic 节点。
@@ -105,10 +112,12 @@ export function unmountDynamicResources<TValues extends Values>(
  * @typeParam TValues - 表单值类型。
  * @param node - 要监听的 Dynamic 节点。
  * @param context - Runtime 共享上下文。
+ * @param childReconciler - 监听回调持有的同步子树协调能力。
  */
-function recreateDynamicEffect<TValues extends Values>(
+function recreateDynamicSubscription<TValues extends Values>(
   node: DynamicNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   node.dynamicEffectScope?.dispose()
 
@@ -129,39 +138,50 @@ function recreateDynamicEffect<TValues extends Values>(
 
   arrayStructure.register()
 
-  dynamicEffectScope.add(
-    arrayStructure.subscribe((change) => {
-      context.validation.invalidateFieldArray(schema.name as NamePath<TValues>, change)
-    })
-  )
+  // 初次挂载和后续结构变化都在当前提交中同步路径，不等待响应式 effect。
+  const syncRows = (): void =>
+    runSignalUntracked(() => {
+      const rows: DynamicRowState[] = arrayStructure
+        .getKeys()
+        .map((key, index) => ({ key, index }))
 
-  const disposeEffect = createSignalEffect(() => {
-    const rows: DynamicRowState[] = arrayStructure.getKeys().map((key, index) => ({
-      key,
-      index,
-    }))
+      const activeRendererKeys = new Set<string>()
 
-    const activeRendererKeys = new Set<string>()
+      // 嵌套 Dependency 的既有包装器也先切换行上下文，防止刷新期间继续引用旧行。
+      const rowIndices = new Map(rows.map((row) => [row.key, row.index]))
 
-    node.dynamicRows.value = rows
+      for (const cached of dependencyRendererCache.values()) {
+        const index = rowIndices.get(cached.state.dynamicRowKey)
 
-    try {
-      runSignalUntracked(() => {
-        context.reconcileChildren(
+        if (index !== undefined) {
+          cached.state.rowIndex = index
+          cached.state.rowPath = `${String(schema.name)}.${index}`
+        }
+      }
+
+      node.dynamicRows.value = rows
+
+      try {
+        childReconciler.reconcileChildren(
           node.id,
           expandDynamicSchemas(schema, rows, dependencyRendererCache, activeRendererKeys)
         )
-      })
-    } finally {
-      for (const cacheKey of dependencyRendererCache.keys()) {
-        if (!activeRendererKeys.has(cacheKey)) {
-          dependencyRendererCache.delete(cacheKey)
+      } finally {
+        for (const cacheKey of dependencyRendererCache.keys()) {
+          if (!activeRendererKeys.has(cacheKey)) dependencyRendererCache.delete(cacheKey)
         }
       }
-    }
-  })
+    })
 
-  dynamicEffectScope.add(disposeEffect)
+  dynamicEffectScope.add(
+    arrayStructure.subscribe((change) => {
+      if (dynamicEffectScope.disposed) return
+      context.validation.invalidateFieldArray(schema.name as NamePath<TValues>, change)
+      syncRows()
+    })
+  )
+  syncRows()
+
   dynamicEffectScope.add(() => {
     dependencyRendererCache.clear()
   })

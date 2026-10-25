@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createPresetRuleRegistry } from "../presetRuleRegistry"
+import { createPresetRuleRegistry } from ".."
 
-import type { StandardSchemaV1 } from "../../types/standardSchema"
+import type { StandardSchemaV1 } from "../../types"
 
 declare module "../../types/rule" {
   interface PresetRuleDefinition {

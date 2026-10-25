@@ -8,7 +8,7 @@ import type {
   ValidationAdapter,
   ValidationAdapterID,
   ValidationAdapterOption,
-} from "./types"
+} from "./index"
 
 /**
  * 将当前 Form 的 adapter 注册项整理为路由表。

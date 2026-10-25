@@ -32,3 +32,5 @@ export {
 export { batchUpdates, onBatchComplete } from "./batch"
 
 export { createComputed, type ComputedSignal } from "./computed"
+
+export { createReactiveScope, type ReactiveScope, type ReadonlyState } from "./state"

@@ -1,14 +1,19 @@
-import { batchUpdates, createSignalEffect } from "../reactivity"
+import { batchUpdates, createReactiveScope, createSignal } from "../reactivity"
 import { createStore, type Store } from "../store"
 import {
   createValidator,
   type CreateValidatorOptions,
-  type ValidationAdapterOption,
   type Validator,
 } from "../validator"
 
-import type { PresetRuleRegistry } from "../registry"
-import type { Values } from "../types"
+import type { ReadonlySignal } from "../reactivity"
+import type {
+  ApplyFormConfig,
+  FormConfig,
+  FormConfigModel,
+  ResolvedFormConfig,
+} from "./index"
+import type { FormState, SchemxSchemaConfig, Values } from "../types"
 
 /**
  * 创建 FormModel 所需的状态、校验和错误处理配置。
@@ -17,25 +22,17 @@ import type { Values } from "../types"
  */
 export interface CreateFormModelOptions<TValues extends Values> {
   /**
+   * 由 Form 先行创建并统一释放的配置模型。
+   */
+  configuration: FormConfigModel<TValues>
+  /**
    * 创建 Store 时使用的初始值。
    */
   initialValues: TValues
   /**
-   * 当前 Form 使用的命名规则 Registry。
-   */
-  presetRuleRegistry: PresetRuleRegistry
-  /**
-   * 当前 Form 注册的 adapter 列表。
-   */
-  validatorAdapters: readonly ValidationAdapterOption[]
-  /**
    * 无法解析规则时调用的错误回调。
    */
   onRuleError?: CreateValidatorOptions<TValues>["onRuleError"]
-  /**
-   * 整表校验的字段并发数，默认 `8`。
-   */
-  validationConcurrency?: number
 }
 
 /**
@@ -44,6 +41,43 @@ export interface CreateFormModelOptions<TValues extends Values> {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface FormModel<TValues extends Values> {
+  /**
+   * Form 释放状态，用于结束无 Schema 节点的字段控制器。
+   */
+  readonly disposed: ReadonlySignal<boolean>
+  /**
+   * 供 Runtime 初次装配使用的生效配置。
+   */
+  getConfig(this: void): ResolvedFormConfig<TValues>
+  /**
+   * 替换唯一的消费配置。
+   * @param config - 最高优先级的消费输入。
+   * @param apply - 本次更新在状态发布前执行的编译提交。
+   */
+  setConfig(
+    this: void,
+    config: FormConfig<TValues>,
+    apply?: ApplyFormConfig<TValues>
+  ): void
+  /**
+   * 局部更新消费配置中的 Schema 默认值。
+   * @param partial - 需要更新的默认属性。
+   * @param apply - 本次更新在状态发布前执行的编译提交。
+   */
+  updateSchemaConfig(
+    this: void,
+    partial: Partial<SchemxSchemaConfig<TValues>>,
+    apply?: ApplyFormConfig<TValues>
+  ): void
+  /**
+   * 原生只读状态，直接复用 Store 状态与当前 Model 的提交状态。
+   */
+  readonly state: FormState<TValues>
+  /**
+   * 设置当前提交状态，由公开实例协调回调。
+   * @param loading - 当前是否正在提交。
+   */
+  setLoading(loading: boolean): void
   /**
    * 字段值、快照、初始值和交互状态的 Store。
    */
@@ -67,7 +101,7 @@ export interface FormModel<TValues extends Values> {
   /**
    * 幂等销毁 Model 持有的响应式、校验和 Store 资源。
    */
-  dispose(): void
+  dispose(this: void): void
 }
 
 /**
@@ -81,8 +115,7 @@ export interface FormModel<TValues extends Values> {
  * ```ts
  * const model = createFormModel({
  *   initialValues: {},
- *   presetRuleRegistry: createPresetRuleRegistry(),
- *   validatorAdapters: [],
+ *   configuration,
  * })
  *
  * model.reset()
@@ -92,22 +125,45 @@ export interface FormModel<TValues extends Values> {
 export function createFormModel<TValues extends Values>(
   options: CreateFormModelOptions<TValues>
 ): FormModel<TValues> {
+  // 配置由 Form 先行解析；Model 只管理值、提交状态和校验资源。
+  const scope = createReactiveScope()
+
+  const disposed = createSignal(false)
+
+  const configuration = options.configuration
+
+  const config = configuration.getConfig()
+
+  const getConfig = configuration.getConfig
+
+  const setConfig = configuration.setConfig
+
+  const updateSchemaConfig = configuration.updateSchemaConfig
+
   // Store 保存字段值与交互状态。
   const store = createStore<TValues>({ initialValues: options.initialValues })
 
   const validation = createValidator<TValues>({
     fieldStore: store,
-    presetRuleRegistry: options.presetRuleRegistry,
-    validatorAdapters: options.validatorAdapters,
+    presetRuleRegistry: config.presetRuleRegistry,
+    validatorAdapters: config.validatorAdapters,
     onRuleError: options.onRuleError,
-    validationConcurrency: options.validationConcurrency,
+    validationConcurrency: config.validationConcurrency,
   })
 
-  // 防止销毁后重复注册或释放响应式副作用。
-  let disposed = false
+  const loading = createSignal(false)
 
-  // Model 生命周期内注册的响应式副作用取消函数。
-  const effectDisposers = new Set<() => void>()
+  const setLoading = (value: boolean): void => {
+    loading.value = value
+  }
+
+  const state: FormState<TValues> = {
+    ...store.state,
+    config: configuration.state,
+    loading: scope.state(() => loading.value),
+  }
+
+  const effect = scope.effect
 
   /**
    * 重置字段值并清空全部校验错误。
@@ -115,31 +171,6 @@ export function createFormModel<TValues extends Values>(
   const reset: FormModel<TValues>["reset"] = () => {
     store.reset()
     store.clearAllErrors()
-  }
-
-  /**
-   * 注册并在 Model 生命周期内跟踪一个 effect。
-   */
-  const effect: FormModel<TValues>["effect"] = (fn) => {
-    // 先执行一次副作用以建立响应式依赖，再由 Model 统一管理其生命周期。
-    const disposeEffect = createSignalEffect(fn)
-
-    if (disposed) {
-      disposeEffect()
-
-      return () => {}
-    }
-
-    // 返回取消函数时同步从 Model 的资源集合中移除该副作用。
-    effectDisposers.add(disposeEffect)
-
-    return () => {
-      if (!effectDisposers.delete(disposeEffect)) {
-        return
-      }
-
-      disposeEffect()
-    }
   }
 
   /**
@@ -153,21 +184,23 @@ export function createFormModel<TValues extends Values>(
    * 仅执行一次并释放 Model 持有的全部资源。
    */
   const dispose: FormModel<TValues>["dispose"] = () => {
-    if (disposed) {
+    if (scope.disposed) {
       return
     }
 
-    disposed = true
-    for (const disposeEffect of [...effectDisposers].reverse()) {
-      disposeEffect()
-    }
-
-    effectDisposers.clear()
+    disposed.value = true
+    scope.dispose()
     validation.destroy()
     store.destroy()
   }
 
   return {
+    disposed,
+    getConfig,
+    setConfig,
+    updateSchemaConfig,
+    state,
+    setLoading,
     store,
     validation,
     reset,

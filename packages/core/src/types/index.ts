@@ -17,7 +17,12 @@ export type {
   SchemxSchemaConfigDefinition,
 } from "./form"
 
-export type { SchemxInstance, SchemxFormApi, SchemxInstanceDefinition } from "./instance"
+export type {
+  SchemxInstance,
+  SchemxFormApi,
+  SchemxInstanceDefinition,
+  FormState,
+} from "./instance"
 
 export type {
   RequiredOptions,
@@ -27,6 +32,7 @@ export type {
   PresetRuleName,
   FieldRule,
   FieldRules,
+  DeclaredPresetRuleName,
 } from "./rule"
 
 export type { SchemxRendererKey, SchemxRendererDefinition } from "./renderer"
@@ -47,6 +53,7 @@ export type {
   SchemxBase,
   SchemxBaseField,
   SchemxExactBaseField,
+  SchemxBaseFieldByName,
 } from "./field"
 
 export type { SchemxField } from "./schema"
@@ -76,7 +83,12 @@ export type {
   DisposeSubscription,
 } from "./dispose"
 
-export type { DeepNamePath, PathValueByArray, PathValueByString } from "./namePathType"
+export type {
+  DeepNamePath,
+  PathValueByArray,
+  PathValueByString,
+  PathValue,
+} from "./namePathType"
 
 export type { DeepReadonly, CSSProperties } from "./utils"
 

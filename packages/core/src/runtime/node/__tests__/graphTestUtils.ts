@@ -8,18 +8,17 @@
  */
 import { vi } from "vite-plus/test"
 
+import { createNodeLifecycle, createNodeManager } from ".."
+import { createReconciler, type SchemaRuntimeContext } from "../.."
 import { mergeAndResolveSchemxConfig } from "../../../config"
 import { createSignal } from "../../../reactivity"
 import { createSchemaCompiler, type SchemaCompiler } from "../../compiler"
-import { type SchemaRuntimeContext } from "../../context"
 import { createNodeLifecycleEmitter, type NodeLifecycleHooks } from "../../lifecycle"
-import { createReconciler } from "../../reconciler"
 import { createScheduler, type Scheduler } from "../../scheduler"
-import { createNodeManager } from "../nodeManager"
-import { createNodeLifecycle } from "../resources"
 
+import type { ContainerNode, ParentNode, RootNode } from ".."
+import type { Reconciler } from "../.."
 import type { SchemxField, SchemxFormApi, Values } from "../../../types"
-import type { ContainerNode, ParentNode, RootNode } from "../types"
 
 /**
  * 运行时图测试夹具的接口类型，包含 context、root、scheduler 及 formApi。
@@ -27,6 +26,10 @@ import type { ContainerNode, ParentNode, RootNode } from "../types"
 export interface RuntimeGraphTestHarness<TValues extends Values = Values> {
   readonly context: SchemaRuntimeContext<TValues>
   readonly compiler: SchemaCompiler<TValues>
+  /**
+   * 直接调用协调入口，Context 仅提供基础服务。
+   */
+  readonly reconciler: Reconciler<TValues>
   readonly root: RootNode
   readonly scheduler: Scheduler
   readonly commitSchemas: (
@@ -185,9 +188,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   })
 
   const context = {
-    schemaConfig: mergeAndResolveSchemxConfig<TValues>().schemaConfig,
     fieldRules: {},
-    instance,
     store,
     formApi,
     scheduler,
@@ -214,14 +215,10 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
     reconciler.reconcileChildren(parent.id, schemas)
   }
 
-  Object.assign(context, {
-    reconcileChildren: (parentId: number, schemas: SchemxField<TValues>[]) =>
-      reconciler.reconcileChildren(parentId, schemas),
-  })
-
   return {
     context,
     compiler,
+    reconciler,
     root: root as unknown as RootNode,
     scheduler,
     commitSchemas,

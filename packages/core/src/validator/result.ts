@@ -4,7 +4,7 @@ import type {
   ValidationError,
   ValidationFailure,
   ValidationSuccess,
-} from "./types"
+} from "./index"
 
 /**
  * 创建没有错误的校验成功结果；直接保留传入的值引用。

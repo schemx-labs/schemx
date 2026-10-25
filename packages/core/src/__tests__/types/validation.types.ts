@@ -194,7 +194,7 @@ const schemas: SchemxField<FormValues>[] = [
         const email: string = values.email
 
         // @ts-expect-error Schema 依赖回调必须保留 FormValues，不能退化为 any。
-        values.missing
+        void values.missing
 
         return email.length > 0
       },
@@ -206,7 +206,7 @@ const schemas: SchemxField<FormValues>[] = [
       const age: number = values.age
 
       // @ts-expect-error 动态 Schema renderer 必须保留 FormValues。
-      values.missing
+      void values.missing
       void age
 
       return []

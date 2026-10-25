@@ -10,9 +10,13 @@ import { run, type RunResult } from "../../core/exec.ts"
  *
  * @param packageName - npm 包名。
  * @returns 执行结果。
+ * @param execute - 可注入的命令执行器。
  */
-export async function assertPackageArtifacts(packageName: string): Promise<RunResult> {
-  return await run("pnpm", ["--filter", packageName, "pack", "--dry-run"])
+export async function assertPackageArtifacts(
+  packageName: string,
+  execute: typeof run = run
+): Promise<RunResult> {
+  return await execute("pnpm", ["--filter", packageName, "pack", "--dry-run"])
 }
 
 /**
@@ -21,14 +25,16 @@ export async function assertPackageArtifacts(packageName: string): Promise<RunRe
  * @param packageName - npm 包名。
  * @param destination - 输出目录。
  * @returns 执行结果。
+ * @param execute - 可注入的命令执行器。
  */
 export async function packPackage(
   packageName: string,
-  destination: string
+  destination: string,
+  execute: typeof run = run
 ): Promise<RunResult> {
   mkdirSync(destination, { recursive: true })
 
-  return await run("pnpm", [
+  return await execute("pnpm", [
     "--filter",
     packageName,
     "pack",

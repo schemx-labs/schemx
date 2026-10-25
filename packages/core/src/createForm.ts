@@ -1,24 +1,25 @@
 /**
  * 表单实例工厂 - 框架无关的核心装配入口。
  *
- * `createForm` 负责解析配置并装配 FormModel、SchemaRuntime
+ * `createForm` 负责先创建 FormConfig，再装配 FormModel、SchemaRuntime
  * 与稳定的 SchemxInstance。
  *
  * @module core/createForm
  */
 
-import { setFormCreationConfig } from "./adapter/formCreationConfig"
-import { mergeConfig } from "./config/mergeSchemxConfig"
-import { getGlobalSchemxConfig } from "./config/schemxConfig"
+import { setFormCreationConfig } from "./adapter"
+import { getGlobalSchemxConfig } from "./config"
 import { createSchemas, isSchemxSchemas } from "./createSchemas"
-import { createFormApi, createFormInstance } from "./form/instance"
-import { createFormModel } from "./form/model"
-import { createFormObserver } from "./form/observer"
-import { type CreateFormOptions, mergeCreateFormOptions } from "./form/options"
-import { createSchemaRuntime } from "./runtime/createSchemaRuntime"
+import {
+  createFormConfig,
+  createFormInstance,
+  createFormModel,
+  createFormObserver,
+} from "./form"
+import { createSchemaRuntime } from "./runtime"
+import { createScope } from "./runtime/node"
 
-import type { SchemxConfig } from "./config/types"
-import type { SchemaRuntime } from "./runtime/createSchemaRuntime"
+import type { CreateFormOptions, SchemxConfig } from "./config"
 import type { SchemxInstance, Values } from "./types"
 
 export type {
@@ -29,7 +30,7 @@ export type {
   FormPerformanceOptions,
   FormRegistryOptions,
   FormSchemaOptions,
-} from "./form/options"
+} from "./config"
 
 /**
  * 创建 Schemx 表单实例。
@@ -49,7 +50,11 @@ export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
   // 旧入口保留全局继承；框架工厂直接调用显式配置入口。
-  return createFormWithSnapshot(options, getGlobalSchemxConfig() as SchemxConfig<TValues>)
+  return createFormWithSnapshot(
+    options,
+    getGlobalSchemxConfig() as SchemxConfig<TValues>,
+    "global"
+  )
 }
 
 /**
@@ -67,9 +72,7 @@ export function createFormWithConfig<TValues extends Values>(
   options: CreateFormOptions<TValues>,
   config: SchemxConfig<TValues>
 ): SchemxInstance<TValues> {
-  const defaults = mergeConfig(config)
-
-  return createFormWithSnapshot(options, defaults, defaults)
+  return createFormWithSnapshot(options, config, "explicit")
 }
 
 /**
@@ -78,107 +81,99 @@ export function createFormWithConfig<TValues extends Values>(
  * @typeParam TValues - 表单值类型。
  * @param options - 本次表单的完整创建选项。
  * @param config - 显式继承配置。
- * @param defaults - 适配层动态覆盖撤销时使用的固定继承层。
- * @example const form = createFormWithSnapshot(options, config, config)
+ * @param source - 全局路径省略继承记录；显式配置捕获快照；工厂快照保留原引用。
+ * @example const form = createFormWithSnapshot(options, factoryDefaults)
  */
 export function createFormWithSnapshot<TValues extends Values>(
   options: CreateFormOptions<TValues>,
   config: SchemxConfig<TValues>,
-  defaults?: Readonly<SchemxConfig<TValues>>
+  source: "global" | "explicit" | "snapshot" = "snapshot"
 ): SchemxInstance<TValues> {
-  // 所有 Form 子系统共享同一份标准化配置。
-  const merged = mergeCreateFormOptions(options, config)
+  // 按创建顺序登记资源，失败或销毁时按相反顺序释放。
+  const scope = createScope()
 
-  const presetRuleRegistry = merged.presetRuleRegistry
-
-  const rendererRegistry = merged.rendererRegistry
-
-  // Form 统一持有 Schema source，Runtime 仅订阅并协调其变化。
-  const schemas = isSchemxSchemas(merged.schemas)
-    ? merged.schemas
-    : createSchemas<TValues>(merged.schemas ?? [])
-
-  // Form 持有的状态、值存储和校验模型。
-  const model = createFormModel<TValues>({
-    initialValues: merged.initialValues,
-    presetRuleRegistry,
-    validatorAdapters: [...(merged.validatorAdapters ?? [])],
-    onRuleError: merged.onRuleError,
-    validationConcurrency: merged.validationConcurrency,
-  })
-
-  // 防止销毁回调被重复执行。
-  let disposed = false
-
-  // 初始 Runtime 挂载成功后才会赋值的观察器清理函数。
-  let disposeObserver = () => {}
-
-  // 当前 Form 连接的 Runtime；销毁后释放，使公开 API 不再触达内部实现。
-  let runtime: SchemaRuntime<TValues> | undefined
-
-  const destroy = (): void => {
-    if (disposed) {
-      return
-    }
-
-    disposed = true
-    disposeObserver()
-    runtime?.dispose()
-    model.dispose()
-    runtime = undefined
-  }
-
-  // 先组装公开实例；Runtime 引用会在下一步赋值。
-  const instance = createFormInstance({
-    model,
-    getRuntime: () => runtime,
-    getSchemas: () => (disposed ? undefined : schemas),
-    callbacks: {
-      onFinish: merged.onFinish,
-      onFinishFailed: merged.onFinishFailed,
-      onReset: merged.onReset,
-      onLoadingChange: merged.onLoadingChange,
-    },
-    destroy,
-    rendererRegistry,
-    presetRuleRegistry,
-  })
-
-  // 传递给动态渲染器实现的轻量 API；直接复用公开实例能力。
-  const formApi = createFormApi(instance)
-
-  // 负责编译并协调当前 Schema 的 Runtime。
-  runtime = createSchemaRuntime({
-    schemas,
-    store: model.store,
-    validation: model.validation,
-    instance,
-    formApi,
-    schemaConfig: merged.schemaConfig,
-    fieldRules: merged.fieldRules,
-    rendererProps: merged.rendererProps,
-    lifecycleHooks: merged.lifecycleHooks,
-    debug: merged.debug,
-    schedulerOptions: merged.schedulerOptions,
-  })
+  const destroy = scope.dispose
 
   try {
-    runtime.mount()
-    disposeObserver = createFormObserver(model, {
-      onValuesChange: merged.onValuesChange,
-      onFieldsChange: merged.onFieldsChange,
+    // 配置是第一个业务模块，负责全部合并、默认值解析和创建选项固化。
+    const configuration = createFormConfig<TValues>({
+      defaults: config,
+      config: options,
     })
+
+    scope.add(configuration.dispose)
+
+    const effectiveConfig = configuration.getConfig()
+
+    const { rendererRegistry, presetRuleRegistry } = effectiveConfig
+
+    // Form 持有 Schema source，实例数据和回调不参与共享配置合并。
+    const schemaInput = options.schemas
+
+    const schemas = isSchemxSchemas(schemaInput)
+      ? schemaInput
+      : createSchemas<TValues>(schemaInput ?? [])
+
+    const model = createFormModel<TValues>({
+      configuration,
+      initialValues: options.initialValues ?? ({} as TValues),
+      onRuleError: options.onRuleError,
+    })
+
+    scope.add(model.dispose)
+
+    // 先创建稳定 Runtime；Compiler 和动态回调能力在挂载时注入。
+    const runtime = createSchemaRuntime({
+      schemas,
+      store: model.store,
+      validation: model.validation,
+      schemaConfig: effectiveConfig.schemaConfig,
+      fieldRules: options.fieldRules,
+      rendererProps: effectiveConfig.rendererProps,
+      lifecycleHooks: options.lifecycleHooks,
+      debug: effectiveConfig.debug,
+      schedulerOptions: effectiveConfig.schedulerOptions,
+    })
+
+    scope.add(runtime.dispose)
+
+    const instance = createFormInstance({
+      model,
+      runtime,
+      schemas,
+      callbacks: {
+        onFinish: options.onFinish,
+        onFinishFailed: options.onFinishFailed,
+        onReset: options.onReset,
+        onLoadingChange: options.onLoadingChange,
+      },
+      destroy,
+      rendererRegistry,
+      presetRuleRegistry,
+    })
+
+    runtime.mount(instance)
+
+    scope.add(
+      createFormObserver(model, {
+        onValuesChange: options.onValuesChange,
+        onFieldsChange: options.onFieldsChange,
+      })
+    )
+
+    const snapshotDefaults =
+      source === "snapshot" ? config : configuration.inheritedConfig
+
+    setFormCreationConfig(instance, {
+      config: effectiveConfig,
+      ...(source === "global" ? {} : { defaults: snapshotDefaults }),
+    })
+
+    return instance
   } catch (error) {
     destroy()
     throw error
   }
-
-  setFormCreationConfig(instance, {
-    config: mergeConfig(merged),
-    ...(defaults === undefined ? {} : { defaults }),
-  })
-
-  return instance
 }
 
 export default createForm

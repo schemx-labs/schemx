@@ -7,7 +7,7 @@
  * @module core/runtime/node/helper
  */
 
-import { createFieldKey } from "../../utils/path"
+import { createFieldKey } from "../../utils"
 
 import {
   ContainerNode,
@@ -19,7 +19,7 @@ import {
   ParentNode,
   RootNode,
   SchemaNode,
-} from "./types"
+} from "./index"
 
 import type { NamePath, Values } from "../../types"
 

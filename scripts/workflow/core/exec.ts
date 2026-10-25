@@ -1,7 +1,9 @@
 /**
  * 子进程执行。统一 spawn 行为、退出码语义与取消传播。
  */
-import { spawn } from "node:child_process"
+import { constants } from "node:os"
+
+import { createTerminal } from "../ui/index.ts"
 
 /** 一次子进程执行的结果。 */
 export interface RunResult {
@@ -20,7 +22,7 @@ export interface RunResult {
   readonly output: string
 }
 
-/** 实时输出回调；携带来源流，供渲染层独立缓冲半行。 */
+/** 原始输出块回调；携带来源流，可与捕获同时使用。 */
 export type OutputHandler = (chunk: string, stream: "stdout" | "stderr") => void
 
 /** 子进程执行选项。 */
@@ -33,8 +35,6 @@ export interface RunOptions {
   capture?: boolean
   /** 标准输入内容。 */
   input?: string
-  /** 透传模式下接收输出；提供时由调用方渲染实时日志。 */
-  onOutput?: OutputHandler
 }
 
 /**
@@ -53,55 +53,33 @@ export async function run(
   args: readonly string[],
   options: RunOptions = {}
 ): Promise<RunResult> {
-  const capture = options.capture ?? true
-
-  const pipeOutput = capture || options.onOutput !== undefined
-
-  return await new Promise<RunResult>((resolve, reject) => {
-    const child = spawn(command, [...args], {
-      cwd: options.cwd,
-      env: options.env ? { ...process.env, ...options.env } : process.env,
-      stdio: pipeOutput ? ["pipe", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
-      shell: false,
-    })
-
-    let stdout = ""
-
-    let stderr = ""
-
-    child.stdout?.setEncoding("utf8")
-    child.stdout?.on("data", (chunk: string) => {
-      if (capture) {
-        stdout += chunk
-      } else {
-        options.onOutput?.(chunk, "stdout")
-      }
-    })
-    child.stderr?.setEncoding("utf8")
-    child.stderr?.on("data", (chunk: string) => {
-      if (capture) {
-        stderr += chunk
-      } else {
-        options.onOutput?.(chunk, "stderr")
-      }
-    })
-
-    child.on("error", reject)
-    child.on("close", (code, signal) => {
-      const merged = [stdout, stderr]
-        .map((part) => part.trim())
-        .filter((part) => part !== "")
-        .join("\n")
-
-      resolve({ code: code ?? (signal ? 128 : 1), stdout, stderr, output: merged })
-    })
-
-    if (options.input !== undefined && child.stdin) {
-      child.stdin.end(options.input)
-    } else {
-      child.stdin?.end()
-    }
+  // 查询适配器不接管进程信号，也不泄漏交互流或主题状态。
+  const terminal = createTerminal({
+    handleSignals: false,
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    ...(options.env === undefined ? {} : { env: options.env }),
   })
+
+  try {
+    const result = await terminal.executeCommand({
+      command,
+      args,
+      cwd: options.cwd,
+      env: options.env,
+      input: options.input,
+      outputMode: options.capture === false ? "inherit" : "capture",
+    })
+
+    return {
+      code:
+        result.exitCode ?? (result.signal ? 128 + constants.signals[result.signal] : 1),
+      stdout: result.stdout,
+      stderr: result.stderr,
+      output: result.output,
+    }
+  } finally {
+    terminal.dispose()
+  }
 }
 
 /**
@@ -112,13 +90,15 @@ export async function run(
  * @param options - 执行选项。
  * @returns 标准输出内容。
  * @throws {Error} 退出码非 0 时抛出。
+ * @param execute - 可注入的命令执行器。
  */
 export async function runOrThrow(
   command: string,
   args: readonly string[],
-  options: RunOptions = {}
+  options: RunOptions = {},
+  execute: typeof run = run
 ): Promise<string> {
-  const result = await run(command, args, { ...options, capture: true })
+  const result = await execute(command, args, { ...options, capture: true })
 
   if (result.code !== 0) {
     const detail = (result.stderr || result.stdout).trim()

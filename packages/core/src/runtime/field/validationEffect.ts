@@ -2,7 +2,7 @@
  * ValidationEffect - 校验规则注册 effect。
  *
  * ValidationEffect 只同步字段规则与 Validator 的注册状态，
- * 字段交互触发校验由具体渲染层调用字段校验命令。
+ * 字段交互触发校验由 Core 的 changeField/blurField 统一编排。
  *
  * @module core/runtime/field/validationEffect
  */
@@ -10,10 +10,10 @@
 import { createSignalEffect } from "../../reactivity"
 import { createFieldKey } from "../../utils"
 
-import type { ComputedSignal } from "../../reactivity/computed"
+import type { SchemaRuntimeContext } from ".."
+import type { ComputedSignal } from "../../reactivity"
 import type { PresetRuleEntry, PresetRuleFactoryContext } from "../../registry"
 import type { FieldRules, NamePath, SchemxBaseField, Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { FieldValidationState, Scope } from "../node"
 
 /**
@@ -56,6 +56,10 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
    * Placeholder 只作为规则工厂元数据传递，不参与校验注册 effect 的依赖追踪。
    */
   placeholder?: () => string
+  /**
+   * 读取节点所属的实例规则覆盖；显式空数组用于撤销 Schema 和默认规则。
+   */
+  rulesOverride?: () => SchemxBaseField<TValues>["rules"]
 }
 
 /**
@@ -132,8 +136,6 @@ export function createValidationEffect<TValues extends Values = Values>(
 
   let registrationVersion = 0
 
-  let lastScheduledSnapshot: ValidationRegistrationSnapshot<TValues> | undefined
-
   /**
    * 读取参与规则注册决策的响应式字段呈现态。
    *
@@ -150,9 +152,7 @@ export function createValidationEffect<TValues extends Values = Values>(
           : validationStateValue.rules
 
       const rawFallbackRules = context.fieldRules[name] as
-        | SchemxBaseField<TValues>["rules"]
-        | PresetRuleEntry<unknown>
-        | undefined
+        SchemxBaseField<TValues>["rules"] | PresetRuleEntry<unknown> | undefined
 
       const fallbackRules =
         typeof rawFallbackRules === "function"
@@ -170,7 +170,7 @@ export function createValidationEffect<TValues extends Values = Values>(
         label: validationStateValue.label,
         placeholder: resolvePlaceholder(),
         required: validationStateValue.required,
-        rules: fieldRules ?? fallbackRules ?? [],
+        rules: options.rulesOverride?.() ?? fieldRules ?? fallbackRules ?? [],
       }
     }
 
@@ -210,12 +210,6 @@ export function createValidationEffect<TValues extends Values = Values>(
   const scheduleValidationRegistration = (
     snapshot: ValidationRegistrationSnapshot<TValues>
   ): void => {
-    if (lastScheduledSnapshot === snapshot) {
-      return
-    }
-
-    lastScheduledSnapshot = snapshot
-
     const currentVersion = ++registrationVersion
 
     taskScheduler.schedule({

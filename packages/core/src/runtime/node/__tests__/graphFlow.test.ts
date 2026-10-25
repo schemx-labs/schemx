@@ -9,11 +9,11 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { isGroupNode } from "../helper"
+import { isGroupNode } from ".."
 
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 
-import type { ContainerNode } from "../types"
+import type { ContainerNode } from ".."
 
 // 运行时节点流：key 复用、kind 替换、嵌套提交与 cleanup 观察时机。
 describe("runtime node flow", () => {

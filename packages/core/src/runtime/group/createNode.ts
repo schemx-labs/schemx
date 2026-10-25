@@ -5,12 +5,11 @@
  */
 
 import { createComputed, createSignal } from "../../reactivity"
-import { DEFAULT_PRESENTATION_STATE, resolvePresentationState } from "../compiler/helper"
-import { isSchemaNode } from "../node/helper"
-import { createScope } from "../node/scope"
+import { DEFAULT_PRESENTATION_STATE, resolvePresentationState } from "../compiler"
+import { createScope, isSchemaNode } from "../node"
 
 import type { SchemxGroupField, Values } from "../../types"
-import type { SchemaNodeFactoryOptions } from "../compiler/types"
+import type { SchemaNodeFactoryOptions } from "../compiler"
 import type { GroupNode, PresentationDependencyOverrides } from "../node"
 
 /**
@@ -50,6 +49,24 @@ export function createGroupNode<TValues extends Values>(
     }
   )
 
+  // 先建立节点身份与可变结构，派生状态只读取已经创建的节点。
+  const node: Omit<GroupNode<TValues>, "presentationState" | "effectiveState"> = {
+    id,
+    key,
+    type: "group",
+    parent: null,
+    scope: scope ?? createScope(),
+    disposed: createSignal(false),
+    configToken,
+    compiledSchema,
+    staticSchema: compiledSchema,
+    dependencyOverrides,
+    dynamicOverrides: dependencyOverrides,
+    viewSchemas: null,
+    presentationEffectScope: null,
+    childNodes: createSignal([]),
+  }
+
   const inheritedPresentationState = createComputed(() => {
     const parent = node.parent
 
@@ -66,24 +83,9 @@ export function createGroupNode<TValues extends Values>(
     )
   })
 
-  const node: GroupNode<TValues> = {
-    id,
-    key,
-    type: "group",
-    parent: null,
-    scope: scope ?? createScope(),
-    disposed: createSignal(false),
-    configToken,
-    compiledSchema,
-    staticSchema: compiledSchema,
-    dependencyOverrides,
-    dynamicOverrides: dependencyOverrides,
+  // 完成派生状态后才将完整节点交给 Compiler。
+  return Object.assign(node, {
     presentationState,
     effectiveState: presentationState,
-    viewSchemas: null,
-    presentationEffectScope: null,
-    childNodes: createSignal([]),
-  }
-
-  return node
+  })
 }

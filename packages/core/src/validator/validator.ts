@@ -6,23 +6,24 @@
  * @module core/validator/validator
  */
 
-import { yieldToHost } from "../runtime/scheduler/scheduler"
-import { getByPath } from "../utils"
+import { yieldToHost } from "../runtime/scheduler"
 import {
   createFieldKey,
+  getByPath,
   isFieldArrayDescendantAffected,
   isFieldArrayDescendantOutOfRange,
-} from "../utils/path"
+} from "../utils"
 
-import { createValidationAdapterMap, findValidationAdapter } from "./adapters"
-import { createAsyncValidatorAdapter } from "./asyncValidator.adapter"
 import {
+  createAsyncValidatorAdapter,
+  createStandardSchemaAdapter,
+  createValidationAdapterMap,
   createValidationCancelled,
   createValidationFailure,
+  createValidationRunManager,
   createValidationSuccess,
-} from "./result"
-import { createStandardSchemaAdapter } from "./standardSchema.adapter"
-import { createValidationRunManager } from "./validationRunManager"
+  findValidationAdapter,
+} from "./index"
 
 import type { PresetRuleEntry, PresetRuleRegistry } from "../registry"
 import type { Store } from "../store"
@@ -37,9 +38,9 @@ import type {
   ValidationRule,
   ValidationRuleContext,
   ValidationRuleIssue,
+  ValidationRun,
   Validator,
-} from "./types"
-import type { ValidationRun } from "./validationRunManager"
+} from "./index"
 import type {
   DefinedFieldValue,
   FieldArrayChange,
@@ -100,9 +101,7 @@ interface FieldRuleRecord<TValues extends Values> {
   readonly name: NamePath<TValues>
   // 尚未解析为原生规则的原始声明。
   readonly rules:
-    | FieldRules<TValues, NamePath<TValues>>
-    | PresetRuleEntry<unknown>
-    | undefined
+    FieldRules<TValues, NamePath<TValues>> | PresetRuleEntry<unknown> | undefined
 }
 
 /**
@@ -471,8 +470,7 @@ class ValidatorImpl<TValues extends Values> implements Validator<TValues> {
 
       // 按当前路径从本次表单快照读取字段值。
       const value = getByPath(values, name) as
-        | DefinedFieldValue<TValues, TName>
-        | undefined
+        DefinedFieldValue<TValues, TName> | undefined
 
       // 传给每条规则的不可写执行上下文。
       const context: ValidationRuleContext<TValues, TName> = {
@@ -1029,4 +1027,4 @@ export type {
   ValidationRule,
   ValidationRuleContext,
   Validator,
-} from "./types"
+} from "./index"

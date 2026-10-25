@@ -9,8 +9,13 @@ import { hasScript } from "../core/package-json.ts"
 import { checkBundleBoundaries } from "../packages/check-bundle-boundaries.ts"
 import { checkPackageConfig } from "../packages/check-config.ts"
 import { packLocal, renderPackResult } from "../packages/local-pack.ts"
-import { selectTargetIdentifiers } from "../ui/target-selection.ts"
-import { type Ui } from "../ui/ui.ts"
+import {
+  endWorkflowFlow,
+  formatWorkflowText,
+  runWorkflowCommand,
+  runWorkflowTask,
+} from "../presentation.ts"
+import { selectTargetIdentifiers } from "../target-selection.ts"
 
 /** 工具命令的用法说明。 */
 export function toolsUsage(): string {
@@ -25,49 +30,42 @@ export function toolsUsage(): string {
 }
 
 /**
- * 报告一组检查失败。
- *
- * @param ui - 终端 UI。
- * @param title - 失败标题。
- * @param failures - 失败原因。
- */
-function reportFailures(ui: Ui, title: string, failures: readonly string[]): void {
-  ui.status("error", `${title}：`)
-  for (const failure of failures) {
-    ui.note(failure)
-  }
-}
-
-/**
  * 运行 workspace 包配置与构建产物边界检查。
  *
  * @param context - 执行上下文。
- * @returns 退出码。
+ * @returns 首个失败退出码；取消时不继续后续检查。
+ * @example await checkPackages(context)
  */
-export function checkPackages(context: Context): number {
-  const { ui, root } = context
+export async function checkPackages(context: Context): Promise<number> {
+  const { terminal, root } = context
 
-  let failed = false
+  let firstFailure = 0
 
-  const config = checkPackageConfig(root)
+  for (const [title, check] of [
+    ["检查包配置", checkPackageConfig],
+    ["检查构建产物边界", checkBundleBoundaries],
+  ] as const) {
+    const code = await runWorkflowTask({
+      terminal,
+      title,
+      parentId: context.parentId,
+      execute: async () => {
+        const result = await check(root)
 
-  if (!config.ok) {
-    reportFailures(ui, "包配置检查失败", config.failures)
-    failed = true
-  } else {
-    ui.status("success", "包配置检查通过。")
+        if (!result.ok) {
+          throw new Error(result.failures.join("\n"))
+        }
+      },
+    })
+
+    if (code === 130) {
+      return code
+    }
+
+    firstFailure ||= code
   }
 
-  const boundaries = checkBundleBoundaries(root)
-
-  if (!boundaries.ok) {
-    reportFailures(ui, "构建产物边界检查失败", boundaries.failures)
-    failed = true
-  } else {
-    ui.status("success", "构建产物 external 边界检查通过。")
-  }
-
-  return failed ? 1 : 0
+  return firstFailure
 }
 
 /**
@@ -84,13 +82,16 @@ export async function runTool(
   command: string,
   args: readonly string[]
 ): Promise<number> {
-  const { ui, root, catalog, env } = context
+  const { terminal, root, catalog, env } = context
 
   if (
     command !== "preview" &&
     args.some((arg) => arg === "help" || arg === "-h" || arg === "--help")
   ) {
-    ui.note(toolsUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: toolsUsage() }),
+      parentId: context.parentId,
+    })
 
     return 0
   }
@@ -101,39 +102,60 @@ export async function runTool(
         throw usageError("check:packages 不接受目标或额外参数。")
       }
 
-      ui.flowBegin({
+      const flowId3 = terminal.startFlow({
         domain: "tools",
         title: "包配置与产物检查",
-        description: "运行包配置与构建产物边界检查。",
+        description: formatWorkflowText({
+          terminal,
+          content: "运行包配置与构建产物边界检查。",
+        }),
       })
-      const exitCode = checkPackages(context)
 
-      ui.flowEndFromExitCode(exitCode, {
-        success: "包配置与产物检查完成。",
-        failed: "包配置与产物检查失败。",
-        cancelled: "包配置与产物检查已取消。",
+      const exitCode = await checkPackages({ ...context, parentId: flowId3 })
+
+      endWorkflowFlow({
+        terminal: terminal,
+        flowId: flowId3,
+        exitCode: exitCode,
+        messages: {
+          success: "包配置与产物检查完成。",
+          failed: "包配置与产物检查失败。",
+          cancelled: "包配置与产物检查已取消。",
+        },
       })
 
       return exitCode
     }
 
     case "preview": {
-      ui.flowBegin({
+      const flowId2 = terminal.startFlow({
         domain: "tools",
         title: "本地预览",
-        description: "启动 Vite Preview 服务。",
+        description: formatWorkflowText({
+          terminal,
+          content: "启动 Vite Preview 服务。",
+        }),
       })
-      const exitCode = await ui.service(
-        { title: "运行 Vite Preview" },
-        "pnpm",
-        ["exec", "vite", "preview", ...args],
-        root
-      )
 
-      ui.flowEndFromExitCode(exitCode, {
-        success: "预览服务已结束。",
-        failed: "预览服务失败。",
-        cancelled: "预览服务已取消。",
+      const exitCode = await runWorkflowCommand({
+        terminal: terminal,
+        title: "运行 Vite Preview",
+        outputMode: "inherit",
+        command: "pnpm",
+        args: ["exec", "vite", "preview", ...args],
+        cwd: root,
+        parentId: flowId2,
+      })
+
+      endWorkflowFlow({
+        terminal: terminal,
+        flowId: flowId2,
+        exitCode: exitCode,
+        messages: {
+          success: "预览服务已结束。",
+          failed: "预览服务失败。",
+          cancelled: "预览服务已取消。",
+        },
       })
 
       return exitCode === 130 ? 0 : exitCode
@@ -146,10 +168,13 @@ export async function runTool(
 
       const requested = args[0] ?? env.SCHEMX_WORKFLOW_TARGETS ?? ""
 
-      ui.flowBegin({
+      const flowId1 = terminal.startFlow({
         domain: "tools",
         title: "本地包打包",
-        description: "生成带时间戳的 dev 版本 tarball 供本地安装验证。",
+        description: formatWorkflowText({
+          terminal,
+          content: "生成带时间戳的 dev 版本 tarball 供本地安装验证。",
+        }),
       })
 
       const candidates = catalog
@@ -165,24 +190,33 @@ export async function runTool(
           script: "pack:local",
         }))
 
-      const target = await selectTargetIdentifiers(ui, {
-        title: "请选择要本地打包的目标",
-        candidates,
-        requested,
-        mode: "multi",
-      })
+      const target = await selectTargetIdentifiers(
+        terminal,
+        {
+          title: "请选择要本地打包的目标",
+          candidates,
+          requested,
+          mode: "multi",
+        },
+        env
+      )
 
       renderPackResult(
-        ui,
+        terminal,
         await packLocal({
           root,
-          ui,
+          terminal,
           catalog,
           targets: target,
           outputDir: path.join(root, ".packs"),
+          parentId: flowId1,
         })
       )
-      ui.flowEnd("success", "本地包打包完成。")
+      terminal.endFlow({
+        flowId: flowId1,
+        outcome: "success",
+        message: "本地包打包完成。",
+      })
 
       return 0
     }

@@ -61,8 +61,7 @@
 import { createSignal } from "./reactivity"
 
 import type { ReadonlySignal } from "./reactivity"
-import type { Values } from "./types/form"
-import type { SchemxField } from "./types/schema"
+import type { SchemxField, Values } from "./types"
 
 /**
  * schema source 变化订阅回调。
@@ -139,8 +138,7 @@ export interface SchemxSchemas<TValues extends Values = Values> {
  * @typeParam TValues - 表单值类型。
  */
 export type SchemxSchemasInput<TValues extends Values = Values> =
-  | SchemxField<TValues>[]
-  | SchemxSchemas<TValues>
+  SchemxField<TValues>[] | SchemxSchemas<TValues>
 
 /**
  * 创建空 schema source。

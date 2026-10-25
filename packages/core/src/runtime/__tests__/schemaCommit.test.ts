@@ -8,11 +8,11 @@
 
 import { describe, expect, it } from "vite-plus/test"
 
+import { isFieldNode, isGroupNode } from "../node"
 import {
   createRawFieldSchema,
   createRuntimeGraphHarness,
 } from "../node/__tests__/graphTestUtils"
-import { isFieldNode, isGroupNode } from "../node/helper"
 
 // 验证原始 Schema 提交后的 Node 树行为。
 describe("commitSchemas", () => {

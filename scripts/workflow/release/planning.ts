@@ -3,6 +3,7 @@
  */
 import { type Context } from "../core/context.ts"
 import { failure, usageError } from "../core/errors.ts"
+import { formatWorkflowText } from "../presentation.ts"
 
 import * as git from "./adapters/git.ts"
 import { nextPrereleaseSequence } from "./adapters/npm.ts"
@@ -110,7 +111,7 @@ export async function createPlan(
   planFile: string,
   planContext: PlanContext = {}
 ): Promise<void> {
-  const { ui, catalog, env } = context
+  const { terminal, catalog, env } = context
 
   assertCombination(channel, target, versionAction)
 
@@ -176,6 +177,12 @@ export async function createPlan(
     packages: packages.map(({ tag: _tag, ...rest }) => rest),
   }
 
-  ui.note(`已冻结 ${packages.length} 个包的发布计划。`)
+  terminal.text({
+    content: formatWorkflowText({
+      terminal: terminal,
+      content: `已冻结 ${packages.length} 个包的发布计划。`,
+    }),
+    parentId: context.parentId,
+  })
   writePlan(planFile, draft)
 }

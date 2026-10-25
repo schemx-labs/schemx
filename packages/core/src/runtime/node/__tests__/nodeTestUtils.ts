@@ -6,8 +6,8 @@
  *
  * @module core/runtime/node/__tests__/nodeTestUtils
  */
+import { createScope } from ".."
 import { createSignal } from "../../../reactivity"
-import { createScope } from "../scope"
 
 import {
   createFieldRuntimeSignals,
@@ -15,7 +15,6 @@ import {
   createPresentationRuntimeSignals,
 } from "./signalsTestUtils"
 
-import type { Values } from "../../../types"
 import type {
   CreateDependencyNodeOptions,
   CreateFieldNodeOptions,
@@ -26,7 +25,8 @@ import type {
   ParentNode,
   RootNode,
   Scope,
-} from "../types"
+} from ".."
+import type { SchemxBaseField, Values } from "../../../types"
 
 /**
  * 仅供测试创建 RootNode。
@@ -75,6 +75,8 @@ export function createFieldNode<TValues extends Values = Values>(
     disposed: createSignal(false),
     configToken: options.configToken,
     ...signals,
+    pathController: new AbortController(),
+    rulesOverride: createSignal<SchemxBaseField<TValues>["rules"]>(undefined),
     staticSchema: signals.compiledSchema,
     viewSchemas: null,
     validationEffectScope: null,

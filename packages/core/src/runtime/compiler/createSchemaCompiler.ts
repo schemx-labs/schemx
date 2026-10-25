@@ -10,18 +10,18 @@
 
 import { mergeAndResolveSchemxConfig } from "../../config"
 import { isDependencySchema, isDynamicSchema, isGroupSchema } from "../../utils"
-import { createDependencyNode } from "../dependency/createNode"
-import { createDynamicNode } from "../dynamic/createNode"
-import { createFieldNode } from "../field/createNode"
-import { createGroupNode } from "../group/createNode"
+import { createDependencyNode } from "../dependency"
+import { createDynamicNode } from "../dynamic"
+import { createFieldNode } from "../field"
+import { createGroupNode } from "../group"
 
-import { createNodeKey } from "./helper"
+import { createNodeKey } from "./index"
 
 import type {
   CreateSchemaCompilerOptions,
   SchemaCompiler,
   SchemaCompilerOptions,
-} from "./types"
+} from "./index"
 import type { SchemxField, SchemxInstance, Values } from "../../types"
 import type { SchemaNode, Scope } from "../node"
 

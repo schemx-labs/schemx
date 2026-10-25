@@ -16,7 +16,7 @@ import type {
   ValidationRuleContext,
   ValidationRuleIssue,
   ValidationRuleResult,
-} from "./types"
+} from "./index"
 import type { Rule, RuleItem } from "async-validator"
 
 // 规则对象至少包含一个 async-validator 支持的配置字段。

@@ -4,7 +4,7 @@
  * @remarks 原实现把规则拆散在 8 次 jq 调用里，且在任一 package.json 缺失时整体跳过
  * 依赖相关规则；这里把规则表集中声明，缺文件时逐条报告，不再连带抑制。
  */
-import { readFileSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import path from "node:path"
 
 import { type PackageManifest, readManifestSafe } from "../core/package-json.ts"
@@ -65,9 +65,9 @@ export interface ConfigCheckResult {
  * @param filePath - 文件绝对路径。
  * @returns 文件内容。
  */
-function readTextSafe(filePath: string): string | undefined {
+async function readTextSafe(filePath: string): Promise<string | undefined> {
   try {
-    return readFileSync(filePath, "utf8")
+    return await readFile(filePath, "utf8")
   } catch {
     return undefined
   }
@@ -129,9 +129,9 @@ function checkViteScripts(
  * @param root - 仓库根目录。
  * @param failures - 失败累加器。
  */
-function checkRequiredText(root: string, failures: string[]): void {
+async function checkRequiredText(root: string, failures: string[]): Promise<void> {
   for (const [relativePath, needles] of REQUIRED_TEXT) {
-    const text = readTextSafe(path.join(root, relativePath))
+    const text = await readTextSafe(path.join(root, relativePath))
 
     if (text === undefined) {
       failures.push(`${relativePath}: 文件不存在`)
@@ -152,9 +152,9 @@ function checkRequiredText(root: string, failures: string[]): void {
  * @param root - 仓库根目录。
  * @param failures - 失败累加器。
  */
-function checkForbiddenText(root: string, failures: string[]): void {
+async function checkForbiddenText(root: string, failures: string[]): Promise<void> {
   for (const [relativePath, needles] of FORBIDDEN_TEXT) {
-    const text = readTextSafe(path.join(root, relativePath))
+    const text = await readTextSafe(path.join(root, relativePath))
 
     if (text === undefined) {
       failures.push(`${relativePath}: 文件不存在`)
@@ -174,8 +174,9 @@ function checkForbiddenText(root: string, failures: string[]): void {
  *
  * @param root - 仓库根目录。
  * @returns 检查结果。
+ * @example await checkPackageConfig(root)
  */
-export function checkPackageConfig(root: string): ConfigCheckResult {
+export async function checkPackageConfig(root: string): Promise<ConfigCheckResult> {
   const failures: string[] = []
 
   const manifests = new Map<string, PackageManifest>()
@@ -207,8 +208,8 @@ export function checkPackageConfig(root: string): ConfigCheckResult {
     }
   }
 
-  checkRequiredText(root, failures)
-  checkForbiddenText(root, failures)
+  await checkRequiredText(root, failures)
+  await checkForbiddenText(root, failures)
 
   return { ok: failures.length === 0, failures }
 }

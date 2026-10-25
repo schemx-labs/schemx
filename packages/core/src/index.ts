@@ -47,10 +47,7 @@ export {
   type SnapshotSource,
 } from "./adapter/formStateAdapter"
 
-export {
-  getFormCreationConfig,
-  type FormCreationSnapshot,
-} from "./adapter/formCreationConfig"
+export { getFormCreationConfig, type FormCreationSnapshot } from "./adapter"
 
 export type {
   SchedulerDiagnostics,
@@ -88,6 +85,8 @@ export {
   type SchemxSchemasListener,
 } from "./createSchemas"
 
+export type { NodeId } from "./runtime/node"
+
 export type {
   SchemxViewDebugMeta,
   SchemxViewDynamicItem,
@@ -103,44 +102,10 @@ export {
   isViewGroupSchema,
 } from "./runtime/view"
 
-export { createField, type SchemxFieldInstance } from "./createField"
-
-export {
-  createWatch,
-  createWatchField,
-  createWatchFields,
-  createWatchAll,
-  type WatchFieldCallback,
-  type WatchFieldsCallback,
-  type WatchAllCallback,
-  type CreateWatchOptions,
-  type CreateWatchReturn,
-} from "./createWatch"
-
-export {
-  createSignalEffect,
-  runSignalUntracked,
-  createSignalWatch,
-  createDebouncedSignalWatch,
-  type SignalEffectOptions,
-  type SignalEffectDispose,
-  type SignalWatchOptions,
-  type DebouncedSignalWatchOptions,
-  type DebouncedSignalWatchControls,
-} from "./reactivity"
-
-export {
-  isFieldSchema,
-  isGroupSchema,
-  isDependencySchema,
-  isDynamicSchema,
-  getByPath,
-  setByPath,
-  collectObjectPathsByLeaf,
-  createFieldKey,
-} from "./utils"
+export type { FormConfig, ResolvedFormConfig } from "./config"
 
 export type {
+  FormState,
   RequiredOptions,
   RequiredConfig,
   DefinedFieldValue,
@@ -203,6 +168,49 @@ export type {
   FieldArrayPath,
   ValidationAdapterV1,
 } from "./types"
+export type { FieldState, StoreState } from "./store"
+export type { ReadonlyState } from "./reactivity"
+
+export {
+  createField,
+  type SchemxFieldInstance,
+  type SchemxFieldState,
+} from "./createField"
+
+export {
+  createWatch,
+  createWatchField,
+  createWatchFields,
+  createWatchAll,
+  type WatchFieldCallback,
+  type WatchFieldsCallback,
+  type WatchAllCallback,
+  type CreateWatchOptions,
+  type CreateWatchReturn,
+} from "./createWatch"
+
+export {
+  createSignalEffect,
+  runSignalUntracked,
+  createSignalWatch,
+  createDebouncedSignalWatch,
+  type SignalEffectOptions,
+  type SignalEffectDispose,
+  type SignalWatchOptions,
+  type DebouncedSignalWatchOptions,
+  type DebouncedSignalWatchControls,
+} from "./reactivity"
+
+export {
+  isFieldSchema,
+  isGroupSchema,
+  isDependencySchema,
+  isDynamicSchema,
+  getByPath,
+  setByPath,
+  collectObjectPathsByLeaf,
+  createFieldKey,
+} from "./utils"
 
 export type {
   ValidationRuleContext,
@@ -222,13 +230,17 @@ export type {
   ValidationFailure,
   ValidationCancelled,
   ValidationResult,
-} from "./validator/types"
+} from "./validator"
 
 export {
   createValidationSuccess,
   createValidationFailure,
   createValidationCancelled,
-} from "./validator/result"
+} from "./validator"
 
-export { createSchemx, type SchemxApi, type SchemxConfigureOptions } from "./createSchemx"
-export type { CreateSchemxOptions } from "./config/schemxOptions"
+export {
+  createSchemx,
+  type SchemxApi,
+  type SchemxConfigureOptions,
+  type CreateSchemxOptions,
+} from "./createSchemx"

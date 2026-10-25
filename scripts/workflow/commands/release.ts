@@ -5,8 +5,15 @@ import { existsSync, mkdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
+import { runBatchFlow } from "../batch.ts"
 import { type Context } from "../core/context.ts"
-import { usageError, WorkflowError } from "../core/errors.ts"
+import { usageError } from "../core/errors.ts"
+import {
+  requireWorkflowSuccess,
+  workflowExitCode,
+  workflowRunner,
+} from "../presentation.ts"
+import { endWorkflowFlow, formatWorkflowText, runWorkflowTask } from "../presentation.ts"
 import { packPackage } from "../release/adapters/artifacts.ts"
 import { executePlan } from "../release/execute.ts"
 import { renderPlan } from "../release/feedback.ts"
@@ -16,7 +23,6 @@ import { readPlan } from "../release/plan.ts"
 import { createPlan, type PlanContext } from "../release/planning.ts"
 import { removeState } from "../release/state.ts"
 import { findTarget, resolveTargets } from "../release/targets.ts"
-import { runBatchFlow } from "../ui/batch.ts"
 
 /** release 命令的用法说明。 */
 export function releaseUsage(): string {
@@ -85,25 +91,37 @@ async function collectInputs(
   targetArg: string,
   actionArg: string
 ): Promise<{ channel: string; target: string; action: string }> {
-  const { ui } = context
+  const { terminal } = context
 
-  ui.groupBegin({
+  const groupId1 = terminal.startGroup({
     title: "发布配置",
-    description: "发布通道和版本动作为单选；发布包支持多选。",
+    description: formatWorkflowText({
+      terminal,
+      content: "发布通道和版本动作为单选；发布包支持多选。",
+    }),
+    parentId: context.parentId,
   })
 
   try {
-    const channel = await selectChannel(ui, channelArg)
+    const channel = await selectChannel(context, channelArg)
 
-    const target = await selectTarget(ui, context.catalog, targetArg)
+    const target = await selectTarget(context, targetArg)
 
-    const action = await selectVersionAction(ui, channel, actionArg)
+    const action = await selectVersionAction(context, channel, actionArg)
 
-    ui.groupEnd("success", "发布配置完成。")
+    terminal.endGroup({
+      groupId: groupId1,
+      outcome: "success",
+      message: "发布配置完成。",
+    })
 
     return { channel, target, action }
   } catch (error) {
-    ui.groupEnd("cancelled", "发布配置已取消。")
+    terminal.endGroup({
+      groupId: groupId1,
+      outcome: "cancelled",
+      message: "发布配置已取消。",
+    })
     throw error
   }
 }
@@ -170,10 +188,13 @@ async function runPlan(
   dryRun: boolean,
   args: readonly string[]
 ): Promise<number> {
-  const { ui, root, env } = context
+  const { terminal, root, env } = context
 
   if (args.length < 3) {
-    ui.note(releaseUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+      parentId: context.parentId,
+    })
 
     return 2
   }
@@ -195,17 +216,21 @@ async function runPlan(
     throw usageError("release plan 接受了多余参数。")
   }
 
-  ui.flowBegin({
+  const flowId1 = terminal.startFlow({
     domain: "release",
     title: "生成发布计划",
-    description: "生成并冻结版本计划；不会执行发布写操作。",
+    description: formatWorkflowText({
+      terminal,
+      content: "生成并冻结版本计划；不会执行发布写操作。",
+    }),
   })
 
   try {
     planFile ||= planFilePath(root, channel, false)
-    await ui.task(
-      { title: "解析发布版本并冻结计划", throwOnError: true },
-      async () =>
+    await terminal.runTask({
+      title: "解析发布版本并冻结计划",
+      parentId: flowId1,
+      execute: async () =>
         await createPlan(
           context,
           channel,
@@ -213,25 +238,35 @@ async function runPlan(
           versionAction,
           planFile,
           planContextFrom(env)
-        )
-    )
-    renderPlan(ui, readPlan(planFile))
+        ),
+    })
+    renderPlan(terminal, readPlan(planFile))
 
     if (dryRun) {
-      ui.status(
-        "success",
-        "dry-run 已完成：未执行质量检查、npm 发布、Git Tag 或 GitHub Release。"
-      )
+      terminal.status({
+        tone: "success",
+        message: "dry-run 已完成：未执行质量检查、npm 发布、Git Tag 或 GitHub Release。",
+        parentId: flowId1,
+      })
     }
 
-    ui.flowEnd("success", `${dryRun ? "dry-run" : "plan"} 完成。`)
+    terminal.endFlow({
+      flowId: flowId1,
+      outcome: "success",
+      message: `${dryRun ? "dry-run" : "plan"} 完成。`,
+    })
   } catch (error) {
-    const code = error instanceof WorkflowError ? error.exitCode : 1
+    const code = workflowExitCode(error)
 
-    ui.flowEndFromExitCode(code, {
-      success: "计划已生成。",
-      failed: "发布计划创建失败。",
-      cancelled: "发布计划创建已取消。",
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId1,
+      exitCode: code,
+      messages: {
+        success: "计划已生成。",
+        failed: "发布计划创建失败。",
+        cancelled: "发布计划创建已取消。",
+      },
     })
     throw error
   }
@@ -250,42 +285,54 @@ async function runPlan(
  * @returns 退出码。
  */
 async function runCheck(context: Context, args: readonly string[]): Promise<number> {
-  const { ui, root, env } = context
+  const { terminal, root, env } = context
 
   const { positional, keepGoing } = parseKeepGoing(args)
 
   if (positional.length > 3) {
-    ui.note(releaseUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+      parentId: context.parentId,
+    })
 
     return 2
   }
 
-  ui.flowBegin({
+  const flowId2 = terminal.startFlow({
     domain: "release",
     title: "发布合规检查",
-    description: "复用发布流程的计划和发布前校验，但不执行任何外部写入。",
+    description: formatWorkflowText({
+      terminal,
+      content: "复用发布流程的计划和发布前校验，但不执行任何外部写入。",
+    }),
   })
 
   let planFile = ""
 
   try {
     const { channel, target, action } = await collectInputs(
-      context,
+      { ...context, parentId: flowId2 },
       positional[0] ?? "",
       positional[1] ?? "",
       positional[2] ?? ""
     )
 
-    ui.groupBegin({
+    const groupId2 = terminal.startGroup({
       title: "生成发布计划",
-      description: "查询 registry 并冻结待发布的版本、Tag 与源码提交。",
+      description: formatWorkflowText({
+        terminal,
+        content: "查询 registry 并冻结待发布的版本、Tag 与源码提交。",
+      }),
+      parentId: flowId2,
     })
+
     planFile = planFilePath(root, channel, false)
 
     try {
-      await ui.task(
-        { title: "解析发布版本并冻结计划", throwOnError: true },
-        async () =>
+      await terminal.runTask({
+        title: "解析发布版本并冻结计划",
+        parentId: groupId2,
+        execute: async () =>
           await createPlan(
             context,
             channel,
@@ -293,12 +340,20 @@ async function runCheck(context: Context, args: readonly string[]): Promise<numb
             action,
             planFile,
             planContextFrom(env)
-          )
-      )
-      renderPlan(ui, readPlan(planFile))
-      ui.groupEnd("success", "发布检查计划已冻结。")
+          ),
+      })
+      renderPlan(terminal, readPlan(planFile))
+      terminal.endGroup({
+        groupId: groupId2,
+        outcome: "success",
+        message: "发布检查计划已冻结。",
+      })
     } catch (error) {
-      ui.groupEnd("failed", "发布检查计划生成失败。")
+      terminal.endGroup({
+        groupId: groupId2,
+        outcome: "failed",
+        message: "发布检查计划生成失败。",
+      })
       throw error
     }
   } catch (error) {
@@ -306,26 +361,41 @@ async function runCheck(context: Context, args: readonly string[]): Promise<numb
       rmSync(planFile, { force: true })
     }
 
-    const code = error instanceof WorkflowError ? error.exitCode : 1
+    const code = workflowExitCode(error)
 
-    ui.flowEndFromExitCode(code, {
-      success: "发布合规检查完成。",
-      failed: "发布合规检查失败。",
-      cancelled: "发布检查已取消。",
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId2,
+      exitCode: code,
+      messages: {
+        success: "发布合规检查完成。",
+        failed: "发布合规检查失败。",
+        cancelled: "发布检查已取消。",
+      },
     })
     throw error
   }
 
-  const exitCode = await verifyPlan(context, readPlan(planFile), planFile, keepGoing)
+  const exitCode = await verifyPlan(
+    { ...context, parentId: flowId2 },
+    readPlan(planFile),
+    planFile,
+    keepGoing
+  )
 
   removeState(planFile)
   rmSync(planFile, { force: true })
 
-  ui.flowEndFromExitCode(exitCode, {
-    success:
-      "发布合规检查完成：未执行版本写入、npm 发布、Git 推送或 GitHub Release 创建。",
-    failed: "发布合规检查失败。",
-    cancelled: "发布检查已取消。",
+  endWorkflowFlow({
+    terminal: terminal,
+    flowId: flowId2,
+    exitCode: exitCode,
+    messages: {
+      success:
+        "发布合规检查完成：未执行版本写入、npm 发布、Git 推送或 GitHub Release 创建。",
+      failed: "发布合规检查失败。",
+      cancelled: "发布检查已取消。",
+    },
   })
 
   return exitCode
@@ -340,7 +410,7 @@ async function runCheck(context: Context, args: readonly string[]): Promise<numb
  * @throws {WorkflowError} 参数非法时抛出。
  */
 async function runPublish(context: Context, args: readonly string[]): Promise<number> {
-  const { ui, root, env } = context
+  const { terminal, root, env } = context
 
   if (args.length > 3) {
     throw usageError(releaseUsage())
@@ -350,10 +420,13 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
     throw usageError("release publish 不支持 --keep-going。")
   }
 
-  ui.flowBegin({
+  const flowId3 = terminal.startFlow({
     domain: "release",
     title: "发布流程",
-    description: "选择通道、发布包与版本基线后，系统会冻结计划并等待最终确认。",
+    description: formatWorkflowText({
+      terminal,
+      content: "选择通道、发布包与版本基线后，系统会冻结计划并等待最终确认。",
+    }),
   })
 
   let planFile = ""
@@ -362,37 +435,59 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
 
   try {
     const { channel, target, action } = await collectInputs(
-      context,
+      { ...context, parentId: flowId3 },
       args[0] ?? "",
       args[1] ?? "",
       args[2] ?? ""
     )
 
-    ui.groupBegin({
+    const groupId3 = terminal.startGroup({
       title: "生成发布计划",
-      description: "查询 registry 并冻结各包的版本计划。",
+      description: formatWorkflowText({
+        terminal,
+        content: "查询 registry 并冻结各包的版本计划。",
+      }),
+      parentId: flowId3,
     })
-    planFile = planFilePath(root, channel, true)
-    await ui.task(
-      { title: "解析发布版本并冻结计划", throwOnError: true },
-      async () =>
-        await createPlan(context, channel, target, action, planFile, planContextFrom(env))
-    )
-    ui.groupEnd("success", "发布计划已冻结。")
 
-    exitCode = await executePlan(context, planFile)
+    planFile = planFilePath(root, channel, true)
+    await terminal.runTask({
+      title: "解析发布版本并冻结计划",
+      parentId: groupId3,
+      execute: async () =>
+        await createPlan(
+          context,
+          channel,
+          target,
+          action,
+          planFile,
+          planContextFrom(env)
+        ),
+    })
+    terminal.endGroup({
+      groupId: groupId3,
+      outcome: "success",
+      message: "发布计划已冻结。",
+    })
+
+    exitCode = await executePlan({ ...context, parentId: flowId3 }, planFile)
   } catch (error) {
     // 只有在还没有产生发布进度时才丢弃计划文件，避免丢失续跑依据。
     if (planFile !== "" && !existsSync(`${planFile}.state.json`)) {
       rmSync(planFile, { force: true })
     }
 
-    const code = error instanceof WorkflowError ? error.exitCode : 1
+    const code = workflowExitCode(error)
 
-    ui.flowEndFromExitCode(code, {
-      success: "发布完成。",
-      failed: "发布流程失败。",
-      cancelled: "发布流程已取消。",
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId3,
+      exitCode: code,
+      messages: {
+        success: "发布完成。",
+        failed: "发布流程失败。",
+        cancelled: "发布流程已取消。",
+      },
     })
     throw error
   }
@@ -400,13 +495,22 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
   if (exitCode === 0) {
     removeState(planFile)
     rmSync(planFile, { force: true })
-    ui.flowEnd("success", "发布完成。")
+    terminal.endFlow({ flowId: flowId3, outcome: "success", message: "发布完成。" })
   } else {
-    ui.status("warning", `已保留冻结计划：${planFile}`)
-    ui.flowEndFromExitCode(exitCode, {
-      success: "发布完成。",
-      failed: "发布流程失败。",
-      cancelled: "发布流程已取消。",
+    terminal.status({
+      tone: "warning",
+      message: `已保留冻结计划：${planFile}`,
+      parentId: flowId3,
+    })
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId3,
+      exitCode: exitCode,
+      messages: {
+        success: "发布完成。",
+        failed: "发布流程失败。",
+        cancelled: "发布流程已取消。",
+      },
     })
   }
 
@@ -421,12 +525,15 @@ async function runPublish(context: Context, args: readonly string[]): Promise<nu
  * @returns 退出码。
  */
 async function runPack(context: Context, args: readonly string[]): Promise<number> {
-  const { ui, root, catalog } = context
+  const { terminal, root, catalog } = context
 
   const { positional, keepGoing } = parseKeepGoing(args)
 
   if (positional.length > 1) {
-    ui.note(releaseUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+      parentId: context.parentId,
+    })
 
     return 2
   }
@@ -437,26 +544,42 @@ async function runPack(context: Context, args: readonly string[]): Promise<numbe
 
   const destination = path.join(root, ".packs")
 
-  return await runBatchFlow(ui, {
+  return await runBatchFlow(terminal, {
     label: "本地打包",
     description: "输出目录：.packs；生成 tarball 供本地安装验证，不执行 npm 发布。",
     items: packages,
     keepGoing,
     identify: (item) => findTarget(catalog, item)?.name ?? item,
     taskLabel: "打包",
-    execute: async (item, index, total) => {
+    execute: async (item, _index, _total) => {
       const resolved = findTarget(catalog, item)
 
       if (!resolved) {
-        ui.status("error", `无效发布目标：${item}`)
+        terminal.status({
+          tone: "error",
+          message: `无效发布目标：${item}`,
+          parentId: context.parentId,
+        })
 
         return 2
       }
 
-      return await ui.task(
-        { title: "打包", itemKey: resolved.name, last: index === total },
-        async () => await packPackage(resolved.name, destination)
-      )
+      return await runWorkflowTask({
+        terminal: terminal,
+        title: "打包",
+        target: resolved.name,
+        execute: async () => {
+          requireWorkflowSuccess({
+            result: await packPackage(
+              resolved.name,
+              destination,
+              workflowRunner({ terminal })
+            ),
+            message: "打包失败。",
+          })
+        },
+        parentId: context.parentId,
+      })
     },
   })
 }
@@ -469,30 +592,46 @@ async function runPack(context: Context, args: readonly string[]): Promise<numbe
  * @returns 退出码。
  */
 async function runVerify(context: Context, args: readonly string[]): Promise<number> {
-  const { ui } = context
+  const { terminal } = context
 
   const { positional, keepGoing } = parseKeepGoing(args)
 
   if (positional.length !== 1) {
-    ui.note(releaseUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+      parentId: context.parentId,
+    })
 
     return 2
   }
 
   const planFile = positional[0] ?? ""
 
-  ui.flowBegin({
+  const flowId4 = terminal.startFlow({
     domain: "release",
     title: "验证发布计划",
-    description: "读取冻结计划并执行发布前检查。",
+    description: formatWorkflowText({
+      terminal,
+      content: "读取冻结计划并执行发布前检查。",
+    }),
   })
 
-  const exitCode = await verifyPlan(context, readPlan(planFile), planFile, keepGoing)
+  const exitCode = await verifyPlan(
+    { ...context, parentId: flowId4 },
+    readPlan(planFile),
+    planFile,
+    keepGoing
+  )
 
-  ui.flowEndFromExitCode(exitCode, {
-    success: "发布计划验证完成。",
-    failed: "发布计划验证失败。",
-    cancelled: "发布计划验证已取消。",
+  endWorkflowFlow({
+    terminal: terminal,
+    flowId: flowId4,
+    exitCode: exitCode,
+    messages: {
+      success: "发布计划验证完成。",
+      failed: "发布计划验证失败。",
+      cancelled: "发布计划验证已取消。",
+    },
   })
 
   return exitCode
@@ -506,31 +645,42 @@ async function runVerify(context: Context, args: readonly string[]): Promise<num
  * @returns 退出码。
  */
 async function runExecute(context: Context, args: readonly string[]): Promise<number> {
-  const { ui } = context
+  const { terminal } = context
 
   if (args.length !== 1) {
-    ui.note(releaseUsage())
+    terminal.text({
+      content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+      parentId: context.parentId,
+    })
 
     return 2
   }
 
   const planFile = args[0] ?? ""
 
-  ui.flowBegin({
+  const flowId5 = terminal.startFlow({
     domain: "release",
     title: "执行发布",
-    description: "消费冻结计划并执行发布步骤。",
+    description: formatWorkflowText({
+      terminal,
+      content: "消费冻结计划并执行发布步骤。",
+    }),
   })
 
-  const exitCode = await executePlan(context, planFile)
+  const exitCode = await executePlan({ ...context, parentId: flowId5 }, planFile)
 
   if (exitCode === 0) {
-    ui.flowEnd("success", "发布完成。")
+    terminal.endFlow({ flowId: flowId5, outcome: "success", message: "发布完成。" })
   } else {
-    ui.flowEndFromExitCode(exitCode, {
-      success: "发布完成。",
-      failed: "发布流程失败。",
-      cancelled: "发布流程已取消。",
+    endWorkflowFlow({
+      terminal: terminal,
+      flowId: flowId5,
+      exitCode: exitCode,
+      messages: {
+        success: "发布完成。",
+        failed: "发布流程失败。",
+        cancelled: "发布流程已取消。",
+      },
     })
   }
 
@@ -571,11 +721,21 @@ export async function runRelease(
     case "help":
     case "-h":
     case "--help":
-      context.ui.note(releaseUsage())
+      context.terminal.text({
+        content: formatWorkflowText({
+          terminal: context.terminal,
+          content: releaseUsage(),
+        }),
+      })
 
       return 0
     default:
-      context.ui.note(releaseUsage())
+      context.terminal.text({
+        content: formatWorkflowText({
+          terminal: context.terminal,
+          content: releaseUsage(),
+        }),
+      })
       throw usageError(`未知 release 子命令：${command}`)
   }
 }

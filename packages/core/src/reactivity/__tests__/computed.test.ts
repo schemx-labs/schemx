@@ -9,8 +9,7 @@
 
 import { describe, expect, it } from "vite-plus/test"
 
-import { createComputed } from "../computed"
-import { createSignal } from "../signal"
+import { createComputed, createSignal } from ".."
 
 // createComputed 核心功能：只读、依赖追踪、懒计算、链式、复杂类型
 describe("createComputed", () => {

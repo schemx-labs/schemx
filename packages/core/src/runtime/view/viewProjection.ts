@@ -7,8 +7,8 @@
  * @module core/runtime/view/viewProjection
  */
 
-import { createComputed } from "../../reactivity/computed"
-import { isDependencyNode, isDynamicNode, isFieldNode, isGroupNode } from "../node/helper"
+import { createComputed } from "../../reactivity"
+import { isDependencyNode, isDynamicNode, isFieldNode, isGroupNode } from "../node"
 
 import type { ContainerNode, RootNode, SchemaNode } from "../node"
 import type {
@@ -16,7 +16,7 @@ import type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./types"
+} from "./index"
 import type { Values } from "../../types"
 
 /**
@@ -61,6 +61,7 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
         {
           ...viewBaseSchema,
           ...resolvedSchema,
+          nodeId: node.id,
           ...(debug
             ? {
                 debug: {
@@ -98,6 +99,7 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
         {
           ...viewBaseSchema,
           key: node.key,
+          nodeId: node.id,
           visible: presentationState.visible,
           readonly: presentationState.readonly,
           disabled: presentationState.disabled,
@@ -166,6 +168,7 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
         {
           ...viewBaseSchema,
           key: node.key,
+          nodeId: node.id,
           visible: presentationState.visible,
           readonly: presentationState.readonly,
           disabled: presentationState.disabled,

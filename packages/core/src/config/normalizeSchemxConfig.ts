@@ -1,5 +1,5 @@
 import type { SchemxRendererPropsMap, Values } from "../types"
-import type { SchemxConfig } from "./types"
+import type { SchemxConfig } from "./index"
 
 /**
  * 将 Schemx 配置复制为可复用的快照。
@@ -23,7 +23,7 @@ export function normalizeSchemxConfig<TValues extends Values = Values>(
   return Object.freeze({
     ...source,
     schemaConfig: Object.freeze({ ...source.schemaConfig }),
-    rendererProps: normalizeRendererProps(source.rendererProps),
+    rendererProps: normalizeRendererProps<TValues>(source.rendererProps),
     validatorAdapters: Object.freeze([...(source.validatorAdapters ?? [])]),
     defaultRendererType: source.defaultRendererType,
     rendererRegistry: source.rendererRegistry,

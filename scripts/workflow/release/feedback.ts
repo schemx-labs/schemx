@@ -1,10 +1,12 @@
 /**
  * 发布计划与结果的终端呈现。
  */
-import { type Ui } from "../ui/ui.ts"
+import { formatWorkflowText } from "../presentation.ts"
 
 import { type ReleasePlan } from "./plan.ts"
 import { progressText } from "./state.ts"
+
+import type { Terminal } from "../ui/index.ts"
 
 /**
  * 把可空字段渲染为占位符。
@@ -62,24 +64,35 @@ export function planText(plan: ReleasePlan): string {
 /**
  * 展示发布计划。
  *
- * @param ui - 终端 UI。
+ * @param terminal - 终端实例。
  * @param plan - 冻结计划。
  */
-export function renderPlan(ui: Ui, plan: ReleasePlan): void {
-  ui.summary({ title: "发布计划", tone: "neutral", content: planText(plan) })
+export function renderPlan(terminal: Terminal, plan: ReleasePlan): void {
+  terminal.summary({
+    title: "发布计划",
+    tone: "neutral",
+    content: formatWorkflowText({ terminal: terminal, content: planText(plan) }),
+  })
 }
 
 /**
  * 展示成功发布的结果，仅在发布及收尾步骤均成功后调用。
  *
- * @param ui - 终端 UI。
+ * @param terminal - 终端实例。
  * @param plan - 冻结计划。
  * @param planFile - 计划文件路径。
  */
-export function renderOutcome(ui: Ui, plan: ReleasePlan, planFile: string): void {
-  ui.summary({
+export function renderOutcome(
+  terminal: Terminal,
+  plan: ReleasePlan,
+  planFile: string
+): void {
+  terminal.summary({
     title: "发布结果",
     tone: "success",
-    content: `发布完成\n${progressText(plan, planFile)}`,
+    content: formatWorkflowText({
+      terminal: terminal,
+      content: `发布完成\n${progressText(plan, planFile)}`,
+    }),
   })
 }

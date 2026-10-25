@@ -1,4 +1,4 @@
-import { mergeCreateFormOptions } from "../../form/options"
+import { createFormConfig } from "../../form"
 import {
   createForm,
   mergeConfig,
@@ -151,7 +151,12 @@ createForm<{ name: string }>({ ...coreFormOptions, ...resolvedConfig })
 // @ts-expect-error 已合并配置也必须通过第一个参数传入。
 createForm<{ name: string }>(coreFormOptions, resolvedConfig)
 // 内部配置装配边界显式接收继承配置。
-mergeCreateFormOptions(coreFormOptions, resolvedConfig)
+const configuration = createFormConfig({
+  config: coreFormOptions,
+  defaults: resolvedConfig,
+})
+
+configuration.dispose()
 
 const invalidCoreRequired: SchemxConfig<{ age: number }> = {
   schemaConfig: {

@@ -9,7 +9,9 @@ import path from "node:path"
 
 import { failure, usageError } from "../core/errors.ts"
 import { readManifestSafe, writeManifest } from "../core/package-json.ts"
-import { type Ui } from "../ui/ui.ts"
+import { runWorkflowCommand } from "../presentation.ts"
+
+import type { ParentId, Terminal } from "../ui/index.ts"
 
 /** 支持本地打包的 Vite 插件。 */
 const SUPPORTED_PLUGINS: ReadonlySet<string> = new Set([
@@ -23,10 +25,11 @@ export const TARBALL_SENTINEL = "__SCHEMX_LOCAL_TARBALL__="
 
 /** 插件打包选项。 */
 export interface PluginPackOptions {
+  readonly parentId?: ParentId | undefined
   /** 仓库根目录。 */
   readonly root: string
   /** 终端 UI。 */
-  readonly ui: Ui
+  readonly terminal: Terminal
   /** 插件标识。 */
   readonly pluginKey: string
   /** 版本后缀。 */
@@ -43,7 +46,7 @@ export interface PluginPackOptions {
  * @throws {WorkflowError} 插件未知或打包失败时抛出。
  */
 export async function packVitePlugin(options: PluginPackOptions): Promise<string> {
-  const { root, ui, pluginKey, suffix, outputDir } = options
+  const { root, terminal, pluginKey, suffix, outputDir } = options
 
   if (!SUPPORTED_PLUGINS.has(pluginKey)) {
     throw usageError(`未知 Vite 插件：${pluginKey}`)
@@ -72,22 +75,29 @@ export async function packVitePlugin(options: PluginPackOptions): Promise<string
   try {
     writeManifest(manifestPath, { ...original, version: packVersion })
 
-    const build = await ui.task(
-      { title: `构建 ${original.name}`, itemKey: original.name, log: "live" },
-      async () => await ui.exec("pnpm", ["run", "build"], { cwd: pluginDir })
-    )
+    const build = await runWorkflowCommand({
+      terminal: terminal,
+      parentId: options.parentId,
+      title: `构建 ${original.name}`,
+      target: original.name,
+      command: "pnpm",
+      args: ["run", "build"],
+      cwd: pluginDir,
+    })
 
     if (build !== 0) {
       throw failure(`构建 ${original.name} 失败。`)
     }
 
-    const packed = await ui.task(
-      { title: `打包 ${original.name}`, itemKey: original.name, log: "live" },
-      async () =>
-        await ui.exec("pnpm", ["pack", "--pack-destination", outputDir], {
-          cwd: pluginDir,
-        })
-    )
+    const packed = await runWorkflowCommand({
+      terminal: terminal,
+      parentId: options.parentId,
+      title: `打包 ${original.name}`,
+      target: original.name,
+      command: "pnpm",
+      args: ["pack", "--pack-destination", outputDir],
+      cwd: pluginDir,
+    })
 
     if (packed !== 0) {
       throw failure(`打包 ${original.name} 失败。`)

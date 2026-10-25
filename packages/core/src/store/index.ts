@@ -10,8 +10,13 @@ export { createStore } from "./store"
 
 export type {
   ArrayStructureHandle,
+  FieldState,
+  StoreState,
   Store,
   StoreFieldError,
   StoreOptions,
   StorePending,
 } from "./types"
+
+export { createFieldSignalMap } from "./fieldSignalMap"
+export type { FieldSignalMap } from "./fieldSignalMap"

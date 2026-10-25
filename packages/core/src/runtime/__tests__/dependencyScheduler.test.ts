@@ -10,11 +10,11 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createStore } from "../../store"
 import { createDependencySchedulerEffect } from "../dependencyScheduler"
-import { createScope } from "../node/scope"
+import { createScope } from "../node"
 import { createScheduler } from "../scheduler"
 
+import type { SchemaRuntimeContext } from ".."
 import type { SchemxFormApi } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 
 /**
  * 依赖任务调度测试使用的表单值。

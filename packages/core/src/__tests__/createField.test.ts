@@ -6,7 +6,7 @@
  *
  * @module core/__tests__/createField
  */
-import { describe, expect, expectTypeOf, it } from "vite-plus/test"
+import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test"
 
 import { createField } from "../createField"
 import { createForm } from "../createForm"
@@ -21,6 +21,216 @@ interface TypedForm {
 
 // createField 测试：验证字段类型推导和 setValue/getValue 双向绑定
 describe("createField", () => {
+  it("字段操作继续通过公开 Form 方法分发，保留原有拦截点", async () => {
+    const form = createForm({
+      initialValues: { name: "Ada" },
+      schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const field = form.createField("name")
+
+    expect(createField(form, "name")).toBe(field)
+
+    const validate = vi.spyOn(form, "validateField")
+
+    const change = vi.spyOn(form, "changeField")
+
+    const blur = vi.spyOn(form, "blurField")
+
+    await field.validate()
+    await field.change("Grace")
+    await field.blur()
+    expect(validate).toHaveBeenCalledWith("name")
+    expect(change).toHaveBeenCalledExactlyOnceWith("name", "Grace")
+    expect(blur).toHaveBeenCalledExactlyOnceWith("name")
+    form.destroy()
+  })
+
+  it("手动字段保持初始路径绑定，后挂载的 Schema 通过新调用取得节点绑定", () => {
+    const form = createForm({ initialValues: { name: "Ada", nickname: "A" } })
+
+    const manual = form.createField("name")
+
+    expect(form.createField("name")).toBe(manual)
+    form.setSchemas([
+      { key: "field", name: "name", label: "姓名", componentType: "input" },
+    ])
+    const field = form.createField("name")
+
+    expect(field).not.toBe(manual)
+    expect(form.createField("name")).toBe(field)
+    form.setSchemas([
+      { key: "field", name: "nickname", label: "昵称", componentType: "input" },
+    ])
+    expect(form.createField("nickname")).toBe(field)
+    expect(field.getValue()).toBe("A")
+    expect(manual.getValue()).toBe("Ada")
+    expect(manual.state.name.value).toBe("name")
+    form.setSchemas([])
+    expect(field.state.disposed.value).toBe(true)
+    expect(manual.state.disposed.value).toBe(false)
+    expect(form.createField("name")).toBe(manual)
+    form.destroy()
+    expect(manual.state.disposed.value).toBe(true)
+    expect(manual.state.name.value).toBeUndefined()
+    expect(manual.getValue()).toBeUndefined()
+    expect(() => form.createField("name")).toThrow("destroyed")
+  })
+
+  it("完整字段操作在改名后解析当前地址，删除后所有字段写操作停止", async () => {
+    const form = createForm({
+      initialValues: { name: "Ada", nickname: "A" },
+      schemas: [{ key: "field", name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const field = createField(form, "name")
+
+    const values: unknown[] = []
+
+    const snapshots = vi.fn(() => field.getSnapshot())
+
+    form.effect(snapshots)
+    field.effect(() => values.push(field.getValue()))
+    form.setSchemas([
+      { key: "field", name: "nickname", label: "昵称", componentType: "input" },
+    ])
+    expect(field.getInitialValue()).toBe("A")
+    field.setInitialValue("baseline")
+    field.setValue("next")
+    expect(field.getSnapshot()).toBe("next")
+    expect(form.getInitialValue("nickname")).toBe("baseline")
+    expect(form.getInitialValue("name")).toBe("Ada")
+    field.setErrors(["错误"])
+    expect(field.getErrors()).toEqual(["错误"])
+    expect(form.getFieldErrors("name")).toEqual([])
+    field.clearErrors()
+    field.setTouched(true)
+    field.setPending(true, "处理中")
+    expect(field.isTouched()).toBe(true)
+    expect(field.isPending()).toBe(true)
+    expect(form.getPendingFields()).toEqual([{ field: "nickname", message: ["处理中"] }])
+    field.reset()
+    expect(field.getValue()).toBe("baseline")
+    expect(field.isTouched()).toBe(false)
+    expect(field.isPending()).toBe(false)
+    expect(values).toEqual(["Ada", "A", "next", "baseline"])
+    expect(snapshots).toHaveBeenCalledTimes(1)
+    form.setSchemas([])
+    const before = form.getFieldsSnapshot()
+
+    field.setValue("stale")
+    field.setInitialValue("stale")
+    field.setErrors(["stale"])
+    field.clearErrors()
+    field.setTouched(true)
+    field.setPending(true)
+    field.setRules({ required: true })
+    field.removeRules()
+    field.reset()
+    expect(field.getInitialValue()).toBeUndefined()
+    expect(field.getSnapshot()).toBeUndefined()
+    expect(field.getErrors()).toEqual([])
+    expect(field.isTouched()).toBe(false)
+    expect(field.isPending()).toBe(false)
+    expect(form.getFieldsSnapshot()).toEqual(before)
+    expect(form.getInitialValue("nickname")).toBe("baseline")
+    expect(values).toEqual(["Ada", "A", "next", "baseline"])
+    await expect(field.validate()).resolves.toMatchObject({ cancelled: true })
+    await expect(field.change("stale")).resolves.toBeUndefined()
+    const late = vi.fn()
+
+    field.effect(late)
+    expect(late).not.toHaveBeenCalled()
+    form.destroy()
+  })
+
+  it("字段实例规则跟随动态行，路径级显式覆盖仍属于原路径", async () => {
+    const form = createForm({
+      initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
+      schemas: [
+        {
+          key: "users",
+          name: "users",
+          item: [{ name: "name", label: "姓名", componentType: "input" }],
+        },
+      ],
+    })
+
+    const first = createField(form, "users.0.name")
+
+    const second = createField(form, "users.1.name")
+
+    first.setRules({
+      validate: () => ({ valid: false, issues: [{ message: "实例错误" }] }),
+    })
+    await expect(first.validate()).resolves.toMatchObject({
+      valid: false,
+      errors: [{ name: "users.0.name" }],
+    })
+    await expect(second.validate()).resolves.toMatchObject({ valid: true })
+    form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
+    expect(createField(form, "users.1.name")).toBe(first)
+    await expect(first.validate()).resolves.toMatchObject({
+      valid: false,
+      errors: [{ name: "users.1.name" }],
+    })
+    await expect(second.validate()).resolves.toMatchObject({ valid: true })
+    form.setFieldRules("users.1.name", {
+      validate: () => ({ valid: false, issues: [{ message: "路径覆盖" }] }),
+    })
+    await first.validate()
+    expect(first.getErrors()).toEqual(["路径覆盖"])
+    form.removeFieldRules("users.1.name")
+    await first.validate()
+    expect(first.getErrors()).toEqual(["实例错误"])
+    first.removeRules()
+    await expect(first.validate()).resolves.toMatchObject({ valid: true })
+    form.destroy()
+  })
+
+  it("空实例规则撤销 Schema 和默认规则，撤销覆盖后恢复 Schema 规则", async () => {
+    const form = createForm({
+      initialValues: { name: "x" },
+      fieldRules: { name: { min: 2, message: "默认错误" } },
+      schemas: [
+        {
+          key: "field",
+          name: "name",
+          label: "姓名",
+          componentType: "input",
+          rules: { min: 2, message: "Schema 错误" },
+        },
+      ],
+    })
+
+    const field = createField(form, "name")
+
+    field.setRules([])
+    await expect(field.validate()).resolves.toMatchObject({ valid: true })
+    form.setConfig({ schemaConfig: { labelWidth: 120 } })
+    await expect(field.validate()).resolves.toMatchObject({ valid: true })
+    field.removeRules()
+    await expect(field.validate()).resolves.toMatchObject({ valid: false })
+    expect(field.getErrors()).toEqual(["Schema 错误"])
+    form.setSchemas([])
+    form.setSchemas([
+      {
+        key: "field",
+        name: "name",
+        label: "姓名",
+        componentType: "input",
+        rules: { min: 2, message: "新规则" },
+      },
+    ])
+    const replacement = createField(form, "name")
+
+    expect(replacement).not.toBe(field)
+    field.setRules([])
+    await expect(replacement.validate()).resolves.toMatchObject({ valid: false })
+    expect(replacement.getErrors()).toEqual(["新规则"])
+    form.destroy()
+  })
+
   it("根据字段路径推导字段值类型", () => {
     const form = createForm<TypedForm>({
       initialValues: {

@@ -6,6 +6,9 @@
  * @module types/instance
  */
 
+import type { SchemxFieldInstance } from "../createField"
+import type { FormConfig, ResolvedFormConfig } from "../form"
+import type { ReadonlyState } from "../reactivity"
 import type {
   PresetRuleEntry,
   RegistryOptions,
@@ -13,19 +16,19 @@ import type {
   RendererEntry,
 } from "../registry"
 import type { SchemxViewSchema } from "../runtime/view"
-import type { StorePending } from "../store"
+import type { StorePending, StoreState } from "../store"
 import type { ValidationResult } from "../validator"
 import type {
+  FieldRules,
   FieldValue,
   NamePath,
+  SchemxField,
+  SchemxRendererKey,
   SchemxSchemaConfig,
   SetValueAction,
   SetValuesAction,
   Values,
-} from "./form"
-import type { SchemxRendererKey } from "./renderer"
-import type { FieldRules } from "./rule"
-import type { SchemxField } from "./schema"
+} from "./index"
 
 /**
  * 框架层为表单实例追加方法的声明合并入口。
@@ -36,6 +39,22 @@ import type { SchemxField } from "./schema"
 export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
 
 /**
+ * FormModel 直接持有的表单状态；字段与聚合状态复用 Store，提交状态由 Model 持有。
+ *
+ * @typeParam TValues - 表单值对象类型。
+ */
+export interface FormState<TValues extends Values> extends StoreState<TValues> {
+  /**
+   * 固定库默认值与当前消费配置合并后的生效结果。
+   */
+  readonly config: ReadonlyState<ResolvedFormConfig<TValues>>
+  /**
+   * 当前是否正在提交表单。
+   */
+  readonly loading: ReadonlyState<boolean>
+}
+
+/**
  * 表单实例接口
  *
  * 定义表单的所有操作方法，是 useForm 返回值的基础接口。
@@ -44,6 +63,29 @@ export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
  * @typeParam TValues - 表单值类型，默认为 Values
  */
 export type SchemxInstance<TValues extends Values = Values> = {
+  /**
+   * FormModel 持有的原生只读状态；订阅由 Core 管理，随 Form 统一销毁。
+   */
+  readonly state: FormState<TValues>
+  /**
+   * 用初始路径取得稳定的字段控制器，由 Form 缓存并管理生命周期。
+   * 已有 Schema 字段绑定节点身份并跟随路径变化；没有节点时保持固定路径绑定。
+   *
+   * @typeParam TName - 初始定位路径，用于推导字段值类型。
+   * @param name - 创建时的字段路径。
+   * @returns 同一节点或手动路径对应的缓存控制器。
+   * @throws Form 已销毁时抛出错误。
+   *
+   * @example
+   * ```ts
+   * const field = form.createField('users.0.name')
+   * field.setValue('Ada')
+   * ```
+   */
+  createField<TName extends NamePath<TValues>>(
+    name: TName
+  ): SchemxFieldInstance<TValues, TName>
+
   /**
    * 获取单个字段的当前值
    *
@@ -86,7 +128,7 @@ export type SchemxInstance<TValues extends Values = Values> = {
   /**
    * 设置单个字段值并通知订阅者
    *
-   * 支持嵌套路径，如 'user.address.city'。
+   * 支持嵌套路径，如 'user.address.city'，不改变 touched 或触发交互回调、自动校验。
    *
    * @param name - 字段路径
    * @param action - 字段值或基于当前值计算下一值的 updater
@@ -101,6 +143,38 @@ export type SchemxInstance<TValues extends Values = Values> = {
     name: TName,
     action: SetValueAction<TValues, TName>
   ): void
+
+  /**
+   * 提交用户修改：同步写值并标记 touched，执行 Schema onChange，再按生效配置校验。
+   * 隐藏、只读或禁用字段忽略此操作；程序赋值使用 setFieldValue。
+   *
+   * @param name - 字段路径。
+   * @param value - 控件转换后的字段值，不作为 updater 解释。
+   * @returns 自动校验结果；未触发校验或交互被忽略时返回 undefined。
+   * @example
+   * ```ts
+   * await form.changeField("name", "Ada")
+   * ```
+   */
+  changeField<TName extends NamePath<TValues>>(
+    name: TName,
+    value: FieldValue<TValues, TName> | undefined
+  ): Promise<ValidationResult<TValues, TName> | undefined>
+
+  /**
+   * 提交用户失焦：标记 touched，执行 Schema onBlur，再按生效配置校验。
+   * 隐藏、只读或禁用字段忽略此操作，不改变字段值。
+   *
+   * @param name - 字段路径。
+   * @returns 自动校验结果；未触发校验或交互被忽略时返回 undefined。
+   * @example
+   * ```ts
+   * await form.blurField("name")
+   * ```
+   */
+  blurField<TName extends NamePath<TValues>>(
+    name: TName
+  ): Promise<ValidationResult<TValues, TName> | undefined>
 
   /**
    * 批量设置字段值并通知订阅者
@@ -568,9 +642,24 @@ export type SchemxInstance<TValues extends Values = Values> = {
   ) => void
 
   /**
+   * 完整替换消费配置，并以最高优先级与固定库默认值合并。
+   *
+   * 未提供的属性恢复库默认值；空对象撤销全部消费覆盖。
+   * Registry、Validator、Scheduler 等创建选项保持固定。
+   * 生效结果通过 state.config 读取与订阅，销毁后忽略更新。
+   *
+   * @param config - 当前消费端的完整运行期配置。
+   * @throws TypeError 输入包含创建期选项。
+   * @example
+   * form.setConfig({ schemaConfig: { disabled: true } })
+   * form.setConfig({})
+   */
+  setConfig(config: FormConfig<TValues>): void
+
+  /**
    * 更新表单默认配置。
    *
-   * 合并传入属性到当前 schemaConfig，然后重新编译根 schemas 并 reconcile。
+   * 局部更新消费配置中的 schemaConfig，再由 Core 统一合并并刷新视图。
    * 未设置的字段级属性会回退到这些默认值。`TValues` 与创建表单时一致，
    * 必填判断保留字段值联合类型。缺省属性保留当前值；显式 `undefined` 对
    * Core 内置项恢复默认值，其他扩展项清除当前值。对象与数组整体替换，
@@ -627,7 +716,7 @@ export type SchemxInstance<TValues extends Values = Values> = {
    * }
    * ```
    */
-  getRenderer: (type: SchemxRendererKey) => unknown | undefined
+  getRenderer: (type: SchemxRendererKey) => unknown
 
   /**
    * 获取指定类型的规范化 Renderer 条目。

@@ -20,3 +20,13 @@ export type {
   SchemaCompiler,
   SchemaCompilerOptions,
 } from "./types"
+
+export {
+  createNodeKey,
+  DEFAULT_PRESENTATION_STATE,
+  resolvePresentationState,
+  compileFieldSchema,
+  createInitialDiagnostics,
+  isValidationStateEqual,
+  resolveComponentProps,
+} from "./helper"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { createNodeManager } from "../nodeManager"
+import { createNodeManager } from ".."
 
 import {
   createTestDependencyNode,

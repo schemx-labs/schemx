@@ -8,13 +8,15 @@ import { run, runOrThrow } from "../../core/exec.ts"
  *
  * @param message - 提交信息。
  * @param files - 待提交文件路径。
+ * @param execute - 可注入的命令执行器。
  */
 export async function commitReleaseVersion(
   message: string,
-  files: readonly string[]
+  files: readonly string[],
+  execute: typeof run = run
 ): Promise<void> {
-  await runOrThrow("git", ["add", "--", ...files])
-  await runOrThrow("git", ["commit", "-m", message])
+  await runOrThrow("git", ["add", "--", ...files], {}, execute)
+  await runOrThrow("git", ["commit", "-m", message], {}, execute)
 }
 
 /**
@@ -22,9 +24,19 @@ export async function commitReleaseVersion(
  *
  * @param tagName - Tag 名称。
  * @param target - 目标提交。
+ * @param execute - 可注入的命令执行器。
  */
-export async function createReleaseTag(tagName: string, target: string): Promise<void> {
-  await runOrThrow("git", ["tag", "-a", tagName, target, "-m", `release: ${tagName}`])
+export async function createReleaseTag(
+  tagName: string,
+  target: string,
+  execute: typeof run = run
+): Promise<void> {
+  await runOrThrow(
+    "git",
+    ["tag", "-a", tagName, target, "-m", `release: ${tagName}`],
+    {},
+    execute
+  )
 }
 
 /**
@@ -83,18 +95,23 @@ export async function isPathDirty(target: string): Promise<boolean> {
 
 /**
  * 推送当前分支上的发布提交。
+ * @param execute - 可注入的命令执行器。
  */
-export async function pushReleaseCommit(): Promise<void> {
-  await runOrThrow("git", ["push", "origin", "HEAD"])
+export async function pushReleaseCommit(execute: typeof run = run): Promise<void> {
+  await runOrThrow("git", ["push", "origin", "HEAD"], {}, execute)
 }
 
 /**
  * 推送一个已创建的发布 Tag。
  *
  * @param tagName - Tag 名称。
+ * @param execute - 可注入的命令执行器。
  */
-export async function pushReleaseTag(tagName: string): Promise<void> {
-  await runOrThrow("git", ["push", "origin", tagName])
+export async function pushReleaseTag(
+  tagName: string,
+  execute: typeof run = run
+): Promise<void> {
+  await runOrThrow("git", ["push", "origin", tagName], {}, execute)
 }
 
 /**

@@ -6,10 +6,15 @@
  * @module types/componentProps
  */
 
-import type { SchemxBase } from "./field"
-import type { FieldValue, NamePath, Values } from "./form"
-import type { SchemxInstance } from "./instance"
-import type { SchemxRendererDefinition, SchemxRendererKey } from "./renderer"
+import type {
+  FieldValue,
+  NamePath,
+  SchemxBase,
+  SchemxInstance,
+  SchemxRendererDefinition,
+  SchemxRendererKey,
+  Values,
+} from "./index"
 
 /** Field 组件的展示 Props；由 Vue 等 UI 适配层消费。 */
 export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
@@ -119,13 +124,13 @@ export interface SchemxComponentPropsDefinition<TValues extends Values = Values>
 export type SchemxComponentProps<
   TValues extends Values = Values,
   TKey extends string = SchemxRendererKey<TValues>,
-> = SchemxBaseComponentProps<TValues> &
-  SchemxComponentPropsDefinition<TValues> &
-  ([Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
-    ? unknown
-    : TKey extends keyof SchemxRendererDefinition<TValues>
-      ? SchemxRendererDefinition<TValues>[TKey]
-      : unknown)
+> = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
+  ? SchemxBaseComponentProps<TValues> & SchemxComponentPropsDefinition<TValues>
+  : TKey extends keyof SchemxRendererDefinition<TValues>
+    ? SchemxBaseComponentProps<TValues> &
+        SchemxComponentPropsDefinition<TValues> &
+        SchemxRendererDefinition<TValues>[TKey]
+    : SchemxBaseComponentProps<TValues> & SchemxComponentPropsDefinition<TValues>
 
 /**
  * 按 Renderer 类型配置的静态默认 Props。

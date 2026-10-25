@@ -12,12 +12,11 @@ import {
   isValidationStateEqual,
   resolveComponentProps,
   resolvePresentationState,
-} from "../compiler/helper"
-import { isSchemaNode } from "../node/helper"
-import { createScope } from "../node/scope"
+} from "../compiler"
+import { createScope, isSchemaNode } from "../node"
 
 import type { SchemxBaseField, Values } from "../../types"
-import type { SchemaNodeFactoryOptions } from "../compiler/types"
+import type { SchemaNodeFactoryOptions } from "../compiler"
 import type { FieldDependencyOverrides, FieldNode, FieldValidationState } from "../node"
 
 /**
@@ -66,6 +65,31 @@ export function createFieldNode<TValues extends Values>(
   const nameSignal = createSignal(schema.name, {
     name: `field:${id}:name`,
   })
+
+  // 先建立节点身份与可变结构，派生状态只读取已经创建的节点。
+  const node: Omit<
+    FieldNode<TValues>,
+    "resolvedSchema" | "effectiveSchema" | "validationState" | "validationSchema"
+  > = {
+    id,
+    key,
+    type: "field",
+    parent: null,
+    scope: scope ?? createScope(),
+    disposed: createSignal(false),
+    configToken,
+    name: nameSignal,
+    pathController: new AbortController(),
+    rulesOverride: createSignal<SchemxBaseField<TValues>["rules"]>(undefined),
+    compiledSchema,
+    staticSchema: compiledSchema,
+    dependencyOverrides,
+    dynamicOverrides: dependencyOverrides,
+    diagnostics,
+    viewSchemas: null,
+    validationEffectScope: null,
+    dependenciesEffectScope: null,
+  }
 
   const inheritedPresentationState = createComputed(() => {
     const parent = node.parent
@@ -159,31 +183,21 @@ export function createFieldNode<TValues extends Values>(
       }),
       rules: validationStateValue.rules,
       validationTrigger: compiledSchemaValue.validationTrigger,
+      onChange: compiledSchemaValue.onChange,
+      onBlur: compiledSchemaValue.onBlur,
     }
   })
 
-  const node: FieldNode<TValues> = {
-    id,
-    key,
-    type: "field",
-    parent: null,
-    scope: scope ?? createScope(),
-    disposed: createSignal(false),
-    configToken,
-    name: nameSignal,
-    compiledSchema,
-    staticSchema: compiledSchema,
-    dependencyOverrides,
-    dynamicOverrides: dependencyOverrides,
+  // 在节点暴露给 Compiler 前补齐派生状态，兼容别名共享相同来源。
+  const field: FieldNode<TValues> = Object.assign(node, {
     resolvedSchema,
     effectiveSchema: resolvedSchema,
     validationState,
     validationSchema: validationState,
-    diagnostics,
-    viewSchemas: null,
-    validationEffectScope: null,
-    dependenciesEffectScope: null,
-  }
+  })
 
-  return node
+  // detached 节点被丢弃时也结束其路径绑定。
+  field.scope.add(() => field.pathController.abort())
+
+  return field
 }

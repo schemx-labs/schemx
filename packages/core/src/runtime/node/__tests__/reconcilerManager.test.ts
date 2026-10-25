@@ -8,11 +8,11 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { isDependencyNode, isFieldNode, isGroupNode } from "../helper"
+import { isDependencyNode, isFieldNode, isGroupNode } from ".."
 
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 
-import type { FieldNode } from "../types"
+import type { FieldNode } from ".."
 
 // 验证 reconciler 通过 NodeManager 维护运行时树。
 describe("RuntimeReconciler + NodeManager", () => {
@@ -69,9 +69,11 @@ describe("RuntimeReconciler + NodeManager", () => {
   })
 
   it("reconcileChildren 拒绝不存在或非容器 parent", () => {
-    const { commitSchemas, context, root } = createRuntimeGraphHarness()
+    const { commitSchemas, reconciler, root } = createRuntimeGraphHarness()
 
-    expect(() => context.reconcileChildren(999, [])).toThrow('Node "999" does not exist')
+    expect(() => reconciler.reconcileChildren(999, [])).toThrow(
+      'Node "999" does not exist'
+    )
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0]
@@ -80,7 +82,7 @@ describe("RuntimeReconciler + NodeManager", () => {
       throw new Error("expected field")
     }
 
-    expect(() => context.reconcileChildren(field.id, [])).toThrow(
+    expect(() => reconciler.reconcileChildren(field.id, [])).toThrow(
       `Node "${field.id}" cannot contain children`
     )
   })

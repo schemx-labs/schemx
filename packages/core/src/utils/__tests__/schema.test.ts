@@ -1,21 +1,20 @@
 /**
  * schema 列配置工具单元测试
  *
- * 覆盖 Raw/Resolved Schema 结构分类和 findSchema 递归查找。
+ * 覆盖 Raw/Resolved Schema 结构分类和有效性校验。
  *
  * @module utils/__tests__/schema
  */
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import {
-  findSchema,
   getSchemaKind,
   isDependencySchema,
   isDynamicSchema,
   isFieldSchema,
   isGroupSchema,
   isValidSchema,
-} from "../schema"
+} from ".."
 
 import type { SchemxField } from "../../types"
 
@@ -80,26 +79,6 @@ describe("Raw Schema 类型守卫", () => {
         children: [],
       } as never)
     ).toBe(false)
-  })
-})
-
-describe("findSchema", () => {
-  it("平铺 schemas 中按名称查找", () => {
-    const schemas: SchemxField[] = [baseField]
-
-    expect(findSchema(schemas, "username")).toBe(baseField)
-  })
-
-  it("group 嵌套中递归查找", () => {
-    const schemas: SchemxField[] = [groupField]
-
-    expect(findSchema(schemas, "username")).toBe(baseField)
-  })
-
-  it("不存在的字段名返回 undefined", () => {
-    const schemas: SchemxField[] = [baseField, groupField]
-
-    expect(findSchema(schemas, "nonexistent")).toBeUndefined()
   })
 })
 

@@ -261,6 +261,7 @@ describe("Core createSchemx", () => {
 
     const snapshot = getFormCreationConfig(form)
 
+    expect(snapshot?.config).toBe(form.state.config.peek())
     expect(snapshot?.defaults).toBe(defaults)
     expect(snapshot?.config.schemaConfig).toMatchObject({
       disabled: true,

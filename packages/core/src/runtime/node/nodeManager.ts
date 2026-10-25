@@ -10,10 +10,9 @@ import { batch } from "@preact/signals-core"
 
 import { createSignal } from "../../reactivity"
 
-import { isParentNode, isRootNode } from "./helper"
-import { createScope } from "./scope"
+import { createScope, isParentNode, isRootNode } from "./index"
 
-import type { ContainerNode, NodeId, ParentNode, RootNode, SchemaNode } from "./types"
+import type { ContainerNode, NodeId, ParentNode, RootNode, SchemaNode } from "./index"
 import type { Values } from "../../types"
 
 /**

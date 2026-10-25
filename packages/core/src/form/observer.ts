@@ -1,6 +1,6 @@
 import { collectObjectPathsByLeaf, diff } from "../utils"
 
-import type { FormModel } from "./model"
+import type { FormModel } from "./index"
 import type { NamePath, Values } from "../types"
 
 /**

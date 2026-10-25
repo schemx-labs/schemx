@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  isDependencyNode,
-  isDynamicNode,
-  isFieldNode,
-  isGroupNode,
-} from "../../node/helper"
-import { createCompile, createSchemaCompiler } from "../index"
+import { createCompile, createSchemaCompiler } from ".."
+import { isDependencyNode, isDynamicNode, isFieldNode, isGroupNode } from "../../node"
 
 import type { SchemxField } from "../../../types"
 

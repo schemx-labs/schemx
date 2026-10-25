@@ -9,30 +9,30 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import {
+  createFieldDependenciesEffect,
+  FIELD_DEPENDENCY_OVERRIDE_KEYS,
+  FIELD_DYNAMIC_OVERRIDE_KEYS,
+} from ".."
 import { createSignal } from "../../../reactivity"
 import {
   resolveDependencyOverrides,
   resolveDependencyProps,
 } from "../../dependencyScheduler"
+import { createScope } from "../../node"
 import { createFieldNode } from "../../node/__tests__/nodeTestUtils"
 import {
   createFieldRuntimeSignals,
   setFieldDependencyOverrides,
 } from "../../node/__tests__/signalsTestUtils"
-import { createScope } from "../../node/scope"
 import {
   PRESENTATION_DEPENDENCY_OVERRIDE_KEYS,
   PRESENTATION_DYNAMIC_OVERRIDE_KEYS,
-} from "../../presentation/dependenciesEffect"
+} from "../../presentation"
 import { createScheduler } from "../../scheduler"
-import {
-  createFieldDependenciesEffect,
-  FIELD_DEPENDENCY_OVERRIDE_KEYS,
-  FIELD_DYNAMIC_OVERRIDE_KEYS,
-} from "../dependenciesEffect"
 
+import type { SchemaRuntimeContext } from "../.."
 import type { SchemxBaseField } from "../../../types"
-import type { SchemaRuntimeContext } from "../../context"
 import type { FieldNode } from "../../node"
 
 function createTestSchema(overrides: Partial<SchemxBaseField> = {}): SchemxBaseField {

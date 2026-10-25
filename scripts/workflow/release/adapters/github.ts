@@ -55,12 +55,14 @@ export async function repository(env: NodeJS.ProcessEnv): Promise<string> {
  * @param tagName - Tag 名称。
  * @param notesFile - 发布说明文件路径。
  * @param prerelease - 是否标记为预发布。
+ * @param execute - 可注入的命令执行器。
  */
 export async function createRelease(
   env: NodeJS.ProcessEnv,
   tagName: string,
   notesFile: string,
-  prerelease: boolean
+  prerelease: boolean,
+  execute: typeof run = run
 ): Promise<void> {
   const repo = await repository(env)
 
@@ -80,7 +82,7 @@ export async function createRelease(
     args.push("--prerelease")
   }
 
-  await runOrThrow("gh", args)
+  await runOrThrow("gh", args, {}, execute)
 }
 
 /**

@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createScope } from "../scope"
+import { createScope } from ".."
 
 // Scope 资源生命周期：子 scope 释放顺序、cleanup 注册与提前注销、disposed 后注册
 describe("Scope", () => {

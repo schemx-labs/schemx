@@ -6,7 +6,7 @@
  * @module utils/schema
  */
 
-import { createFieldKey } from "./path"
+import { createFieldKey } from "./index"
 
 import type {
   SchemxBaseField,
@@ -180,60 +180,6 @@ export function isDependencySchema<TValues extends Values = Values>(
   schema: SchemxField<TValues>
 ): schema is SchemxDependencyField<TValues> {
   return getSchemaKind(schema) === "dependency"
-}
-
-/**
- * 在列配置树中按字段名查找基础字段配置。
- *
- * 递归搜索 group、nested 的子 schemas，返回第一个匹配的基础字段。
- *
- * @param schemas - 列配置数组
- * @param name - 字段名称
- *
- * @returns 匹配的基础字段配置，未找到时返回 undefined
- *
- * @example
- * ```ts
- * const schemas = [
- *   { name: 'username', label: '用户名', componentType: 'input' },
- *   {
- *     label: '资料',
- *     children: [
- *       { name: 'email', label: '邮箱', componentType: 'input' }
- *     ]
- *   }
- * ]
- *
- * // 在顶层找到
- * const usernameSchema = findSchema(schemas, 'username')
- * console.log(usernameSchema?.label) // => '用户名'
- *
- * // 在 group 中递归找到
- * const emailSchema = findSchema(schemas, 'email')
- * console.log(emailSchema?.label) // => '邮箱'
- *
- * // 未找到
- * const notFound = findSchema(schemas, 'nonexistent')
- * console.log(notFound) // => undefined
- * ```
- */
-export function findSchema<TValues extends Values = Values>(
-  schemas: SchemxField<TValues>[],
-  name: string
-): SchemxBaseField<TValues> | undefined {
-  for (const schema of schemas) {
-    if (isFieldSchema(schema) && schema.name === name) {
-      return schema
-    }
-
-    if (isGroupSchema(schema)) {
-      const found = findSchema<TValues>(schema.children as SchemxField<TValues>[], name)
-
-      if (found) return found
-    }
-  }
-
-  return undefined
 }
 
 /**

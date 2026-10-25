@@ -1,8 +1,8 @@
-import { normalizeSchemxConfig } from "./normalizeSchemxConfig"
+import { normalizeSchemxConfig } from "./index"
 
-import type { SchemxConfig } from "./types"
+import type { SchemxConfig } from "./index"
 
-export type { SchemxConfig, SchemxConfigDefinition } from "./types"
+export type { SchemxConfig, SchemxConfigDefinition } from "./index"
 
 // 模块级全局配置；由 configureSchemx() 替换，供后续 Form 创建调用继承。
 const EMPTY_SCHEMX_CONFIG = normalizeSchemxConfig({})

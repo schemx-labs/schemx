@@ -6,11 +6,14 @@
  * @module types/schema
  */
 
-import type { SchemxDependencyField } from "./dependency"
-import type { SchemxDynamicField } from "./dynamic"
-import type { SchemxBaseFieldByName } from "./field"
-import type { NamePath, Values } from "./form"
-import type { SchemxGroupField } from "./group"
+import type {
+  NamePath,
+  SchemxBaseFieldByName,
+  SchemxDependencyField,
+  SchemxDynamicField,
+  SchemxGroupField,
+  Values,
+} from "./index"
 
 /**
  * 字段配置联合类型

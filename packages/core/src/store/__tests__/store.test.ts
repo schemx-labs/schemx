@@ -12,10 +12,10 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vite-plus/test"
 
+import { createStore } from ".."
 import { batchUpdates, createSignalEffect } from "../../reactivity"
-import { createStore } from "../store"
 
-import type { ValidationRuleIssue } from "../../validator/types"
+import type { ValidationRuleIssue } from "../../validator"
 
 /**
  * 覆盖基础标量字段读写的 Store 测试值类型。
@@ -168,7 +168,7 @@ describe("Store", () => {
     expect(handle.getKeys()).toEqual([])
   })
 
-  it("数组结构订阅忽略历史变更，并在 batch 中只通知最后一次变更", () => {
+  it("数组结构同步监听忽略历史变更，并在 batch 内依次交付结构变更", () => {
     const store = createStore<{ users: Array<{ name: string }> }>({
       initialValues: { users: [] },
     })
@@ -194,8 +194,8 @@ describe("Store", () => {
       ])
     })
 
-    expect(changes).toHaveLength(1)
-    expect(changes[0]).toMatchObject({
+    expect(changes).toHaveLength(2)
+    expect(changes[1]).toMatchObject({
       previousLength: 2,
       nextLength: 3,
       ranges: [{ start: 0, end: 2 }],
@@ -208,7 +208,7 @@ describe("Store", () => {
       { name: "Dora" },
     ])
 
-    expect(changes).toHaveLength(2)
+    expect(changes).toHaveLength(3)
 
     unsubscribe()
 
@@ -220,7 +220,7 @@ describe("Store", () => {
       { name: "Eve" },
     ])
 
-    expect(changes).toHaveLength(2)
+    expect(changes).toHaveLength(3)
 
     store.destroy()
   })

@@ -221,12 +221,14 @@ export async function nextPrereleaseSequence(
  * @param packageDirectory - 包目录。
  * @param version - 目标版本。
  * @returns 执行结果。
+ * @param execute - 可注入的命令执行器。
  */
 export async function writePackageVersion(
   packageDirectory: string,
-  version: string
+  version: string,
+  execute: typeof run = run
 ): Promise<RunResult> {
-  return await run("npm", [
+  return await execute("npm", [
     "--prefix",
     packageDirectory,
     "version",

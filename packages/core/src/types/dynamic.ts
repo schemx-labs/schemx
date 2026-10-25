@@ -6,13 +6,18 @@
  * @module types/dynamic
  */
 
-import type { SchemxDynamicDependencies } from "./dependencies"
-import type { SchemxDependencyField, SchemxDependencyRendererContext } from "./dependency"
-import type { SchemxExactBaseField } from "./field"
-import type { FieldValue, NamePath, Values } from "./form"
-import type { SchemxGroupField } from "./group"
-import type { SchemxFormApi } from "./instance"
-import type { SchemxLayout } from "./layout"
+import type {
+  FieldValue,
+  NamePath,
+  SchemxDependencyField,
+  SchemxDependencyRendererContext,
+  SchemxDynamicDependencies,
+  SchemxExactBaseField,
+  SchemxFormApi,
+  SchemxGroupField,
+  SchemxLayout,
+  Values,
+} from "./index"
 
 /**
  * 从数组字段值中提取单行类型。

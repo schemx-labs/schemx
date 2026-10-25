@@ -9,8 +9,8 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
-import * as dependencyModule from "../index"
+import * as dependencyModule from ".."
+import { isDependencyNode, isFieldNode, isGroupNode } from "../../node"
 
 import {
   createRawFieldSchema,

@@ -9,7 +9,7 @@
  */
 
 import type { Scope } from "../node"
-import type { CancellableTask, Scheduler, SchedulerTaskPriority } from "./scheduler"
+import type { CancellableTask, Scheduler, SchedulerTaskPriority } from "./index"
 
 /**
  * 可中止异步任务运行器的接口。

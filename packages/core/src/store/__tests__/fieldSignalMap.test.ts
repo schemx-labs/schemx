@@ -6,12 +6,11 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createSignalEffect } from "../../reactivity/effect"
-import { createSignal } from "../../reactivity/signal"
-import { createFieldSignalMap } from "../fieldSignalMap"
+import { createFieldSignalMap } from ".."
+import { createSignal, createSignalEffect } from "../../reactivity"
 
 import type { NamePath } from "../../types"
-import type { ValidationRuleIssue } from "../../validator/types"
+import type { ValidationRuleIssue } from "../../validator"
 
 interface TestValues {
   profile: {

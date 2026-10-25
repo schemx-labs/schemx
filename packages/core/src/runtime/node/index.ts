@@ -6,7 +6,17 @@
  * @module core/runtime/node
  */
 
-export { findFieldNode, isDynamicNode, isRootNode, isSchemaNode } from "./helper"
+export {
+  findFieldNode,
+  isDynamicNode,
+  isRootNode,
+  isSchemaNode,
+  isFieldNode,
+  isGroupNode,
+  isDependencyNode,
+  updateFieldDiagnostics,
+  isParentNode,
+} from "./helper"
 
 export type {
   FieldDynamicOverrideKey,
@@ -41,6 +51,7 @@ export type {
   NodeType,
   SchemaNode,
   StatefulPresentationNode,
+  CleanupRecord,
 } from "./types"
 
 export { createNodeManager, type NodeManager } from "./nodeManager"

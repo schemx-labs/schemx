@@ -6,17 +6,17 @@
  * @module core/runtime/dependency/resources
  */
 
-import { areNamePathListsEqual } from "../../utils/path"
+import { areNamePathListsEqual } from "../../utils"
 import {
   mountPresentationResources,
   unmountPresentationResources,
   updatePresentationResources,
 } from "../presentation"
 
-import { createDependencyRendererEffect } from "./rendererEffect"
+import { createDependencyRendererEffect } from "./index"
 
+import type { ChildReconciler, SchemaRuntimeContext } from ".."
 import type { Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { DependencyNode } from "../node"
 
 /**
@@ -25,14 +25,18 @@ import type { DependencyNode } from "../node"
  * @typeParam TValues - 表单值类型
  * @param node - 目标 dependency 运行时节点
  * @param context - 运行时上下文
+ * @param childReconciler - renderer 输出提交时使用的子树协调能力。
+ * @example mountDependencyResources(node, context, childReconciler)
  */
 export function mountDependencyResources<TValues extends Values>(
   node: DependencyNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   mountPresentationResources(node, context)
   createDependencyRendererEffect({
     context,
+    childReconciler,
     node,
     scope: node.scope.child(),
   })
@@ -46,11 +50,15 @@ export function mountDependencyResources<TValues extends Values>(
  * @typeParam TValues - 表单值类型
  * @param node - 目标 dependency 运行时节点
  * @param previousNode - 更新前的 dependency 运行时节点快照
+ * @param context - 运行时上下文。
+ * @param childReconciler - 行路径关联和 renderer 输出提交使用的子树协调能力。
+ * @example updateDependencyResources(node, previousNode, context, childReconciler)
  */
 export function updateDependencyResources<TValues extends Values>(
   node: DependencyNode<TValues>,
   previousNode: DependencyNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   updatePresentationResources(node, previousNode, context)
 
@@ -72,8 +80,27 @@ export function updateDependencyResources<TValues extends Values>(
 
   node.rendererEffect?.dispose()
   node.rendererEffect = null
+
+  // 行上下文已改变，已有输出先同步关联新路径，再等待异步 renderer 刷新。
+  if (
+    rendererContextChanged &&
+    previousNode.rendererContextKey &&
+    node.rendererContextKey
+  ) {
+    const previous = previousNode.rendererContextKey
+
+    const current = node.rendererContextKey
+
+    childReconciler.rebaseChildren(
+      node.id,
+      previous.slice(previous.indexOf(":") + 1),
+      current.slice(current.indexOf(":") + 1)
+    )
+  }
+
   createDependencyRendererEffect({
     context,
+    childReconciler,
     node,
     scope: node.scope.child(),
   })

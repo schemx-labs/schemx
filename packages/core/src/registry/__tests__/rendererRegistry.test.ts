@@ -14,7 +14,7 @@ import {
   createRendererRegistry,
   type RendererDescriptor,
   type RendererPropsTransformer,
-} from "../rendererRegistry"
+} from ".."
 
 const Comp1 = { name: "Comp1" }
 

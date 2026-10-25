@@ -7,12 +7,8 @@
  */
 
 // 有意保留声明合并能力，以支持 Group 专属的扩展接口。
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 
-import type { SchemxGroupDependencies } from "./dependencies"
-import type { Values } from "./form"
-import type { SchemxLayout } from "./layout"
-import type { SchemxField } from "./schema"
+import type { SchemxField, SchemxGroupDependencies, SchemxLayout, Values } from "./index"
 
 /**
  * 自定义 Group Schema 基础字段扩展接口

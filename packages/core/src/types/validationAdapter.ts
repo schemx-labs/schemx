@@ -7,11 +7,11 @@
  * @module types/validationAdapter
  */
 
-import type { NamePath, Values } from "./form"
-import type { ValidationRule } from "../validator/types"
+import type { NamePath, Values } from "./index"
+import type { ValidationRule } from "../validator"
 
 // 将版本化 adapter 协议及其嵌套契约集中在同一命名空间中。
-// eslint-disable-next-line @typescript-eslint/no-namespace
+
 export declare namespace ValidationAdapterV1 {
   /**
    * adapter 的唯一标识。

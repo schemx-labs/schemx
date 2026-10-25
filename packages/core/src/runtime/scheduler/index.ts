@@ -21,4 +21,7 @@ export {
   type ScheduledTask,
   type SchedulerTaskPriority,
   type SchedulerTrackOptions,
+  yieldToHost,
 } from "./scheduler"
+
+export type { CancellableTask } from "./scheduler"

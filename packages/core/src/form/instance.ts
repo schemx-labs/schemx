@@ -1,33 +1,20 @@
-import { pick } from "es-toolkit"
+import { createFieldController } from "../createField"
+import { runSignalUntracked } from "../reactivity"
+import { findFieldNode } from "../runtime/node"
+import { shouldValidateOn, withLock } from "../utils"
+import { createValidationCancelled } from "../validator"
 
-import { createSignal } from "../reactivity"
-import { withLock } from "../utils"
-import { createValidationCancelled, createValidationFailure } from "../validator/result"
+import { createFormValidation, isFieldInteractive } from "./index"
 
-import type { FormModel } from "./model"
+import type { FormCallbackOptions } from "../config"
+import type { SchemxFieldInstance } from "../createField"
+import type { FormModel } from "./index"
 import type { SchemxSchemas } from "../createSchemas"
-import type {
-  PresetRuleRegistry,
-  RegistryOptions,
-  RendererDescriptor,
-  RendererRegistry,
-} from "../registry"
-import type { SchemaRuntime } from "../runtime/createSchemaRuntime"
-import type { Store, StorePending } from "../store"
-import type {
-  NamePath,
-  SchemxFormApi,
-  SchemxInstance,
-  SchemxRendererKey,
-  Values,
-} from "../types"
-import type {
-  FieldValidationConfig,
-  FieldValidationError,
-  ValidationFailure,
-  ValidationResult,
-  ValidationRuleIssue,
-} from "../validator"
+import type { PresetRuleRegistry, RendererRegistry } from "../registry"
+import type { SchemaRuntime } from "../runtime"
+import type { Store } from "../store"
+import type { FieldValue, NamePath, SchemxInstance, Values } from "../types"
+import type { ValidationResult, ValidationRuleIssue } from "../validator"
 
 /**
  * 将公开错误消息转换为 Store 保存的 external 问题。
@@ -64,7 +51,7 @@ function getFieldErrorMessages<TValues extends Values>(
 function getFieldsErrorMessages<TValues extends Values>(
   store: Store<TValues>,
   names?: readonly NamePath<TValues>[]
-): readonly { readonly name: NamePath<TValues>; readonly errors: readonly string[] }[] {
+): ReturnType<SchemxInstance<TValues>["getFieldsErrors"]> {
   return store.getFieldsErrors(names).map(({ field, errors }) => ({
     name: field,
     errors: errors.map((issue) => issue.message),
@@ -72,28 +59,14 @@ function getFieldsErrorMessages<TValues extends Values>(
 }
 
 /**
- * Form 校验完成后的生命周期回调。
+ * Form 提交、重置和 loading 状态变化的生命周期回调。
  *
  * @typeParam TValues - 表单值对象类型。
  */
-export interface FormCallbacks<TValues extends Values> {
-  /**
-   * 校验成功后接收只读值快照的回调。
-   */
-  onFinish?: (values: Readonly<TValues>) => void | Promise<void>
-  /**
-   * 校验失败后接收失败详情的回调。
-   */
-  onFinishFailed?: (failure: ValidationFailure<TValues>) => void
-  /**
-   * 完整表单重置完成后调用。
-   */
-  onReset?: () => void
-  /**
-   * 提交流程状态变化时调用。
-   */
-  onLoadingChange?: (loading: boolean) => void
-}
+export type FormCallbacks<TValues extends Values> = Pick<
+  FormCallbackOptions<TValues>,
+  "onFinish" | "onFinishFailed" | "onReset" | "onLoadingChange"
+>
 
 /**
  * 创建 Form 对外实例所需依赖。
@@ -101,88 +74,45 @@ export interface FormCallbacks<TValues extends Values> {
  * @typeParam TValues - 表单值对象类型。
  */
 export interface CreateFormInstanceOptions<TValues extends Values> {
-  /** 保存表单数据、字段状态和校验器的 Model。 */
+  /**
+   * 保存表单数据、字段状态和校验器的 Model。
+   */
   model: FormModel<TValues>
-  /** 读取当前可用的 SchemaRuntime；Runtime 断开时返回 `undefined`。 */
-  getRuntime: () => SchemaRuntime<TValues> | undefined
-  /** 读取当前的 Schema 集合；未提供时返回 `undefined`。 */
-  getSchemas: () => SchemxSchemas<TValues> | undefined
-  /** 提交成功、失败、重置和 loading 状态变化时调用的回调。 */
+  /**
+   * 当前 Form 持有的稳定 Runtime。
+   */
+  runtime: SchemaRuntime<TValues>
+  /**
+   * 当前 Form 持有的 Schema source。
+   */
+  schemas: SchemxSchemas<TValues>
+  /**
+   * 提交成功、失败、重置和 loading 状态变化时调用的回调。
+   */
   callbacks: FormCallbacks<TValues>
-  /** 销毁底层 Form 并释放其资源的回调。 */
+  /**
+   * 销毁底层 Form 并释放其资源的回调。
+   */
   destroy: () => void
-  /** 当前 Form 使用的 Renderer 注册表。 */
+  /**
+   * 当前 Form 使用的 Renderer 注册表。
+   */
   rendererRegistry: RendererRegistry
-  /** 当前 Form 使用的命名校验规则注册表。 */
+  /**
+   * 当前 Form 使用的命名校验规则注册表。
+   */
   presetRuleRegistry: PresetRuleRegistry
-}
-
-/**
- * 复用公开实例的方法，创建传递给动态 renderer 的轻量 Form API。
- *
- * @typeParam TValues - 表单值对象类型。
- * @param instance - 提供字段状态、校验和规则操作的公开 Form 实例。
- * @returns 面向动态 renderer 的 Form API。
- *
- * @example
- * ```ts
- * const formApi = createFormApi(instance)
- * const values = formApi.getFieldsValue()
- * ```
- */
-export function createFormApi<TValues extends Values>(
-  instance: SchemxInstance<TValues>
-): SchemxFormApi<TValues> {
-  return pick(instance, [
-    "setFieldValue",
-    "setFieldsValue",
-    "getFieldValue",
-    "getFieldsValue",
-    "getFieldSnapshot",
-    "getFieldsSnapshot",
-    "getInitialValue",
-    "getInitialValues",
-    "setInitialValue",
-    "setInitialValues",
-    "isFieldTouched",
-    "isFieldsTouched",
-    "setFieldTouched",
-    "setFieldsTouched",
-    "getTouchedFields",
-    "setFieldPending",
-    "setFieldsPending",
-    "isFieldPending",
-    "isFieldsPending",
-    "getPendingFields",
-    "isLoading",
-    "getFieldErrors",
-    "getFieldsErrors",
-    "setFieldErrors",
-    "setFieldsErrors",
-    "clearFieldErrors",
-    "clearFieldsErrors",
-    "clearErrors",
-    "setFieldRules",
-    "setFieldsRules",
-    "removeFieldRules",
-    "removeFieldsRules",
-    "resetField",
-    "resetFields",
-    "reset",
-    "validateField",
-    "validate",
-  ])
 }
 
 /**
  * 创建 Form 对外暴露的完整实例。
  *
  * @typeParam TValues - 表单值对象类型。
- * @param options - Model、Runtime 访问器、生命周期回调和两个 Registry 实例。
+ * @param options - Model、Runtime、Schema source、生命周期回调和两个 Registry 实例。
  * @returns 稳定的 Form 实例对象。
  *
  * @remarks
- * Runtime 断开后，读操作返回安全的空值，写操作不再触发已销毁的 Runtime。
+ * Runtime 销毁后，视图读取返回空值，运行时操作按生命周期状态停止。
  * 通常由 {@link createForm} 间接调用，不建议业务代码直接组装底层依赖。
  *
  * @example
@@ -194,181 +124,55 @@ export function createFormApi<TValues extends Values>(
 export function createFormInstance<TValues extends Values>(
   options: CreateFormInstanceOptions<TValues>
 ): SchemxInstance<TValues> {
+  // Form 持有资源生命周期；Instance 只组合公开命令与业务回调。
   const { model, callbacks, destroy, rendererRegistry, presetRuleRegistry } = options
 
-  const getRuntime = options.getRuntime
+  // 稳定的运行时引用，销毁判断通过其生命周期状态完成。
+  const runtime = options.runtime
 
-  const getSchemas = options.getSchemas
+  // Schema 更新委托给同一 source，由 Runtime 订阅并协调。
+  const schemaSource = options.schemas
 
-  // 提交流程状态必须独立于字段 pending，便于 UI 区分表单提交与字段异步操作。
-  const loading = createSignal(false)
+  // 校验流程独立于公开实例创建，避免重新引入 Instance/Runtime 的循环装配。
+  const {
+    getFieldPathSignal,
+    getFieldContext,
+    validateField,
+    setFieldRules,
+    runFormValidation,
+  } = createFormValidation({ model, runtime })
 
+  /**
+   * 更新提交流程状态并通知业务，与字段 pending 保持独立。
+   * @param nextLoading - 本次提交是否仍在进行。
+   */
   const setLoading = (nextLoading: boolean): void => {
-    loading.value = nextLoading
+    model.setLoading(nextLoading)
     callbacks.onLoadingChange?.(nextLoading)
   }
 
-  const isLoading: SchemxInstance<TValues>["isLoading"] = () => loading.value
+  // loading 直接读取 Model 的原生状态，不创建第二份提交标记。
+  const isLoading: SchemxInstance<TValues>["isLoading"] = () => model.state.loading.value
 
-  const waitForCriticalIdle = async (): Promise<{
-    readonly ready: boolean
-    readonly reset: boolean
-  }> => {
-    const runtime = getRuntime()
-
-    if (!runtime) return { ready: true, reset: false }
-
-    let resolveReset: (() => void) | undefined
-
-    const resetPromise = new Promise<void>((resolve) => {
-      resolveReset = resolve
-    })
-
-    const unsubscribe = model.store.subscribeResets(() => {
-      resolveReset?.()
-    })
-
-    try {
-      const result = await Promise.race([
-        runtime.waitForCriticalIdle().then((ready) => ({ ready, reset: false })),
-        resetPromise.then(() => ({ ready: false, reset: true })),
-      ])
-
-      return result
-    } finally {
-      unsubscribe()
-    }
-  }
-
-  const refreshFieldValidationConfig = (name: NamePath<TValues>): void => {
-    const runtimeContext = getRuntime()?.getFieldRuleContext(name)
-
-    if (!runtimeContext) return
-
-    model.validation.setFieldConfig({
-      name,
-      label: runtimeContext.label ?? "",
-      placeholder: runtimeContext.placeholder ?? "",
-      required: runtimeContext.required ?? false,
-      active:
-        runtimeContext.visible !== false &&
-        runtimeContext.readonly !== true &&
-        runtimeContext.disabled !== true,
-    })
-  }
-
+  // 完整重置才派发 Form 回调，字段级重置继续直接委托 Store。
   const reset: SchemxInstance<TValues>["reset"] = () => {
     model.reset()
     callbacks.onReset?.()
   }
 
-  const validateField: SchemxInstance<TValues>["validateField"] = async (name) => {
-    const resetRevision = model.store.getResetRevision()
+  // 节点字段按节点身份缓存；手动字段复用 Store 的稳定路径状态身份。
+  const fields = new WeakMap<object, unknown>()
 
-    const dependencyState = await waitForCriticalIdle()
+  // 字段控制器共享同一个 Runtime 活跃判断。
+  const isActive = (): boolean => !runtime.isDisposed()
 
-    if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
-      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
-    }
-
-    if (!dependencyState.ready) {
-      return createDependencyTimeoutResult<TValues, typeof name>(
-        model.store.getFieldsSnapshot()
-      )
-    }
-
-    refreshFieldValidationConfig(name)
-
-    const result = await model.validation.validateField(
-      name,
-      model.store.getFieldsValue()
-    )
-
-    if (model.store.getResetRevision() !== resetRevision) {
-      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
-    }
-
-    return result
-  }
-
-  const validateAfterIdle = async (): Promise<ValidationResult<TValues>> => {
-    // @param pendingFields - 本次检查发现的操作中字段，避免再次扫描 Store。
-    const createPendingResult = (
-      pendingFields: readonly StorePending<TValues, NamePath<TValues>>[]
-    ): ValidationResult<TValues> => {
-      const defaultMessage = `存在正在操作中的字段: ${pendingFields.map((item) => item.field).join(", ")}，请等待完成后再提交`
-
-      console.warn(`[schemx] ${defaultMessage}`)
-
-      // 在写入错误触发订阅回调前保留本次值快照。
-      const values = model.store.getFieldsSnapshot()
-
-      // 返回本次 pending 问题；Store 中其他来源的错误另外保留。
-      const errors = pendingFields.map<FieldValidationError<NamePath<TValues>>>(
-        ({ field, message }) => {
-          // 至少保留一条提示，使字段错误始终满足非空约束。
-          const [first = "字段正在处理中，请稍后重试", ...rest] = message
-
-          const issues: [ValidationRuleIssue, ...ValidationRuleIssue[]] = [
-            { type: "external", message: first, code: "pending" },
-            ...rest.map<ValidationRuleIssue>((item) => ({
-              type: "external",
-              message: item,
-              code: "pending",
-            })),
-          ]
-
-          return { scope: "field", name: field, issues }
-        }
-      )
-
-      model.store.setFieldsErrors(
-        errors.map(({ name, issues }) => ({
-          field: name,
-          errors: [
-            ...model.store
-              .getFieldErrors(name)
-              .filter((issue) => issue.code !== "pending"),
-            ...issues,
-          ],
-        }))
-      )
-
-      return createValidationFailure(values, errors)
-    }
-
-    // 预检与收尾检查分别覆盖校验开始前和异步校验期间的业务操作。
-    const pendingFields = model.store.getPendingFields()
-
-    if (pendingFields.length > 0) {
-      return createPendingResult(pendingFields)
-    }
-
-    const result = await model.validation.validate(model.store.getFieldsValue())
-
-    if (!result.valid && result.cancelled) return result
-
-    const pendingAfterValidation = model.store.getPendingFields()
-
-    return pendingAfterValidation.length > 0
-      ? createPendingResult(pendingAfterValidation)
-      : result
-  }
-
+  // validate 与 submit 各自持有锁，避免两个公开入口意外共享同一 Promise。
   const validate: SchemxInstance<TValues>["validate"] = withLock(async () => {
+    // 公开入口捕获版本，覆盖依赖等待与整个异步校验流程。
     const resetRevision = model.store.getResetRevision()
 
-    const dependencyState = await waitForCriticalIdle()
-
-    if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
-      return createValidationCancelled(model.store.getFieldsSnapshot())
-    }
-
-    if (!dependencyState.ready) {
-      return createDependencyTimeoutResult(model.store.getFieldsSnapshot())
-    }
-
-    const result = await validateAfterIdle()
+    // 内部流程只执行校验，最终取消检查放在最后一次 await 之后。
+    const { result } = await runFormValidation(resetRevision)
 
     if (model.store.getResetRevision() !== resetRevision) {
       return createValidationCancelled(model.store.getFieldsSnapshot())
@@ -377,35 +181,21 @@ export function createFormInstance<TValues extends Values>(
     return result
   })
 
+  // submit 额外负责值版本检查、loading 与业务回调，不调用带锁的 validate。
   const submit: SchemxInstance<TValues>["submit"] = withLock(async () => {
+    // 必须早于 onLoadingChange；回调本身也可能同步触发表单重置。
     const resetRevision = model.store.getResetRevision()
 
     try {
       setLoading(true)
 
-      const dependencyState = await waitForCriticalIdle()
+      // 值版本在内部等待依赖稳定后采样，依赖更新不会误作废本次提交。
+      const { result, mutationRevision } = await runFormValidation(resetRevision)
 
-      if (dependencyState.reset || model.store.getResetRevision() !== resetRevision) {
-        return createValidationCancelled(model.store.getFieldsSnapshot())
-      }
-
-      if (!dependencyState.ready) {
-        const result = createDependencyTimeoutResult(model.store.getFieldsSnapshot())
-
-        callbacks.onFinishFailed?.(result)
-
-        return result
-      }
-
-      const validationRevision = model.store.getMutationRevision()
-
-      const result = await validateAfterIdle()
-
-      if (model.store.getResetRevision() !== resetRevision) {
-        return createValidationCancelled(model.store.getFieldsSnapshot())
-      }
-
-      if (result.valid && model.store.getMutationRevision() !== validationRevision) {
+      if (
+        model.store.getResetRevision() !== resetRevision ||
+        (result.valid && model.store.getMutationRevision() !== mutationRevision)
+      ) {
         return createValidationCancelled(model.store.getFieldsSnapshot())
       }
 
@@ -417,45 +207,26 @@ export function createFormInstance<TValues extends Values>(
 
       return result
     } finally {
-      if (loading.value) {
+      // 销毁或其他流程已结束 loading 时，不重复派发关闭回调。
+      if (model.state.loading.value) {
         setLoading(false)
       }
     }
   })
 
-  const setFieldRules: SchemxInstance<TValues>["setFieldRules"] = (path, rules) => {
-    // 外部只传入 rules；label/placeholder/required 由 Runtime 的有效 Schema 内部补齐。
-    const ruleContext = getRuntime()?.getFieldRuleContext(path)
-
-    const config: FieldValidationConfig<TValues, typeof path> = {
-      name: path,
-      label: ruleContext?.label ?? "",
-      placeholder: ruleContext?.placeholder ?? "",
-      required: (ruleContext?.required ?? false) as FieldValidationConfig<
-        TValues,
-        typeof path
-      >["required"],
-      active:
-        ruleContext === undefined ||
-        (ruleContext.visible !== false &&
-          ruleContext.readonly !== true &&
-          ruleContext.disabled !== true),
-    }
-
-    model.validation.setFieldConfig(config)
-    model.validation.setManualFieldRules(path, rules)
-  }
-
+  // 批量规则设置复用单字段入口，统一补齐 Schema 元数据。
   const setFieldsRules: SchemxInstance<TValues>["setFieldsRules"] = (fields) => {
     for (const field of fields) {
       setFieldRules(field.name, field.rules)
     }
   }
 
+  // 撤销手动覆盖后恢复 Runtime 声明的规则。
   const removeFieldRules: SchemxInstance<TValues>["removeFieldRules"] = (path) => {
     model.validation.removeManualFieldRules(path)
   }
 
+  // 批量撤销仍遵循单字段 Validator 的取消语义。
   const removeFieldsRules: SchemxInstance<TValues>["removeFieldsRules"] = (names) => {
     for (const name of names) {
       removeFieldRules(name)
@@ -472,31 +243,90 @@ export function createFormInstance<TValues extends Values>(
     )
   }
 
-  const setSchemas: SchemxInstance<TValues>["setSchemas"] = (schemas) =>
-    getSchemas()?.set(schemas)
+  // Schema source 的生命周期由 Form 持有，销毁后拒绝更新。
+  const setSchemas: SchemxInstance<TValues>["setSchemas"] = (schemas) => {
+    if (!runtime.isDisposed()) {
+      schemaSource.set(schemas)
+    }
+  }
 
   // 委托基于当前 Schema 更新下一版 Schema。
-  const updateSchemas: SchemxInstance<TValues>["updateSchemas"] = (updater) =>
-    getSchemas()?.update(updater)
+  const updateSchemas: SchemxInstance<TValues>["updateSchemas"] = (updater) => {
+    if (!runtime.isDisposed()) {
+      schemaSource.update(updater)
+    }
+  }
 
   // 委托更新表单级 Schema 默认配置。
-  const updateSchemaConfig: SchemxInstance<TValues>["updateSchemaConfig"] = (partial) =>
-    getRuntime()?.updateSchemaConfig(partial)
+  const updateSchemaConfig: SchemxInstance<TValues>["updateSchemaConfig"] = (partial) => {
+    if (!runtime.isDisposed()) {
+      model.updateSchemaConfig(partial, runtime.setConfig)
+    }
+  }
 
-  // 读取当前已解析的视图 Schema；Runtime 断开后返回空数组。
+  // 只替换消费配置，固定库默认值不受更新影响。
+  const setConfig: SchemxInstance<TValues>["setConfig"] = (config) => {
+    if (!runtime.isDisposed()) {
+      model.setConfig(config, runtime.setConfig)
+    }
+  }
+
+  // 读取当前已解析的视图 Schema；Runtime 销毁后返回空数组。
   const getViewSchemas: SchemxInstance<TValues>["getViewSchemas"] = () =>
-    getRuntime()?.getViewSchemas() ?? []
+    runtime.getViewSchemas()
 
-  // 订阅视图 Schema 变化；Runtime 断开后返回空清理函数。
+  // 订阅视图 Schema 变化；Runtime 销毁后返回空清理函数。
   const subscribeViewSchemas: SchemxInstance<TValues>["subscribeViewSchemas"] = (
     callback
-  ) => getRuntime()?.subscribeViewSchemas(callback) ?? (() => {})
+  ) => (runtime.isDisposed() ? () => {} : runtime.subscribeViewSchemas(callback))
 
-  // 等待 Runtime 内部依赖调度完成；Runtime 断开后视为已完成。
-  const waitForDependencies: SchemxInstance<TValues>["waitForDependencies"] = (timeout) =>
-    getRuntime()?.waitForIdle(timeout) ?? Promise.resolve(true)
+  // 等待 Runtime 内部依赖调度完成；Runtime 销毁后视为已完成。
+  const waitForDependencies: SchemxInstance<TValues>["waitForDependencies"] = (
+    timeout
+  ) => (runtime.isDisposed() ? Promise.resolve(true) : runtime.waitForIdle(timeout))
 
-  return {
+  // 公开读取只返回消息数组，Store 继续持有结构化问题。
+  const getFieldErrors: SchemxInstance<TValues>["getFieldErrors"] = (name) =>
+    getFieldErrorMessages(model.store, name)
+
+  // 多字段错误沿用相同的公开消息转换。
+  const getFieldsErrors: SchemxInstance<TValues>["getFieldsErrors"] = (names) =>
+    getFieldsErrorMessages(model.store, names)
+
+  // 写入显式标记为 external，保留错误来源。
+  const setFieldErrors: SchemxInstance<TValues>["setFieldErrors"] = (name, errors) =>
+    model.store.setFieldErrors(name, toExternalIssues(errors))
+
+  // 共享 Registry 擦除了表单值与 Renderer 键的泛型；仅在此恢复公开读取契约。
+  const getRendererEntry = rendererRegistry.resolveEntry.bind(
+    rendererRegistry
+  ) as SchemxInstance<TValues>["getRendererEntry"]
+
+  // unknown 已包含描述符，注册操作统一委托 Registry。
+  const registerRenderer: SchemxInstance<TValues>["registerRenderer"] = (
+    type,
+    renderer,
+    registryOptions
+  ) => {
+    rendererRegistry.register(type, renderer, registryOptions)
+  }
+
+  // Form 支持运行期规则名称；Registry 的类型增强只约束其直接调用者。
+  const getPresetRule = presetRuleRegistry.get.bind(
+    presetRuleRegistry
+  ) as SchemxInstance<TValues>["getPresetRule"]
+
+  // 命名规则在运行期按字符串保存，此边界保留 Form 原有的注册契约。
+  const registerPresetRule = presetRuleRegistry.register.bind(
+    presetRuleRegistry
+  ) as SchemxInstance<TValues>["registerPresetRule"]
+
+  // 显式组装公开能力；Store 与 Registry 方法保留其接收者绑定。
+  const instance: SchemxInstance<TValues> = {
+    state: model.state,
+    createField,
+    changeField,
+    blurField,
     setFieldValue: model.store.setFieldValue.bind(model.store),
     setFieldsValue: model.store.setFieldsValue.bind(model.store),
     getFieldValue: model.store.getFieldValue.bind(model.store),
@@ -518,10 +348,9 @@ export function createFormInstance<TValues extends Values>(
     isFieldsPending: model.store.isFieldsPending.bind(model.store),
     getPendingFields: model.store.getPendingFields.bind(model.store),
     isLoading,
-    getFieldErrors: (name) => getFieldErrorMessages(model.store, name),
-    getFieldsErrors: (names) => getFieldsErrorMessages(model.store, names),
-    setFieldErrors: (name, errors) =>
-      model.store.setFieldErrors(name, toExternalIssues(errors)),
+    getFieldErrors,
+    getFieldsErrors,
+    setFieldErrors,
     setFieldsErrors,
     clearFieldErrors: model.store.clearFieldErrors.bind(model.store),
     clearFieldsErrors: model.store.clearFieldsErrors.bind(model.store),
@@ -541,51 +370,148 @@ export function createFormInstance<TValues extends Values>(
     setSchemas,
     updateSchemas,
     updateSchemaConfig,
+    setConfig,
     getViewSchemas,
     subscribeViewSchemas,
     waitForDependencies,
     getRenderer: rendererRegistry.resolve.bind(rendererRegistry),
-    getRendererEntry: (type: SchemxRendererKey<TValues>) =>
-      rendererRegistry.resolveEntry(type),
-    registerRenderer: (
-      type: SchemxRendererKey<TValues>,
-      renderer:
-        | RendererDescriptor<unknown, TValues, SchemxRendererKey<TValues>>
-        | unknown,
-      options?: RegistryOptions
-    ) => {
-      rendererRegistry.register(type, renderer, options)
-    },
+    getRendererEntry,
+    registerRenderer,
     hasRenderer: rendererRegistry.has.bind(rendererRegistry),
-    getPresetRule: presetRuleRegistry.get.bind(presetRuleRegistry),
-    registerPresetRule: presetRuleRegistry.register.bind(presetRuleRegistry),
+    getPresetRule,
+    registerPresetRule,
     hasPresetRule: presetRuleRegistry.has.bind(presetRuleRegistry),
     destroy,
-  } as SchemxInstance<TValues>
-}
+  }
 
-/**
- * 创建依赖解析超时的表单级失败结果。
- *
- * @typeParam TValues - 表单值对象类型。
- * @typeParam TName - 保留字段校验调用方的路径类型。
- * @param values - 超时发生时应保留的表单值快照。
- * @returns 表示依赖解析超时的失败结果。
- */
-function createDependencyTimeoutResult<
-  TValues extends Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
->(values: TValues): ValidationFailure<TValues, TName> {
-  return createValidationFailure<TValues, TName>(values, [
-    {
-      scope: "form",
-      issues: [
-        {
-          type: "validation",
-          message: "表单依赖解析超时，请稍后重试",
-          code: "dependency_timeout",
-        },
-      ],
-    },
-  ])
+  // 以下动作需要完整的实例身份；函数声明可在组装时引用，执行时实例已就绪。
+  /**
+   * 用户交互先同步提交状态和业务回调，再复用单字段校验流程。
+   * @typeParam TName - 当前字段路径。
+   * @param name - 本次交互绑定的路径。
+   * @param event - change 或 blur 事件。
+   * @param value - change 写入的新值；blur 忽略此参数。
+   * @param signal - 交互开始时捕获的路径取消信号。
+   */
+  async function interactField<TName extends NamePath<TValues>>(
+    name: TName,
+    event: "change" | "blur",
+    value?: FieldValue<TValues, TName>,
+    signal?: AbortSignal
+  ): Promise<ValidationResult<TValues, TName> | undefined> {
+    if (runtime.isDisposed() || signal?.aborted) {
+      return undefined
+    }
+
+    // 业务回调读取交互开始时的配置，自动校验随后重新检查最新配置。
+    const context = getFieldContext(name)
+
+    if (!isFieldInteractive(context)) {
+      return undefined
+    }
+
+    // 业务回调和状态订阅都可能同步重置表单。
+    const resetRevision = model.store.getResetRevision()
+
+    model.batch(() => {
+      if (event === "change") {
+        model.store.setFieldValue(name, () => value)
+      }
+
+      model.store.setFieldTouched(name, true)
+    })
+
+    if (
+      signal?.aborted ||
+      runtime.isDisposed() ||
+      model.store.getResetRevision() !== resetRevision
+    ) {
+      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
+    }
+
+    if (event === "change") {
+      context.onChange?.(value, instance)
+    } else {
+      context.onBlur?.(instance)
+    }
+
+    if (
+      signal?.aborted ||
+      runtime.isDisposed() ||
+      model.store.getResetRevision() !== resetRevision
+    ) {
+      return createValidationCancelled<TValues>(model.store.getFieldsSnapshot())
+    }
+
+    if (!shouldValidateOn(event, getFieldContext(name).validationTrigger)) {
+      return undefined
+    }
+
+    return validateField(name, event, signal)
+  }
+
+  /**
+   * 进入异步流程前捕获路径，数组移动后旧事件不会写入替换字段。
+   * @typeParam TName - 本次交互的字段路径。
+   * @param name - 操作开始时的路径。
+   * @param value - 用户提交的新字段值。
+   */
+  function changeField<TName extends NamePath<TValues>>(
+    name: TName,
+    value: FieldValue<TValues, TName> | undefined
+  ): Promise<ValidationResult<TValues, TName> | undefined> {
+    return interactField(name, "change", value, getFieldPathSignal(name))
+  }
+
+  /**
+   * 复用交互守卫，保持触摸、回调与校验的顺序。
+   * @typeParam TName - 本次交互的字段路径。
+   * @param name - 操作开始时的路径。
+   */
+  function blurField<TName extends NamePath<TValues>>(
+    name: TName
+  ): Promise<ValidationResult<TValues, TName> | undefined> {
+    return interactField(name, "blur", undefined, getFieldPathSignal(name))
+  }
+
+  /**
+   * 控制器绑定一次；后续命中缓存时保留其身份和订阅。
+   * @typeParam TName - 初始定位路径，用于推导字段值类型。
+   * @param name - 创建控制器时的字段路径。
+   */
+  function createField<TName extends NamePath<TValues>>(
+    name: TName
+  ): SchemxFieldInstance<TValues, TName> {
+    if (runtime.isDisposed() || model.disposed.peek()) {
+      throw new Error("[schemx] Form has been destroyed.")
+    }
+
+    // 定位过程不向调用方的响应式 effect 引入节点树依赖。
+    const node = runSignalUntracked(() => findFieldNode(runtime.root, name))
+
+    // 手动字段以稳定路径状态为键，避免与后挂载的同名节点混用。
+    const owner = node ?? model.state.field(name)
+
+    // 异构路径控制器只在返回边界恢复当前路径泛型。
+    const cached = fields.get(owner)
+
+    if (cached) {
+      return cached as SchemxFieldInstance<TValues, TName>
+    }
+
+    // 字段方法继续经过公开 Form 命令，保留业务拦截点。
+    const field = createFieldController({
+      form: instance,
+      name,
+      node,
+      disposed: model.disposed,
+      isActive,
+    })
+
+    fields.set(owner, field)
+
+    return field
+  }
+
+  return instance
 }

@@ -6,8 +6,8 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createScope } from "../../node/scope"
-import { createScheduler } from "../scheduler"
+import { createScheduler } from ".."
+import { createScope } from "../../node"
 
 // 验证 schedule 按 normal/post 队列顺序执行任务
 describe("schedule", () => {
@@ -102,8 +102,7 @@ describe("schedule", () => {
     expect(task).not.toHaveBeenCalled()
 
     const callback = requestIdleCallback.mock.calls[0]?.[0] as
-      | ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void)
-      | undefined
+      ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void) | undefined
 
     callback?.({
       didTimeout: false,
@@ -383,7 +382,7 @@ describe("track", () => {
       }, 10)
     })
 
-    scheduler.track(promise)
+    void scheduler.track(promise)
 
     const result = await scheduler.whenIdle(1000)
 

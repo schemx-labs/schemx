@@ -15,19 +15,17 @@ import type { ArrayStructureHandle } from "../store"
 import type {
   FieldArrayChange,
   FieldArrayPath,
+  FieldRules,
   FieldValue,
   NamePath,
   SchemxField,
   SchemxFieldRulesMap,
   SchemxFormApi,
-  SchemxInstance,
-  SchemxSchemaConfig,
   SetValueAction,
   SetValuesAction,
   Values,
 } from "../types"
-import type { FieldRules } from "../types/rule"
-import type { FieldValidationConfig } from "../validator/types"
+import type { FieldValidationConfig } from "../validator"
 
 /**
  * Runtime 访问字段状态和初始值所需的最小 Store 能力。
@@ -143,9 +141,30 @@ export interface RuntimeValidationPort<TValues extends Values = Values> {
 }
 
 /**
+ * 节点挂载和更新时使用的子树协调能力。
+ *
+ * @typeParam TValues - 表单值类型。
+ */
+export interface ChildReconciler<TValues extends Values = Values> {
+  /**
+   * 通过统一提交边界协调指定容器的直接子节点。
+   * @param parentId - 接收子节点的容器 Node id。
+   * @param schemas - 新一轮原始子 schema 列表。
+   */
+  reconcileChildren(parentId: NodeId, schemas: readonly SchemxField<TValues>[]): void
+  /**
+   * 关联已生成行内字段的新路径，保持节点身份并保留 Store 已完成移动的值。
+   * @param parentId - Dependency 节点 ID。
+   * @param from - 当前行原路径。
+   * @param to - 当前行新路径。
+   */
+  rebaseChildren(parentId: NodeId, from: string, to: string): void
+}
+
+/**
  * Schema Runtime 的内部上下文。
  *
- * 字段、dependency effect 和 node lifecycle 通过该对象共享实例级服务。
+ * 字段、dependency effect 和 node lifecycle 通过该对象共享实例级基础服务。
  *
  * @typeParam TValues - 表单值类型。
  */
@@ -154,15 +173,6 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    * 是否启用 Runtime diagnostics。
    */
   readonly debug: boolean
-  /**
-   * 当前表单的 Schema 默认配置，保留 `TValues` 并供根与 dependency 子树复用。
-   * 与 Compiler 共享实例内的配置对象，更新时合并属性而非替换对象引用。
-   */
-  schemaConfig: SchemxSchemaConfig<TValues>
-  /**
-   * 表单实例公开 API。
-   */
-  readonly instance: SchemxInstance<TValues>
   /**
    * Runtime 访问字段状态和初始值的最小 Store Port。
    */
@@ -187,11 +197,4 @@ export interface SchemaRuntimeContext<TValues extends Values = Values> {
    * Node 生命周期事件发布器。
    */
   readonly lifecycle: NodeLifecycleEmitter<ContainerNode<TValues>>
-  /**
-   * 唯一子节点提交边界。
-   *
-   * @param parentId - 接收子节点的容器 Node id。
-   * @param schemas - 新一轮原始子 schema 列表。
-   */
-  reconcileChildren(parentId: NodeId, schemas: readonly SchemxField<TValues>[]): void
 }

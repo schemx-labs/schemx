@@ -10,6 +10,7 @@
 
 import type { ComputedSignal, Signal } from "../../reactivity"
 import type {
+  FieldRules,
   NamePath,
   SchemxBaseField,
   SchemxComponentProps,
@@ -18,9 +19,8 @@ import type {
   SchemxGroupField,
   Values,
 } from "../../types"
-import type { FieldRules } from "../../types/rule"
-import type { DependencyRendererEffect } from "../dependency/rendererEffect"
-import type { SchemxViewSchema } from "../view/types"
+import type { DependencyRendererEffect } from "../dependency"
+import type { SchemxViewSchema } from "../view"
 
 /**
  * Scope 执行的清理函数。
@@ -68,7 +68,7 @@ export interface Scope {
   /**
    * 释放当前 scope 及所有子 scope，按 LIFO 执行 cleanup；幂等。
    */
-  dispose(): void
+  dispose(this: void): void
 }
 
 /**
@@ -252,6 +252,14 @@ export interface ResolvedFieldSchema<TValues extends Values = Values> {
    * 字段校验触发时机。
    */
   readonly validationTrigger: SchemxBaseField<TValues>["validationTrigger"]
+  /**
+   * 用户修改字段值后的业务回调。
+   */
+  readonly onChange?: SchemxBaseField<TValues>["onChange"]
+  /**
+   * 用户离开字段后的业务回调。
+   */
+  readonly onBlur?: SchemxBaseField<TValues>["onBlur"]
 }
 
 /**
@@ -395,6 +403,16 @@ export interface FieldNode<TValues extends Values = Values> extends BaseNode<TVa
    * 字段路径。
    */
   readonly name: Signal<NamePath<TValues>>
+
+  /**
+   * 当前路径绑定的取消域；改名时替换，卸载时中止。
+   */
+  pathController: AbortController
+
+  /**
+   * 字段实例覆盖规则，归节点持有，路径变化时保留，卸载时释放。
+   */
+  readonly rulesOverride: Signal<SchemxBaseField<TValues>["rules"]>
 
   /**
    * 编译后的字段静态配置。
@@ -704,10 +722,7 @@ export type ContainerNode<TValues extends Values = Values> =
  * @typeParam TValues - 表单值类型。
  */
 export type SchemaNode<TValues extends Values = Values> =
-  | FieldNode<TValues>
-  | GroupNode<TValues>
-  | DependencyNode<TValues>
-  | DynamicNode<TValues>
+  FieldNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * 可以承载子节点的 Node。
@@ -718,10 +733,7 @@ export type SchemaNode<TValues extends Values = Values> =
  * @typeParam TValues - 表单值类型。
  */
 export type ParentNode<TValues extends Values = Values> =
-  | RootNode<TValues>
-  | GroupNode<TValues>
-  | DependencyNode<TValues>
-  | DynamicNode<TValues>
+  RootNode<TValues> | GroupNode<TValues> | DependencyNode<TValues> | DynamicNode<TValues>
 
 /**
  * 通过 Schema 配置维护呈现状态的容器节点，不包含根节点。

@@ -10,8 +10,8 @@ import {
   resolveDependencyOverrides,
 } from "../dependencyScheduler"
 
+import type { SchemaRuntimeContext } from ".."
 import type { Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type {
   PresentationDependencyOverrides,
   Scope,

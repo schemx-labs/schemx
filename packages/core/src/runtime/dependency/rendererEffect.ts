@@ -13,9 +13,9 @@ import {
   createGuardedFormApi,
 } from "../dependencyScheduler"
 
+import type { ChildReconciler, SchemaRuntimeContext } from ".."
 import type { Signal } from "../../reactivity"
 import type { SchemxField, Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { DependencyNode, Scope } from "../node"
 
 /**
@@ -102,6 +102,11 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
   context: SchemaRuntimeContext<TValues>
 
   /**
+   * renderer 成功后提交子树使用的协调能力。
+   */
+  childReconciler: ChildReconciler<TValues>
+
+  /**
    * dependency runtime 节点。
    */
   node: DependencyNode<TValues>
@@ -124,7 +129,7 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
  *
  * @example
  * ```ts
- * const effect = createDependencyRendererEffect({ context, node })
+ * const effect = createDependencyRendererEffect({ context, node, childReconciler })
  * await effect.run()
  * effect.dispose()
  * ```
@@ -133,10 +138,10 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
   options: CreateDependencyRendererEffectOptions<TValues>
 ): DependencyRendererEffect {
   // dependency effect 所需的运行时节点。
-  const { context, node } = options
+  const { context, node, childReconciler } = options
 
   // renderer 执行和结果提交所需的运行时能力。
-  const { formApi, reconcileChildren } = context
+  const { formApi } = context
 
   // 当前 dependency effect 独占的资源作用域。
   const resourceScope = options.scope ?? node.scope.child()
@@ -202,7 +207,7 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
             return
           }
 
-          reconcileChildren(node.id, childSchemas)
+          childReconciler.reconcileChildren(node.id, childSchemas)
         },
       })
     },

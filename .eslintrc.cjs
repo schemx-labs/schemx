@@ -42,6 +42,7 @@ module.exports = {
     "import/resolver": {
       typescript: {
         alwaysTryTypes: true,
+        noWarnOnMultipleProjects: true,
         project: [
           "./scripts/tsconfig.json",
           "./tsconfig.json",
@@ -152,7 +153,6 @@ module.exports = {
         ignoreRestSiblings: true,
       },
     ],
-    "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-non-null-assertion": "warn",

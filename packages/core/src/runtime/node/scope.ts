@@ -11,7 +11,7 @@
  * @module core/runtime/node/scope
  */
 
-import type { Cleanup, CleanupHandle, CleanupRecord, Scope } from "./types"
+import type { Cleanup, CleanupHandle, CleanupRecord, Scope } from "./index"
 
 /**
  * 创建一个资源生命周期作用域。

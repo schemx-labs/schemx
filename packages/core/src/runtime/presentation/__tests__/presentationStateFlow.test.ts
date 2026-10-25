@@ -8,11 +8,11 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { isDependencyNode, isFieldNode, isGroupNode } from "../../node"
 import {
   createRuntimeGraphHarness,
   flushRuntimeGraph,
 } from "../../node/__tests__/graphTestUtils"
-import { isDependencyNode, isFieldNode, isGroupNode } from "../../node/helper"
 
 import type { SchemxField } from "../../../types"
 import type { DependencyNode, FieldNode, GroupNode } from "../../node"
@@ -74,6 +74,9 @@ describe("呈现状态运行时链路", () => {
     const { commitSchemas, context, formApi, root, scheduler } =
       createRuntimeGraphHarness(undefined, { show: true })
 
+    // 记录字段隐藏时的校验反注册调用。
+    const removeField = vi.spyOn(context.validation, "removeField")
+
     commitSchemas(root, [
       {
         key: "profile",
@@ -105,7 +108,7 @@ describe("呈现状态运行时链路", () => {
 
     expect(group.presentationState.value.visible).toBe(false)
     expect(field.resolvedSchema.value.visible).toBe(false)
-    expect(context.validation.removeField).toHaveBeenCalledWith("name")
+    expect(removeField).toHaveBeenCalledWith("name")
   })
 
   it("容器 dependencies 的 trigger 应随触发字段变化执行", async () => {

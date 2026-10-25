@@ -11,7 +11,7 @@ import type {
   ValidationRuleContext,
   ValidationRuleIssue,
   ValidationRuleResult,
-} from "./types"
+} from "./index"
 
 /**
  * Standard Schema V1 校验规则适配器契约。

@@ -8,7 +8,7 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { isDependencyNode } from "../helper"
+import { isDependencyNode } from ".."
 
 import { createRuntimeGraphHarness, flushRuntimeGraph } from "./graphTestUtils"
 

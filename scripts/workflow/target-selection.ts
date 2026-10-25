@@ -9,19 +9,30 @@ import {
   scopeLabel,
   WORKSPACE_SCOPES,
   type WorkspacePackage,
-} from "../core/catalog.ts"
-import { usageError } from "../core/errors.ts"
-import { hasScript, type PackageManifest } from "../core/package-json.ts"
+} from "./core/catalog.ts"
+import { usageError } from "./core/errors.ts"
+import { hasScript, type PackageManifest } from "./core/package-json.ts"
+import { WORKFLOW_TASK_LABEL, WORKFLOW_TEXT } from "./display-config.ts"
 
-import { type GroupChoice, groupMultiselect, select } from "./prompt.ts"
-import { type Ui } from "./ui.ts"
+import type { ChoiceGroup } from "./ui/index.ts"
+import type { Terminal } from "./ui/index.ts"
 
 /** 任务到候选 npm script 的映射。 */
 const TASK_SCRIPTS: Readonly<Record<string, readonly string[]>> = {
   build: ["build", "build:h5"],
   dev: ["dev", "dev:h5"],
-  "code-check": ["check"],
 }
+
+/**
+ * lint 支持的代码文件；格式化另外包含现有的 JSON、CSS 和 SCSS。
+ */
+export const LINT_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|vue)$/
+
+/**
+ * ESLint 配置中明确忽略的工具配置文件，仅执行格式化。
+ */
+export const ESLINT_IGNORED_FILE_PATTERN =
+  /(?:^|\/)(?:eslint\.config\.js|(?:vite|vitest)\.config\.ts)$/
 
 /** 一个可执行的任务目标。 */
 export interface TaskTarget {
@@ -35,6 +46,8 @@ export interface TaskTarget {
   readonly name: string
   /** 实际要执行的 npm script。 */
   readonly script: string
+  /** 自动发现的文件；存在时由工作流直接调用检查工具。 */
+  readonly files?: readonly string[]
 }
 
 /** 目标选择模式。 */
@@ -96,16 +109,30 @@ export function parseBatchArguments(args: readonly string[]): BatchArguments {
 }
 
 /**
- * 发现定义了指定任务 script 的 workspace 包。
+ * 质量任务按实际代码目录发现目标，其他任务按 workspace script 发现。
  *
  * @param catalog - 目录索引。
  * @param task - 任务名。
  * @returns 任务目标列表。
+ * @example await discoverTaskTargets(catalog, "lint")
  */
-export function discoverTaskTargets(
+export async function discoverTaskTargets(
   catalog: Catalog,
   task: string
-): readonly TaskTarget[] {
+): Promise<readonly TaskTarget[]> {
+  if (["lint", "lint:fix", "format", "format:check", "check"].includes(task)) {
+    // 目标范围来自实际文件，不再取决于包是否声明同名 script。
+    const pattern = task.startsWith("lint")
+      ? LINT_FILE_PATTERN
+      : /\.(?:[cm]?[jt]sx?|vue|json|css|scss)$/
+
+    return (await catalog.discoverSources()).flatMap((item): TaskTarget[] => {
+      const files = item.files.filter((file) => pattern.test(file))
+
+      return files.length > 0 ? [{ ...item, files, script: task }] : []
+    })
+  }
+
   const candidates = TASK_SCRIPTS[task] ?? [task]
 
   return catalog
@@ -135,16 +162,16 @@ export function discoverTaskTargets(
  * @param candidates - 候选项。
  * @returns 分组结构。
  */
-function toGroups(candidates: readonly TaskTarget[]): GroupChoice[] {
-  const groups: GroupChoice[] = []
+function toGroups(candidates: readonly TaskTarget[]): ChoiceGroup<string>[] {
+  const groups: ChoiceGroup<string>[] = []
 
-  for (const scope of WORKSPACE_SCOPES) {
+  for (const scope of new Set(candidates.map((item) => item.scope))) {
     const options = candidates
       .filter((item) => item.scope === scope)
       .map((item) => ({ value: item.relativeDir, label: item.relativeDir }))
 
     if (options.length > 0) {
-      groups.push({ group: scopeLabel(scope), options })
+      groups.push({ title: scopeLabel(scope), options })
     }
   }
 
@@ -165,18 +192,19 @@ function resolveRequested(requested: string, env: NodeJS.ProcessEnv): string {
 /**
  * 选择一个或多个目标标识符。
  *
- * @param ui - 终端 UI。
+ * @param terminal - 终端实例。
  * @param options - 选择选项。
  * @returns 逗号分隔的目标串。
  * @throws {WorkflowError} 用户取消、单选模式收到多值或未选任何目标时抛出。
  */
 export async function selectTargetIdentifiers(
-  ui: Ui,
-  options: TargetSelectionOptions
+  terminal: Terminal,
+  options: TargetSelectionOptions,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<string> {
   const mode = options.mode ?? "multi"
 
-  const selected = resolveRequested(options.requested ?? "", ui.env)
+  const selected = resolveRequested(options.requested ?? "", env)
 
   if (selected !== "") {
     if (mode === "single" && selected.includes(",")) {
@@ -186,7 +214,7 @@ export async function selectTargetIdentifiers(
     return selected
   }
 
-  if (!ui.interactive) {
+  if (!terminal.isInteractive) {
     return options.nonInteractiveDefault ?? "all"
   }
 
@@ -195,19 +223,22 @@ export async function selectTargetIdentifiers(
   }
 
   if (mode === "single") {
-    return await select(
-      options.title,
-      options.candidates.map((item) => ({
+    return await terminal.select({
+      title: options.title,
+      options: options.candidates.map((item) => ({
         value: item.relativeDir,
         label: item.relativeDir,
-      }))
-    )
+      })),
+    })
   }
 
-  const values = await groupMultiselect(options.title, toGroups(options.candidates))
+  const values = await terminal.groupMultiselect({
+    title: options.title,
+    groups: toGroups(options.candidates),
+  })
 
   if (values.length === 0) {
-    throw usageError("请至少选择一个目标后再继续。")
+    throw usageError(WORKFLOW_TEXT.EMPTY_SELECTION)
   }
 
   return values.join(",")
@@ -216,7 +247,7 @@ export async function selectTargetIdentifiers(
 /**
  * 选择并筛选任务目标。
  *
- * @param ui - 终端 UI。
+ * @param terminal - 终端实例。
  * @param catalog - 目录索引。
  * @param task - 任务名。
  * @param requested - 命令行目标。
@@ -227,20 +258,28 @@ export async function selectTargetIdentifiers(
  * await selectTaskTargets(ui, catalog, "check", "core,vue")
  */
 export async function selectTaskTargets(
-  ui: Ui,
+  terminal: Terminal,
   catalog: Catalog,
   task: string,
   requested: string,
-  mode: SelectionMode = "multi"
+  mode: SelectionMode = "multi",
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<readonly TaskTarget[]> {
-  const candidates = discoverTaskTargets(catalog, task)
-
-  const selected = await selectTargetIdentifiers(ui, {
-    title: `请选择 ${taskLabel(task)} 的目标`,
-    candidates,
-    requested,
-    mode,
+  const candidates = await terminal.runTask({
+    title: "发现任务目标",
+    execute: () => discoverTaskTargets(catalog, task),
   })
+
+  const selected = await selectTargetIdentifiers(
+    terminal,
+    {
+      title: `请选择 ${taskLabel(task)} 的目标`,
+      candidates,
+      requested,
+      mode,
+    },
+    env
+  )
 
   if (selected === "" || selected === "all") {
     return candidates
@@ -263,7 +302,9 @@ export async function selectTaskTargets(
           item.name === identifier
       )
     ) {
-      throw usageError(`目标 ${identifier || "(空)"} 不存在或未定义 ${task} script。`)
+      throw usageError(
+        `目标 ${identifier || "(空)"} 不存在、没有可处理文件或未定义 ${task} script。`
+      )
     }
   }
 
@@ -294,20 +335,5 @@ export function manifestHasAnyScript(
  * @returns 显示名。
  */
 export function taskLabel(task: string): string {
-  const labels: Readonly<Record<string, string>> = {
-    dev: "启动开发服务",
-    build: "构建",
-    "build:analyze": "构建分析",
-    check: "静态检查",
-    "code-check": "静态检查",
-    lint: "代码规范检查",
-    "lint:fix": "修复代码规范",
-    format: "格式化",
-    "format:check": "检查格式",
-    "type-check": "类型检查",
-    "type-check:tests": "测试代码类型检查",
-    test: "测试",
-  }
-
-  return labels[task] ?? `执行 ${task}`
+  return WORKFLOW_TASK_LABEL[task] ?? `${WORKFLOW_TEXT.EXECUTE_PREFIX} ${task}`
 }

@@ -15,8 +15,8 @@
  *   退化成 basename，恢复时会把同一个文件写回全部 manifest，仓库里的包名与版本会被冲掉。
  *
  * `resolveRequested` 与 `expandClosure` 是模块内私有函数，因此这里只断言 `packLocal`
- * 的可观测行为：用假 Ui 捕获它依次渲染的任务标题，得到闭包成员与顺序。
- * 假 Ui 的 `task` 故意不执行回调，因此不会真的 fork pnpm。
+ * 的可观测行为：用终端替身 捕获它依次渲染的任务标题，得到闭包成员与顺序。
+ * 终端替身 的 `runCommand` 返回机器数据，因此不会启动真实 pnpm。
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -27,9 +27,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { Catalog } from "../core/catalog.ts"
 import { WorkflowError } from "../core/errors.ts"
 import { type PackageManifest, readManifestSafe } from "../core/package-json.ts"
-import { type TaskOptions, type Ui } from "../ui/ui.ts"
 
 import { packLocal, type PackResult, renderPackResult } from "./local-pack.ts"
+
+import type { RunCommandOptions, Terminal } from "../ui/index.ts"
 
 /** 打包前的基线 manifest，用于断言恢复结果。 */
 const BASELINE: Readonly<
@@ -43,9 +44,9 @@ const BASELINE: Readonly<
   "@schemx/plugin-no-script": { name: "@schemx/plugin-no-script", version: "2.1.0" },
 }
 
-/** 一次假 Ui 运行期间收集到的可观测数据。 */
+/** 一次终端替身 运行期间收集到的可观测数据。 */
 interface Recorder {
-  readonly ui: Ui
+  readonly terminal: Terminal
   /** 依次渲染的任务标题。 */
   readonly tasks: string[]
   /** 每次任务执行时各包 manifest 的 version 快照。 */
@@ -65,9 +66,9 @@ let manifestByName: Map<string, string>
 let recorder: Recorder
 
 /**
- * 构造只实现 `task` 的假 Ui。
+ * 构造替代 `runCommand` 的终端替身。
  *
- * @remarks `task` 只记录标题与当前版本，不执行回调，因此不会 fork pnpm；
+ * @remarks `runCommand` 记录标题与当前版本，返回模拟命令结果，因此不会 fork pnpm；
  * 但实现仍会因为返回非 0 而抛出「构建/打包失败」，失败路径同样可被覆盖。
  */
 function createRecorder(): Recorder {
@@ -77,10 +78,10 @@ function createRecorder(): Recorder {
 
   const failing = new Set<string>()
 
-  const ui = {
-    task: async (options: TaskOptions): Promise<number> => {
+  const terminal = {
+    runCommand: async (options: RunCommandOptions) => {
       tasks.push(options.title)
-      const key = options.itemKey
+      const key = options.target
 
       if (key !== undefined) {
         const manifestPath = manifestByName.get(key)
@@ -90,13 +91,25 @@ function createRecorder(): Recorder {
         }
       }
 
-      return failing.has(options.title) ? 1 : 0
-    },
-    groupEnd: (): void => {},
-    summary: (): void => {},
-  } as unknown as Ui
+      const filename = `${(key ?? "package").replaceAll("/", "-")}.tgz`
 
-  return { ui, tasks, versions, failing }
+      const stdout = options.args?.includes("--json")
+        ? JSON.stringify({ filename })
+        : `__SCHEMX_LOCAL_TARBALL__=${path.join(outputDir, filename)}`
+
+      return {
+        exitCode: failing.has(options.title) ? 1 : 0,
+        signal: null,
+        stdout,
+        stderr: "",
+        output: stdout,
+      }
+    },
+    formatText: ({ content }: { content: string }): string => content,
+    summary: (): void => {},
+  } as unknown as Terminal
+
+  return { terminal, tasks, versions, failing }
 }
 
 /**
@@ -163,7 +176,13 @@ afterEach(() => {
 
 describe("packLocal 依赖闭包推导", () => {
   it("从 package.json 的 workspace: 依赖推导闭包，并按被依赖者在前排序", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    })
 
     expect(recorder.tasks).toEqual([
       "构建 @schemx/core",
@@ -178,13 +197,25 @@ describe("packLocal 依赖闭包推导", () => {
   })
 
   it("只打包被点名的叶子包时不引入兄弟包", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "core", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "core",
+      outputDir,
+    })
 
     expect(recorder.tasks).toEqual(["构建 @schemx/core", "打包 @schemx/core"])
   })
 
   it("新增的内部依赖无需改实现即可进入闭包", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    })
 
     expect(recorder.tasks).toContain("构建 @schemx/validator")
     expect(recorder.tasks).not.toContain("构建 @schemx/plugin-with-script")
@@ -194,7 +225,7 @@ describe("packLocal 依赖闭包推导", () => {
     await packLocal({
       root,
       catalog,
-      ui: recorder.ui,
+      terminal: recorder.terminal,
       targets: "vant,core,@schemx/vue",
       outputDir,
     })
@@ -210,7 +241,13 @@ describe("packLocal 依赖闭包推导", () => {
   })
 
   it("闭包内的包在打包期间统一追加同一个 -dev 时间戳版本", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    })
 
     const stamps = new Set<string>()
 
@@ -229,7 +266,13 @@ describe("packLocal 依赖闭包推导", () => {
   })
 
   it("all 覆盖全部可打包目标，插件先于 workspace 包处理", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "all", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "all",
+      outputDir,
+    })
 
     expect(recorder.tasks).toEqual([
       "打包 @schemx/plugin-with-script",
@@ -245,7 +288,13 @@ describe("packLocal 依赖闭包推导", () => {
   })
 
   it("空目标串等价于 all", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "",
+      outputDir,
+    })
 
     expect(recorder.tasks).toHaveLength(9)
   })
@@ -253,7 +302,13 @@ describe("packLocal 依赖闭包推导", () => {
 
 describe("packLocal 版本备份与恢复", () => {
   it("多包闭包打包结束后每个包各自恢复自己的 manifest", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    })
 
     // 备份文件名若退化成 basename，闭包内全部 manifest 会塌缩成一个备份文件，
     // 恢复时把最后一个包的内容写回所有 manifest。
@@ -268,7 +323,13 @@ describe("packLocal 版本备份与恢复", () => {
   })
 
   it("恢复的是各包自己的完整清单，而不是最后一个包的副本", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    })
 
     // 每个包的 dependencies 各不相同，若备份互相覆盖，这里必然出现串包。
     expect(readBack("@schemx/core").dependencies).toBeUndefined()
@@ -284,14 +345,26 @@ describe("packLocal 版本备份与恢复", () => {
   })
 
   it("单包闭包同样恢复原版本", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "core", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "core",
+      outputDir,
+    })
 
     expect(readBack("@schemx/core").version).toBe("1.0.0")
     expect(readBack("@schemx/core").name).toBe("@schemx/core")
   })
 
   it("未进入闭包的包不被改写", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "core", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "core",
+      outputDir,
+    })
 
     expect(readBack("@schemx/vant").version).toBe("1.2.0")
     expect(readBack("@schemx/vue").version).toBe("1.1.0")
@@ -300,9 +373,13 @@ describe("packLocal 版本备份与恢复", () => {
   it("构建失败后仍然恢复全部 manifest", async () => {
     recorder.failing.add("构建 @schemx/vue")
 
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir }).catch(
-      (): void => {}
-    )
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    }).catch((): void => {})
 
     for (const [name, expected] of Object.entries(BASELINE)) {
       const restored = readBack(name)
@@ -318,7 +395,13 @@ describe("packLocal 版本备份与恢复", () => {
 describe("packLocal 目标解析", () => {
   it("未知目标抛用法错误", async () => {
     await expect(
-      packLocal({ root, catalog, ui: recorder.ui, targets: "nope", outputDir })
+      packLocal({
+        root,
+        catalog,
+        terminal: recorder.terminal,
+        targets: "nope",
+        outputDir,
+      })
     ).rejects.toThrow(/存在未知或不可打包的目标：nope/)
   })
 
@@ -326,7 +409,7 @@ describe("packLocal 目标解析", () => {
     const error = await packLocal({
       root,
       catalog,
-      ui: recorder.ui,
+      terminal: recorder.terminal,
       targets: "packages/nope",
       outputDir,
     }).catch((reason: unknown) => reason)
@@ -337,7 +420,13 @@ describe("packLocal 目标解析", () => {
 
   it("多目标中任意一个未知即整体失败", async () => {
     await expect(
-      packLocal({ root, catalog, ui: recorder.ui, targets: "core,nope", outputDir })
+      packLocal({
+        root,
+        catalog,
+        terminal: recorder.terminal,
+        targets: "core,nope",
+        outputDir,
+      })
     ).rejects.toThrow(/存在未知或不可打包的目标：nope/)
   })
 
@@ -345,7 +434,13 @@ describe("packLocal 目标解析", () => {
     for (const identifier of ["packages/core", "core", "@schemx/core"]) {
       const current = createRecorder()
 
-      await packLocal({ root, catalog, ui: current.ui, targets: identifier, outputDir })
+      await packLocal({
+        root,
+        catalog,
+        terminal: current.terminal,
+        targets: identifier,
+        outputDir,
+      })
       expect(current.tasks).toEqual(["构建 @schemx/core", "打包 @schemx/core"])
     }
   })
@@ -356,7 +451,7 @@ describe("packLocal 插件可打包判定", () => {
     await packLocal({
       root,
       catalog,
-      ui: recorder.ui,
+      terminal: recorder.terminal,
       targets: "plugins/with-script",
       outputDir,
     })
@@ -369,7 +464,7 @@ describe("packLocal 插件可打包判定", () => {
       packLocal({
         root,
         catalog,
-        ui: recorder.ui,
+        terminal: recorder.terminal,
         targets: "plugins/no-script",
         outputDir,
       })
@@ -377,7 +472,13 @@ describe("packLocal 插件可打包判定", () => {
   })
 
   it("all 不会包含没有 pack:local 的插件", async () => {
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "all", outputDir })
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "all",
+      outputDir,
+    })
 
     expect(recorder.tasks).toContain("打包 @schemx/plugin-with-script")
     expect(recorder.tasks).not.toContain("打包 @schemx/plugin-no-script")
@@ -387,7 +488,7 @@ describe("packLocal 插件可打包判定", () => {
     await packLocal({
       root,
       catalog,
-      ui: recorder.ui,
+      terminal: recorder.terminal,
       targets: "plugins/with-script",
       outputDir,
     })
@@ -401,12 +502,12 @@ describe("packLocal 插件可打包判定", () => {
     const result = await packLocal({
       root,
       catalog,
-      ui: recorder.ui,
+      terminal: recorder.terminal,
       targets: "plugins/with-script,core",
       outputDir,
     })
 
-    // 假 Ui 不执行回调，因此 tarball 路径为空；这里只断言产物数量与归属。
+    // 终端替身提供模拟 tarball 路径；这里只断言产物数量与归属。
     expect(result.tarballs).toHaveLength(2)
     expect(result.directory).toBe(outputDir)
   })
@@ -417,7 +518,13 @@ describe("packLocal 失败传播", () => {
     recorder.failing.add("构建 @schemx/vue")
 
     await expect(
-      packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+      packLocal({
+        root,
+        catalog,
+        terminal: recorder.terminal,
+        targets: "vant",
+        outputDir,
+      })
     ).rejects.toThrow("构建 @schemx/vue 失败。")
   })
 
@@ -425,16 +532,26 @@ describe("packLocal 失败传播", () => {
     recorder.failing.add("打包 @schemx/vant")
 
     await expect(
-      packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir })
+      packLocal({
+        root,
+        catalog,
+        terminal: recorder.terminal,
+        targets: "vant",
+        outputDir,
+      })
     ).rejects.toThrow("打包 @schemx/vant 失败。")
   })
 
   it("失败后不再构建依赖链上更靠后的包", async () => {
     recorder.failing.add("构建 @schemx/vue")
 
-    await packLocal({ root, catalog, ui: recorder.ui, targets: "vant", outputDir }).catch(
-      (): void => {}
-    )
+    await packLocal({
+      root,
+      catalog,
+      terminal: recorder.terminal,
+      targets: "vant",
+      outputDir,
+    }).catch((): void => {})
 
     expect(recorder.tasks).toContain("构建 @schemx/validator")
     expect(recorder.tasks).not.toContain("构建 @schemx/vant")
@@ -445,25 +562,26 @@ describe("renderPackResult", () => {
   it("渲染 tarball 安装命令摘要", () => {
     const calls: unknown[] = []
 
-    const ui = {
+    const terminal = {
+      formatText: ({ content }: { content: string }): string => content,
       summary: (options: unknown): void => {
         calls.push(options)
       },
-    } as unknown as Ui
+    } as unknown as Terminal
 
     const result: PackResult = {
       directory: "/tmp/out",
       tarballs: ["/tmp/out/a.tgz", "/tmp/out/b.tgz"],
     }
 
-    renderPackResult(ui, result)
+    renderPackResult(terminal, result)
 
     expect(calls).toEqual([
       {
         title: "全部 tarball 安装命令",
         tone: "success",
         content: "已生成 2 个 tarball。\n产物目录：/tmp/out",
-        copy: 'pnpm i "/tmp/out/a.tgz" "/tmp/out/b.tgz"',
+        code: 'pnpm i "/tmp/out/a.tgz" "/tmp/out/b.tgz"',
       },
     ])
   })
@@ -471,11 +589,12 @@ describe("renderPackResult", () => {
   it("没有 tarball 时仍渲染摘要，数量为 0", () => {
     const calls: unknown[] = []
 
-    const ui = {
+    const terminal = {
+      formatText: ({ content }: { content: string }): string => content,
       summary: (options: unknown): void => void calls.push(options),
-    } as unknown as Ui
+    } as unknown as Terminal
 
-    renderPackResult(ui, { directory: "/tmp/out", tarballs: [] })
+    renderPackResult(terminal, { directory: "/tmp/out", tarballs: [] })
 
     expect(calls).toHaveLength(1)
     expect(JSON.stringify(calls[0])).toContain("已生成 0 个 tarball。")

@@ -8,13 +8,10 @@ import {
 } from "../core/catalog.ts"
 import { usageError } from "../core/errors.ts"
 import { workspaceDependencyNames } from "../core/package-json.ts"
-import { type GroupChoice } from "../ui/prompt.ts"
+import { WORKFLOW_SCOPE_LABEL } from "../display-config.ts"
+import { UI_SEPARATOR } from "../ui/config.ts"
 
-/** 目录层级在树形选择控件中的显示名。 */
-const SCOPE_LABELS: Readonly<Record<string, string>> = {
-  packages: "Packages",
-  plugins: "Plugins",
-}
+import type { ChoiceGroup } from "../ui/index.ts"
 
 /** 稳定排序的发布候选顺序。 */
 const SCOPES = ["packages", "plugins"] as const
@@ -76,21 +73,21 @@ export function isKnownTarget(catalog: Catalog, identifier: string): boolean {
  * @param catalog - 目录索引。
  * @returns 分组结构。
  */
-export function groupedOptions(catalog: Catalog): GroupChoice[] {
+export function groupedOptions(catalog: Catalog): ChoiceGroup<string>[] {
   const publishable = catalog.publishable()
 
-  const groups: GroupChoice[] = []
+  const groups: ChoiceGroup<string>[] = []
 
   for (const scope of SCOPES) {
     const options = publishable
       .filter((item) => item.scope === scope)
       .map((item) => ({
         value: item.directory,
-        label: `${item.name} · ${item.relativeDir}`,
+        label: [item.name, item.relativeDir].join(UI_SEPARATOR.PART),
       }))
 
     if (options.length > 0) {
-      groups.push({ group: SCOPE_LABELS[scope] ?? scope, options })
+      groups.push({ title: WORKFLOW_SCOPE_LABEL[scope] ?? scope, options })
     }
   }
 

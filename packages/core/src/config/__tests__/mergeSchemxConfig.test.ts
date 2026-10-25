@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { createPresetRuleRegistry, createRendererRegistry } from "../../registry"
 import {
   mergeAndResolveSchemxConfig,
   mergeConfig,
   mergeSchemxConfig,
   resolveSchemxConfig,
-} from "../mergeSchemxConfig"
+} from ".."
+import { createPresetRuleRegistry, createRendererRegistry } from "../../registry"
 
+import type { SchemxConfig } from ".."
 import type { SchemxSchemaConfig, ValidationTrigger } from "../../types"
-import type { SchemxConfig } from "../schemxConfig"
 
 interface LayoutConfig extends SchemxConfig {
   schemaConfig?: Partial<SchemxSchemaConfig> & {
@@ -389,12 +389,12 @@ describe("mergeConfig", () => {
     expect(
       Object.prototype.hasOwnProperty.call(result.rendererProps?.input, "placeholder")
     ).toBe(true)
-    expect((result.rendererProps?.input as { nested?: unknown }).nested).toBe(
-      highPriorityNested
-    )
-    expect((result.rendererProps?.input as { options?: unknown }).options).toBe(
-      highPriorityOptions
-    )
+    expect(
+      (result.rendererProps?.input as { nested?: unknown } | undefined)?.nested
+    ).toBe(highPriorityNested)
+    expect(
+      (result.rendererProps?.input as { options?: unknown } | undefined)?.options
+    ).toBe(highPriorityOptions)
     expect(lowPriorityRendererProps.input).toEqual({
       disabled: false,
       options: lowPriorityOptions,

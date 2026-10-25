@@ -5,12 +5,18 @@
  */
 
 import type { StorePending } from "../../store"
-import type { FieldValue, NamePath, SchemxInstance, Values } from "../../types"
+import type {
+  DeepReadonly,
+  FieldValue,
+  NamePath,
+  SchemxInstance,
+  Values,
+} from "../../types"
 
 /**
  * 可被 UI 框架消费的同步快照来源。
  *
- * 状态由 Core 持有；调用方只能读取稳定快照并订阅变化，不能通过该协议写入状态。
+ * 状态由 Core 持有；快照直接复用只读状态引用，不能通过该协议写入状态。
  *
  * @typeParam TSnapshot - 该来源提供的快照类型。
  *
@@ -25,13 +31,12 @@ import type { FieldValue, NamePath, SchemxInstance, Values } from "../../types"
  */
 export interface SnapshotSource<TSnapshot> {
   /**
-   * 同步读取当前稳定快照。
-   *
-   * 状态未变化时保持同一快照引用。
+   * 无依赖读取当前只读快照；状态未变化时保持同一引用。
+   * 适配器释放后仍读取原生状态，不保留已过期的快照。
    */
-  getSnapshot(): TSnapshot
+  getSnapshot(): DeepReadonly<TSnapshot>
   /**
-   * 注册状态变化监听；仅在快照真实变化时通知。
+   * 注册独立的状态变化监听；首次订阅不通知，后续仅在快照变化时通知。
    *
    * @param listener - 快照发生真实变化时调用的监听函数。
    * @returns 可重复调用的取消订阅函数。
@@ -106,11 +111,11 @@ export interface FormStateAdapter<TValues extends Values> {
    */
   readonly values: SnapshotSource<TValues>
   /**
-   * 已 touched 字段路径快照来源。
+   * 已 touched 字段路径快照来源，顺序与原生状态一致。
    */
   readonly touchedFields: SnapshotSource<readonly NamePath<TValues>[]>
   /**
-   * pending 字段及其消息快照来源。
+   * pending 字段及其消息快照来源，顺序与原生状态一致。
    */
   readonly pendingFields: SnapshotSource<
     readonly StorePending<TValues, NamePath<TValues>>[]
@@ -120,7 +125,7 @@ export interface FormStateAdapter<TValues extends Values> {
    */
   readonly loading: SnapshotSource<boolean>
   /**
-   * 取得并缓存同一规范化路径对应的字段快照来源。
+   * 复用同一路径状态对应的字段快照来源；节点移动不改变此来源的目标路径。
    *
    * @param name - 要读取的字段路径。
    * @returns 对应字段的稳定快照来源。
@@ -128,9 +133,9 @@ export interface FormStateAdapter<TValues extends Values> {
    */
   field<TName extends NamePath<TValues>>(name: TName): FieldSnapshotSource<TValues, TName>
   /**
-   * 停止全部 Core effect 并清空字段快照来源缓存。
+   * 停止此适配器的全部订阅，清空字段来源包装，并禁止新增订阅。
    *
-   * 此操作不会销毁适配器对应的原始 Form，并且可以重复调用。
+   * 此操作不会销毁原始 Form 或冻结已取得来源的快照读取，并且可以重复调用。
    */
   dispose(): void
 }

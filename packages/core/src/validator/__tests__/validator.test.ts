@@ -1,22 +1,22 @@
 import fc from "fast-check"
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { createValidator } from ".."
 import { createPresetRuleRegistry } from "../../registry"
 import { createStore } from "../../store"
-import { createValidator } from "../validator"
 
-import type { PresetRuleFactoryContext, PresetRuleRegistry } from "../../registry"
-import type { Store } from "../../store"
-import type { FieldRules, NamePath, Values } from "../../types"
 import type {
+  CreateValidatorOptions,
   ValidationAdapter,
   ValidationAdapterOption,
   ValidationRule,
   ValidationRuleIssue,
   ValidationRuleResult,
   Validator,
-} from "../types"
-import type { CreateValidatorOptions } from "../validator"
+} from ".."
+import type { PresetRuleFactoryContext, PresetRuleRegistry } from "../../registry"
+import type { Store } from "../../store"
+import type { FieldRules, NamePath, Values } from "../../types"
 
 /**
  * 覆盖字段路径、错误聚合和取消行为的测试表单。
@@ -197,7 +197,7 @@ describe("Validator", () => {
         issues: [
           {
             type: "validation" as const,
-            message: `${context.label}:${String(context.required)}`,
+            message: `${context.label}:${JSON.stringify(context.required)}`,
           },
         ],
       }),

@@ -21,7 +21,10 @@ import {
   readManifestSafe,
   writeManifest,
 } from "../core/package-json.ts"
-import { type Ui } from "../ui/ui.ts"
+import { formatWorkflowText, runWorkflowCommand } from "../presentation.ts"
+import { commandExitCode } from "../presentation.ts"
+
+import type { ParentId, Terminal } from "../ui/index.ts"
 
 /** 一次本地打包的产物。 */
 export interface PackResult {
@@ -33,12 +36,13 @@ export interface PackResult {
 
 /** 本地打包选项。 */
 export interface PackOptions {
+  readonly parentId?: ParentId | undefined
   /** 仓库根目录。 */
   readonly root: string
   /** 目录索引。 */
   readonly catalog: Catalog
   /** 终端 UI。 */
-  readonly ui: Ui
+  readonly terminal: Terminal
   /** 逗号分隔的目标；`all` 或空串表示全部可打包目标。 */
   readonly targets: string
   /** 输出目录。 */
@@ -286,40 +290,37 @@ async function packWorkspace(
   options: PackOptions,
   item: WorkspacePackage
 ): Promise<string> {
-  const { root, ui, outputDir } = options
+  const { root, terminal, outputDir } = options
 
-  const build = await ui.task(
-    { title: `构建 ${item.name}`, itemKey: item.name, log: "live" },
-    async () =>
-      await ui.exec("pnpm", ["--filter", item.name, "run", "build"], { cwd: root })
-  )
+  const build = await runWorkflowCommand({
+    terminal: terminal,
+    parentId: options.parentId,
+    title: `构建 ${item.name}`,
+    target: item.name,
+    command: "pnpm",
+    args: ["--filter", item.name, "run", "build"],
+    cwd: root,
+  })
 
   if (build !== 0) {
     throw failure(`构建 ${item.name} 失败。`)
   }
 
-  let filename = ""
+  const result = await terminal.runCommand({
+    parentId: options.parentId,
+    title: `打包 ${item.name}`,
+    target: item.name,
+    command: "pnpm",
+    args: ["--filter", item.name, "pack", "--pack-destination", outputDir, "--json"],
+    cwd: root,
+    outputMode: "tee",
+  })
 
-  const packed = await ui.task(
-    { title: `打包 ${item.name}`, itemKey: item.name, log: "live" },
-    async () => {
-      const result = await ui.exec(
-        "pnpm",
-        ["--filter", item.name, "pack", "--pack-destination", outputDir, "--json"],
-        { cwd: root }
-      )
-
-      if (result.code === 0) {
-        filename = tarballName(result.stdout, item.name)
-      }
-
-      return result
-    }
-  )
-
-  if (packed !== 0) {
+  if (commandExitCode(result) !== 0) {
     throw failure(`打包 ${item.name} 失败。`)
   }
+
+  const filename = tarballName(result.stdout, item.name)
 
   return path.resolve(outputDir, filename)
 }
@@ -333,28 +334,23 @@ async function packWorkspace(
  * @throws {WorkflowError} 打包失败或未返回产物时抛出。
  */
 async function packPlugin(options: PackOptions, item: WorkspacePackage): Promise<string> {
-  const { root, ui } = options
+  const { root, terminal } = options
 
-  let tarball = ""
+  const result = await terminal.runCommand({
+    parentId: options.parentId,
+    title: `打包 ${item.name}`,
+    target: item.name,
+    command: "pnpm",
+    args: ["--filter", item.name, "run", "pack:local"],
+    cwd: root,
+    outputMode: "tee",
+  })
 
-  const code = await ui.task(
-    { title: `打包 ${item.name}`, itemKey: item.name, log: "live" },
-    async () => {
-      const result = await ui.exec("pnpm", ["--filter", item.name, "run", "pack:local"], {
-        cwd: root,
-      })
-
-      if (result.code === 0) {
-        tarball = pluginTarball(`${result.stdout}\n${result.stderr}`, item.name)
-      }
-
-      return result
-    }
-  )
-
-  if (code !== 0) {
+  if (commandExitCode(result) !== 0) {
     throw failure(`打包 ${item.name} 失败。`)
   }
+
+  const tarball = pluginTarball(`${result.stdout}\n${result.stderr}`, item.name)
 
   return tarball
 }
@@ -436,14 +432,17 @@ export async function packLocal(options: PackOptions): Promise<PackResult> {
 /**
  * 渲染打包结果摘要。
  *
- * @param ui - 终端 UI。
+ * @param terminal - 终端实例。
  * @param result - 打包产物。
  */
-export function renderPackResult(ui: Ui, result: PackResult): void {
-  ui.summary({
+export function renderPackResult(terminal: Terminal, result: PackResult): void {
+  terminal.summary({
     title: "全部 tarball 安装命令",
     tone: "success",
-    content: `已生成 ${result.tarballs.length} 个 tarball。\n产物目录：${result.directory}`,
-    copy: ["pnpm i", ...result.tarballs.map((item) => JSON.stringify(item))].join(" "),
+    content: formatWorkflowText({
+      terminal: terminal,
+      content: `已生成 ${result.tarballs.length} 个 tarball。\n产物目录：${result.directory}`,
+    }),
+    code: ["pnpm i", ...result.tarballs.map((item) => JSON.stringify(item))].join(" "),
   })
 }

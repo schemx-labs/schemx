@@ -9,8 +9,8 @@ export {
   isGroupSchema,
   isDependencySchema,
   isDynamicSchema,
-  findSchema,
   isValidSchema,
+  getSchemaKind,
 } from "./schema"
 
 export {
@@ -27,28 +27,19 @@ export {
   areOverlappingFieldPaths,
   createFieldKey,
   type FieldKey,
+  areNamePathListsEqual,
+  isFieldArrayDescendantAffected,
+  isFieldArrayDescendantOutOfRange,
 } from "./path"
 
-export { withLock, waitAll } from "./async"
+export { withLock } from "./async"
 
 export { diff } from "./diff"
-
-export { createStrictSingleton } from "./single"
-
-export {
-  resolveDynamicProp,
-  resolveDynamicProps,
-  resolveDynamicPropBatch,
-  type DynamicProp,
-  type DynamicPropEntry,
-  type DynamicPropEntries,
-} from "./dynamic"
 
 export {
   type TriggerConfig,
   type NormalizedTrigger,
   shouldValidateOn,
-  mergeTrigger,
 } from "./validation"
 
 export {

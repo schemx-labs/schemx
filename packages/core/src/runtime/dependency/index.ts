@@ -19,3 +19,5 @@ export {
   unmountDependencyResources,
   updateDependencyResources,
 } from "./resources"
+
+export { createDependencyNode } from "./createNode"

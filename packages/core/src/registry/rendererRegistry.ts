@@ -66,11 +66,14 @@
  * ```
  */
 
+import type { RegistryOptions } from "./index"
 import type { SchemxViewFieldSchema } from "../runtime/view"
-import type { SchemxInstance, Values } from "../types"
-import type { RegistryOptions } from "./types"
-import type { SchemxComponentProps } from "../types/componentProps"
-import type { SchemxRendererKey } from "../types/renderer"
+import type {
+  SchemxComponentProps,
+  SchemxInstance,
+  SchemxRendererKey,
+  Values,
+} from "../types"
 
 /** 阻止 fallbackType 反向推断 Registry 的表单值泛型。 */
 type RendererRegistryNoInfer<TValues> = [TValues][TValues extends unknown ? 0 : never]
@@ -335,7 +338,7 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * const missing = renderer.get('unknown') // => undefined
    * ```
    */
-  get(type: SchemxRendererKey<TValues>): unknown | undefined {
+  get(type: SchemxRendererKey<TValues>): unknown {
     return this.renderers.get(type)?.component
   }
 
@@ -373,7 +376,7 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * const fallback = renderer.resolve('unknown') // => 回退渲染器
    * ```
    */
-  resolve(type: SchemxRendererKey<TValues>): unknown | undefined {
+  resolve(type: SchemxRendererKey<TValues>): unknown {
     return this.resolveEntry(type)?.component
   }
 

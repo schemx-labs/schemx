@@ -20,7 +20,7 @@ import {
   createRendererRegistry,
   type RendererPropsTransformer,
 } from "../registry"
-import { isFieldNode } from "../runtime/node/helper"
+import { isFieldNode } from "../runtime/node"
 
 import type { StandardSchemaV1, ValidationTrigger } from "../types"
 import type { ValidationRuleContext, ValidationRuleResult } from "../validator"
@@ -199,8 +199,7 @@ describe("字段初始值", () => {
 describe("校验与赋值一致性回归", () => {
   it("值变化后取消旧异步校验并拒绝旧错误回写", async () => {
     let resolveRule:
-      | ((result: { valid: false; issues: [{ message: string }] }) => void)
-      | undefined
+      ((result: { valid: false; issues: [{ message: string }] }) => void) | undefined
 
     let started: () => void = () => undefined
 
@@ -707,7 +706,7 @@ describe("表单提交", () => {
             issues: [
               {
                 type: "validation",
-                message: `${String(name)}:${label}:${placeholder}:${required}`,
+                message: `${String(name)}:${label}:${placeholder}:${JSON.stringify(required)}`,
               },
             ],
           }),

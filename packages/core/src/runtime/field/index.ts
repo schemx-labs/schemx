@@ -24,3 +24,5 @@ export {
   type CreateValidationEffectOptions,
   type ValidationEffect,
 } from "./validationEffect"
+
+export { createFieldNode } from "./createNode"

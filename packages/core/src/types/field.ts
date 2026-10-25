@@ -7,15 +7,22 @@
  */
 
 // 有意保留声明合并能力，以支持 Schema 专属的扩展接口。
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 
-import type { SchemxComponentProps } from "./componentProps"
-import type { SchemxFieldDependencies } from "./dependencies"
-import type { FieldValue, NamePath, ValidationTrigger, Values } from "./form"
-import type { SchemxInstance } from "./instance"
-import type { SchemxLayout } from "./layout"
-import type { SchemxRendererDefinition, SchemxRendererKey } from "./renderer"
-import type { DefinedFieldValue, FieldRules, RequiredConfig } from "./rule"
+import type {
+  DefinedFieldValue,
+  FieldRules,
+  FieldValue,
+  NamePath,
+  RequiredConfig,
+  SchemxComponentProps,
+  SchemxFieldDependencies,
+  SchemxInstance,
+  SchemxLayout,
+  SchemxRendererDefinition,
+  SchemxRendererKey,
+  ValidationTrigger,
+  Values,
+} from "./index"
 
 /**
  * 自定义 Schema 基础字段扩展接口
@@ -262,12 +269,15 @@ export interface SchemxBase<
   validationTrigger?: ValidationTrigger | ValidationTrigger[]
 
   /**
-   * 值变化触发
+   * 用户通过 Core changeField/change 交互入口修改值后触发；程序赋值不触发。
    */
-  onChange?: (value: FieldValue<TValues, TName>, form: SchemxInstance<TValues>) => void
+  onChange?: (
+    value: FieldValue<TValues, TName> | undefined,
+    form: SchemxInstance<TValues>
+  ) => void
 
   /**
-   * 失焦触发
+   * 用户通过 Core blurField/blur 交互入口失焦后触发。
    */
   onBlur?: (form: SchemxInstance<TValues>) => void
 

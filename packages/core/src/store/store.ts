@@ -2,13 +2,19 @@
  * Store 的唯一实现。
  *
  * 当前值、初始值、字段交互状态和注册路径均由 FieldSignalMap 统一持有；Store
- * 只协调全表 revision、快照和动态数组结构。
+ * 只协调原生快照与动态数组结构。
  *
  * @module core/store/store
  */
 import { cloneDeep } from "es-toolkit"
 
-import { batchUpdates, createSignal, createSignalWatch, type Signal } from "../reactivity"
+import {
+  batchUpdates,
+  createComputed,
+  createSignal,
+  runSignalUntracked,
+  type Signal,
+} from "../reactivity"
 import {
   areOverlappingFieldPaths,
   createFieldKey,
@@ -18,7 +24,7 @@ import {
   setByPath,
 } from "../utils"
 
-import { createFieldSignalMap, type FieldSignalMap } from "./fieldSignalMap"
+import { createFieldSignalMap, type FieldSignalMap } from "./index"
 
 import type {
   FieldArrayChange,
@@ -35,18 +41,19 @@ import type {
   StoreFieldError,
   StoreOptions,
   StorePending,
-} from "./types"
-import type { FieldKey } from "../utils/path"
-import type { ValidationRuleIssue } from "../validator/types"
+  StoreState,
+} from "./index"
+import type { FieldKey } from "../utils"
+import type { ValidationRuleIssue } from "../validator"
 
-// 保存动态数组的行 key 和最近一次结构变更，不保存数组值。
+// 保存动态数组的稳定行 key 和同步结构监听，不保存数组值。
 interface ArrayState<TValues extends Values> {
   // 数组根路径。
   readonly path: NamePath<TValues>
   // 当前行 key 列表；其长度必须与数组值长度一致。
   readonly keys: Signal<readonly string[]>
-  // 当前批次最后一次数组结构变更。
-  readonly change: Signal<FieldArrayChange | undefined>
+  // 在值与 key 更新后、响应式通知前，同步关联当前节点路径。
+  readonly listeners: Set<(change: FieldArrayChange) => void>
   // 下一个行 key 的单调递增序号。
   nextKey: number
 }
@@ -111,18 +118,18 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   // 按规范化数组路径缓存数组结构状态。
   private readonly arrays = new Map<FieldKey, ArrayState<TValues>>()
 
-  // 任意当前值变更都会递增的全表版本。
-  private readonly formRevision = createSignal(0)
   // 任意初始值变更都会递增的初始值版本。
   private readonly initialFormRevision = createSignal(0)
   // 每次当前值写入或显式重置都会递增，即使新旧值相等。
   private mutationRevision = 0
   private resetRevision = 0
   private readonly resetListeners = new Set<() => void>()
-  // 快照对应的当前值版本。
-  private snapshotRevision = -1
-  // 当前版本缓存的独立全表快照。
-  private snapshotCache: TValues | undefined
+  // 稳定快照由原生 computed 缓存，复用值树的失效机制。
+  private readonly snapshot = createComputed(() =>
+    cloneDeep(this.fieldStates.values.value)
+  )
+  // 公共状态直接来自唯一路径容器。
+  readonly state: StoreState<TValues>
 
   /**
    * 创建 Store，并深拷贝初始值以隔离调用方后续修改。
@@ -132,14 +139,11 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   constructor(options: StoreOptions<TValues> = {}) {
     this.fieldStates = createFieldSignalMap<TValues>({
       initialValues: options.initialValues,
-      onValueChanged: () => {
-        this.formRevision.value += 1
-        this.snapshotRevision = -1
-      },
       onInitialValueChanged: () => {
         this.initialFormRevision.value += 1
       },
     })
+    this.state = this.fieldStates.state
   }
 
   /**
@@ -165,14 +169,11 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     const subscribe = (listener: (change: FieldArrayChange) => void): (() => void) => {
       const state = this.getArrayState(path)
 
-      return createSignalWatch(
-        () => state.change.value,
-        (change) => {
-          if (change !== undefined) {
-            listener(change)
-          }
-        }
-      )
+      state.listeners.add(listener)
+
+      return () => {
+        state.listeners.delete(listener)
+      }
     }
 
     return {
@@ -326,7 +327,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 读取全量当前值，并建立对全表 revision 的响应式依赖。
+   * 读取全量当前值，并建立对原生值树的响应式依赖。
    *
    * @returns 当前值的独立副本。
    */
@@ -343,9 +344,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     paths?: TName[]
   ): TValues | Partial<TValues> {
     if (paths === undefined) {
-      this.formRevision.value
-
-      return this.fieldStates.getFieldSnapshot("" as NamePath<TValues>) as TValues
+      return cloneDeep(this.fieldStates.values.value)
     }
 
     return this.buildPathValues(paths, true)
@@ -372,18 +371,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       return this.buildPathValues(paths, false)
     }
 
-    const revision = this.formRevision.peek()
-
-    if (this.snapshotRevision === revision && this.snapshotCache !== undefined) {
-      return this.snapshotCache
-    }
-
-    this.snapshotCache = this.fieldStates.getFieldSnapshot(
-      "" as NamePath<TValues>
-    ) as TValues
-    this.snapshotRevision = revision
-
-    return this.snapshotCache
+    return this.snapshot.peek()
   }
 
   /**
@@ -453,7 +441,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   // 根据是否提供路径列表分派全量或局部初始值读取。
   getInitialValues<TName extends NamePath<TValues>>(paths?: TName[]): Partial<TValues> {
     if (paths === undefined) {
-      this.initialFormRevision.value
+      void this.initialFormRevision.value
 
       return cloneDeep(
         this.fieldStates.peekFieldInitialValue("" as NamePath<TValues>)
@@ -840,10 +828,8 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
 
         arrayState.keys.value = this.createArrayKeys(arrayState, nextLength)
         this.fieldStates.invalidateFieldArrayErrors(arrayState.path, change)
-        arrayState.change.value = change
+        this.notifyArrayChange(arrayState, change)
       }
-
-      this.snapshotRevision = -1
     })
   }
 
@@ -879,13 +865,13 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     this.resetListeners.clear()
     this.fieldStates.destroy()
 
+    for (const state of this.arrays.values()) state.listeners.clear()
     this.arrays.clear()
-    this.snapshotCache = undefined
-    this.snapshotRevision = -1
   }
 
   private notifyResetListeners(): void {
-    for (const listener of [...this.resetListeners]) listener()
+    // 使用快照，避免回调中新注册的监听器参与本轮通知。
+    for (const listener of Array.from(this.resetListeners)) listener()
   }
 
   private captureNestedArrayValues(path: NamePath<TValues>): Map<FieldKey, unknown> {
@@ -945,7 +931,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
 
       state.keys.value = nextKeys
       this.fieldStates.notifyFieldArrayChange(state.path, change)
-      state.change.value = change
+      this.notifyArrayChange(state, change)
     }
   }
 
@@ -1062,7 +1048,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     const state: ArrayState<TValues> = {
       path,
       keys: createSignal([]),
-      change: createSignal<FieldArrayChange | undefined>(undefined),
+      listeners: new Set(),
       nextKey: 0,
     }
 
@@ -1090,6 +1076,20 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     }
 
     return state
+  }
+
+  /**
+   * 在当前值和行 key 完成提交后同步节点路径，保持消费者可见状态一致。
+   * @param state - 当前数组的结构状态。
+   * @param change - 本次已经应用的结构变化。
+   */
+  private notifyArrayChange(state: ArrayState<TValues>, change: FieldArrayChange): void {
+    runSignalUntracked(() => {
+      // 使用快照，避免回调中新注册的监听器参与本轮通知。
+      for (const listener of Array.from(state.listeners)) {
+        if (state.listeners.has(listener)) listener(change)
+      }
+    })
   }
 
   /**
@@ -1161,7 +1161,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     this.fieldStates.setFieldArrayValue(state.path, value, change)
 
     if (keysChanged) {
-      state.change.value = change
+      this.notifyArrayChange(state, change)
     }
   }
 
@@ -1186,7 +1186,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     this.fieldStates.setFieldValue(state.path, value)
     this.fieldStates.clearFieldTransientState(state.path)
     this.fieldStates.invalidateFieldArrayErrors(state.path, change)
-    state.change.value = change
+    this.notifyArrayChange(state, change)
   }
 
   /**
@@ -1207,7 +1207,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     this.fieldStates.clearFieldErrors(state.path)
     this.fieldStates.invalidateFieldArrayErrors(state.path, change)
     state.keys.value = []
-    state.change.value = change
+    this.notifyArrayChange(state, change)
   }
 
   /**
@@ -1372,7 +1372,7 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       this.fieldStates.clearFieldTransientState(state.path)
       this.fieldStates.clearFieldErrors(state.path)
       this.fieldStates.invalidateFieldArrayErrors(state.path, change)
-      state.change.value = change
+      this.notifyArrayChange(state, change)
     }
   }
 }

@@ -6,7 +6,9 @@
 import { existsSync } from "node:fs"
 
 import { type Context } from "../core/context.ts"
-import { WorkflowError } from "../core/errors.ts"
+import { formatWorkflowText } from "../presentation.ts"
+import { workflowExitCode, workflowRunner } from "../presentation.ts"
+import { runWorkflowTask } from "../presentation.ts"
 
 import * as git from "./adapters/git.ts"
 import { renderOutcome, renderPlan } from "./feedback.ts"
@@ -68,10 +70,10 @@ function finalizeVersions(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
 
-    context.ui.status(
-      "error",
-      `发布进度不可用（${reason}）；已保留版本备份且未执行任何回滚：${backup.directory}`
-    )
+    context.terminal.status({
+      tone: "error",
+      message: `发布进度不可用（${reason}）；已保留版本备份且未执行任何回滚：${backup.directory}`,
+    })
     throw error
   }
 }
@@ -89,7 +91,7 @@ async function executeSteps(
   plan: ReleasePlan,
   planFile: string
 ): Promise<number> {
-  const { ui, catalog } = context
+  const { terminal, catalog } = context
 
   // 预发布续跑只补标记时无需改写版本；正式版仍保留版本提交所需的恢复逻辑。
   const writeVersion =
@@ -105,19 +107,28 @@ async function executeSteps(
 
   let publish = 0
 
-  ui.groupBegin({
+  const groupId1 = terminal.startGroup({
     title: "执行发布",
-    description:
-      "以下步骤将依次执行 npm 发布、Git Tag 与 GitHub Release；发布成功的包无法自动撤回，进度会逐包记录以便续跑。",
+    description: formatWorkflowText({
+      terminal,
+      content:
+        "以下步骤将依次执行 npm 发布、Git Tag 与 GitHub Release；发布成功的包无法自动撤回，进度会逐包记录以便续跑。",
+    }),
+    parentId: context.parentId,
   })
 
   try {
-    publish = await publishPackages(context, plan, planFile, writeVersion)
+    publish = await publishPackages(
+      { ...context, parentId: groupId1 },
+      plan,
+      planFile,
+      writeVersion
+    )
 
     // 部分成功也要把已发布的版本写入版本库，并补齐它们的 Tag 与 Release。
     if (plan.createCommit) {
       followUp = await commitPublishedVersions(
-        context,
+        { ...context, parentId: groupId1 },
         plan,
         planFile,
         "chore(发布): 更新正式版本"
@@ -127,10 +138,12 @@ async function executeSteps(
         followUp === 0 &&
         plan.packages.some((item) => hasStep(planFile, item.package, "published"))
       ) {
-        const pushCode = await ui.task(
-          { title: "推送正式版提交", log: "live" },
-          async () => await git.pushReleaseCommit()
-        )
+        const pushCode = await runWorkflowTask({
+          terminal: terminal,
+          title: "推送正式版提交",
+          parentId: groupId1,
+          execute: async () => await git.pushReleaseCommit(workflowRunner({ terminal })),
+        })
 
         if (pushCode !== 0) {
           followUp = pushCode
@@ -141,31 +154,52 @@ async function executeSteps(
     }
 
     if (followUp === 0 && plan.createTag) {
-      followUp = await createMarkers(context, plan, planFile, tagTarget)
+      followUp = await createMarkers(
+        { ...context, parentId: groupId1 },
+        plan,
+        planFile,
+        tagTarget
+      )
     }
   } catch (error) {
     // 步骤本身抛出（例如状态文件损坏）时不猜测回滚范围。
-    ui.groupEnd("failed", "发布步骤执行失败。")
+    terminal.endGroup({
+      groupId: groupId1,
+      outcome: "failed",
+      message: "发布步骤执行失败。",
+    })
 
-    return error instanceof WorkflowError ? error.exitCode : 1
+    return workflowExitCode(error)
   }
 
   finalizeVersions(context, plan, planFile, backup)
 
   if (followUp !== 0) {
-    ui.groupEnd("failed", "已发布包的版本提交或标记步骤失败。")
+    terminal.endGroup({
+      groupId: groupId1,
+      outcome: "failed",
+      message: "已发布包的版本提交或标记步骤失败。",
+    })
 
     return followUp
   }
 
   if (publish !== 0) {
-    ui.groupEnd("failed", "发布中断：已完成的步骤可在续跑时跳过。")
+    terminal.endGroup({
+      groupId: groupId1,
+      outcome: "failed",
+      message: "发布中断：已完成的步骤可在续跑时跳过。",
+    })
 
     return publish
   }
 
-  renderOutcome(ui, plan, planFile)
-  ui.groupEnd("success", "发布步骤执行完成。")
+  renderOutcome(terminal, plan, planFile)
+  terminal.endGroup({
+    groupId: groupId1,
+    outcome: "success",
+    message: "发布步骤执行完成。",
+  })
 
   return 0
 }
@@ -178,7 +212,7 @@ async function executeSteps(
  * @returns 退出码。
  */
 export async function executePlan(context: Context, planFile: string): Promise<number> {
-  const { ui } = context
+  const { terminal } = context
 
   const plan = readPlan(planFile)
 
@@ -187,18 +221,30 @@ export async function executePlan(context: Context, planFile: string): Promise<n
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
 
-    ui.status("error", `${reason}；请删除 ${statePath(planFile)} 后重新发布。`)
+    terminal.status({
+      tone: "error",
+      message: `${reason}；请删除 ${statePath(planFile)} 后重新发布。`,
+      parentId: context.parentId,
+    })
 
     return 2
   }
 
-  renderPlan(ui, plan)
+  renderPlan(terminal, plan)
   if (existsSync(statePath(planFile))) {
-    ui.status("warning", "检测到未完成的发布进度，本次执行会跳过已完成的步骤。")
+    terminal.status({
+      tone: "warning",
+      message: "检测到未完成的发布进度，本次执行会跳过已完成的步骤。",
+      parentId: context.parentId,
+    })
   }
 
-  if (!(await confirmExecution(ui))) {
-    ui.status("warning", "已取消发布；冻结计划与发布进度未被修改。")
+  if (!(await confirmExecution(context))) {
+    terminal.status({
+      tone: "warning",
+      message: "已取消发布；冻结计划与发布进度未被修改。",
+      parentId: context.parentId,
+    })
 
     return 130
   }
@@ -212,8 +258,12 @@ export async function executePlan(context: Context, planFile: string): Promise<n
   try {
     return await executeSteps(context, plan, planFile)
   } catch (error) {
-    ui.status("error", error instanceof Error ? error.message : String(error))
+    terminal.status({
+      tone: "error",
+      message: error instanceof Error ? error.message : String(error),
+      parentId: context.parentId,
+    })
 
-    return error instanceof WorkflowError ? error.exitCode : 1
+    return workflowExitCode(error)
   }
 }

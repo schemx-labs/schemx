@@ -16,21 +16,27 @@ import {
   isValidSchema,
 } from "../utils"
 
-import { CompileError } from "./compiler"
-import { createNodeKey } from "./compiler/helper"
+import { CompileError, createNodeKey } from "./compiler"
+import { rebaseDynamicSchemas } from "./dynamic"
 import {
   isDependencyNode,
   isDynamicNode,
   isFieldNode,
   isGroupNode,
   isParentNode,
-} from "./node/helper"
+} from "./node"
 
 import type { SchemaCompiler } from "./compiler"
+import type { ChildReconciler } from "./index"
 import type { NamePath, SchemxField, Values } from "../types"
-import type { NodeManager } from "./node/nodeManager"
-import type { NodeLifecycle } from "./node/resources"
-import type { ContainerNode, NodeId, ParentNode, SchemaNode } from "./node/types"
+import type {
+  ContainerNode,
+  NodeId,
+  NodeLifecycle,
+  NodeManager,
+  ParentNode,
+  SchemaNode,
+} from "./node"
 
 /**
  * Node 协调器的唯一公开接口。
@@ -45,20 +51,15 @@ import type { ContainerNode, NodeId, ParentNode, SchemaNode } from "./node/types
  * reconciler.reconcile(schemas)
  * ```
  */
-export interface Reconciler<TValues extends Values = Values> {
+export interface Reconciler<
+  TValues extends Values = Values,
+> extends ChildReconciler<TValues> {
   /**
    * 使用完整根 Schema 协调整棵 Node 树。
    *
    * @param schemas - 新一轮根节点 Schema 列表。
    */
   reconcile(schemas: readonly SchemxField<TValues>[]): void
-  /**
-   * 协调指定 parent 下的直接 children。
-   *
-   * @param parentId - 要协调的父节点 id。
-   * @param schemas - 新一轮直接子节点 Schema 列表。
-   */
-  reconcileChildren(parentId: NodeId, schemas: readonly SchemxField<TValues>[]): void
   /**
    * 使用最近一次成功提交的 Schema 刷新已挂载节点的静态配置。
    */
@@ -150,7 +151,8 @@ export function createReconciler<TValues extends Values>(
   const reconcileChildren = (
     parentId: NodeId,
     schemas: readonly SchemxField<TValues>[],
-    skipRuntimeFieldValidation = false
+    skipRuntimeFieldValidation = false,
+    isPathRebase = false
   ): void => {
     const parent = requireParentNode(parentId)
 
@@ -174,7 +176,7 @@ export function createReconciler<TValues extends Values>(
         const node = result.children[index]
 
         if (node && desired && isGroupNode(node) && isGroupSchema(desired.schema)) {
-          reconcileChildren(node.id, desired.schema.children, true)
+          reconcileChildren(node.id, desired.schema.children, true, isPathRebase)
         }
       }
     } catch (error) {
@@ -184,8 +186,23 @@ export function createReconciler<TValues extends Values>(
     }
 
     cleanupRemovedNodes(result.removed)
-    cleanupDeferredFieldValues(result.deferredValueRemovals)
+    if (!isPathRebase) cleanupDeferredFieldValues(result.deferredValueRemovals)
     committedSchemas.set(parent.id, schemas)
+  }
+
+  // 数组值已由 Store 完成移动，这里只重定位 Schema，不能按 preserve 删除旧索引值。
+  const rebaseChildren: Reconciler<TValues>["rebaseChildren"] = (parentId, from, to) => {
+    const schemas = committedSchemas.get(parentId)
+
+    if (schemas) {
+      reconcileChildren(parentId, rebaseDynamicSchemas(schemas, from, to), true, true)
+    }
+  }
+
+  // 资源层复用同一组协调方法，创建生命周期门面时无需反向引用 Reconciler。
+  const childReconciler: ChildReconciler<TValues> = {
+    reconcileChildren,
+    rebaseChildren,
   }
 
   /**
@@ -569,7 +586,7 @@ export function createReconciler<TValues extends Values>(
 
     if (previousLocation) {
       throw new CompileError(
-        `[schemx] Duplicate field name "${schema.name}" at ${previousLocation} and ${location}.`,
+        `[schemx] Duplicate field name "${String(schema.name)}" at ${previousLocation} and ${location}.`,
         schema
       )
     }
@@ -680,12 +697,16 @@ export function createReconciler<TValues extends Values>(
           }
 
           nodeManager.insert(node, parent.id, index)
-          lifecycle.mount(node)
+          lifecycle.mount(node, childReconciler)
         }
       })
 
       for (const update of updates) {
-        const cleanupPath = lifecycle.update(update.current, update.desired)
+        const cleanupPath = lifecycle.update(
+          update.current,
+          update.desired,
+          childReconciler
+        )
 
         if (cleanupPath) {
           deferredValueRemovals.push(cleanupPath)
@@ -856,6 +877,7 @@ export function createReconciler<TValues extends Values>(
   return {
     reconcile,
     reconcileChildren,
+    rebaseChildren,
     refresh,
     clear,
   }

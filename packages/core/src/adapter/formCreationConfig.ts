@@ -1,4 +1,4 @@
-import type { SchemxConfig } from "../config/types"
+import type { SchemxConfig } from "../config"
 import type { SchemxInstance, Values } from "../types"
 
 const creationConfigKey = Symbol("schemx:creation-config")

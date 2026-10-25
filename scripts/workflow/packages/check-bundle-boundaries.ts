@@ -4,7 +4,7 @@
  * @remarks 断言构建后的 dist 产物保留了 externals，且不泄漏内部源码路径。
  * 原实现用 `rg --pcre2` 拼正则；这里直接读文件内容匹配，避免额外进程与 rg 依赖。
  */
-import { readFileSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import path from "node:path"
 
 /** 一条产物断言：必需与禁止的裸依赖。 */
@@ -183,13 +183,13 @@ function references(specifiers: ReadonlySet<string>, target: string): boolean {
  * @param failures - 失败累加器。
  * @returns 文件内容。
  */
-function readArtifact(
+async function readArtifact(
   root: string,
   relativePath: string,
   failures: string[]
-): string | undefined {
+): Promise<string | undefined> {
   try {
-    return readFileSync(path.join(root, relativePath), "utf8")
+    return await readFile(path.join(root, relativePath), "utf8")
   } catch {
     failures.push(`${relativePath}: 文件不存在`)
 
@@ -205,18 +205,18 @@ function readArtifact(
  * @param visited - 当前入口已经读取的 chunk，用于阻断循环引用。
  * @returns 入口及共享 chunk 的依赖；文件缺失时返回 undefined。
  */
-function collectArtifactSpecifiers(
+async function collectArtifactSpecifiers(
   root: string,
   file: string,
   failures: string[],
   visited = new Set<string>()
-): ReadonlySet<string> | undefined {
+): Promise<ReadonlySet<string> | undefined> {
   if (visited.has(file)) {
     return new Set<string>()
   }
 
   visited.add(file)
-  const source = readArtifact(root, file, failures)
+  const source = await readArtifact(root, file, failures)
 
   if (source === undefined) {
     return undefined
@@ -233,7 +233,7 @@ function collectArtifactSpecifiers(
 
     const chunk = path.normalize(path.join(path.dirname(file), specifier))
 
-    const dependencies = collectArtifactSpecifiers(root, chunk, failures, visited)
+    const dependencies = await collectArtifactSpecifiers(root, chunk, failures, visited)
 
     for (const dependency of dependencies ?? []) {
       found.add(dependency)
@@ -248,12 +248,13 @@ function collectArtifactSpecifiers(
  *
  * @param root - 仓库根目录。
  * @returns 检查结果。
+ * @example await checkBundleBoundaries(root)
  */
-export function checkBundleBoundaries(root: string): BoundaryCheckResult {
+export async function checkBundleBoundaries(root: string): Promise<BoundaryCheckResult> {
   const failures: string[] = []
 
   for (const rule of BUNDLE_RULES) {
-    const specifiers = collectArtifactSpecifiers(root, rule.file, failures)
+    const specifiers = await collectArtifactSpecifiers(root, rule.file, failures)
 
     if (specifiers === undefined) {
       continue
@@ -273,7 +274,7 @@ export function checkBundleBoundaries(root: string): BoundaryCheckResult {
   }
 
   for (const rule of [...DECLARATION_RULES, ...ASSET_RULES]) {
-    const source = readArtifact(root, rule.file, failures)
+    const source = await readArtifact(root, rule.file, failures)
 
     if (source === undefined) {
       continue

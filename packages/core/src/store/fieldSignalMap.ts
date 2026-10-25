@@ -2,17 +2,21 @@
  * Store 专用的字段状态和值树容器。
  *
  * FieldSignalMap 持有唯一的当前值和初始值，并统一封装字段值读写、路径依赖
- * 与 touched/pending/errors 状态。Store 只保留全表 revision、快照缓存、注册边界
- * 和 FieldArray 结构算法。
+ * 与 touched/pending/errors 状态及其只读视图。Store 协调快照与 FieldArray 结构算法。
  *
  * @module core/store/fieldSignalMap
  */
 
 import { cloneDeep, isEqual } from "es-toolkit"
 
-import { batchUpdates } from "../reactivity/batch"
-import { createSignal } from "../reactivity/signal"
 import {
+  batchUpdates,
+  createComputed,
+  createReactiveScope,
+  createSignal,
+} from "../reactivity"
+import {
+  areNamePathListsEqual,
   areSameOrOverlappingFieldPaths,
   createFieldKey,
   deleteInWithStructuralSharing,
@@ -23,12 +27,13 @@ import {
   setInWithStructuralSharing,
   toNamePathSegments,
   toStructuralPathSegments,
-} from "../utils/path"
+} from "../utils"
 
-import type { Signal } from "../reactivity/signal"
+import type { FieldState, StorePending, StoreState } from "./index"
+import type { ComputedSignal, Signal } from "../reactivity"
 import type { FieldArrayChange, FieldValue, NamePath, Values } from "../types"
-import type { FieldKey } from "../utils/path"
-import type { ValidationRuleIssue } from "../validator/types"
+import type { FieldKey } from "../utils"
+import type { ValidationRuleIssue } from "../validator"
 
 /**
  * FieldSignalMap 的构造配置。
@@ -54,11 +59,15 @@ export interface FieldSignalMapOptions<TValues extends Values> {
 }
 
 // 保存单个字段路径的响应式状态；不重复保存字段值。
-interface FieldState<TValues extends Values> {
+interface FieldSignals<TValues extends Values> {
   // 首次创建状态时使用的路径写法。
   readonly path: NamePath<TValues>
   // 当前值变更版本。
   readonly valueRevision: Signal<number>
+  // 直接追踪结构共享树中的当前字段值。
+  readonly value: ComputedSignal<unknown>
+  // 只读状态附着在现有记录上，按首次访问创建。
+  view?: FieldState<TValues>
   // 初始值变更版本。
   readonly initialRevision: Signal<number>
   // 字段是否被标记为 touched。
@@ -80,6 +89,14 @@ interface FieldState<TValues extends Values> {
  * @typeParam TValues - 表单值类型。
  */
 export interface FieldSignalMap<TValues extends Values = Values> {
+  /**
+   * 当前值树的原生 computed，仅供 Store 内部读取。
+   */
+  readonly values: ComputedSignal<TValues>
+  /**
+   * 由当前路径容器直接持有的只读状态。
+   */
+  readonly state: StoreState<TValues>
   /**
    * 注册字段路径并物化对应状态，以支持后续批量操作和交互状态读取。
    *
@@ -269,7 +286,7 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    * @param paths - 可选的字段路径列表；省略时返回全部已注册字段。
    * @returns 按路径顺序排列的字段状态记录。
    */
-  getFieldStates(paths?: readonly NamePath<TValues>[]): readonly FieldState<TValues>[]
+  getFieldStates(paths?: readonly NamePath<TValues>[]): readonly FieldSignals<TValues>[]
   /**
    * 迭代多个或全部已注册字段的路径和状态记录。
    *
@@ -278,7 +295,7 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    */
   getFieldEntries(
     paths?: readonly NamePath<TValues>[]
-  ): IterableIterator<[NamePath<TValues>, FieldState<TValues>]>
+  ): IterableIterator<[NamePath<TValues>, FieldSignals<TValues>]>
   /**
    * 迭代多个或全部已注册字段的状态记录。
    *
@@ -287,7 +304,7 @@ export interface FieldSignalMap<TValues extends Values = Values> {
    */
   getFieldValues(
     paths?: readonly NamePath<TValues>[]
-  ): IterableIterator<FieldState<TValues>>
+  ): IterableIterator<FieldSignals<TValues>>
   /**
    * 迭代多个或全部已注册字段的路径。
    *
@@ -337,7 +354,18 @@ function areMessagesEqual(previous: readonly string[], next: readonly string[]):
 // Store 专用字段路径和值状态容器实现。
 class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValues> {
   // 当前表单值的值。
-  private values: TValues
+  private currentValues: TValues
+  // 根值版本与字段版本属于同一值树，不再由 Store 再维护一份版本。
+  private readonly valuesRevision = createSignal(0)
+  // 原生 computed 只在值树变化后重新读取，未变化子树依然保持原引用。
+  readonly values: ComputedSignal<TValues> = createComputed(() => {
+    void this.valuesRevision.value
+
+    return this.currentValues
+  })
+  // 公共订阅归路径容器所有，底层依赖图交给 Signal 管理。
+  private readonly scope = createReactiveScope()
+  readonly state: StoreState<TValues>
   // reset 使用的初始值基线。
   private initialValues: Partial<TValues>
   // 当前值变更后通知 Store 的回调。
@@ -345,7 +373,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   // 初始值变更后通知 Store 的回调。
   private readonly onInitialValueChanged: () => void
   // 按规范化路径缓存惰性创建的字段状态。
-  private readonly states = new Map<FieldKey, FieldState<TValues>>()
+  private readonly states = new Map<FieldKey, FieldSignals<TValues>>()
   // 字段状态集合变化后递增，供字段集合读取建立结构依赖。
   private readonly stateRevision = createSignal(0)
   // touched 或 pending 状态变化时递增的交互版本。
@@ -360,9 +388,50 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    */
   constructor(options: FieldSignalMapOptions<TValues> = {}) {
     this.initialValues = cloneDeep(options.initialValues ?? {})
-    this.values = cloneDeep(this.initialValues) as TValues
+    this.currentValues = cloneDeep(this.initialValues) as TValues
     this.onValueChanged = options.onValueChanged ?? (() => undefined)
     this.onInitialValueChanged = options.onInitialValueChanged ?? (() => undefined)
+
+    // 聚合值使用原生 computed，只有实际内容变化时替换列表。
+    let touchedPaths: readonly NamePath<TValues>[] = []
+
+    const touchedFields = this.scope.state(() => {
+      const next = this.getFieldStates()
+        .filter((item) => item.touched.value)
+        .map((item) => item.path)
+
+      if (!areNamePathListsEqual(touchedPaths, next)) {
+        touchedPaths = next
+      }
+
+      return touchedPaths
+    })
+
+    let pendingItems: readonly StorePending<TValues>[] = []
+
+    const pendingFields = this.scope.state(() => {
+      const next = this.getFieldStates()
+        .filter((item) => item.pending.value)
+        .map((item) => ({
+          field: item.path,
+          message: item.pendingMessage.value,
+        }))
+
+      if (!isEqual(pendingItems, next)) {
+        pendingItems = next
+      }
+
+      return pendingItems
+    })
+
+    const field = this.getFieldState.bind(this)
+
+    this.state = {
+      values: this.scope.state(() => this.values.value),
+      touchedFields,
+      pendingFields,
+      field,
+    }
   }
 
   // 物化字段状态；字段注册不会复制或接管值树。
@@ -377,16 +446,16 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   getFieldValue<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    this.ensureState(path).valueRevision.value
+    void this.ensureState(path).valueRevision.value
 
-    return getByPath<TValues, TName>(this.values, path)
+    return getByPath<TValues, TName>(this.currentValues, path)
   }
 
   // 无依赖读取当前值，供快照和内部结构判断使用。
   peekFieldValue<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    return getByPath<TValues, TName>(this.values, path)
+    return getByPath<TValues, TName>(this.currentValues, path)
   }
 
   // 仅在结构共享写入实际变化时通知相关字段依赖。
@@ -405,12 +474,15 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     const segments = toStructuralPathSegments(path)
 
     const nextValues =
-      segments.length === 0 ? {} : deleteInWithStructuralSharing(this.values, segments)
+      segments.length === 0
+        ? {}
+        : deleteInWithStructuralSharing(this.currentValues, segments)
 
-    const changed = !Object.is(nextValues, this.values)
+    const changed = !Object.is(nextValues, this.currentValues)
 
     if (changed) {
-      this.values = nextValues as TValues
+      this.currentValues = nextValues as TValues
+      this.valuesRevision.value += 1
       this.onValueChanged()
       this.notifyValueChanged(path)
     }
@@ -435,7 +507,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   getFieldInitialValue<TName extends NamePath<TValues>>(
     path: TName
   ): FieldValue<TValues, TName> | undefined {
-    this.ensureState(path).initialRevision.value
+    void this.ensureState(path).initialRevision.value
 
     return getByPath<TValues, TName>(this.initialValues, path)
   }
@@ -462,16 +534,17 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     value: unknown,
     change: FieldArrayChange
   ): boolean {
-    const previousValue = getByPath<TValues>(this.values, path)
+    const previousValue = getByPath<TValues>(this.currentValues, path)
 
     if (Object.is(previousValue, value)) return false
 
-    this.values = setInWithStructuralSharing(
-      this.values,
+    this.currentValues = setInWithStructuralSharing(
+      this.currentValues,
       toStructuralPathSegments(path),
       value
     ) as TValues
 
+    this.valuesRevision.value += 1
     this.onValueChanged()
 
     this.clearArrayTransientState(path, change)
@@ -635,7 +708,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   }
 
   // 读取字段状态集合，并订阅状态集合本身的变化。
-  getFieldStates(paths?: readonly NamePath<TValues>[]): readonly FieldState<TValues>[] {
+  getFieldStates(paths?: readonly NamePath<TValues>[]): readonly FieldSignals<TValues>[] {
     const states = this.selectStates(paths)
 
     void this.stateRevision.value
@@ -646,18 +719,18 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   // 读取带路径的字段状态集合，并订阅状态集合本身的变化。
   getFieldEntries(
     paths?: readonly NamePath<TValues>[]
-  ): IterableIterator<[NamePath<TValues>, FieldState<TValues>]> {
+  ): IterableIterator<[NamePath<TValues>, FieldSignals<TValues>]> {
     void this.stateRevision.value
 
     return this.selectStates(paths)
-      .map((state) => [state.path, state] as [NamePath<TValues>, FieldState<TValues>])
+      .map((state) => [state.path, state] as [NamePath<TValues>, FieldSignals<TValues>])
       .values()
   }
 
   // 复用字段状态集合读取，保持相同的集合依赖语义。
   getFieldValues(
     paths?: readonly NamePath<TValues>[]
-  ): IterableIterator<FieldState<TValues>> {
+  ): IterableIterator<FieldSignals<TValues>> {
     return this.getFieldStates(paths).values()
   }
 
@@ -686,7 +759,9 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
   // 清空值树和所有状态；后续访问会按需重新物化状态。
   destroy(): void {
-    this.values = {} as TValues
+    this.scope.dispose()
+    this.currentValues = {} as TValues
+    this.valuesRevision.value += 1
     this.initialValues = {}
 
     this.states.clear()
@@ -695,21 +770,69 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
   }
 
   /**
+   * 在已有路径记录上创建只读视图，原生 computed 直接读取该记录的信号。
+   * @param path - 要读取的字段路径。
+   */
+  private getFieldState<TName extends NamePath<TValues>>(
+    path: TName
+  ): FieldState<TValues, TName> {
+    if (this.scope.disposed) {
+      throw new Error("[schemx] Store state has been destroyed.")
+    }
+
+    const signals = this.ensureState(path)
+
+    if (!signals.view) {
+      // 错误元信息变化但消息未变时，保持面向消费者的消息列表引用。
+      let messages: readonly string[] = []
+
+      const errors = this.scope.state(() => {
+        const next = signals.errors.value.map((issue) => issue.message)
+
+        if (!areMessagesEqual(messages, next)) {
+          messages = next
+        }
+
+        return messages
+      })
+
+      signals.view = {
+        value: this.scope.state(() => signals.value.value),
+        errors,
+        touched: this.scope.state(() => signals.touched.value),
+        pending: this.scope.state(() => signals.pending.value),
+      } as FieldState<TValues>
+    }
+
+    return signals.view as FieldState<TValues, TName>
+  }
+
+  /**
    * 获取或惰性创建指定路径的状态记录。
    *
    * @param path - 要物化状态的字段路径。
    * @returns 与规范化路径关联的状态记录。
    */
-  private ensureState(path: NamePath<TValues>): FieldState<TValues> {
+  private ensureState(path: NamePath<TValues>): FieldSignals<TValues> {
     const key = createFieldKey(path)
 
     const existing = this.states.get(key)
 
     if (existing) return existing
 
-    const state: FieldState<TValues> = {
+    // 路径版本只负责失效；computed 利用结构共享引用过滤无关父路径写入。
+    const valueRevision = createSignal(0)
+
+    const value = createComputed(() => {
+      void valueRevision.value
+
+      return getByPath<TValues>(this.currentValues, path)
+    })
+
+    const state: FieldSignals<TValues> = {
       path,
-      valueRevision: createSignal(0),
+      valueRevision,
+      value,
       initialRevision: createSignal(0),
       touched: createSignal(false),
       pending: createSignal(false),
@@ -729,10 +852,10 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    * @param paths - 可选的字段路径列表；省略时返回全部状态。
    * @returns 按字段路径顺序排列的状态记录。
    */
-  private selectStates(paths?: readonly NamePath<TValues>[]): FieldState<TValues>[] {
+  private selectStates(paths?: readonly NamePath<TValues>[]): FieldSignals<TValues>[] {
     if (paths === undefined) return [...this.states.values()]
 
-    const states = new Map<FieldKey, FieldState<TValues>>()
+    const states = new Map<FieldKey, FieldSignals<TValues>>()
 
     for (const path of paths) {
       const state = this.ensureState(path)
@@ -751,16 +874,17 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    * @returns 值实际发生变化时返回 `true`。
    */
   private writeCurrentValue(path: NamePath<TValues>, value: unknown): boolean {
-    const previousValue = getByPath<TValues>(this.values, path)
+    const previousValue = getByPath<TValues>(this.currentValues, path)
 
     if (isEqual(previousValue, value)) return false
 
-    this.values = setInWithStructuralSharing(
-      this.values,
+    this.currentValues = setInWithStructuralSharing(
+      this.currentValues,
       toStructuralPathSegments(path),
       value
     ) as TValues
 
+    this.valuesRevision.value += 1
     this.onValueChanged()
 
     return true
@@ -915,7 +1039,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    *
    * @param state - 要清理的字段状态记录。
    */
-  private clearState(state: FieldState<TValues>): void {
+  private clearState(state: FieldSignals<TValues>): void {
     const touchedChanged = state.touched.peek()
 
     const pendingChanged = state.pending.peek() || state.pendingMessage.peek().length > 0

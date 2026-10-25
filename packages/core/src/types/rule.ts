@@ -4,11 +4,15 @@
  * @module types/rule
  */
 
-import type { AsyncValidatorRule } from "./asyncValidator"
-import type { FieldValue, NamePath, Values } from "./form"
-import type { StandardSchemaV1 } from "./standardSchema"
-import type { ValidationAdapterV1 } from "./validationAdapter"
-import type { ValidationRule } from "../validator/types"
+import type {
+  AsyncValidatorRule,
+  FieldValue,
+  NamePath,
+  StandardSchemaV1,
+  ValidationAdapterV1,
+  Values,
+} from "./index"
+import type { ValidationRule } from "../validator"
 
 /**
  * 必填校验的可选配置。
@@ -148,5 +152,4 @@ export type ValidationAdapterObjectRule = Record<string, unknown> & {
  * ```
  */
 export type FieldRules<TValues extends Values, TName extends NamePath<TValues>> =
-  | FieldRule<TValues, TName>
-  | readonly FieldRule<TValues, TName>[]
+  FieldRule<TValues, TName> | readonly FieldRule<TValues, TName>[]

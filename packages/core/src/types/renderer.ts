@@ -8,9 +8,8 @@
  */
 
 // 有意保留声明合并能力，以支持渲染器专属的扩展接口。
-/* eslint-disable @typescript-eslint/no-empty-object-type */
 
-import { Values } from "./form"
+import { Values } from "./index"
 
 /**
  * 渲染器 Props 映射扩展接口。

@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { runRelease } from "../commands/release.ts"
 import { createContext } from "../core/context.ts"
-import { Ui } from "../ui/ui.ts"
+import { createTerminal } from "../ui/index.ts"
 
 import { assertPackageArtifacts } from "./adapters/artifacts.ts"
 import * as git from "./adapters/git.ts"
@@ -145,7 +145,11 @@ beforeEach(() => {
     SCHEMX_RELEASE_PRERELEASE_SEQUENCE: "0",
   }
 
-  context = createContext(root, new Ui(out, env, { signals: false }), env)
+  context = createContext(
+    root,
+    createTerminal({ output: out, env: env, handleSignals: false }),
+    env
+  )
   vi.mocked(publishPackage).mockReset().mockResolvedValue(SUCCESS)
   vi.mocked(writePackageVersion).mockReset().mockResolvedValue(SUCCESS)
   vi.mocked(createRelease).mockReset().mockResolvedValue(undefined)
@@ -153,7 +157,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
-  context.ui.cleanup()
+  context.terminal.dispose()
   rmSync(root, { recursive: true, force: true })
 })
 
@@ -290,8 +294,11 @@ describe("发布结果反馈", () => {
     expect(git.assertReleaseTagAvailable).toHaveBeenCalledOnce()
     expect(preflight.assertVersionAvailable).toHaveBeenCalledOnce()
     expect(preflight.assertPrereleaseBaselineAvailable).toHaveBeenCalledOnce()
-    expect(output).toContain("Git Tag 可用")
-    expect(output).toContain("npm 版本可用")
+    // 本测试验证检查内容，忽略终端自动换行插入的主线。
+    const text = output.replace(/\n│ {2}/g, "")
+
+    expect(text).toContain("Git Tag 可用")
+    expect(text).toContain("npm 版本可用")
   })
 
   it("多个发布包共享的未选中依赖只查询一次", async () => {
@@ -348,11 +355,15 @@ describe("发布结果反馈", () => {
     vi.clearAllMocks()
 
     expect(await runRelease(context, ["execute", planFile])).toBe(0)
-    expect(assertPackageArtifacts).toHaveBeenCalledExactlyOnceWith("@schemx/element-plus")
+    expect(assertPackageArtifacts).toHaveBeenCalledExactlyOnceWith(
+      "@schemx/element-plus",
+      expect.any(Function)
+    )
     expect(publishPackage).toHaveBeenCalledOnce()
     expect(writePackageVersion).toHaveBeenCalledExactlyOnceWith(
       path.join(root, "packages", "element-plus"),
-      "0.0.2-beta.0"
+      "0.0.2-beta.0",
+      expect.any(Function)
     )
   })
 
@@ -369,9 +380,17 @@ describe("发布结果反馈", () => {
     const planFile = path.join(root, "quality-plan.json")
 
     await createPlan(context, "beta", "element-plus", "0.0.1", planFile)
-    vi.spyOn(context.ui, "exec").mockImplementation(async (_command, args) =>
-      args.at(-1) === "lint" ? DENIED : SUCCESS
-    )
+    vi.spyOn(context.terminal, "runCommand").mockImplementation(async ({ args }) => {
+      const result = args?.at(-1) === "lint" ? DENIED : SUCCESS
+
+      return {
+        exitCode: result.code,
+        signal: null,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        output: result.output,
+      }
+    })
 
     expect(await verifyPlan(context, readPlan(planFile), planFile, true)).toBe(1)
     expect(assertPackageArtifacts).toHaveBeenCalledOnce()

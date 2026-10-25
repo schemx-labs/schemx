@@ -6,10 +6,13 @@
  * @module types/dependency
  */
 
-import type { SchemxDependencyDependencies } from "./dependencies"
-import type { NamePath, Values } from "./form"
-import type { SchemxFormApi } from "./instance"
-import type { SchemxField } from "./schema"
+import type {
+  NamePath,
+  SchemxDependencyDependencies,
+  SchemxField,
+  SchemxFormApi,
+  Values,
+} from "./index"
 
 /**
  * dependency schema renderer 执行上下文。

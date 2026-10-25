@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { createForm, isSchemxViewFieldSchema, isViewDynamicSchema } from "../index"
-import { createStore } from "../store/store"
+import { createStore } from "../store"
 
 import type { SchemxField } from "../types"
 

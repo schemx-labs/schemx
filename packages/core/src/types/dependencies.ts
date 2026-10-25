@@ -7,11 +7,16 @@
  * @module types/dependencies
  */
 
-import type { SchemxBase } from "./field"
-import type { NamePath, Values } from "./form"
-import type { SchemxFormApi } from "./instance"
-import type { SchemxRendererKey } from "./renderer"
-import type { DefinedFieldValue, FieldRules, RequiredConfig } from "./rule"
+import type {
+  DefinedFieldValue,
+  FieldRules,
+  NamePath,
+  RequiredConfig,
+  SchemxBase,
+  SchemxFormApi,
+  SchemxRendererKey,
+  Values,
+} from "./index"
 
 /**
  * 条件函数类型

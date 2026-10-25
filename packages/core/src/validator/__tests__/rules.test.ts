@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  createRequiredValidationRule,
-  createStandardSchemaValidationRule,
-} from "../built-in.rules"
+import { createRequiredValidationRule, createStandardSchemaValidationRule } from ".."
 
-import type { StandardSchemaV1 } from "../../types/standardSchema"
-import type { ValidationRuleContext } from "../types"
+import type { ValidationRuleContext } from ".."
+import type { StandardSchemaV1 } from "../../types"
 
 /**
  * 创建最小规则执行上下文。

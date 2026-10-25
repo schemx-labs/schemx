@@ -7,14 +7,12 @@
  */
 
 import { batchUpdates } from "../../reactivity"
-import { createFieldKey, setByPath } from "../../utils"
-import { areNamePathListsEqual } from "../../utils/path"
+import { areNamePathListsEqual, createFieldKey, setByPath } from "../../utils"
 
-import { createFieldDependenciesEffect } from "./dependenciesEffect"
-import { createValidationEffect } from "./validationEffect"
+import { createFieldDependenciesEffect, createValidationEffect } from "./index"
 
+import type { SchemaRuntimeContext } from ".."
 import type { NamePath, SchemxFieldDependencies, Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
 import type { FieldNode } from "../node"
 
 /**
@@ -171,6 +169,7 @@ function recreateValidationEffect<TValues extends Values>(
     validationState: node.validationState,
     scope: validationEffectScope,
     placeholder: () => node.resolvedSchema.peek().placeholder,
+    rulesOverride: () => node.rulesOverride.value,
   })
 
   validationEffectScope.add(() => {

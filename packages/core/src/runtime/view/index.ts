@@ -18,3 +18,9 @@ export type {
   SchemxViewGroupSchema,
   SchemxViewSchema,
 } from "./types"
+
+export {
+  attachRootViewSchemas,
+  attachNodeViewSchemas,
+  detachNodeViewSchemas,
+} from "./viewProjection"

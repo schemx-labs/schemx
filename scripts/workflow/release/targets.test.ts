@@ -181,7 +181,7 @@ describe("groupedOptions", () => {
   it("按 packages、plugins 分组并跳过空分组", () => {
     expect(groupedOptions(catalog)).toEqual([
       {
-        group: "Packages",
+        title: "Packages",
         options: [
           { value: "core", label: "@schemx/core · packages/core" },
           { value: "vant", label: "@schemx/vant · packages/vant" },
@@ -189,7 +189,7 @@ describe("groupedOptions", () => {
         ],
       },
       {
-        group: "Plugins",
+        title: "Plugins",
         options: [{ value: "ui", label: "@schemx/ui · plugins/ui" }],
       },
     ])
@@ -208,7 +208,7 @@ describe("groupedOptions", () => {
       const groups = groupedOptions(new Catalog(dir))
 
       expect(groups).toHaveLength(1)
-      expect(groups[0]?.group).toBe("Packages")
+      expect(groups[0]?.title).toBe("Packages")
       expect(groups[0]?.options).toEqual([
         { value: "core", label: "@schemx/core · packages/core" },
       ])

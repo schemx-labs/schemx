@@ -91,6 +91,9 @@ describe("Form reset callbacks", () => {
     await form.waitForDependencies()
 
     expect(formApi).toBeDefined()
+    expect(formApi?.getFieldValue("name")).toBe("Ada")
+    expect(formApi).not.toHaveProperty("submit")
+    expect(formApi).not.toHaveProperty("createField")
     form.setFieldValue("name", "Grace")
     formApi?.reset()
 
@@ -185,6 +188,41 @@ describe("Form reset callbacks", () => {
 })
 
 describe("Form submit loading", () => {
+  it("loading 回调同步重置时取消提交，不派发完成回调", async () => {
+    // 取消结果不能误入成功或失败业务回调。
+    const onFinish = vi.fn()
+
+    // 重置取消与普通校验失败保持区分。
+    const onFinishFailed = vi.fn()
+
+    /**
+     * 在提交启动时同步重置，检查入口是否提前捕获重置版本。
+     * @param loading - 当前提交状态；仅启动时触发重置。
+     */
+    const onLoadingChange = vi.fn((loading: boolean): void => {
+      if (loading) form.reset()
+    })
+
+    // 不配置异步规则，使取消仅来源于 loading 回调内的重置。
+    const form = createForm({
+      initialValues: { name: "Ada" },
+      onFinish,
+      onFinishFailed,
+      onLoadingChange,
+    })
+
+    // submit 必须返回取消结果，并正常关闭 loading。
+    const result = await form.submit()
+
+    expect(result).toMatchObject({ valid: false, cancelled: true })
+    expect(onFinish).not.toHaveBeenCalled()
+    expect(onFinishFailed).not.toHaveBeenCalled()
+    expect(form.isLoading()).toBe(false)
+    expect(onLoadingChange.mock.calls).toEqual([[true], [false]])
+
+    form.destroy()
+  })
+
   it("覆盖异步 onFinish，并为并发 submit 只发布一次状态切换", async () => {
     const deferred = createDeferred()
 

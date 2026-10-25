@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import type { SchemxField } from "../schema"
+import type { SchemxField } from ".."
 
 describe("SchemxField 容器结构类型", () => {
   it("允许无 componentType 的 Group 和 Dependency", () => {

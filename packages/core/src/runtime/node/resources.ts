@@ -7,6 +7,7 @@
  */
 
 import { createComputed, createSignal } from "../../reactivity"
+import { createFieldKey } from "../../utils"
 import {
   mountDependencyResources,
   unmountDependencyResources,
@@ -16,7 +17,7 @@ import {
   mountDynamicResources,
   unmountDynamicResources,
   updateDynamicResources,
-} from "../dynamic/resources"
+} from "../dynamic"
 import {
   mountFieldResources,
   unmountFieldResources,
@@ -27,7 +28,7 @@ import {
   unmountPresentationResources,
   updatePresentationResources,
 } from "../presentation"
-import { attachNodeViewSchemas, detachNodeViewSchemas } from "../view/viewProjection"
+import { attachNodeViewSchemas, detachNodeViewSchemas } from "../view"
 
 import {
   isDependencyNode,
@@ -36,11 +37,11 @@ import {
   isGroupNode,
   isRootNode,
   updateFieldDiagnostics,
-} from "./helper"
+} from "./index"
 
+import type { ChildReconciler, SchemaRuntimeContext } from ".."
+import type { ContainerNode, SchemaNode } from "./index"
 import type { NamePath, Values } from "../../types"
-import type { SchemaRuntimeContext } from "../context"
-import type { ContainerNode, SchemaNode } from "./types"
 
 /**
  * Node 的资源与生命周期编排门面。
@@ -58,17 +59,20 @@ export interface NodeLifecycle<TValues extends Values = Values> {
    * 挂载节点的领域资源和 ViewSchema computed。
    *
    * @param node - 已挂入节点树的 SchemaNode。
+   * @param childReconciler - 本次挂载及后续 effect 使用的子树协调能力。
    */
-  mount(node: SchemaNode<TValues>): void
+  mount(node: SchemaNode<TValues>, childReconciler: ChildReconciler<TValues>): void
   /**
    * 使用 detached 节点更新当前节点及其领域资源。
    *
    * @param current - 树中被复用的当前节点。
    * @param desired - 携带下一轮配置的 detached 节点。
+   * @param childReconciler - 本次更新及重建资源使用的子树协调能力。
    */
   update(
     current: SchemaNode<TValues>,
-    desired: SchemaNode<TValues>
+    desired: SchemaNode<TValues>,
+    childReconciler: ChildReconciler<TValues>
   ): NamePath<TValues> | undefined
   /**
    * 卸载节点并按需删除字段当前值。
@@ -119,7 +123,7 @@ export interface NodeUnmountOptions {
  * @example
  * ```ts
  * const lifecycle = createNodeLifecycle(context)
- * lifecycle.mount(node)
+ * lifecycle.mount(node, childReconciler)
  * ```
  */
 export function createNodeLifecycle<TValues extends Values>(
@@ -131,16 +135,17 @@ export function createNodeLifecycle<TValues extends Values>(
   }
 
   // 挂载领域资源、ViewSchema computed，并在完成后发布 mounted 事件。
-  const mount = (node: SchemaNode<TValues>): void => {
-    mountNodeResources(node, context)
+  const mount: NodeLifecycle<TValues>["mount"] = (node, childReconciler) => {
+    mountNodeResources(node, context, childReconciler)
   }
 
   // 更新当前节点的配置和资源，并发布 updated 事件。
-  const update = (
-    current: SchemaNode<TValues>,
-    desired: SchemaNode<TValues>
-  ): NamePath<TValues> | undefined => {
-    return updateNodeResources(current, desired, context)
+  const update: NodeLifecycle<TValues>["update"] = (
+    current,
+    desired,
+    childReconciler
+  ) => {
+    return updateNodeResources(current, desired, context, childReconciler)
   }
 
   // 卸载 ViewSchema computed 和领域资源，但不释放节点自身 scope。
@@ -150,7 +155,7 @@ export function createNodeLifecycle<TValues extends Values>(
 
   // 幂等释放节点 scope；discard 复用同一释放语义。
   const dispose = (node: ContainerNode<TValues>): void => {
-    if (node.disposed.peek()) {
+    if (node.scope.disposed) {
       return
     }
 
@@ -179,16 +184,18 @@ export function createNodeLifecycle<TValues extends Values>(
  * @typeParam TValues - 表单值类型。
  * @param node - 已挂入父节点的 Node。
  * @param context - 表单运行时上下文。
+ * @param childReconciler - 挂载资源使用的子树协调能力。
  * @throws 节点尚未挂入父节点时抛出错误。
  *
  * @example
  * ```ts
- * mountNodeResources(node, context)
+ * mountNodeResources(node, context, childReconciler)
  * ```
  */
 export function mountNodeResources<TValues extends Values>(
   node: SchemaNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   if (!node.parent) {
     throw new Error(
@@ -196,7 +203,7 @@ export function mountNodeResources<TValues extends Values>(
     )
   }
 
-  mountDomainResources(node, context)
+  mountDomainResources(node, context, childReconciler)
   attachNodeViewSchemas(node, context.debug)
   context.lifecycle.emitMounted(node)
 }
@@ -208,16 +215,18 @@ export function mountNodeResources<TValues extends Values>(
  * @param node - 实际树中被复用的节点。
  * @param desired - 携带下一轮配置的 detached 节点。
  * @param context - 表单运行时上下文。
+ * @param childReconciler - 更新资源使用的子树协调能力。
  *
  * @example
  * ```ts
- * updateNodeResources(currentNode, desiredNode, context)
+ * updateNodeResources(currentNode, desiredNode, context, childReconciler)
  * ```
  */
 export function updateNodeResources<TValues extends Values>(
   node: SchemaNode<TValues>,
   desired: SchemaNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): NamePath<TValues> | undefined {
   let previousNode: SchemaNode<TValues>
 
@@ -307,7 +316,12 @@ export function updateNodeResources<TValues extends Values>(
   }
 
   applyNode(node, desired)
-  const valueCleanupPath = updateDomainResources(node, previousNode, context)
+  const valueCleanupPath = updateDomainResources(
+    node,
+    previousNode,
+    context,
+    childReconciler
+  )
 
   context.lifecycle.emitUpdated(node, previousNode)
 
@@ -336,6 +350,10 @@ export function unmountNodeResources<TValues extends Values>(
     return
   }
 
+  // 卸载回调开始前使所有节点控制器失效，保留值由 preserve 单独决定。
+  node.disposed.value = true
+  if (isFieldNode(node)) node.pathController.abort()
+
   detachNodeViewSchemas(node)
   unmountDomainResources(node, context)
 
@@ -352,11 +370,13 @@ export function unmountNodeResources<TValues extends Values>(
  * @param node - 实际树中被复用的节点。
  * @param previousNode - 更新前的节点快照。
  * @param context - 表单运行时上下文。
+ * @param childReconciler - Dependency 和 Dynamic 资源使用的子树协调能力。
  */
 function updateDomainResources<TValues extends Values>(
   node: SchemaNode<TValues>,
   previousNode: SchemaNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): NamePath<TValues> | undefined {
   if (isFieldNode(node) && isFieldNode(previousNode)) {
     return updateFieldResources(node, previousNode, context)
@@ -370,13 +390,13 @@ function updateDomainResources<TValues extends Values>(
 
   if (isDynamicNode(node) && isDynamicNode(previousNode)) {
     updatePresentationResources(node, previousNode, context)
-    updateDynamicResources(node, previousNode, context)
+    updateDynamicResources(node, previousNode, context, childReconciler)
 
     return undefined
   }
 
   if (isDependencyNode(node) && isDependencyNode(previousNode)) {
-    updateDependencyResources(node, previousNode, context)
+    updateDependencyResources(node, previousNode, context, childReconciler)
 
     return undefined
   }
@@ -391,10 +411,12 @@ function updateDomainResources<TValues extends Values>(
  *
  * @param node - 需要挂载资源的节点。
  * @param context - 表单运行时上下文。
+ * @param childReconciler - Dependency 和 Dynamic 资源使用的子树协调能力。
  */
 function mountDomainResources<TValues extends Values>(
   node: SchemaNode<TValues>,
-  context: SchemaRuntimeContext<TValues>
+  context: SchemaRuntimeContext<TValues>,
+  childReconciler: ChildReconciler<TValues>
 ): void {
   if (isFieldNode(node)) {
     mountFieldResources(node, context)
@@ -410,12 +432,12 @@ function mountDomainResources<TValues extends Values>(
 
   if (isDynamicNode(node)) {
     mountPresentationResources(node, context)
-    mountDynamicResources(node, context)
+    mountDynamicResources(node, context, childReconciler)
 
     return
   }
 
-  mountDependencyResources(node, context)
+  mountDependencyResources(node, context, childReconciler)
 }
 
 /**
@@ -464,9 +486,16 @@ function applyNode<TValues extends Values>(
   desired: SchemaNode<TValues>
 ): void {
   if (isFieldNode(node) && isFieldNode(desired)) {
+    const previousPathController =
+      createFieldKey(node.name.peek()) !== createFieldKey(desired.name.peek())
+        ? node.pathController
+        : undefined
+
+    if (previousPathController) node.pathController = new AbortController()
     node.configToken = desired.configToken
     node.name.value = desired.name.peek()
     node.compiledSchema.value = desired.compiledSchema.peek()
+    previousPathController?.abort()
     updateFieldDiagnostics(node, {
       lastUpdatedBy: "static-schema",
       triggerFields: [],

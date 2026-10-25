@@ -7,17 +7,9 @@
  * @module core/runtime/node/__tests__/signalsTestUtils
  */
 
+import { isSchemaNode } from ".."
 import { createComputed, createSignal } from "../../../reactivity"
-import { isSchemaNode } from "../helper"
 
-import type { ComputedSignal, Signal } from "../../../reactivity"
-import type {
-  NamePath,
-  SchemxBaseField,
-  SchemxComponentProps,
-  Values,
-} from "../../../types"
-import type { FieldRules } from "../../../types/rule"
 import type {
   FieldDependencyOverrideKey,
   FieldDependencyOverrides,
@@ -28,7 +20,15 @@ import type {
   PresentationState,
   ResolvedFieldSchema,
   SchemaNode,
-} from "../types"
+} from ".."
+import type { ComputedSignal, Signal } from "../../../reactivity"
+import type {
+  FieldRules,
+  NamePath,
+  SchemxBaseField,
+  SchemxComponentProps,
+  Values,
+} from "../../../types"
 
 /**
  * 写入测试用字段动态覆盖时附带的诊断信息。

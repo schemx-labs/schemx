@@ -9,20 +9,19 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  attachNodeViewSchemas,
+  attachRootViewSchemas,
+  detachNodeViewSchemas,
+  isSchemxViewFieldSchema,
+} from ".."
+import { createNodeManager, createScope } from "../../node"
+import {
   createDependencyNode,
   createFieldNode,
   createGroupNode,
   createRootNode,
 } from "../../node/__tests__/nodeTestUtils"
 import { setFieldDependencyOverrides } from "../../node/__tests__/signalsTestUtils"
-import { createNodeManager } from "../../node/nodeManager"
-import { createScope } from "../../node/scope"
-import { isSchemxViewFieldSchema } from "../helper"
-import {
-  attachNodeViewSchemas,
-  attachRootViewSchemas,
-  detachNodeViewSchemas,
-} from "../viewProjection"
 
 import type { SchemxBaseField, SchemxDependencyField } from "../../../types"
 // 验证 viewProjection 对各类 Node 的 ViewSchema 创建、更新与清理。
@@ -47,7 +46,10 @@ describe("viewProjection", () => {
     attachNodeViewSchemas(node)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
-    expect(node.viewSchemas?.value[0]?.key).toBe("field:name")
+    expect(node.viewSchemas?.value[0]).toMatchObject({
+      key: "field:name",
+      nodeId: 1,
+    })
     expect(node.viewSchemas?.value[0]).not.toHaveProperty("dependencies")
   })
 
@@ -114,7 +116,10 @@ describe("viewProjection", () => {
     attachNodeViewSchemas(node)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
-    expect(node.viewSchemas?.value[0]?.key).toBe("group:0")
+    expect(node.viewSchemas?.value[0]).toMatchObject({
+      key: "group:0",
+      nodeId: 1,
+    })
     expect(node.viewSchemas?.value[0]?.debug).toBeUndefined()
   })
 
@@ -127,9 +132,12 @@ describe("viewProjection", () => {
 
     attachNodeViewSchemas(node, true)
 
-    expect(node.viewSchemas?.value[0]?.debug).toMatchObject({
-      runtimeNodeId: 1,
-      runtimeNodeType: "group",
+    expect(node.viewSchemas?.value[0]).toMatchObject({
+      nodeId: 1,
+      debug: {
+        runtimeNodeId: 1,
+        runtimeNodeType: "group",
+      },
     })
   })
 

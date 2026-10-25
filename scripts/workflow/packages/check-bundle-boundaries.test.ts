@@ -145,22 +145,22 @@ afterEach(() => {
 })
 
 describe("checkBundleBoundaries 合规基线", () => {
-  it("全部产物合规时返回 ok", () => {
-    expect(checkBundleBoundaries(root)).toEqual({ ok: true, failures: [] })
+  it("全部产物合规时返回 ok", async () => {
+    expect(await checkBundleBoundaries(root)).toEqual({ ok: true, failures: [] })
   })
 
-  it("只导入子路径也算引用了父级 externals", () => {
+  it("只导入子路径也算引用了父级 externals", async () => {
     write(
       "packages/vue/dist/index.mjs",
       "import core from '@schemx/core/dist'\nimport cn from 'classnames'\n"
     )
 
-    expect(checkBundleBoundaries(root).failures).toEqual([
+    expect((await checkBundleBoundaries(root)).failures).toEqual([
       "packages/vue/dist/index.mjs: 缺少 es-toolkit",
     ])
   })
 
-  it("副作用 import 不算引用", () => {
+  it("副作用 import 不算引用", async () => {
     write(
       "packages/vue/dist/index.mjs",
       ["import '@schemx/core'", "import 'classnames'", "import 'es-toolkit'", ""].join(
@@ -168,14 +168,14 @@ describe("checkBundleBoundaries 合规基线", () => {
       )
     )
 
-    expect(checkBundleBoundaries(root).failures).toEqual([
+    expect((await checkBundleBoundaries(root)).failures).toEqual([
       "packages/vue/dist/index.mjs: 缺少 @schemx/core",
       "packages/vue/dist/index.mjs: 缺少 classnames",
       "packages/vue/dist/index.mjs: 缺少 es-toolkit",
     ])
   })
 
-  it("动态 import 计入 externals 引用", () => {
+  it("动态 import 计入 externals 引用", async () => {
     write(
       "packages/vue/dist/index.mjs",
       [
@@ -185,29 +185,29 @@ describe("checkBundleBoundaries 合规基线", () => {
       ].join("\n")
     )
 
-    expect(checkBundleBoundaries(root).failures).toEqual([
+    expect((await checkBundleBoundaries(root)).failures).toEqual([
       "packages/vue/dist/index.mjs: 缺少 es-toolkit",
     ])
   })
 })
 
 describe("checkBundleBoundaries JS 产物规则", () => {
-  it("缺少 required externals 时报告「缺少」", () => {
+  it("缺少 required externals 时报告「缺少」", async () => {
     write("packages/vant/dist/index.mjs", esm("@schemx/vue", "classnames", "dayjs"))
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain("packages/vant/dist/index.mjs: 缺少 es-toolkit")
   })
 
-  it("cjs 产物同样参与 externals 断言", () => {
+  it("cjs 产物同样参与 externals 断言", async () => {
     write(
       "packages/core/dist/index.cjs",
       cjs("es-toolkit", "es-toolkit/compat", "@preact/signals-core")
     )
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -215,13 +215,13 @@ describe("checkBundleBoundaries JS 产物规则", () => {
     )
   })
 
-  it("出现 forbidden externals 时报告「泄漏」", () => {
+  it("出现 forbidden externals 时报告「泄漏」", async () => {
     write(
       "packages/vue/dist/index.mjs",
       esm("@schemx/core", "classnames", "es-toolkit", "simple-async-context")
     )
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -229,7 +229,7 @@ describe("checkBundleBoundaries JS 产物规则", () => {
     )
   })
 
-  it("子路径也判定为对父级 externals 的泄漏", () => {
+  it("子路径也判定为对父级 externals 的泄漏", async () => {
     write(
       "packages/element-plus/dist/index.mjs",
       esm(
@@ -241,12 +241,12 @@ describe("checkBundleBoundaries JS 产物规则", () => {
       )
     )
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/element-plus/dist/index.mjs: 泄漏 vant"
     )
   })
 
-  it("core 产物泄漏 @schemx/validator 时报错", () => {
+  it("core 产物泄漏 @schemx/validator 时报错", async () => {
     write(
       "packages/core/dist/index.mjs",
       esm(
@@ -258,15 +258,15 @@ describe("checkBundleBoundaries JS 产物规则", () => {
       )
     )
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/core/dist/index.mjs: 泄漏 @schemx/validator"
     )
   })
 
-  it("产物文件缺失时报告「文件不存在」且不重复报告「缺少」", () => {
+  it("产物文件缺失时报告「文件不存在」且不重复报告「缺少」", async () => {
     rmSync(path.join(root, "packages/vant/dist/index.mjs"))
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain("packages/vant/dist/index.mjs: 文件不存在")
@@ -275,10 +275,10 @@ describe("checkBundleBoundaries JS 产物规则", () => {
     )
   })
 
-  it("同一条规则缺多个 externals 时逐条报告", () => {
+  it("同一条规则缺多个 externals 时逐条报告", async () => {
     write("packages/vant/dist/index.mjs", esm("@schemx/vue"))
 
-    expect(checkBundleBoundaries(root).failures).toEqual([
+    expect((await checkBundleBoundaries(root)).failures).toEqual([
       "packages/vant/dist/index.mjs: 缺少 classnames",
       "packages/vant/dist/index.mjs: 缺少 dayjs",
       "packages/vant/dist/index.mjs: 缺少 es-toolkit",
@@ -287,56 +287,62 @@ describe("checkBundleBoundaries JS 产物规则", () => {
 })
 
 describe("checkBundleBoundaries 共享 chunk", () => {
-  it.each(["mjs", "cjs"])("%s 入口沿共享 chunk 收集 external，允许循环引用", (format) => {
-    const entry = "packages/vue/dist/index." + format
+  it.each(["mjs", "cjs"])(
+    "%s 入口沿共享 chunk 收集 external，允许循环引用",
+    async (format) => {
+      const entry = "packages/vue/dist/index." + format
 
-    const chunk = "packages/vue/dist/shared." + format
+      const chunk = "packages/vue/dist/shared." + format
 
-    const render = format === "mjs" ? esm : cjs
+      const render = format === "mjs" ? esm : cjs
 
-    write(entry, render("./shared." + format))
-    write(chunk, render("./index." + format, "@schemx/core", "classnames", "es-toolkit"))
-    expect(checkBundleBoundaries(root)).toEqual({ ok: true, failures: [] })
-  })
+      write(entry, render("./shared." + format))
+      write(
+        chunk,
+        render("./index." + format, "@schemx/core", "classnames", "es-toolkit")
+      )
+      expect(await checkBundleBoundaries(root)).toEqual({ ok: true, failures: [] })
+    }
+  )
 
-  it("共享 chunk 中的禁止依赖仍按入口报告", () => {
+  it("共享 chunk 中的禁止依赖仍按入口报告", async () => {
     write("packages/vue/dist/index.mjs", esm("./shared.js"))
     write(
       "packages/vue/dist/shared.js",
       esm("@schemx/core", "classnames", "es-toolkit", "simple-async-context")
     )
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/vue/dist/index.mjs: 泄漏 simple-async-context"
     )
   })
 
-  it("共享 chunk 缺失时报告真实文件路径", () => {
+  it("共享 chunk 缺失时报告真实文件路径", async () => {
     write(
       "packages/vue/dist/index.cjs",
       cjs("./missing.cjs", "@schemx/core", "classnames", "es-toolkit")
     )
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/vue/dist/missing.cjs: 文件不存在"
     )
   })
 })
 
 describe("checkBundleBoundaries 类型声明与样式规则", () => {
-  it("类型声明缺少 token 时报告「类型声明缺少」", () => {
+  it("类型声明缺少 token 时报告「类型声明缺少」", async () => {
     write(
       "packages/element-plus/dist/types/schemx.d.ts",
       "import type { S } from '@schemx/vue'\n"
     )
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/element-plus/dist/types/schemx.d.ts: 类型声明缺少 @schemx/core"
     )
   })
 
-  it("类型声明泄漏内部源码相对路径时报「类型声明泄漏」", () => {
+  it("类型声明泄漏内部源码相对路径时报「类型声明泄漏」", async () => {
     write("packages/vant/dist/index.d.ts", "export * from '../../vue/src/index'\n")
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain(
@@ -344,26 +350,26 @@ describe("checkBundleBoundaries 类型声明与样式规则", () => {
     )
   })
 
-  it("element-plus 类型声明出现 vant 时报错", () => {
+  it("element-plus 类型声明出现 vant 时报错", async () => {
     write(
       "packages/element-plus/dist/index.d.ts",
       "export * from '@schemx/vue'\ndeclare const v: vant\n"
     )
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/element-plus/dist/index.d.ts: 类型声明泄漏 vant"
     )
   })
 
-  it("样式产物缺少 token 时同样走「类型声明缺少」文案", () => {
+  it("样式产物缺少 token 时同样走「类型声明缺少」文案", async () => {
     write("packages/vue/dist/style.css", ".schemx-row { display: flex; }\n")
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/vue/dist/style.css: 类型声明缺少 .schemx-field"
     )
   })
 
-  it("样式产物混入另一套 UI 变量时报「类型声明泄漏」", () => {
+  it("样式产物混入另一套 UI 变量时报「类型声明泄漏」", async () => {
     write(
       "packages/vant/dist/style.css",
       [
@@ -373,16 +379,16 @@ describe("checkBundleBoundaries 类型声明与样式规则", () => {
       ].join("\n")
     )
 
-    const result = checkBundleBoundaries(root)
+    const result = await checkBundleBoundaries(root)
 
     expect(result.ok).toBe(false)
     expect(result.failures).toContain("packages/vant/dist/style.css: 类型声明泄漏 --el-")
   })
 
-  it("样式产物文件缺失时报「文件不存在」", () => {
+  it("样式产物文件缺失时报「文件不存在」", async () => {
     rmSync(path.join(root, "packages/element-plus/dist/style.css"))
 
-    expect(checkBundleBoundaries(root).failures).toContain(
+    expect((await checkBundleBoundaries(root)).failures).toContain(
       "packages/element-plus/dist/style.css: 文件不存在"
     )
   })

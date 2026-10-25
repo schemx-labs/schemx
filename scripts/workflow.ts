@@ -12,7 +12,12 @@ import { runWorkspaceTask, workspaceUsage } from "./workflow/commands/workspace.
 import { createContext } from "./workflow/core/context.ts"
 import { usageError, WorkflowError } from "./workflow/core/errors.ts"
 import { resolveRoot } from "./workflow/core/root.ts"
-import { Ui } from "./workflow/ui/ui.ts"
+import {
+  endWorkflowFlow,
+  formatWorkflowText,
+  runWorkflowCommand,
+} from "./workflow/presentation.ts"
+import { createTerminal } from "./workflow/ui/index.ts"
 
 import type { Context } from "./workflow/core/context.ts"
 
@@ -29,12 +34,6 @@ const WORKSPACE_TASKS = new Set([
   "type-check:tests",
   "test",
 ])
-
-// 旧命令统一分派到主命令，保持现有调用可用。
-const COMMAND_ALIASES: Readonly<Record<string, string>> = {
-  "code-check": "check",
-  "release:test": "test:scripts",
-}
 
 // 项目脚本自检的进程定义。
 interface SelfCheck {
@@ -67,7 +66,6 @@ export function usage(): string {
     "项目脚本自检：type-check:scripts、test:scripts",
     "tool command：preview、pack-local、check:packages",
     "release command：release <check|pack|publish|plan|dry-run|verify|execute> [...]",
-    "兼容别名：code-check → check、release:test → test:scripts",
   ].join("\n")
 }
 
@@ -85,9 +83,7 @@ export async function dispatch(
   context: Context,
   args: readonly string[]
 ): Promise<number> {
-  const requested = args[0] ?? ""
-
-  const command = COMMAND_ALIASES[requested] ?? requested
+  const command = args[0] ?? ""
 
   const rest = args.slice(1)
 
@@ -95,7 +91,9 @@ export async function dispatch(
   const help = rest.some((arg) => arg === "help" || arg === "-h" || arg === "--help")
 
   if (command === "" || command === "help" || command === "-h" || command === "--help") {
-    context.ui.note(usage())
+    context.terminal.text({
+      content: formatWorkflowText({ terminal: context.terminal, content: usage() }),
+    })
 
     return command === "" ? 2 : 0
   }
@@ -132,7 +130,12 @@ export async function dispatch(
 
   if (selfCheck) {
     if (help) {
-      context.ui.note(`用法：pnpm ${command}`)
+      context.terminal.text({
+        content: formatWorkflowText({
+          terminal: context.terminal,
+          content: `用法：pnpm ${command}`,
+        }),
+      })
 
       return 0
     }
@@ -155,22 +158,32 @@ export async function dispatch(
  * @returns 退出码。
  */
 async function runSelfCheck(context: Context, check: SelfCheck): Promise<number> {
-  const { ui, root } = context
+  const { terminal, root } = context
 
-  ui.flowBegin({
+  const flowId1 = terminal.startFlow({
     domain: "workspace",
     title: check.title,
-    description: "覆盖项目脚本自身。",
+    description: formatWorkflowText({ terminal, content: "覆盖项目脚本自身。" }),
   })
-  const exitCode = await ui.task(
-    { title: check.title, log: "live" },
-    async () => await ui.exec(check.command, check.args, { cwd: root })
-  )
 
-  ui.flowEndFromExitCode(exitCode, {
-    success: `${check.title}完成。`,
-    failed: `${check.title}未通过。`,
-    cancelled: `${check.title}已取消。`,
+  const exitCode = await runWorkflowCommand({
+    terminal: terminal,
+    title: check.title,
+    command: check.command,
+    args: check.args,
+    cwd: root,
+    parentId: flowId1,
+  })
+
+  endWorkflowFlow({
+    terminal: terminal,
+    flowId: flowId1,
+    exitCode: exitCode,
+    messages: {
+      success: `${check.title}完成。`,
+      failed: `${check.title}未通过。`,
+      cancelled: `${check.title}已取消。`,
+    },
   })
 
   return exitCode
@@ -183,59 +196,81 @@ async function runSelfCheck(context: Context, check: SelfCheck): Promise<number>
  * @returns 进程退出码。
  */
 export async function main(argv: readonly string[]): Promise<number> {
-  const ui = new Ui()
+  const terminal = createTerminal({ cwd: resolveRoot() })
 
-  const context = createContext(resolveRoot(), ui)
+  const context = createContext(resolveRoot(), terminal)
 
   try {
     return await dispatch(context, argv)
   } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      terminal.info({ message: "操作已取消。" })
+
+      return 0
+    }
+
     if (error instanceof WorkflowError) {
       // 用法错误额外打印帮助，便于直接定位。
       if (error.exitCode === 2) {
-        ui.status("error", error.message)
-        const requested = argv[0] ?? ""
-
-        const command = COMMAND_ALIASES[requested] ?? requested
+        terminal.status({ tone: "error", message: error.message })
+        const command = argv[0] ?? ""
 
         if (command === "release") {
-          ui.note(releaseUsage())
+          terminal.text({
+            content: formatWorkflowText({ terminal: terminal, content: releaseUsage() }),
+          })
         } else if (command === "fix") {
-          ui.note(fixUsage())
+          terminal.text({
+            content: formatWorkflowText({ terminal: terminal, content: fixUsage() }),
+          })
         } else if (
           command === "preview" ||
           command === "pack-local" ||
           command === "check:packages"
         ) {
-          ui.note(toolsUsage())
+          terminal.text({
+            content: formatWorkflowText({ terminal: terminal, content: toolsUsage() }),
+          })
         } else if (command === "dev" || WORKSPACE_TASKS.has(command)) {
-          ui.note(workspaceUsage())
+          terminal.text({
+            content: formatWorkflowText({
+              terminal: terminal,
+              content: workspaceUsage(),
+            }),
+          })
         } else {
-          ui.note(usage())
+          terminal.text({
+            content: formatWorkflowText({ terminal: terminal, content: usage() }),
+          })
         }
 
         return 2
       }
 
       if (error.exitCode === 130) {
-        ui.status("info", "操作已取消。")
+        terminal.status({ tone: "info", message: "操作已取消。" })
 
         return 0
       }
 
-      ui.status("error", error.message)
+      terminal.status({ tone: "error", message: error.message })
 
       return error.exitCode
     }
 
-    ui.status("error", error instanceof Error ? error.message : String(error))
+    terminal.status({
+      tone: "error",
+      message: error instanceof Error ? error.message : String(error),
+    })
     if (process.env.WORKFLOW_DEBUG === "true" && error instanceof Error && error.stack) {
-      process.stderr.write(`${error.stack}\n`)
+      terminal.text({
+        content: formatWorkflowText({ terminal: terminal, content: error.stack }),
+      })
     }
 
     return 1
   } finally {
-    ui.cleanup()
+    terminal.dispose()
   }
 }
 

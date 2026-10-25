@@ -1,13 +1,12 @@
 /**
  * 发布输入适配器。在 CLI、环境变量与交互控件之间取得一个有效值。
  */
-import { type Catalog } from "../core/catalog.ts"
 import { usageError } from "../core/errors.ts"
-import { confirm, groupMultiselect, select, text } from "../ui/prompt.ts"
-import { type Ui } from "../ui/ui.ts"
 
 import { groupedOptions, resolveTargets } from "./targets.ts"
 import { isAction, isChannel, isStable } from "./versions.ts"
+
+import type { Context } from "../core/context.ts"
 
 /** 发布通道的展示文案。 */
 const CHANNEL_CHOICES: readonly { value: string; label: string }[] = [
@@ -39,20 +38,23 @@ const PRERELEASE_ACTION_CHOICES: readonly { value: string; label: string }[] = [
 /**
  * 选择或验证发布通道。
  *
- * @param ui - 终端 UI。
+ * @param context - 命令上下文，含终端和业务环境。
  * @param requested - 命令行指定的通道。
  * @returns 发布通道。
  * @throws {WorkflowError} 通道非法、非交互环境未指定或用户取消时抛出。
  */
-export async function selectChannel(ui: Ui, requested: string): Promise<string> {
-  const channel = requested || ui.env.SCHEMX_RELEASE_CHANNEL || ""
+export async function selectChannel(
+  context: Context,
+  requested: string
+): Promise<string> {
+  const channel = requested || context.env.SCHEMX_RELEASE_CHANNEL || ""
 
   if (channel === "") {
-    if (!ui.interactive) {
+    if (!context.terminal.isInteractive) {
       throw usageError("非交互环境必须通过参数或 SCHEMX_RELEASE_CHANNEL 指定发布通道。")
     }
 
-    return await select("发布通道", CHANNEL_CHOICES)
+    return await context.terminal.select({ title: "发布通道", options: CHANNEL_CHOICES })
   }
 
   if (!isChannel(channel)) {
@@ -65,51 +67,55 @@ export async function selectChannel(ui: Ui, requested: string): Promise<string> 
 /**
  * 选择一个或多个发布目标，并统一转换为稳定的逗号分隔参数。
  *
- * @param ui - 终端 UI。
- * @param catalog - 目录索引。
+ * @param context - 命令上下文，含终端和业务环境。
  * @param requested - 命令行指定的目标。
  * @returns 逗号分隔的逻辑包名。
  * @throws {WorkflowError} 目标非法、非交互环境未指定或用户取消时抛出。
  */
-export async function selectTarget(
-  ui: Ui,
-  catalog: Catalog,
-  requested: string
-): Promise<string> {
-  let target = requested || ui.env.SCHEMX_RELEASE_TARGET || ""
+export async function selectTarget(context: Context, requested: string): Promise<string> {
+  let target = requested || context.env.SCHEMX_RELEASE_TARGET || ""
 
   if (target === "") {
-    if (!ui.interactive) {
+    if (!context.terminal.isInteractive) {
       throw usageError("非交互环境必须通过参数或 SCHEMX_RELEASE_TARGET 指定发布目标。")
     }
 
-    const selected = await groupMultiselect("发布目标（可多选）", groupedOptions(catalog))
+    const selected = await context.terminal.groupMultiselect({
+      title: "发布目标（可多选）",
+      groups: groupedOptions(context.catalog),
+    })
 
     target = selected.join(",")
   }
 
-  return resolveTargets(catalog, target).join(",")
+  return resolveTargets(context.catalog, target).join(",")
 }
 
 /**
  * 选择精确的正式版本基线。
  *
- * @param ui - 终端 UI。
+ * @param context - 命令上下文，含终端和业务环境。
  * @param requested - 命令行指定的版本。
  * @returns 精确版本。
  * @throws {WorkflowError} 格式非法、非交互环境未指定或用户取消时抛出。
  */
-export async function selectExactVersion(ui: Ui, requested: string): Promise<string> {
-  const version = requested || ui.env.SCHEMX_RELEASE_CUSTOM_VERSION || ""
+export async function selectExactVersion(
+  context: Context,
+  requested: string
+): Promise<string> {
+  const version = requested || context.env.SCHEMX_RELEASE_CUSTOM_VERSION || ""
 
   if (version === "") {
-    if (!ui.interactive) {
+    if (!context.terminal.isInteractive) {
       throw usageError(
         "非交互环境必须通过参数或 SCHEMX_RELEASE_CUSTOM_VERSION 指定版本基线。"
       )
     }
 
-    const entered = await text("输入发布版本基线", "例如 1.0.0")
+    const entered = await context.terminal.input({
+      title: "输入发布版本基线",
+      placeholder: "例如 1.0.0",
+    })
 
     if (!isStable(entered)) {
       throw usageError("版本基线必须是 x.y.z 格式。")
@@ -128,55 +134,55 @@ export async function selectExactVersion(ui: Ui, requested: string): Promise<str
 /**
  * 按通道选择或验证版本动作。
  *
- * @param ui - 终端 UI。
+ * @param context - 命令上下文，含终端和业务环境。
  * @param channel - 发布通道。
  * @param requested - 命令行指定的版本动作。
  * @returns 版本动作或精确版本。
  * @throws {WorkflowError} 动作非法、非交互环境未指定或用户取消时抛出。
  */
 export async function selectVersionAction(
-  ui: Ui,
+  context: Context,
   channel: string,
   requested: string
 ): Promise<string> {
-  const action = requested || ui.env.SCHEMX_RELEASE_VERSION_ACTION || ""
+  const action = requested || context.env.SCHEMX_RELEASE_VERSION_ACTION || ""
 
   if (action === "") {
-    if (!ui.interactive) {
+    if (!context.terminal.isInteractive) {
       throw usageError(
         "非交互环境必须通过参数或 SCHEMX_RELEASE_VERSION_ACTION 指定版本动作。"
       )
     }
 
     return await resolveVersionAction(
-      ui,
+      context,
       channel,
-      await select(
-        channel === "latest" ? "版本动作" : "版本基线动作",
-        channel === "latest" ? LATEST_ACTION_CHOICES : PRERELEASE_ACTION_CHOICES
-      )
+      await context.terminal.select({
+        title: channel === "latest" ? "版本动作" : "版本基线动作",
+        options: channel === "latest" ? LATEST_ACTION_CHOICES : PRERELEASE_ACTION_CHOICES,
+      })
     )
   }
 
-  return await resolveVersionAction(ui, channel, action)
+  return await resolveVersionAction(context, channel, action)
 }
 
 /**
  * 归一化版本动作，将 custom 转换为精确版本基线。
  *
- * @param ui - 终端 UI。
+ * @param context - 命令上下文，含终端和业务环境。
  * @param channel - 发布通道。
  * @param action - 版本动作、custom 或精确版本。
  * @returns 版本动作或精确版本。
  * @throws {WorkflowError} 动作非法或用户取消时抛出。
  */
 async function resolveVersionAction(
-  ui: Ui,
+  context: Context,
   channel: string,
   action: string
 ): Promise<string> {
   if (action === "custom") {
-    return await selectExactVersion(ui, "")
+    return await selectExactVersion(context, "")
   }
 
   if (!isAction(action)) {
@@ -193,9 +199,12 @@ async function resolveVersionAction(
 /**
  * 确认是否执行冻结计划。
  *
- * @param ui - 终端 UI。
+ * @param context - 命令上下文，含终端和业务环境。
  * @returns 是否确认。
  */
-export async function confirmExecution(ui: Ui): Promise<boolean> {
-  return await confirm("确认执行冻结的发布计划？", ui.env.SCHEMX_UI_ASSUME_YES === "true")
+export async function confirmExecution(context: Context): Promise<boolean> {
+  return await context.terminal.confirm({
+    title: "确认执行冻结的发布计划？",
+    assumeYes: context.env.SCHEMX_UI_ASSUME_YES === "true",
+  })
 }

@@ -1,10 +1,10 @@
-import { mergeValidatorAdapters } from "../validator/adapters"
+import { mergeValidatorAdapters } from "../validator"
 
-import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./defaultSchemxConfig"
+import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./index"
 
-import type { SchemxConfig } from "./types"
+import type { SchemxConfig } from "./index"
 import type { SchemxRendererPropsMap, SchemxSchemaConfig, Values } from "../types"
-import type { ValidationAdapterOption } from "../validator/types"
+import type { ValidationAdapterOption } from "../validator"
 
 // 只过滤已知实例字段，保留声明合并提供的共享扩展。
 const instanceOptionKeys = new Set([
@@ -143,8 +143,7 @@ export function mergeConfig<TValues extends Values = Values>(
   ) as readonly SchemxConfig<TValues>[]
 
   const options = (Array.isArray(args[0]) ? args[1] : undefined) as
-    | MergeConfigOptions
-    | undefined
+    MergeConfigOptions | undefined
 
   // 所有可写累计对象均由本次调用持有，不修改任何输入。
   const result: MutableSchemxConfig<TValues> = {}
@@ -190,7 +189,7 @@ export function mergeConfig<TValues extends Values = Values>(
 
     if (config.rendererProps !== undefined) {
       result.rendererProps ??= {}
-      assignRendererProps(result.rendererProps, config.rendererProps)
+      assignRendererProps<TValues>(result.rendererProps, config.rendererProps)
     }
 
     // 声明合并增加的顶层配置与内置标量遵循相同的优先级，嵌套配置仍使用各自的合并规则。

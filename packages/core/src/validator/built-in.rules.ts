@@ -6,9 +6,9 @@
 
 import type { PresetRuleFactoryContext } from "../registry"
 import type { NamePath, Values } from "../types"
-import type { ValidationRule } from "./types"
+import type { ValidationRule } from "./index"
 
-export { createStandardSchemaValidationRule } from "./standardSchema.adapter"
+export { createStandardSchemaValidationRule } from "./index"
 
 type RequiredRuleContext<TValue = unknown> = Pick<
   PresetRuleFactoryContext<PropertyKey, TValue>,

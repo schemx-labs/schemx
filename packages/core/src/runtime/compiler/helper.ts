@@ -6,7 +6,7 @@
 
 import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../../utils"
 
-import type { SchemaCompilerOptions } from "./types"
+import type { SchemaCompilerOptions } from "./index"
 import type {
   NamePath,
   SchemxBaseField,
@@ -22,7 +22,7 @@ import type {
   PresentationDependencyOverrides,
   PresentationState,
   ResolvedFieldSchema,
-} from "../node/types"
+} from "../node"
 
 /**
  * 没有祖先容器时使用的默认呈现状态。

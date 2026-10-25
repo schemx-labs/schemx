@@ -9,8 +9,7 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { findFieldNode, isFieldNode } from "../helper"
-import { createNodeLifecycle, mountNodeResources } from "../resources"
+import { createNodeLifecycle, findFieldNode, isFieldNode, mountNodeResources } from ".."
 
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 import {
@@ -19,8 +18,8 @@ import {
   setFieldDependencyOverrides,
 } from "./signalsTestUtils"
 
+import type { FieldNode } from ".."
 import type { SchemxBaseField } from "../../../types"
-import type { FieldNode } from "../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护
 describe("node lifecycle flow", () => {
@@ -46,13 +45,13 @@ describe("node lifecycle flow", () => {
   })
 
   it("没有 parent 的描述节点不能进入 mount", () => {
-    const { compiler, context } = createRuntimeGraphHarness()
+    const { compiler, context, reconciler } = createRuntimeGraphHarness()
 
     const schema = createRawFieldSchema("detached", "detached")
 
     const node = compiler.createNode(schema, "", 0)
 
-    expect(() => mountNodeResources(node, context)).toThrow(
+    expect(() => mountNodeResources(node, context, reconciler)).toThrow(
       '[schemx] Runtime node "detached" must have a parent before mount.'
     )
   })

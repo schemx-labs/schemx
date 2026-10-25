@@ -12,7 +12,7 @@ import {
   deleteInWithStructuralSharing,
   getByPath,
   setByPath,
-} from "../path"
+} from ".."
 
 // 验证 getByPath 获取嵌套路径值、空路径返回整体、不存在路径返回 undefined
 describe("getByPath", () => {
