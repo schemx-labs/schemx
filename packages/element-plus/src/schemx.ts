@@ -2,8 +2,8 @@ import { createSchemx, useForm as useVueForm } from "@schemx/vue"
 
 import { defaultConfig } from "./config/defaultConfig"
 
-import type { SchemxInstance, Values } from "@schemx/core"
-import type { UseFormOptions } from "@schemx/vue"
+import type { Values } from "@schemx/core"
+import type { SchemxInstance, UseFormOptions } from "@schemx/vue"
 
 // 本包共享实例，组件和 Hook 使用同一个创建器。
 export const schemx = createSchemx(defaultConfig)
