@@ -187,13 +187,12 @@ Source mappings are maintained in `workspace-source.config.ts`. Set `VITE_USE_SO
 | `pnpm type-check:tests`   | Check types in selected targets' test code.                                                                                              |
 | `pnpm type-check:scripts` | Check types in project scripts.                                                                                                          |
 | `pnpm test:scripts`       | Run project script tests.                                                                                                                |
-| `pnpm lint`               | Interactively select targets and run Oxc followed by ESLint.                                                                             |
-| `pnpm lint:fix`           | Interactively select targets and run Oxc fixes followed by ESLint fixes.                                                                 |
-| `pnpm format`             | Interactively select and run Vite+ formatting.                                                                                           |
-| `pnpm format:check`       | Interactively select and run Vite+ format checks.                                                                                        |
-| `pnpm check`              | Run static checks for selected targets: Oxc, ESLint, formatting, and types.                                                              |
-| `pnpm fix`                | Select targets and run lint fixes followed by formatting; the pre-commit hook uses `--staged`.                                           |
-| `pnpm code-check`         | Compatibility alias for `check`, with the same scope.                                                                                    |
+| `pnpm lint`               | Interactively select targets and run ESLint.                                                                                             |
+| `pnpm lint:fix`           | Interactively select targets and run ESLint fixes.                                                                                       |
+| `pnpm format`             | Interactively select and run Prettier formatting.                                                                                        |
+| `pnpm format:check`       | Interactively select and run Prettier format checks.                                                                                     |
+| `pnpm check`              | Run static checks for selected targets: ESLint, Prettier formatting, and types.                                                          |
+| `pnpm fix`                | Select targets and run lint fixes followed by formatting.                                                                                |
 | `pnpm pack-local`         | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
 | `pnpm check:packages`     | Check workspace package configuration and build output external boundaries.                                                              |
 | `pnpm preview`            | Start Vite Preview.                                                                                                                      |
@@ -213,8 +212,7 @@ pnpm check
 pnpm check:packages
 ```
 
-After `pnpm install` configures the versioned Git hook, each commit runs `pnpm fix --staged`
-and `pnpm check` before it is created.
+Run `pnpm check all` manually before committing to check all targets.
 
 Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
 
@@ -327,7 +325,6 @@ The Skill includes deterministic scripts, release policies, data Schemas, and Ma
 | `pnpm release:pack [target]`                               | Generate local tarballs to inspect the actual published-package contents.                                                                                         | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                               |
 | `pnpm release:publish [channel] [target] [version-action]` | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases.  | `pnpm release:dry-run beta core 1.0.0`                                                                                                    |
-| `pnpm release:test`                                        | Compatibility alias for `test:scripts`; run project script tests.                                                                                                 | Run after modifying project scripts: `pnpm test:scripts`                                                                                  |
 
 ### Release Channels
 

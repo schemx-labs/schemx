@@ -187,13 +187,12 @@ pnpm --filter element-plus-demo dev
 | `pnpm type-check:tests`   | 检查所选目标中测试代码的类型。                                                        |
 | `pnpm type-check:scripts` | 检查项目脚本类型。                                                                    |
 | `pnpm test:scripts`       | 运行项目脚本测试。                                                                    |
-| `pnpm lint`               | 交互选择并依次执行 Oxc 与 ESLint 检查。                                               |
-| `pnpm lint:fix`           | 交互选择并依次执行 Oxc 与 ESLint 自动修复。                                           |
-| `pnpm format`             | 交互选择并执行 Vite+ 格式工具 格式化。                                                |
-| `pnpm format:check`       | 交互选择并执行 Vite+ 格式工具 格式检查。                                              |
-| `pnpm check`              | 执行所选目标的静态检查：Oxc、ESLint、格式和类型检查。                                 |
+| `pnpm lint`               | 交互选择并执行 ESLint 检查。                                               |
+| `pnpm lint:fix`           | 交互选择并执行 ESLint 自动修复。                                           |
+| `pnpm format`             | 交互选择并执行 Prettier 格式化。                                                |
+| `pnpm format:check`       | 交互选择并执行 Prettier 格式检查。                                              |
+| `pnpm check`              | 执行所选目标的静态检查：ESLint、Prettier 格式和类型检查。                                 |
 | `pnpm fix`                | 选择目标后依次执行 lint 自动修复与格式化；提交钩子使用 `--staged` 模式。              |
-| `pnpm code-check`         | `check` 的兼容别名，检查范围相同。                                                    |
 | `pnpm pack-local`         | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
 | `pnpm check:packages`     | 检查 workspace 包配置与构建产物 external 边界。                                       |
 | `pnpm preview`            | 启动 Vite Preview。                                                                   |
@@ -347,7 +346,6 @@ Skill 内部包含确定性脚本、发布策略、数据 Schema 与 Markdown �
 | `pnpm release:pack [target]`                               | 生成本地 tarball，用于检查实际发布包内容。                                                                                   | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant`                                                                          |
 | `pnpm release:publish [channel] [target] [version-action]` | 发布到指定通道。所有通道均支持 `patch`、`minor`、`major` 或 `x.y.z`；`current` 仅限 `latest`。目标可传 `all` 或 `core,vue`。 | 交互选择：`pnpm release:publish`；正式版：`pnpm release:publish latest vue patch`；公开 Beta：`pnpm release:publish beta core 1.0.0` |
 | `pnpm release:dry-run <channel> <target> <version-action>` | 计算并展示冻结发布计划，不执行质量检查、版本写入、npm 发布、Git Tag 或 GitHub Release。                                      | `pnpm release:dry-run beta core 1.0.0`                                                                                               |
-| `pnpm release:test`                                        | `test:scripts` 的兼容别名，运行项目脚本测试。                                                                                | 修改项目脚本后执行：`pnpm test:scripts`                                                                                              |
 
 ### 发布通道
 

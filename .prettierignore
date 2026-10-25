@@ -8,3 +8,7 @@ static/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+.agent/
+examples/uniapp-vant/
+WORKFLOW_REMEDIATION.md

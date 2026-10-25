@@ -3,11 +3,11 @@
 根目录 `package.json` 的开发、构建、质量、测试和发布命令统一由 `scripts/workflow.ts` 分派。
 使用 Node 原生类型剥离直接运行 `.ts`，没有构建步骤。
 
-`pnpm workflow <command>` 是通用入口。`check` 执行包的静态检查，`code-check` 是兼容别名；
-`test:scripts` 执行项目脚本测试，`release:test` 是兼容别名。测试代码的类型检查统一为
-`type-check:tests`，包内旧名称 `type-test`、`test:type-check` 保留为兼容别名。
+`pnpm workflow <command>` 是通用入口。`check` 执行包的静态检查，
+`test:scripts` 执行项目脚本测试，`type-check:tests` 检查测试代码类型。
 
-包内 `lint` 与 `lint:fix` 都先从根配置运行 Oxc，再执行 ESLint；根命令和发布检查复用包脚本。
+`lint` 与 `lint:fix` 使用根 ESLint 配置，格式化与格式检查使用 Prettier。
+根命令按自动发现的文件直接调用工具，发布检查复用包脚本。
 `build:analyze` 执行与 `build` 相同的类型检查，并用 `--mode analyze` 生成分析报告；普通构建不开启分析。
 
 ```text
