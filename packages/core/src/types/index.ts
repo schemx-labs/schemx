@@ -17,12 +17,7 @@ export type {
   SchemxSchemaConfigDefinition,
 } from "./form"
 
-export type {
-  SchemxInstance,
-  SchemxFormApi,
-  SchemxInstanceDefinition,
-  FormState,
-} from "./instance"
+export type { SchemxInstance, SchemxFormApi, SchemxInstanceDefinition } from "./instance"
 
 export type {
   RequiredOptions,
@@ -109,3 +104,5 @@ export type { StandardSchemaV1 } from "./standardSchema"
 export type { AsyncValidatorRule, AsyncValidatorDescriptor } from "./asyncValidator"
 
 export type { ValidationAdapterV1 } from "./validationAdapter"
+
+export type { FieldRef, FieldRefState } from "./fieldRef"

@@ -1,7 +1,7 @@
 /**
  * Vue Runtime 的内部统一入口。
  *
- * 该目录直接消费 Core 原生只读状态，并将快照投影为 Vue Instance、字段
+ * 该目录通过 Core adapter 消费状态来源，并将快照投影为 Vue Instance、字段
  * 状态和 ViewSchema 状态，不形成包根公开 API。
  *
  * @module vue/bridge
@@ -20,12 +20,7 @@ export {
 } from "./scrollToField"
 
 // 原生状态的 Vue 外壳与字段投影契约。
-export type {
-  VueBoundFieldState,
-  VueFieldState,
-  VueStateBridge,
-  VueStateRef,
-} from "./stateBridge"
+export type { VueFieldState, VueStateBridge, VueStateRef } from "./stateBridge"
 // Runtime 资源与追踪契约仅作为 Vue 包内的模块出口。
 export type {
   PendingFieldsSnapshot,

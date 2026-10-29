@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   configureSchemx as configureCore,
   createForm,
+  createFormStateAdapter,
   createFormWithConfig,
   createSchemx,
   getFormCreationConfig,
@@ -261,7 +262,7 @@ describe("Core createSchemx", () => {
 
     const snapshot = getFormCreationConfig(form)
 
-    expect(snapshot?.config).toBe(form.state.config.peek())
+    expect(snapshot?.config).toBe(createFormStateAdapter(form).config.getSnapshot())
     expect(snapshot?.defaults).toBe(defaults)
     expect(snapshot?.config.schemaConfig).toMatchObject({
       disabled: true,
@@ -310,6 +311,7 @@ describe("Core createSchemx", () => {
     ).toEqual({ offset: 2 })
     expect(getFormCreationConfig(form)?.config.schedulerOptions).toEqual({
       idleTimeout: 20,
+      collectDiagnostics: false,
     })
     form.destroy()
   })

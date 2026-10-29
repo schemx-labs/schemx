@@ -1,10 +1,12 @@
-import { mergeConfig } from "./config"
+import { createFactoryConfig } from "./config/factoryConfig"
 import { createFormWithSnapshot } from "./createForm"
-import { createPresetRuleRegistry, createRendererRegistry } from "./registry"
 
 import type { CreateFormOptions, SchemxConfig } from "./config"
+import type { SchemxConfigureOptions } from "./config/factoryConfig"
 import type { PresetRuleRegistry, RendererRegistry } from "./registry"
 import type { SchemxInstance, Values } from "./types"
+
+export type { SchemxConfigureOptions } from "./config/factoryConfig"
 
 /**
  * `createSchemx` 的工厂入参，与共享默认配置使用同一契约。
@@ -12,23 +14,6 @@ import type { SchemxInstance, Values } from "./types"
  * @typeParam TValues - Schema 默认值和 Renderer 配置关联的表单值类型。
  */
 export type CreateSchemxOptions<TValues extends Values = Values> = SchemxConfig<TValues>
-
-/**
- * 替换业务覆盖层的配置；Registry 引用在工厂创建时固定。
- */
-export type SchemxConfigureOptions = Omit<
-  CreateSchemxOptions,
-  "rendererRegistry" | "presetRuleRegistry"
-> & {
-  /**
-   * Registry 通过注册方法修改，或在单个表单中覆盖。
-   */
-  rendererRegistry?: never
-  /**
-   * 工厂的预设规则注册表引用固定。
-   */
-  presetRuleRegistry?: never
-}
 
 /**
  * 独立的共享默认配置、Registry 与表单创建 API。
@@ -77,49 +62,19 @@ export interface SchemxApi {
  * form.destroy()
  */
 export function createSchemx(config: CreateSchemxOptions = {}): SchemxApi {
-  const rendererRegistry =
-    config.rendererRegistry ??
-    createRendererRegistry(config.defaultRendererType ?? "input")
-
-  const presetRuleRegistry = config.presetRuleRegistry ?? createPresetRuleRegistry()
-
-  const baseline = mergeConfig({
-    ...config,
-    rendererRegistry,
-    presetRuleRegistry,
-  })
-
-  let currentConfig = baseline
-
-  const configureSchemx = (options?: SchemxConfigureOptions): void => {
-    if (
-      options !== undefined &&
-      (Object.hasOwn(options, "rendererRegistry") ||
-        Object.hasOwn(options, "presetRuleRegistry"))
-    ) {
-      throw new TypeError("[schemx] configureSchemx cannot replace factory Registries.")
-    }
-
-    currentConfig = options === undefined ? baseline : mergeConfig(options, baseline)
-  }
+  const configuration = createFactoryConfig(config)
 
   const createForm = <TValues extends Values = Values>(
     options: CreateFormOptions<TValues> = {}
   ): SchemxInstance<TValues> => {
     // 工厂不绑定业务值类型，创建边界关联本次调用的泛型。
-    const defaults = currentConfig as CreateSchemxOptions<TValues>
+    const defaults = configuration.getConfig() as CreateSchemxOptions<TValues>
 
     return createFormWithSnapshot(options, defaults)
   }
 
-  // 读取当前冻结配置，不在返回对象中创建行为。
-  const getConfig: SchemxApi["getConfig"] = () => currentConfig
-
   return {
     createForm,
-    configureSchemx,
-    getConfig,
-    rendererRegistry,
-    presetRuleRegistry,
+    ...configuration,
   }
 }

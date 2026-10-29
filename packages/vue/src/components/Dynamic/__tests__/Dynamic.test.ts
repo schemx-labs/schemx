@@ -16,8 +16,8 @@ describe("Dynamic", () => {
     const secondChildren = [createField("users.1.name")]
 
     const schema = createSchema([
-      { key: "row-a", index: 0, children: firstChildren },
-      { key: "row-b", index: 1, children: secondChildren },
+      { nodeId: 2, key: "row-a", index: 0, children: firstChildren },
+      { nodeId: 3, key: "row-b", index: 1, children: secondChildren },
     ])
 
     const renderChildren = vi.fn((schemas: readonly SchemxViewSchema[]) =>

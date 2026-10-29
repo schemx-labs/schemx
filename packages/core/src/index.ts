@@ -2,7 +2,7 @@
  * core 模块统一导出
  *
  * 聚合表单运行时、Registry 和校验相关的核心公开 API。
- * Validator 实现仅供 Core 内部 FormModel 使用，不从根入口导出。
+ * Validator 实现仅供 Core 内部运行模块与 facade 使用，不从根入口导出。
  *
  * @module core
  */
@@ -41,6 +41,7 @@ export {
 
 export {
   createFormStateAdapter,
+  type FieldRefSnapshotSource,
   type FieldSnapshotSource,
   type FieldStateSnapshot,
   type FormStateAdapter,
@@ -55,7 +56,7 @@ export type {
   SchedulerOptions,
   SchedulerTaskPriority,
   SchedulerTrackOptions,
-} from "./runtime/scheduler"
+} from "./scheduler"
 
 export {
   configureSchemx,
@@ -85,7 +86,7 @@ export {
   type SchemxSchemasListener,
 } from "./createSchemas"
 
-export type { NodeId } from "./runtime/node"
+export type { NodeId } from "./node"
 
 export type {
   SchemxViewDebugMeta,
@@ -94,18 +95,15 @@ export type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./runtime/view"
+} from "./view"
 
-export {
-  isSchemxViewFieldSchema,
-  isViewDynamicSchema,
-  isViewGroupSchema,
-} from "./runtime/view"
+export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "./view"
 
 export type { FormConfig, ResolvedFormConfig } from "./config"
 
 export type {
-  FormState,
+  FieldRef,
+  FieldRefState,
   RequiredOptions,
   RequiredConfig,
   DefinedFieldValue,

@@ -4,68 +4,45 @@
  * @module vue/bridge/viewSchemaBridge
  */
 
-import { computed, shallowRef } from "vue"
+import { computed } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 
-import type { VueViewSchemaState } from "./index"
-import type { SchemxInstance, SchemxViewSchema, Values } from "@schemx/core"
+import type { VueStateBridge, VueViewSchemaState } from "./index"
+import type { FormStateAdapter, SchemxViewSchema, Values } from "@schemx/core"
 
 /**
  * 创建一个 Form 的共享 ViewSchema 状态。
  *
  * @typeParam TValues - 表单值类型。
- * @param form - 要订阅 ViewSchema 的 Core Form。
- * @returns 当前 Form 的 ViewSchema 列表、索引和释放方法。
+ * @param adapter - 当前资源周期的 Core adapter。
+ * @param states - 同周期共享的 Vue 来源投影。
+ * @returns 当前 Form 的 ViewSchema 列表与索引；订阅由 states 统一释放。
  *
  * @example
  * ```ts
- * const state = createVueViewSchemaState(form)
+ * const state = createVueViewSchemaState(adapter, states)
  * const current = state.viewSchemas.value
- * state.dispose()
+ * // 订阅由所属 states 统一释放。
  * ```
  */
 export function createVueViewSchemaState<TValues extends Values>(
-  form: SchemxInstance<TValues>
+  adapter: FormStateAdapter<TValues>,
+  states: VueStateBridge
 ): VueViewSchemaState<TValues> {
-  // 保留 Core 列表引用，避免 Vue 深层代理改变 Schema 快照的读取方式。
-  const viewSchemas = shallowRef<readonly SchemxViewSchema<TValues>[]>(
-    form.getViewSchemas()
-  )
+  // adapter 保留原始 Schema 引用；按既有渲染契约读取，不更改组件定义身份。
+  const viewSchemas = states.bind(
+    adapter.viewSchemas
+  ) as VueViewSchemaState<TValues>["viewSchemas"]
 
   // 索引随列表惰性重建；Schema key 用于查询，不承担组件节点身份。
   const schemasByKey = computed<ReadonlyMap<string, SchemxViewSchema<TValues>>>(() => {
     return createViewSchemaIndex(viewSchemas.value)
   })
 
-  // 当前资源周期只持有这一份 ViewSchema 订阅。
-  const unsubscribe = form.subscribeViewSchemas(
-    /**
-     * 发布 Core 已解析的完整视图，交给 Vue 计算索引和更新渲染。
-     * @param nextSchemas - Core 最新的 ViewSchema 列表。
-     */
-    (nextSchemas) => {
-      viewSchemas.value = nextSchemas
-    }
-  )
-
-  // 允许多个清理入口重复释放同一订阅。
-  let disposed = false
-
-  // 取消后保留最后一次列表值，不再接收 Core 更新。
-  const dispose = (): void => {
-    if (disposed) {
-      return
-    }
-
-    disposed = true
-    unsubscribe()
-  }
-
   return {
     schemasByKey,
     viewSchemas,
-    dispose,
   }
 }
 

@@ -2,12 +2,14 @@
  * Core Form 到 Vue 响应式状态的共享 Runtime。
  *
  * 每个 Core Form 只有一个稳定 Runtime 和一个 Vue Instance；响应式资源按
- * Vue owner 激活和释放，调用方只持有 Runtime，不再经过快照适配器。
+ * Vue owner 激活和释放，调用方只持有 Runtime，状态来源统一经过 Core adapter。
  *
  * @module vue/bridge/formBridge
  */
 
 import { getCurrentScope, onScopeDispose } from "vue"
+
+import { createFormStateAdapter } from "@schemx/core"
 
 import {
   createVueFormInstance,
@@ -16,7 +18,6 @@ import {
 } from "./index"
 
 import type {
-  VueBoundFieldState,
   VueFieldDependency,
   VueFormDependency,
   VueFormResources,
@@ -26,8 +27,8 @@ import type {
 import type {
   NamePath,
   ReadonlyState,
-  SchemxFieldInstance,
   SchemxInstance,
+  SnapshotSource,
   Values,
 } from "@schemx/core"
 
@@ -166,7 +167,11 @@ function createVueFormRuntime<TValues extends Values>(
       throw new Error("[schemx] Vue Form Runtime has been destroyed.")
     }
 
-    resources ??= { states: createVueStateBridge() }
+    if (!resources) {
+      const adapter = createFormStateAdapter(core)
+
+      resources = { adapter, states: createVueStateBridge(adapter) }
+    }
 
     return resources
   }
@@ -181,7 +186,6 @@ function createVueFormRuntime<TValues extends Values>(
     }
 
     resources = undefined
-    currentResources.viewSchemaState?.dispose()
     currentResources.states.dispose()
   }
 
@@ -212,6 +216,17 @@ function createVueFormRuntime<TValues extends Values>(
   }
 
   /**
+   * 在 Form 读取边界追踪原生身份状态，不重建已释放资源。
+   * @typeParam TValue - 当前状态值类型。
+   * @param state - Form 持有的原生只读状态。
+   */
+  const trackState = <TValue>(state: ReadonlyState<TValue>): void => {
+    if (resources) {
+      void resources.states.bind(resources.adapter.bind(state)).value
+    }
+  }
+
+  /**
    * 通过固定路径的状态 Ref 建立 Vue 依赖，不因读取而重新激活已释放资源。
    * @param name - 当前查询的字段路径。
    * @param dependency - 本次读取对应的字段状态种类。
@@ -225,7 +240,7 @@ function createVueFormRuntime<TValues extends Values>(
     }
 
     // 仅在只读追踪边界擦除值类型，不向原生状态写入数据。
-    const state = core.state.field(name)[dependency] as ReadonlyState<unknown>
+    const state = resources.adapter.field(name)[dependency] as SnapshotSource<unknown>
 
     void resources.states.bind(state).value
   }
@@ -240,14 +255,14 @@ function createVueFormRuntime<TValues extends Values>(
     }
 
     if (names === undefined) {
-      void resources.states.bind(core.state.values).value
+      void resources.states.bind(resources.adapter.values).value
 
       return
     }
 
     // 各路径复用状态桥接缓存，重复查询不增加 Core 订阅。
     for (const name of names) {
-      void resources.states.bind(core.state.field(name).value).value
+      void resources.states.bind(resources.adapter.field(name).value).value
     }
   }
 
@@ -261,14 +276,16 @@ function createVueFormRuntime<TValues extends Values>(
     }
 
     // 与字段追踪相同，只读订阅无需向外暴露联合状态的值类型。
-    const state = core.state[dependency] as ReadonlyState<unknown>
+    const state = resources.adapter[dependency] as SnapshotSource<unknown>
 
     void resources.states.bind(state).value
   }
 
   // 返回本周期共享的整表值引用，供 selector 等消费者订阅。
   const getValuesRef = (): VueStateRef<TValues> => {
-    return ensureResources().states.bind(core.state.values)
+    const current = ensureResources()
+
+    return current.states.bind(current.adapter.values)
   }
 
   /**
@@ -276,17 +293,10 @@ function createVueFormRuntime<TValues extends Values>(
    * @param name - 当前要查询的字段路径。
    */
   const getFieldState = <TName extends NamePath<TValues>>(name: TName) => {
-    return ensureResources().states.field(core.state.field(name))
-  }
+    const current = ensureResources()
 
-  /**
-   * 字段 Hook 按控制器身份读取；Form 方法继续按路径读取。
-   * @typeParam TName - 控制器的初始路径。
-   * @param field - Core 缓存的字段控制器。
-   */
-  const getBoundFieldState = <TName extends NamePath<TValues>>(
-    field: SchemxFieldInstance<TValues, TName>
-  ): VueBoundFieldState<TValues, TName> => ensureResources().states.field(field.state)
+    return current.states.field(current.adapter.field(name))
+  }
 
   // 首次消费 Schema 时才订阅视图列表，同周期的调用共用列表和索引。
   const getViewSchemaState = () => {
@@ -295,7 +305,7 @@ function createVueFormRuntime<TValues extends Values>(
 
     // 创建后保存到资源对象中，后续读取不重复订阅。
     const viewSchemaState = (currentResources.viewSchemaState ??=
-      createVueViewSchemaState(core))
+      createVueViewSchemaState(currentResources.adapter, currentResources.states))
 
     return viewSchemaState
   }
@@ -313,6 +323,7 @@ function createVueFormRuntime<TValues extends Values>(
 
   // 包装读取与销毁动作，其余 Core 方法保持原始引用。
   const instance = createVueFormInstance(core, {
+    trackState,
     trackField,
     trackFieldsValue,
     trackForm,
@@ -321,15 +332,14 @@ function createVueFormRuntime<TValues extends Values>(
 
   // 仅组装稳定外壳；可重建资源由上面的闭包持有。
   const runtime: VueFormRuntime<TValues> = {
-    core,
     instance,
     retain,
+    trackState,
     trackField,
     trackFieldsValue,
     trackForm,
     getValuesRef,
     getFieldState,
-    getBoundFieldState,
     getViewSchemaState,
     destroy,
   }

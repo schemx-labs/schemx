@@ -19,7 +19,7 @@ import type { SchemxInstance as CoreInstance, NamePath, Values } from "@schemx/c
  */
 type VueFormInstanceDependencies<TValues extends Values> = Pick<
   VueFormRuntime<TValues>,
-  "trackField" | "trackFieldsValue" | "trackForm" | "destroy"
+  "trackState" | "trackField" | "trackFieldsValue" | "trackForm" | "destroy"
 >
 
 /**
@@ -43,6 +43,13 @@ export function createVueFormInstance<TValues extends Values>(
 ): SchemxInstance<TValues> {
   // 仅保证 Instance 销毁幂等；资源终态与依赖追踪由 Runtime 统一判断。
   let destroyed = false
+
+  // 当前路径也通过 Form 实例桥接，字段工具无需另建响应式投影。
+  const getFieldName: SchemxInstance<TValues>["getFieldName"] = (ref) => {
+    dependencies.trackState(form.getFieldState(ref).name)
+
+    return form.getFieldName(ref)
+  }
 
   /**
    * 只追踪当前路径的值状态，避免依赖其他字段。
@@ -132,6 +139,7 @@ export function createVueFormInstance<TValues extends Values>(
   return {
     ...form,
     scrollToField,
+    getFieldName,
     getFieldValue,
     getFieldErrors,
     isFieldTouched,

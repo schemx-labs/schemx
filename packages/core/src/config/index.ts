@@ -37,4 +37,10 @@ export type {
   FormSchemaOptions,
 } from "./types"
 
-export type { FormConfig, ResolvedFormConfig } from "../form"
+export { createFormConfig } from "./createFormConfig"
+export type {
+  FormConfig,
+  ResolvedFormConfig,
+  ApplyFormConfig,
+  FormConfigModel,
+} from "./createFormConfig"

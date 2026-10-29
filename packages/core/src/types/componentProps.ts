@@ -135,7 +135,7 @@ export type SchemxComponentProps<
 /**
  * 按 Renderer 类型配置的静态默认 Props。
  *
- * Runtime 注入的 value、事件、formInstance 和 formItemProps 不属于默认 Props。
+ * 渲染阶段注入的 value、事件、formInstance 和 formItemProps 不属于默认 Props。
  */
 export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
   [TKey in SchemxRendererKey<TValues>]: Partial<

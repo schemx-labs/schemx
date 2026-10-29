@@ -1,10 +1,10 @@
-import { createForm, createRendererRegistry } from "../../index"
+import { createForm, createFormStateAdapter, createRendererRegistry } from "../../index"
 
 import type {
   FormConfig,
-  ReadonlyState,
   ResolvedFormConfig,
   SchemxConfig,
+  SnapshotSource,
 } from "../../index"
 
 // 消费配置与生效状态保留表单值泛型和已有声明合并。
@@ -20,7 +20,8 @@ const config: FormConfig<{ name: string }> = {
 
 form.setConfig(config)
 form.setConfig({})
-const effective: ReadonlyState<ResolvedFormConfig<{ name: string }>> = form.state.config
+const effective: SnapshotSource<ResolvedFormConfig<{ name: string }>> =
+  createFormStateAdapter(form).config
 
 void effective
 // @ts-expect-error 运行期消费配置不重建引擎选项。
@@ -35,7 +36,7 @@ form.setConfig({ schemaConfig: { required: { isEmpty: (value: number) => value <
 // @ts-expect-error 顶层扩展不能丢失当前表单值类型。
 form.setConfig({ configTypeTestValues: { name: 1 } })
 // @ts-expect-error 生效配置只能通过消费更新入口修改。
-form.state.config.value.schemaConfig.readonly = false
+effective.getSnapshot().schemaConfig.readonly = false
 // @ts-expect-error 不提供运行期配置层列表 API。
 void form.setConfigLayers
 void invalid

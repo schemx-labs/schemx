@@ -1,10 +1,8 @@
-import { mergeValidatorAdapters } from "../validator"
+import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./defaultSchemxConfig"
 
-import { defaultSchemxConfig, defaultSchemxConfigKeys } from "./index"
-
-import type { SchemxConfig } from "./index"
+import type { SchemxConfig } from "./types"
 import type { SchemxRendererPropsMap, SchemxSchemaConfig, Values } from "../types"
-import type { ValidationAdapterOption } from "../validator"
+import type { ValidationAdapterID, ValidationAdapterOption } from "../validator"
 
 // 只过滤已知实例字段，保留声明合并提供的共享扩展。
 const instanceOptionKeys = new Set([
@@ -151,13 +149,20 @@ export function mergeConfig<TValues extends Values = Values>(
   // Schema 默认值始终保留在嵌套配置中。
   const fieldDefaults: Partial<SchemxSchemaConfig<TValues>> = {}
 
+  // 按低到高收集，合并 adapter 前反转为公共契约要求的优先级。
+  const adapterLists: (readonly ValidationAdapterOption[])[] = []
+
   // inherit 模式下复用独立 Row；显式清除后重新创建。
   let inheritedRow: object | undefined
 
   // 从最低优先级（从后往前）开始累积，使后续处理的高优先级配置可以覆盖已有值。
   for (let index = configs.length - 1; index >= 0; index -= 1) {
-    // 当前正在合并的一层配置。
-    const config = configs[index]
+    // 顶层属性只捕获一次，后续读取不再求值调用方的 getter。
+    const config = { ...configs[index] }
+
+    if (config.validatorAdapters !== undefined) {
+      adapterLists.push(config.validatorAdapters)
+    }
 
     if (config.schemaConfig !== undefined) {
       // Core 不约束适配层 Row 的形状，保留被替换值供首次继承使用。
@@ -206,16 +211,8 @@ export function mergeConfig<TValues extends Values = Values>(
     }
   }
 
-  // 收集按高到低优先级排列的 adapter 列表，交由 Validator adapter 工具按 ID 合并。
-  const adapterLists: (readonly ValidationAdapterOption[])[] = []
-
-  for (const config of configs) {
-    if (config.validatorAdapters !== undefined) {
-      adapterLists.push(config.validatorAdapters)
-    }
-  }
-
-  const validatorAdapters = mergeValidatorAdapters(...adapterLists)
+  // 跨层按 ID 合并，同一层的重复项仍交由 Validator 校验。
+  const validatorAdapters = mergeValidatorAdapters(...adapterLists.reverse())
 
   if (validatorAdapters !== undefined) {
     result.validatorAdapters = validatorAdapters
@@ -363,4 +360,55 @@ function assignRendererProps<TValues extends Values>(
       Object.assign(current, props)
     }
   }
+}
+
+/**
+ * 按配置优先级合并多个 adapter 注册列表。
+ *
+ * 参数列表按高到低优先级排列，第一个列表优先级最高；更高优先级列表中已出现的 ID 会屏蔽后续列表中的
+ * 同 ID 注册项。同一列表内的重复项会原样保留，使 `createValidationAdapterMap` 仍可
+ * 按 `override` 规则校验它们。函数不会修改任何输入列表。
+ *
+ * @param adapterLists - 按高到低优先级排列的 adapter 注册列表集合；每个元素都可以是
+ * 只读或可写数组。
+ * @returns 按高到低优先级排列的合并结果；没有传入列表时返回 `undefined`。
+ *
+ * @example
+ * ```ts
+ * const adapters = mergeValidatorAdapters(
+ *   [formAdapter],
+ *   [globalAdapter],
+ * )
+ * ```
+ */
+function mergeValidatorAdapters(
+  ...adapterLists: readonly (readonly ValidationAdapterOption[])[]
+): readonly ValidationAdapterOption[] | undefined {
+  // 已被更高优先级列表占用的 adapter ID。
+  const higherPriorityIds = new Set<ValidationAdapterID>()
+
+  // 保留同一列表内的原始注册顺序和重复项。
+  const mergedAdapters: ValidationAdapterOption[] = []
+
+  for (const adapterList of adapterLists) {
+    // 当前列表声明的 ID 在整层处理结束后才参与过滤，以保留列表内重复项。
+    const currentIds = new Set<ValidationAdapterID>()
+
+    for (const option of adapterList) {
+      // 注册包装对象与 adapter 简写统一映射到 adapter ID。
+      const id = "adapter" in option ? option.adapter.id : option.id
+
+      if (!higherPriorityIds.has(id)) {
+        mergedAdapters.push(option)
+      }
+
+      currentIds.add(id)
+    }
+
+    for (const id of currentIds) {
+      higherPriorityIds.add(id)
+    }
+  }
+
+  return adapterLists.length === 0 ? undefined : mergedAdapters
 }

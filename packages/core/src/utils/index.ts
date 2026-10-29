@@ -40,6 +40,7 @@ export {
   type TriggerConfig,
   type NormalizedTrigger,
   shouldValidateOn,
+  isFieldInteractive,
 } from "./validation"
 
 export {

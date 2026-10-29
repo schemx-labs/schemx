@@ -8,7 +8,6 @@
  * @module types/standardSchema
  */
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace StandardSchemaV1 {
   /**
    * Schema 属性接口。

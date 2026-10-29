@@ -67,13 +67,13 @@
  */
 
 import type { RegistryOptions } from "./index"
-import type { SchemxViewFieldSchema } from "../runtime/view"
 import type {
   SchemxComponentProps,
   SchemxInstance,
   SchemxRendererKey,
   Values,
 } from "../types"
+import type { SchemxViewFieldSchema } from "../view"
 
 /** 阻止 fallbackType 反向推断 Registry 的表单值泛型。 */
 type RendererRegistryNoInfer<TValues> = [TValues][TValues extends unknown ? 0 : never]

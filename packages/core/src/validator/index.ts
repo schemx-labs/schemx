@@ -1,7 +1,7 @@
 /**
  * Core 内部校验模块。
  *
- * `createValidator` 仅供 `FormModel` 装配校验域，不属于 `@schemx/core` 根入口的公开 API。
+ * `createValidator` 仅供 Form 校验域创建校验资源，不属于 `@schemx/core` 根入口的公开 API。
  *
  * @module core/validator
  */
@@ -41,11 +41,7 @@ export {
   createValidationCancelled,
 } from "./result"
 
-export {
-  mergeValidatorAdapters,
-  createValidationAdapterMap,
-  findValidationAdapter,
-} from "./adapters"
+export { createValidationAdapterMap, findValidationAdapter } from "./adapters"
 export {
   createStandardSchemaValidationRule,
   createStandardSchemaAdapter,

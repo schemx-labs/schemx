@@ -11,6 +11,7 @@ import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { useWatch } from ".."
+import { getFormStateAdapterContext } from "../../../../core/src/adapter/formStateAdapter/context"
 import { createFormContext, provideFormContextState } from "../../context"
 
 describe("useWatch", () => {
@@ -55,7 +56,10 @@ describe("useWatch", () => {
   it("嵌套 scope 停止时取消三种监听，原生实例不创建 Vue 状态订阅", () => {
     const form = createForm({ initialValues: { name: "Ada" } })
 
-    const subscribe = vi.spyOn(form.state.values, "subscribe")
+    const subscribe = vi.spyOn(
+      getFormStateAdapterContext(form).store.state.values,
+      "subscribe"
+    )
 
     const all = vi.fn()
 

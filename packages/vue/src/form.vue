@@ -16,7 +16,7 @@
   import { useFormComponent, useScrollToField, useViewSchemas } from "./hooks"
   import { getSectionPosition } from "./utils"
 
-  import type { SchemxFormProps, SchemxRowConfig } from "./types"
+  import type { SchemxFormProps, SchemxInstance, SchemxRowConfig } from "./types"
   import type { SchemxViewSchema, Values } from "@schemx/core"
 
   import "./styles/index.css"
@@ -143,7 +143,7 @@
   /**
    * 暴露当前表单 Instance 的完整控制 API，供模板 ref 调用。
    */
-  defineExpose({ ...formInstance })
+  defineExpose<SchemxInstance<TValues>>({ ...formInstance })
 </script>
 
 <template>

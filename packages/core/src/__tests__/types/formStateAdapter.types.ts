@@ -46,3 +46,29 @@ if (pending) {
 
 // @ts-expect-error 路径必须存在。
 adapter.field("missing")
+
+// 控制器来源保留初始路径的值类型，所有属性均为只读快照。
+const bound = adapter.field(form.getFieldRef("profile"))
+
+const boundProfile: DeepReadonly<FormValues["profile"]> | undefined =
+  bound.value.getSnapshot()
+
+const currentName: "profile" | "profile.name" | "tags" | `tags.${number}` | undefined =
+  bound.name.getSnapshot()
+
+const disposed: boolean = bound.disposed.getSnapshot()
+
+const value = adapter.bind(form.getFieldState(form.getFieldRef("profile")).value)
+
+void boundProfile
+void currentName
+void disposed
+void value
+// @ts-expect-error 数组字段来源不能赋给数字快照。
+const invalidValue: number = adapter.field("tags").value.getSnapshot()
+
+void invalidValue
+if (boundProfile) {
+  // @ts-expect-error 控制器对象值不能直接修改。
+  boundProfile.name = "Grace"
+}

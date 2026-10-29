@@ -1,26 +1,34 @@
 /**
  * 表单实例工厂 - 框架无关的核心装配入口。
  *
- * `createForm` 负责先创建 FormConfig，再装配 FormModel、SchemaRuntime
- * 与稳定的 SchemxInstance。
+ * `createForm` 根据继承配置来源装配配置、运行模块和公开实例。
  *
  * @module core/createForm
  */
 
 import { setFormCreationConfig } from "./adapter"
-import { getGlobalSchemxConfig } from "./config"
+import { setFormStateAdapterContext } from "./adapter/formStateAdapter/context"
+import { createSchemaCompiler } from "./compiler"
+import { createFormConfig, getGlobalSchemxConfig } from "./config"
 import { createSchemas, isSchemxSchemas } from "./createSchemas"
-import {
-  createFormConfig,
-  createFormInstance,
-  createFormModel,
-  createFormObserver,
-} from "./form"
-import { createSchemaRuntime } from "./runtime"
-import { createScope } from "./runtime/node"
+import { createFormFieldRefs } from "./form/fieldRefs"
+import { createFormObserver } from "./form/observer"
+import { createFormRenderer } from "./form/renderer"
+import { createFormSchemas } from "./form/schemas"
+import { createFormStore } from "./form/store"
+import { createFormValidation } from "./form/validation"
+import { createLifecycle } from "./lifecycle"
+import { createNodeManager, createScope } from "./node"
+import { batchUpdates, createReactiveScope, createSignal } from "./reactivity"
+import { createReconciler } from "./reconciler"
+import { createScheduler } from "./scheduler"
+import { createStore } from "./store"
+import { attachRootViewSchemas } from "./view"
 
 import type { CreateFormOptions, SchemxConfig } from "./config"
-import type { SchemxInstance, Values } from "./types"
+import type { ContainerNode } from "./node"
+import type { FormRuntimeContext } from "./runtimeContext"
+import type { SchemxField, SchemxFormApi, SchemxInstance, Values } from "./types"
 
 export type {
   CreateFormOptions,
@@ -40,7 +48,7 @@ export type {
  * @returns 可用于读取、更新、校验和销毁表单的稳定实例。
  *
  * @remarks
- * 创建过程会装配 Model、Runtime 和 Instance；初始化失败时会释放已创建资源并重新抛出原始错误。
+ * 创建过程会装配配置、运行模块和公开实例；初始化失败时会释放已创建资源并重新抛出原始错误。
  *
  * @example
  * const form = createForm({ schemaConfig: { readonly: true }, initialValues: { name: "" } })
@@ -76,7 +84,7 @@ export function createFormWithConfig<TValues extends Values>(
 }
 
 /**
- * 复用 Core 装配实现，为显式创建路径记录固定继承层。
+ * 按固定继承层装配配置、运行模块和公开实例，失败或销毁时逆序释放资源。
  * @internal
  * @typeParam TValues - 表单值类型。
  * @param options - 本次表单的完整创建选项。
@@ -89,7 +97,7 @@ export function createFormWithSnapshot<TValues extends Values>(
   config: SchemxConfig<TValues>,
   source: "global" | "explicit" | "snapshot" = "snapshot"
 ): SchemxInstance<TValues> {
-  // 按创建顺序登记资源，失败或销毁时按相反顺序释放。
+  // 所有表单资源只登记到此清单，销毁及初始化失败均按逆序清理。
   const scope = createScope()
 
   const destroy = scope.dispose
@@ -105,8 +113,6 @@ export function createFormWithSnapshot<TValues extends Values>(
 
     const effectiveConfig = configuration.getConfig()
 
-    const { rendererRegistry, presetRuleRegistry } = effectiveConfig
-
     // Form 持有 Schema source，实例数据和回调不参与共享配置合并。
     const schemaInput = options.schemas
 
@@ -114,51 +120,214 @@ export function createFormWithSnapshot<TValues extends Values>(
       ? schemaInput
       : createSchemas<TValues>(schemaInput ?? [])
 
-    const model = createFormModel<TValues>({
-      configuration,
+    // 生命周期由 Form 统一创建，直接传给 Reconciler。
+    const lifecycle = createLifecycle<ContainerNode<TValues>>(options.lifecycleHooks)
+
+    // 表单操作和提交、重置事件共享同一份回调。
+    const callbacks = {
+      onFinish: options.onFinish,
+      onFinishFailed: options.onFinishFailed,
+      onReset: options.onReset,
+      onLoadingChange: options.onLoadingChange,
+    }
+
+    // Store 由 Form 创建，并在校验域及其他运行资源之后释放。
+    const store = createStore<TValues>({
       initialValues: options.initialValues ?? ({} as TValues),
+    })
+
+    scope.add(store.destroy.bind(store))
+
+    // 校验域稍后创建；清理位置提前确定，保证它晚于 effect、早于 Store 释放。
+    let disposeValidation: (() => void) | undefined
+
+    scope.add(() => {
+      disposeValidation?.()
+      disposeValidation = undefined
+    })
+
+    // 公开 effect 在节点和调度器释放后停止。
+    const effectScope = createReactiveScope()
+
+    scope.add(effectScope.dispose)
+
+    // 公开实例及 observer 使用同一副作用注册入口。
+    const effect = effectScope.effect
+
+    // Scheduler 由交互校验与节点依赖共同消费。
+    const scheduler = createScheduler(effectiveConfig.schedulerOptions)
+
+    scope.add(scheduler.dispose)
+
+    // 节点索引、根作用域和表单级终态由同一 Form 持有。
+    const nodeManager = createNodeManager<TValues>()
+
+    // 根节点承载整棵表单树和视图订阅。
+    const root = nodeManager.getRoot()
+
+    // 字段引用、校验与 adapter 共用此表单级终态。
+    const disposed = root.disposed
+
+    scope.add(root.scope.dispose)
+    scope.add(nodeManager.dispose)
+
+    // 提交状态只由公开校验流程更新。
+    const loading = createSignal(false)
+
+    // 引用、校验和 adapter 共用同一表单级终态。
+    const isDisposed = (): boolean => disposed.value
+
+    // 域内回调只在完整实例就绪后执行。
+    const getInstance = (): SchemxInstance<TValues> => instance
+
+    /**
+     * 更新表单提交状态并通知业务回调。
+     * @param value - 当前是否正在提交。
+     */
+    const setLoading = (value: boolean): void => {
+      loading.value = value
+      callbacks.onLoadingChange?.(value)
+    }
+
+    /**
+     * 将 source 更新提交给同一协调器，销毁后忽略晚到通知。
+     * @param nextSchemas - source 发布的完整根 Schema。
+     */
+    const applySchemas = (nextSchemas: readonly SchemxField<TValues>[]): void => {
+      if (!disposed.value) {
+        reconciler.reconcile(nextSchemas)
+      }
+    }
+
+    /**
+     * 合并当前 Form 的一组响应式更新。
+     * @param fn - 本批次执行的操作。
+     */
+    const batch: SchemxInstance<TValues>["batch"] = (fn) => {
+      batchUpdates(fn)
+    }
+
+    /**
+     * 等待依赖调度及后台任务完成；销毁后视为已完成。
+     * @param timeout - 最大等待毫秒数，省略时使用调度器默认值。
+     */
+    const waitForDependencies: SchemxInstance<TValues>["waitForDependencies"] = (
+      timeout
+    ) => (disposed.value ? Promise.resolve(true) : scheduler.whenIdle(timeout))
+
+    // 数据、引用和校验域直接消费已创建的基础资源。
+    const storeDomain = createFormStore({ store, onReset: callbacks.onReset })
+
+    const fieldRefs = createFormFieldRefs({ store, nodeManager, isDisposed })
+
+    const validation = createFormValidation({
+      store,
+      configuration,
       onRuleError: options.onRuleError,
+      nodeManager,
+      scheduler,
+      isDisposed,
+      loading,
+      setLoading,
+      callbacks,
+      getInstance,
     })
 
-    scope.add(model.dispose)
+    disposeValidation = validation.dispose
 
-    // 先创建稳定 Runtime；Compiler 和动态回调能力在挂载时注入。
-    const runtime = createSchemaRuntime({
-      schemas,
-      store: model.store,
-      validation: model.validation,
-      schemaConfig: effectiveConfig.schemaConfig,
-      fieldRules: options.fieldRules,
-      rendererProps: effectiveConfig.rendererProps,
-      lifecycleHooks: options.lifecycleHooks,
-      debug: effectiveConfig.debug,
-      schedulerOptions: effectiveConfig.schedulerOptions,
-    })
+    const renderer = createFormRenderer<TValues>(effectiveConfig.rendererRegistry)
 
-    scope.add(runtime.dispose)
+    // 消费端 API 复用同一方法和锁，显式排除提交、交互及注册表能力。
+    const formApi: SchemxFormApi<TValues> = {
+      ...storeDomain.api,
+      ...fieldRefs.api,
+      setFieldRules: validation.rulesApi.setFieldRules,
+      setFieldsRules: validation.rulesApi.setFieldsRules,
+      removeFieldRules: validation.rulesApi.removeFieldRules,
+      removeFieldsRules: validation.rulesApi.removeFieldsRules,
+      validateField: validation.api.validateField,
+      validate: validation.api.validate,
+      isLoading: validation.api.isLoading,
+    }
 
-    const instance = createFormInstance({
-      model,
-      runtime,
-      schemas,
-      callbacks: {
-        onFinish: options.onFinish,
-        onFinishFailed: options.onFinishFailed,
-        onReset: options.onReset,
-        onLoadingChange: options.onLoadingChange,
+    // 数据和校验域已就绪，运行上下文直接持有完整的消费端 API。
+    const context: FormRuntimeContext<TValues> = {
+      get debug() {
+        return configuration.getConfig().debug
       },
-      destroy,
-      rendererRegistry,
-      presetRuleRegistry,
+      fieldRules: options.fieldRules ?? {},
+      store,
+      validator: validation.validator,
+      nodeManager,
+      scheduler,
+      formApi,
+    }
+
+    // Compiler 的配置快照在公共资源创建后读取。
+    const compiler = createSchemaCompiler<TValues>({ config: configuration.getConfig() })
+
+    scope.add(compiler.invalidateConfigCache)
+
+    // 依赖齐全后创建协调器，随后才允许挂载节点。
+    const reconciler = createReconciler({ compiler, context, lifecycle })
+
+    scope.add(reconciler.clear)
+
+    // 取消函数在订阅建立后填入，清理顺序在初始化阶段确定。
+    let unsubscribeSchemas: (() => void) | undefined
+
+    scope.add(() => {
+      unsubscribeSchemas?.()
+      unsubscribeSchemas = undefined
+    })
+    scope.add(() => {
+      disposed.value = true
     })
 
-    runtime.mount(instance)
+    attachRootViewSchemas(root)
+
+    // Schema 域直接协调编译、配置更新与公开视图。
+    const schemasDomain = createFormSchemas({
+      root,
+      compiler,
+      reconciler,
+      schemas,
+      configuration,
+      getInstance,
+    })
+
+    // 实例仅组合各域明确提供的公开 API。
+    const instance: SchemxInstance<TValues> = {
+      ...storeDomain.api,
+      ...validation.api,
+      ...schemasDomain.api,
+      ...renderer.api,
+      ...validation.rulesApi,
+      ...fieldRefs.api,
+      effect,
+      batch,
+      waitForDependencies,
+      destroy,
+    }
+
+    setFormStateAdapterContext(instance, { store, configuration, disposed, loading })
+
+    // 完整实例就绪后才挂载节点，初值写入不触发 observer。
+    applySchemas(schemas.peek())
+    unsubscribeSchemas = schemas.subscribe(applySchemas)
+    if (scope.disposed) {
+      scope.add(unsubscribeSchemas)
+    }
 
     scope.add(
-      createFormObserver(model, {
-        onValuesChange: options.onValuesChange,
-        onFieldsChange: options.onFieldsChange,
-      })
+      createFormObserver(
+        store,
+        {
+          onValuesChange: options.onValuesChange,
+          onFieldsChange: options.onFieldsChange,
+        },
+        effect
+      )
     )
 
     const snapshotDefaults =

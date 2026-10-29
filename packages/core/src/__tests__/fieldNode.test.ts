@@ -1,17 +1,14 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { createFormStateAdapter } from "../adapter/formStateAdapter"
 import { createField } from "../createField"
 import { createForm } from "../createForm"
-import {
-  isSchemxViewFieldSchema,
-  isViewDynamicSchema,
-  isViewGroupSchema,
-} from "../runtime/view"
+import { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "../view"
 
 import type { SchemxFieldInstance } from "../createField"
-import type { SchemxViewFieldSchema, SchemxViewSchema } from "../runtime/view"
 import type { Values as CoreValues, SchemxField, SchemxInstance } from "../types"
 import type { ValidationRuleResult } from "../validator"
+import type { SchemxViewFieldSchema, SchemxViewSchema } from "../view"
 
 interface RowValues {
   users: Array<{ name: string }>
@@ -69,7 +66,7 @@ function getRows(form: SchemxInstance<RowValues>) {
   return view.items
     .flatMap((row) => collectFields(row.children))
     .map((field) => {
-      return form.createField(field.name)
+      return createField(form, field.name)
     })
 }
 
@@ -87,7 +84,7 @@ function requireNode<TValues extends CoreValues>(
 
   if (!view || !isSchemxViewFieldSchema(view)) throw new Error("缺少字段节点")
 
-  return form.createField(view.name)
+  return createField(form, view.name)
 }
 
 /**
@@ -128,7 +125,7 @@ describe("Core 字段节点控制器", () => {
 
     const field = createField(form, view.name)
 
-    expect(createField(form, "name")).toBe(field)
+    expect(createField(form, "name").ref).toBe(field.ref)
     expect(createField(form, "name").state).toBe(field.state)
     expect(field.state.name.value).toBe("name")
     expect(field.state.value.value).toBe("Ada")
@@ -169,7 +166,7 @@ describe("Core 字段节点控制器", () => {
 
     const state = field.state
 
-    const pathField = form.state.field("name")
+    const pathField = createFormStateAdapter(form).field("name")
 
     const seen: unknown[] = []
 
@@ -180,7 +177,7 @@ describe("Core 字段节点控制器", () => {
     form.setSchemas([
       { key: "field", name: "nickname", label: "昵称", componentType: "input" },
     ])
-    expect(createField(form, "nickname")).toBe(field)
+    expect(createField(form, "nickname").ref).toBe(field.ref)
     expect(field.state).toBe(state)
     expect(seen).toEqual([
       ["name", "Ada"],
@@ -191,7 +188,7 @@ describe("Core 字段节点控制器", () => {
     expect(state.pending.value).toBe(true)
     field.setValue("next")
     expect(form.getFieldValue("nickname")).toBe("next")
-    expect(pathField.value.value).toBe("Ada")
+    expect(pathField.value.getSnapshot()).toBe("Ada")
     form.clearFieldErrors("nickname")
     await expect(field.validate()).resolves.toMatchObject({
       valid: true,
@@ -213,7 +210,7 @@ describe("Core 字段节点控制器", () => {
 
     form.updateSchemas((schemas) => [...schemas].reverse())
     form.setConfig({ schemaConfig: { readonly: true } })
-    expect(requireNode(form, 1)).toBe(first)
+    expect(requireNode(form, 1).ref).toBe(first.ref)
     expect(first.state.name.value).toBe("first")
     expect(first.state.value.value).toBe("A")
     expect(first.state.disposed.value).toBe(false)
@@ -247,8 +244,8 @@ describe("Core 字段节点控制器", () => {
       { key: "a", name: "second", label: "一", componentType: "input" },
       { key: "b", name: "first", label: "二", componentType: "input" },
     ])
-    expect(requireNode(form)).toBe(first)
-    expect(requireNode(form, 1)).toBe(second)
+    expect(requireNode(form).ref).toBe(first.ref)
+    expect(requireNode(form, 1).ref).toBe(second.ref)
     expect(seen).toEqual([
       ["first", "A", "second", "B"],
       ["second", "B", "first", "A"],
@@ -297,7 +294,7 @@ describe("Core 字段节点控制器", () => {
       form.setSchemas([schema])
       const replacement = requireNode(form)
 
-      expect(replacement).not.toBe(field)
+      expect(replacement.ref).not.toBe(field.ref)
       replacement.setValue("replacement")
       field.setValue("stale")
       await expect(field.change("stale")).resolves.toBeUndefined()
@@ -344,7 +341,7 @@ describe("Core 字段节点控制器", () => {
 
     if (!first || !second) throw new Error("缺少数组行")
 
-    const pathField = form.state.field("users.0.name")
+    const pathField = createFormStateAdapter(form).field("users.0.name")
 
     const seen: unknown[] = []
 
@@ -363,11 +360,11 @@ describe("Core 字段节点控制器", () => {
       ...(users ?? []).slice(1),
       ...(users ?? []).slice(0, 1),
     ])
-    expect(getRows(form)[2]).toBe(first)
-    expect(getRows(form)[0]).toBe(second)
+    expect(getRows(form)[2].ref).toBe(first.ref)
+    expect(getRows(form)[0].ref).toBe(second.ref)
     expect(first.state.name.value).toBe("users.2.name")
     expect(first.state.value.value).toBe("Ada")
-    expect(pathField.value.value).toBe("Grace")
+    expect(pathField.value.getSnapshot()).toBe("Grace")
     expect(seen).toEqual([
       ["users.0.name", "Ada", "users.1.name", "Grace"],
       ["users.2.name", "Ada", "users.0.name", "Grace"],
@@ -471,7 +468,7 @@ describe("Core 字段节点控制器", () => {
         expect(form.getFieldValue("users.0.name")).toBe("Grace")
         release?.()
         await form.waitForDependencies()
-        expect(getRows(form)[2]).toBe(first)
+        expect(getRows(form)[2].ref).toBe(first.ref)
       } finally {
         release?.()
         form.destroy()
@@ -496,7 +493,7 @@ describe("Core 字段节点控制器", () => {
       if (action === "reset") form.reset()
       const replacement = requireRow(form)
 
-      expect(replacement).not.toBe(first)
+      expect(replacement.ref).not.toBe(first.ref)
       expect(first.state.disposed.value).toBe(true)
       const value = replacement.state.value.value
 

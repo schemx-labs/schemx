@@ -8,7 +8,7 @@
 
 import { defaultSchemxConfig } from "../config"
 
-import type { ValidationTrigger } from "../types"
+import type { SchemxBaseField, ValidationTrigger } from "../types"
 
 /**
  * 校验触发时机配置。
@@ -71,4 +71,20 @@ export function shouldValidateOn(
   const triggers = Array.isArray(trigger) ? trigger : [trigger]
 
   return triggers.some((t) => normalizeTrigger(t) === event)
+}
+
+/**
+ * 字段交互和校验共同使用的有效呈现状态。
+ */
+type FieldInteractionState = Pick<SchemxBaseField, "visible" | "readonly" | "disabled">
+
+/**
+ * 判断字段是否允许交互和参与有效校验。
+ * @param context - 当前字段的可见、只读和禁用状态。
+ * @example const active = isFieldInteractive({ visible: true, readonly: false, disabled: false })
+ */
+export function isFieldInteractive(context: FieldInteractionState): boolean {
+  return (
+    context.visible !== false && context.readonly !== true && context.disabled !== true
+  )
 }

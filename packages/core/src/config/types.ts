@@ -1,8 +1,8 @@
 import type { SchemxSchemasInput } from "../createSchemas"
+import type { LifecycleHooks } from "../lifecycle"
+import type { ContainerNode } from "../node"
 import type { PresetRuleRegistry, RendererRegistry } from "../registry"
-import type { NodeLifecycleHooks } from "../runtime/lifecycle"
-import type { ContainerNode } from "../runtime/node"
-import type { SchedulerOptions } from "../runtime/scheduler"
+import type { SchedulerOptions } from "../scheduler"
 import type {
   NamePath,
   SchemxFieldRulesMap,
@@ -192,7 +192,7 @@ export interface FormLifecycleOptions<TValues extends Values = Values> {
   /**
    * Runtime 生命周期钩子。
    */
-  lifecycleHooks?: NodeLifecycleHooks<ContainerNode<TValues>>
+  lifecycleHooks?: LifecycleHooks<ContainerNode<TValues>>
 }
 
 /**

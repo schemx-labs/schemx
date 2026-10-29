@@ -18,7 +18,7 @@ const form = createForm<Values>({
   schemas: [{ name: "name", label: "姓名", componentType: "input" }],
 })
 
-const field: SchemxFieldInstance<Values, "name"> = form.createField("name")
+const field: SchemxFieldInstance<Values, "name"> = createField(form, "name")
 
 const state: SchemxFieldState<Values, "name"> = field.state
 
@@ -41,10 +41,13 @@ field.dispose()
 // @ts-expect-error 删除单独的公开节点入口。
 form.getFieldNode(1)
 // @ts-expect-error Form 方法同样按表单值类型约束路径。
-form.createField("missing")
+form.getFieldRef("missing")
 // @ts-expect-error 创建字段统一使用路径，不接收节点 ID。
-form.createField(1)
+form.getFieldRef(1)
 // @ts-expect-error 独立函数保留相同的路径约束。
 createField(form, 1)
 // @ts-expect-error 不提供第二种 nodeId 参数形式。
 createField(form, { nodeId: 1 })
+
+// @ts-expect-error Form instance 不再提供 createField。
+form.createField("name")

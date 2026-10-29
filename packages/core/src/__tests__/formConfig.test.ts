@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createFormConfig } from "../form"
-import { createForm, createSchemx, mergeConfig } from "../index"
+import { getFormStateAdapterContext } from "../adapter/formStateAdapter/context"
+import { createFormConfig } from "../config/createFormConfig"
+import { createForm, createSchemas, createSchemx, mergeConfig } from "../index"
 
 import type { FormConfig, SchemxInstance, ValidationTrigger, Values } from "../index"
 
@@ -101,6 +102,53 @@ describe("固定库默认值与消费配置", () => {
     configuration.dispose()
   })
 
+  it("顶层配置 getter 在捕获继承输入和消费更新时各读取一次", () => {
+    // 统计原始输入的顶层求值次数，快照合并不应重新访问它们。
+    let schemaReads = 0
+
+    let rendererReads = 0
+
+    let adapterReads = 0
+
+    // 每次 getter 都返回新容器，避免依赖稳定引用掩盖重复读取。
+    const input = {
+      get schemaConfig() {
+        schemaReads++
+
+        return { disabled: true }
+      },
+      get rendererProps() {
+        rendererReads++
+
+        return { input: { placeholder: "captured" } }
+      },
+      get validatorAdapters() {
+        adapterReads++
+
+        return []
+      },
+    }
+
+    // 继承输入与消费输入使用相同的捕获规则。
+    const configuration = createFormConfig({ defaults: input })
+
+    expect([schemaReads, rendererReads, adapterReads]).toEqual([1, 1, 1])
+    configuration.setConfig({
+      get schemaConfig() {
+        return input.schemaConfig
+      },
+      get rendererProps() {
+        return input.rendererProps
+      },
+    })
+    expect([schemaReads, rendererReads, adapterReads]).toEqual([2, 2, 1])
+    expect(configuration.getConfig()).toMatchObject({
+      schemaConfig: { disabled: true },
+      rendererProps: { input: { placeholder: "captured" } },
+    })
+    configuration.dispose()
+  })
+
   it("继承输入在创建后修改不影响撤销时的回退值", () => {
     const defaults = {
       schemaConfig: { disabled: true },
@@ -149,7 +197,9 @@ describe("固定库默认值与消费配置", () => {
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       readonly: false,
       disabled: false,
       labelWidth: 200,
@@ -161,7 +211,9 @@ describe("固定库默认值与消费配置", () => {
       componentProps: { placeholder: "ui" },
     })
     form.setConfig({})
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       readonly: false,
       disabled: true,
       labelWidth: 140,
@@ -174,7 +226,7 @@ describe("固定库默认值与消费配置", () => {
   it("消费配置在首帧即生效，撤销后恢复独立的库默认值", () => {
     const form = createTestForm()
 
-    const field = form.state.field("name")
+    const field = form.getFieldState(form.getFieldRef("name"))
 
     const id = form.getViewSchemas()[0].nodeId
 
@@ -182,7 +234,7 @@ describe("固定库默认值与消费配置", () => {
     form.setConfig({ schemaConfig: { labelWidth: 220 } })
     expect(form.getViewSchemas()[0]).toMatchObject({ disabled: true, labelWidth: 220 })
     expect(form.getFieldValue("name")).toBe("Ada")
-    expect(form.state.field("name")).toBe(field)
+    expect(form.getFieldState(form.getFieldRef("name"))).toBe(field)
     expect(form.getViewSchemas()[0].nodeId).toBe(id)
     form.setConfig({})
     expect(form.getViewSchemas()[0]).toMatchObject({ disabled: true, labelWidth: 140 })
@@ -194,7 +246,9 @@ describe("固定库默认值与消费配置", () => {
 
     form.setConfig({ schemaConfig: { readonly: false, labelWidth: 200 } })
     form.updateSchemaConfig({ readonly: true, disabled: false })
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       readonly: true,
       disabled: false,
       labelWidth: 200,
@@ -213,12 +267,16 @@ describe("固定库默认值与消费配置", () => {
     const form = createTestForm()
 
     form.updateSchemaConfig({ disabled: undefined, labelWidth: undefined })
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       disabled: false,
       labelWidth: "auto",
     })
     form.setConfig({})
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       disabled: true,
       labelWidth: 140,
     })
@@ -236,14 +294,18 @@ describe("固定库默认值与消费配置", () => {
 
     api.configureSchemx({ schemaConfig: { labelWidth: 300, readonly: false } })
     form.setConfig({})
-    expect(form.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).toMatchObject({
       labelWidth: 140,
       readonly: true,
     })
     expect(form.getViewSchemas()[0]).toMatchObject({ labelWidth: 140, readonly: true })
     const next = api.createForm({})
 
-    expect(next.state.config.value.schemaConfig).toMatchObject({
+    expect(
+      getFormStateAdapterContext(next).configuration.state.value.schemaConfig
+    ).toMatchObject({
       labelWidth: 300,
       readonly: false,
     })
@@ -288,7 +350,9 @@ describe("固定库默认值与消费配置", () => {
     form.setConfig({ schemaConfig: { consumerMeta: "active" } })
     expect(form.getViewSchemas()[0]).toMatchObject({ consumerMeta: "active" })
     form.setConfig({})
-    expect(form.state.config.value.schemaConfig).not.toHaveProperty("consumerMeta")
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.schemaConfig
+    ).not.toHaveProperty("consumerMeta")
     expect(form.getViewSchemas()[0]).not.toHaveProperty("consumerMeta")
     form.destroy()
   })
@@ -298,7 +362,7 @@ describe("固定库默认值与消费配置", () => {
 
     const seen: Array<{ config: boolean | undefined; view: boolean | undefined }> = []
 
-    form.state.config.subscribe((config) =>
+    getFormStateAdapterContext(form).configuration.state.subscribe((config) =>
       seen.push({
         config: config.schemaConfig.readonly,
         view: form.getViewSchemas()[0].readonly,
@@ -347,17 +411,17 @@ describe("固定库默认值与消费配置", () => {
   it("等价标量配置保持状态与视图引用稳定", () => {
     const form = createTestForm()
 
-    const initial = form.state.config.value
+    const initial = getFormStateAdapterContext(form).configuration.state.value
 
     const view = form.getViewSchemas()
 
     const changed = vi.fn()
 
-    form.state.config.subscribe(changed)
+    getFormStateAdapterContext(form).configuration.state.subscribe(changed)
     form.setConfig({ schemaConfig: { disabled: false } })
     form.updateSchemaConfig({ disabled: false })
     form.updateSchemaConfig({})
-    expect(form.state.config.value).toBe(initial)
+    expect(getFormStateAdapterContext(form).configuration.state.value).toBe(initial)
     expect(form.getViewSchemas()).toBe(view)
     expect(changed).toHaveBeenCalledTimes(1)
     form.destroy()
@@ -372,7 +436,7 @@ describe("固定库默认值与消费配置", () => {
     }
 
     form.setConfig(input)
-    const initial = form.state.config.value
+    const initial = getFormStateAdapterContext(form).configuration.state.value
 
     input.schemaConfig.disabled = true
     input.rendererProps.input.placeholder = "second"
@@ -470,6 +534,116 @@ describe("固定库默认值与消费配置", () => {
     configuration.dispose()
   })
 
+  it("编译失败恢复 Runtime 配置，撤销和后续 Schema 更新不泄漏失败值", () => {
+    // 只在配置重编译阶段触发错误。
+    let fail = false
+
+    // 保留同一 Schema 引用，使刷新确实经过编译缓存失效路径。
+    const schemas = createSchemas([
+      {
+        name: "name",
+        label: "姓名",
+        componentType: "input",
+        get componentProps() {
+          if (fail) {
+            throw new Error("compile failed")
+          }
+
+          return {}
+        },
+      },
+    ])
+
+    // 初始配置与失败候选同时覆盖 Schema 默认值和 Renderer Props。
+    const form = createForm({
+      initialValues: { name: "" },
+      schemas,
+      schemaConfig: { disabled: false },
+      rendererProps: { input: { placeholder: "initial" } },
+    })
+
+    const configuration = getFormStateAdapterContext(form).configuration
+
+    const previous = configuration.getConfig()
+
+    fail = true
+    expect(() =>
+      form.setConfig({
+        schemaConfig: { disabled: true },
+        rendererProps: { input: { placeholder: "failed" } },
+      })
+    ).toThrow("compile failed")
+    expect(configuration.getConfig()).toBe(previous)
+    fail = false
+    form.setConfig({
+      schemaConfig: { disabled: false },
+      rendererProps: { input: { placeholder: "initial" } },
+    })
+    schemas.set([...schemas.value])
+    expect(configuration.getConfig()).toBe(previous)
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      disabled: false,
+      componentProps: { placeholder: "initial" },
+    })
+    form.updateSchemaConfig({ readonly: true })
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      readonly: true,
+      disabled: false,
+      componentProps: { placeholder: "initial" },
+    })
+    form.destroy()
+  })
+
+  it("已生成子树编译失败时不提前应用根节点配置", async () => {
+    // 首次生成成功后，只让配置刷新时的子字段编译失败。
+    let fail = false
+
+    const form = createForm({
+      initialValues: { name: "", extra: "" },
+      schemas: [
+        { name: "name", label: "姓名", componentType: "input" },
+        {
+          to: ["name"],
+          renderer: () => [
+            {
+              name: "extra",
+              label: "扩展",
+              componentType: "input",
+              get componentProps() {
+                if (fail) {
+                  throw new Error("generated compile failed")
+                }
+
+                return {}
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    await form.waitForDependencies()
+
+    // 根节点和动态字段都必须保留上一次提交的状态。
+    const previous = form.getViewSchemas()
+
+    const configuration = getFormStateAdapterContext(form).configuration
+
+    fail = true
+    expect(() => form.setConfig({ schemaConfig: { disabled: true } })).toThrow(
+      "generated compile failed"
+    )
+    expect(configuration.getConfig().schemaConfig.disabled).toBe(false)
+    expect(form.getViewSchemas()).toBe(previous)
+    fail = false
+    form.updateSchemaConfig({ readonly: true })
+    expect(form.getViewSchemas()).toMatchObject([
+      { name: "name", readonly: true, disabled: false },
+      { name: "extra", readonly: true, disabled: false },
+    ])
+    form.destroy()
+  })
+
   it("仅更新展示扩展时不重新编译 Schema", () => {
     const apply = vi.fn()
 
@@ -514,7 +688,7 @@ describe("固定库默认值与消费配置", () => {
   ])("运行期不替换创建选项 %s", (key) => {
     const form = createTestForm()
 
-    const current = form.state.config.value
+    const current = getFormStateAdapterContext(form).configuration.state.value
 
     const view = form.getViewSchemas()
 
@@ -525,7 +699,7 @@ describe("固定库默认值与消费配置", () => {
         extra: string
       }>)
     ).toThrow(`creation option "${key}"`)
-    expect(form.state.config.value).toBe(current)
+    expect(getFormStateAdapterContext(form).configuration.state.value).toBe(current)
     expect(form.getViewSchemas()).toBe(view)
     form.destroy()
   })
@@ -541,8 +715,12 @@ describe("固定库默认值与消费配置", () => {
     })
 
     form.setConfig({})
-    expect(form.state.config.value.rendererRegistry).toBe(consumer.rendererRegistry)
-    expect(form.state.config.value.presetRuleRegistry).toBe(consumer.presetRuleRegistry)
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.rendererRegistry
+    ).toBe(consumer.rendererRegistry)
+    expect(
+      getFormStateAdapterContext(form).configuration.state.value.presetRuleRegistry
+    ).toBe(consumer.presetRuleRegistry)
     form.destroy()
   })
 
@@ -557,14 +735,14 @@ describe("固定库默认值与消费配置", () => {
 
     const changed = vi.fn()
 
-    form.state.config.subscribe(changed)
-    const current = form.state.config.value
+    getFormStateAdapterContext(form).configuration.state.subscribe(changed)
+    const current = getFormStateAdapterContext(form).configuration.state.value
 
     form.destroy()
     form.setConfig({})
     form.updateSchemaConfig({ readonly: true })
-    form.state.config.subscribe(changed)()
+    getFormStateAdapterContext(form).configuration.state.subscribe(changed)()
     expect(changed).toHaveBeenCalledTimes(1)
-    expect(form.state.config.value).toBe(current)
+    expect(getFormStateAdapterContext(form).configuration.state.value).toBe(current)
   })
 })

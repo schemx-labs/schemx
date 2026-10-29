@@ -1,12 +1,12 @@
 /**
  * Core 内部 Validator 的规则解析、执行和错误状态协调实现。
  *
- * 本模块只由 FormModel 使用；`createValidator` 不从 `@schemx/core` 根入口导出。
+ * 本模块由 Form 校验域创建，供 Core 内部节点与 facade 使用；`createValidator` 不从 `@schemx/core` 根入口导出。
  *
  * @module core/validator/validator
  */
 
-import { yieldToHost } from "../runtime/scheduler"
+import { yieldToHost } from "../scheduler"
 import {
   createFieldKey,
   getByPath,
@@ -54,7 +54,7 @@ import type {
 /**
  * 创建 Core 内部 Validator 的配置。
  *
- * 该配置只供 `FormModel` 装配校验域使用，不属于 `@schemx/core` 根入口的公开 API。
+ * 该配置只供 Form 校验域创建校验资源使用，不属于 `@schemx/core` 根入口的公开 API。
  *
  * @typeParam TValues - 表单值类型。
  *
@@ -986,7 +986,7 @@ function isValidationRuleResult(value: unknown): value is
 /**
  * 创建 Core 内部字段校验器。
  *
- * 仅供 `FormModel` 装配使用，不从 `@schemx/core` 根入口导出。
+ * 仅供 Form 校验域创建和使用，不从 `@schemx/core` 根入口导出。
  *
  * @typeParam TValues - 表单值类型。
  * @param options - 规则异常映射等执行选项。

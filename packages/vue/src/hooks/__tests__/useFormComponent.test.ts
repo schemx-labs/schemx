@@ -7,7 +7,7 @@
 import { defineComponent, h, markRaw, nextTick, reactive, shallowReactive } from "vue"
 import type { App, Component } from "vue"
 
-import { createForm, createRendererRegistry } from "@schemx/core"
+import { createForm, createFormStateAdapter, createRendererRegistry } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
@@ -181,13 +181,15 @@ describe("useFormComponent", () => {
     form.setFieldErrors("name", ["外部错误"])
     form.setFieldTouched("name", true)
     form.setFieldPending("name", true)
-    const values = form.state.values.value
+    const adapter = createFormStateAdapter(form)
+
+    const values = adapter.values.getSnapshot()
 
     const submit = vi.spyOn(form, "setConfig")
 
     const configChanges = vi.fn()
 
-    const stop = form.state.config.subscribe(configChanges)
+    const stop = adapter.config.subscribe(configChanges)
 
     configChanges.mockClear()
     result.props.labelWidth = 180
@@ -202,7 +204,7 @@ describe("useFormComponent", () => {
       labelAlign: "left",
       componentProps: { placeholder: "After" },
     })
-    expect(form.state.values.value).toBe(values)
+    expect(adapter.values.getSnapshot()).toBe(values)
     expect(form.getFieldErrors("name")).toEqual(["外部错误"])
     expect(form.isFieldTouched("name")).toBe(true)
     expect(form.isFieldPending("name")).toBe(true)
@@ -263,7 +265,9 @@ describe("useFormComponent", () => {
 
     const changes = vi.fn()
 
-    const stop = external.state.config.subscribe(changes)
+    const adapter = createFormStateAdapter(external)
+
+    const stop = adapter.config.subscribe(changes)
 
     changes.mockClear()
     col.span = 8
@@ -271,7 +275,7 @@ describe("useFormComponent", () => {
     await nextTick()
 
     expect(changes).toHaveBeenCalledTimes(1)
-    expect(external.state.config.value.schemaConfig.col).toEqual({ span: 8 })
+    expect(adapter.config.getSnapshot().schemaConfig.col).toEqual({ span: 8 })
     expect(external.getFieldsValue()).toEqual({ name: "External" })
 
     stop()

@@ -1,7 +1,7 @@
 /**
  * Validator 的规则、adapter、错误和结果类型。
  *
- * 根入口只选择性导出公共类型；`Validator` 接口仅供 Core 内部 FormModel 使用。
+ * 根入口只选择性导出公共类型；`Validator` 接口仅供 Core 内部运行模块与 facade 使用。
  *
  * @module core/validator/types
  */

@@ -15,12 +15,12 @@ import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createFormStateAdapter } from "../index"
+import { isFieldNode } from "../node"
 import {
   createPresetRuleRegistry,
   createRendererRegistry,
   type RendererPropsTransformer,
 } from "../registry"
-import { isFieldNode } from "../runtime/node"
 
 import type { StandardSchemaV1, ValidationTrigger } from "../types"
 import type { ValidationRuleContext, ValidationRuleResult } from "../validator"
@@ -1245,25 +1245,56 @@ describe("渲染器注册中心下沉 单元测试", () => {
     form.destroy()
   })
 
-  it("所有 Schema 注入路径共享 createForm 返回的同一个实例", () => {
+  it("公开视图各层绑定同一个实例，读取和订阅复用快照", async () => {
+    // 字段、Group 和 Dynamic 行共同覆盖公开视图的递归绑定。
     const form = createForm({
+      initialValues: { email: "", nickname: "", users: [{ name: "Ada" }] },
       schemas: [
+        { name: "email", label: "邮箱", componentType: "input" },
         {
-          name: "email",
-          label: "邮箱",
-          componentType: "input",
+          label: "分组",
+          children: [{ name: "nickname", label: "昵称", componentType: "input" }],
+        },
+        {
+          key: "users",
+          name: "users",
+          label: "用户",
+          item: [{ name: "name", label: "姓名", componentType: "input" }],
         },
       ],
     })
 
-    expect(form.getViewSchemas()[0]).toMatchObject({
-      componentProps: { formInstance: form },
-    })
+    await form.waitForDependencies()
 
-    form.destroy()
+    // 同一 Runtime 投影的公开绑定也保持同一列表身份。
+    const schemas = form.getViewSchemas()
+
+    // 订阅通知必须使用与同步读取相同的绑定结果。
+    const onViewChange = vi.fn()
+
+    const unsubscribe = form.subscribeViewSchemas(onViewChange)
+
+    try {
+      expect(form.getViewSchemas()).toBe(schemas)
+      expect(onViewChange.mock.calls.at(-1)?.[0]).toBe(schemas)
+      expect(schemas).toMatchObject([
+        { componentProps: { formInstance: form } },
+        { children: [{ componentProps: { formInstance: form } }] },
+        { items: [{ children: [{ componentProps: { formInstance: form } }] }] },
+      ])
+
+      form.updateSchemaConfig({ disabled: true })
+      expect(form.getViewSchemas()).not.toBe(schemas)
+      await vi.waitFor(() => {
+        expect(onViewChange.mock.calls.at(-1)?.[0]).toBe(form.getViewSchemas())
+      })
+    } finally {
+      unsubscribe()
+      form.destroy()
+    }
   })
 
-  it("销毁 Node 时 FormModel 仍然可用", () => {
+  it("销毁 Node 时 Actions 仍然可用", () => {
     let valueDuringUnmount: string | undefined
 
     const form = createForm<{ name: string }>({

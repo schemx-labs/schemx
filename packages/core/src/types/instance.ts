@@ -6,19 +6,9 @@
  * @module types/instance
  */
 
-import type { SchemxFieldInstance } from "../createField"
-import type { FormConfig, ResolvedFormConfig } from "../form"
-import type { ReadonlyState } from "../reactivity"
 import type {
-  PresetRuleEntry,
-  RegistryOptions,
-  RendererDescriptor,
-  RendererEntry,
-} from "../registry"
-import type { SchemxViewSchema } from "../runtime/view"
-import type { StorePending, StoreState } from "../store"
-import type { ValidationResult } from "../validator"
-import type {
+  FieldRef,
+  FieldRefState,
   FieldRules,
   FieldValue,
   NamePath,
@@ -29,6 +19,16 @@ import type {
   SetValuesAction,
   Values,
 } from "./index"
+import type { FormConfig } from "../config/createFormConfig"
+import type {
+  PresetRuleEntry,
+  RegistryOptions,
+  RendererDescriptor,
+  RendererEntry,
+} from "../registry"
+import type { StorePending } from "../store"
+import type { ValidationResult } from "../validator"
+import type { SchemxViewSchema } from "../view"
 
 /**
  * 框架层为表单实例追加方法的声明合并入口。
@@ -37,22 +37,6 @@ import type {
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
-
-/**
- * FormModel 直接持有的表单状态；字段与聚合状态复用 Store，提交状态由 Model 持有。
- *
- * @typeParam TValues - 表单值对象类型。
- */
-export interface FormState<TValues extends Values> extends StoreState<TValues> {
-  /**
-   * 固定库默认值与当前消费配置合并后的生效结果。
-   */
-  readonly config: ReadonlyState<ResolvedFormConfig<TValues>>
-  /**
-   * 当前是否正在提交表单。
-   */
-  readonly loading: ReadonlyState<boolean>
-}
 
 /**
  * 表单实例接口
@@ -64,28 +48,32 @@ export interface FormState<TValues extends Values> extends StoreState<TValues> {
  */
 export type SchemxInstance<TValues extends Values = Values> = {
   /**
-   * FormModel 持有的原生只读状态；订阅由 Core 管理，随 Form 统一销毁。
-   */
-  readonly state: FormState<TValues>
-  /**
-   * 用初始路径取得稳定的字段控制器，由 Form 缓存并管理生命周期。
-   * 已有 Schema 字段绑定节点身份并跟随路径变化；没有节点时保持固定路径绑定。
-   *
-   * @typeParam TName - 初始定位路径，用于推导字段值类型。
-   * @param name - 创建时的字段路径。
-   * @returns 同一节点或手动路径对应的缓存控制器。
+   * 取得稳定字段引用；Schema 字段随节点移动，手动字段保持初始路径。
+   * 删除后引用失效，不接管同路径的新节点。
+   * @typeParam TName - 初始路径，用于推导值类型。
+   * @param name - 初次定位的字段路径。
    * @throws Form 已销毁时抛出错误。
-   *
-   * @example
-   * ```ts
-   * const field = form.createField('users.0.name')
-   * field.setValue('Ada')
-   * ```
+   * @example const ref = form.getFieldRef("users.0.name")
    */
-  createField<TName extends NamePath<TValues>>(
-    name: TName
-  ): SchemxFieldInstance<TValues, TName>
-
+  getFieldRef<TName extends NamePath<TValues>>(name: TName): FieldRef<TValues, TName>
+  /**
+   * 读取引用当前路径，失效后返回 undefined；传入其他 Form 的引用时抛出 TypeError。
+   * @typeParam TName - 引用初始路径。
+   * @param ref - 当前 Form 的字段引用。
+   * @example const name = form.getFieldName(ref)
+   */
+  getFieldName<TName extends NamePath<TValues>>(
+    ref: FieldRef<TValues, TName>
+  ): NamePath<TValues> | undefined
+  /**
+   * 获取引用对应的稳定只读状态，失效后值为空、错误为空、交互状态为 false。
+   * @typeParam TName - 引用初始路径。
+   * @param ref - 当前 Form 的字段引用。
+   * @example const state = form.getFieldState(ref)
+   */
+  getFieldState<TName extends NamePath<TValues>>(
+    ref: FieldRef<TValues, TName>
+  ): FieldRefState<TValues, TName>
   /**
    * 获取单个字段的当前值
    *
@@ -896,6 +884,9 @@ export type SchemxInstance<TValues extends Values = Values> = {
  */
 export type SchemxFormApi<TValues extends Values = Values> = Pick<
   SchemxInstance<TValues>,
+  | "getFieldRef"
+  | "getFieldName"
+  | "getFieldState"
   | "setFieldValue"
   | "setFieldsValue"
   | "getFieldValue"

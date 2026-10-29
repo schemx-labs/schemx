@@ -11,6 +11,7 @@ import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFieldHook, useField } from ".."
+import { getFormStateAdapterContext } from "../../../../core/src/adapter/formStateAdapter/context"
 import { acquireVueFormRuntime } from "../../bridge"
 import { createFormContext } from "../../context"
 
@@ -96,7 +97,7 @@ describe("useField", () => {
     form.destroy()
   })
 
-  it("数组重排后读取和赋值仍跟随原行", () => {
+  it("数组重排后 Vue 订阅跟随原行，删除后不接管同址新节点", async () => {
     const form = createForm({
       initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
       schemas: [
@@ -110,15 +111,44 @@ describe("useField", () => {
 
     const { field, release } = createFieldHarness(form, "users.0.name")
 
-    form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
-    expect(field.name).toBe("users.1.name")
-    expect(field.getValue()).toBe("Ada")
-    field.value.value = "Updated"
-    expect(form.getFieldValue("users.1.name")).toBe("Updated")
-    expect(form.getFieldValue("users.0.name")).toBe("Grace")
+    // 路径、值和交互状态必须在同一次 Vue 更新中指向原字段。
+    const samples: unknown[] = []
 
-    release()
-    form.destroy()
+    const stop = watchEffect(() => {
+      samples.push([
+        field.name,
+        field.value.value,
+        field.errors.value,
+        field.dirty.value,
+        field.pending.value,
+      ])
+    })
+
+    try {
+      form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
+      await nextTick()
+      expect(samples).toEqual([
+        ["users.0.name", "Ada", [], false, false],
+        ["users.1.name", "Ada", [], false, false],
+      ])
+      expect(form.getFieldRef("users.1.name")).toBe(field.ref)
+      field.value.value = "Updated"
+      expect(form.getFieldValue("users.1.name")).toBe("Updated")
+      expect(form.getFieldValue("users.0.name")).toBe("Grace")
+      form.setFieldValue("users", [{ name: "New0" }, { name: "New1" }])
+      await nextTick()
+      expect(field.name).toBeUndefined()
+      expect(field.value.value).toBeUndefined()
+      expect(field.state.disposed.peek()).toBe(true)
+      expect(form.getFieldRef("users.1.name")).not.toBe(field.ref)
+      field.value.value = "Stale"
+      expect(form.getFieldValue("users.1.name")).toBe("New1")
+      expect(samples.at(-1)).toEqual([undefined, undefined, [], false, false])
+    } finally {
+      stop()
+      release()
+      form.destroy()
+    }
   })
 
   it("旧节点失效后不接管同址新节点，订阅观察当前路径变化", async () => {
@@ -171,24 +201,69 @@ describe("useField", () => {
     release()
   })
 
-  it("重复获取同一字段复用订阅，最后一个 owner 释放后停止同步", () => {
+  it("重复获取同一字段复用 Form 订阅，释放后停止通知但显式读取仍有效", async () => {
     const form = createForm({ initialValues: { name: "Ada" } })
 
-    const subscribe = vi.spyOn(form.createField("name").state.value, "subscribe")
+    const subscribe = vi.spyOn(
+      getFormStateAdapterContext(form).store.state.field("name").value,
+      "subscribe"
+    )
 
     const first = createFieldHarness(form, "name")
 
+    expect(first.field.getValue()).toBe("Ada")
+
     const subscriptions = subscribe.mock.calls.length
 
+    expect(subscriptions).toBe(1)
+
     const second = createFieldHarness(form, "name")
+
+    const values: (string | undefined)[] = []
+
+    const stop = watchEffect(() => values.push(second.field.getValue()))
 
     expect(subscribe).toHaveBeenCalledTimes(subscriptions)
     first.release()
     form.setFieldValue("name", "Grace")
+    await nextTick()
     expect(second.field.getValue()).toBe("Grace")
     second.release()
     form.setFieldValue("name", "Lin")
-    expect(second.field.getValue()).toBe("Grace")
+    await nextTick()
+    expect(values).toEqual(["Ada", "Grace"])
+    expect(second.field.getValue()).toBe("Lin")
+    expect(subscribe).toHaveBeenCalledTimes(subscriptions)
+    stop()
+    form.destroy()
+  })
+
+  it("命令与快照读取不建立 Vue 依赖，字段读取则跟随 Form 桥接", async () => {
+    const form = createForm({
+      initialValues: { name: "Ada", nickname: "A" },
+      schemas: [{ key: "person", name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const { field, release } = createFieldHarness(form, "name")
+
+    const command = vi.fn(() => field.setValue("written"))
+
+    const snapshot = vi.fn(() => field.getSnapshot())
+
+    const stopCommand = watchEffect(command)
+
+    const stopSnapshot = watchEffect(snapshot)
+
+    form.setSchemas([
+      { key: "person", name: "nickname", label: "昵称", componentType: "input" },
+    ])
+    await nextTick()
+    expect(command).toHaveBeenCalledTimes(1)
+    expect(snapshot).toHaveBeenCalledTimes(1)
+    expect(field.getValue()).toBe("A")
+    stopCommand()
+    stopSnapshot()
+    release()
     form.destroy()
   })
 
@@ -262,7 +337,7 @@ describe("useField", () => {
     coreForm.destroy()
   })
 
-  it("Provider scope 停止后释放字段 Bridge", async () => {
+  it("Provider scope 停止后释放 Form 订阅，保留显式读取能力", async () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
     let field: FieldInstance<{ name: string }> | undefined
@@ -292,7 +367,7 @@ describe("useField", () => {
     coreForm.setFieldValue("name", "Lin")
     await nextTick()
 
-    expect(field?.getValue()).toBe("Grace")
+    expect(field?.getValue()).toBe("Lin")
 
     coreForm.destroy()
   })

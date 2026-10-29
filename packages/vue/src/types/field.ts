@@ -8,14 +8,17 @@ import type { ComputedRef, VNodeChild, WritableComputedRef } from "vue"
 
 import type {
   DeepReadonly,
+  FieldRef,
+  FieldRefState,
+  FieldRules,
   FieldValue,
   NamePath,
   SchemxBaseComponentProps,
   SchemxComponentProps,
-  SchemxFieldInstance,
   SchemxInstance,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
+  ValidationResult,
   Values,
 } from "@schemx/core"
 
@@ -45,7 +48,168 @@ export type SchemxVueBaseComponentProps<
 export interface FieldInstance<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
-> extends Omit<SchemxFieldInstance<TValues, TName>, "getValue"> {
+> {
+  /**
+   * 字段引用，所有操作都经由 Form instance。
+   */
+  readonly ref: FieldRef<TValues, TName>
+  /**
+   * 兼容只读状态，状态实际由 Form 持有。
+   */
+  readonly state: FieldRefState<TValues, TName>
+  /**
+   * 用户修改直接委托 Form 的交互入口。
+   */
+  change(
+    value: FieldValue<TValues, TName> | undefined
+  ): Promise<ValidationResult<TValues> | undefined>
+  /**
+   * 用户失焦直接委托 Form。
+   */
+  blur(): Promise<ValidationResult<TValues> | undefined>
+  /**
+   * 设置当前字段值。
+   *
+   * @param value - 新字段值。
+   */
+  setValue: (value: FieldValue<TValues, TName> | undefined) => void
+
+  /**
+   * 获取字段初始值。
+   *
+   * @returns 当前字段的初始值；未设置时返回 undefined。
+   */
+  getInitialValue: () => FieldValue<TValues, TName> | undefined
+
+  /**
+   * 设置字段初始值。
+   *
+   * @param value - 新初始值。
+   */
+  setInitialValue: (value: FieldValue<TValues, TName>) => void
+
+  /**
+   * 获取表单当前值。
+   *
+   * 在 effect 中调用时，读取过程会自动追踪字段变化。
+   *
+   * @returns 当前表单值对象。
+   */
+  getValues: () => TValues
+
+  /**
+   * 获取表单字段快照。
+   *
+   * @returns 当前表单值快照。
+   */
+  getSnapshot: () => FieldValue<TValues, TName> | undefined
+
+  /**
+   * 获取表单全量快照。
+   *
+   * @returns 当前表单值快照。
+   */
+  getSnapshots: () => TValues
+
+  /**
+   * 获取当前字段错误信息。
+   *
+   * @returns 错误信息的只读快照；没有错误时返回空数组。
+   */
+  getErrors: () => readonly string[]
+
+  /**
+   * 设置当前字段错误信息。
+   *
+   * @param errors - 用于替换当前错误状态的消息数组。
+   */
+  setErrors: (errors: readonly string[]) => void
+
+  /**
+   * 清除当前字段错误信息。
+   */
+  clearErrors: () => void
+
+  /**
+   * 替换当前字段的全部校验规则。
+   *
+   * @param rules - 校验规则或规则数组。
+   *
+   * @example
+   * ```ts
+   * field.setRules({
+   *   validate: (value) => value
+   *     ? { valid: true }
+   *     : { valid: false, issues: [{ message: "不能为空" }] },
+   * })
+   * ```
+   */
+  setRules: (rules: FieldRules<TValues, TName>) => void
+
+  /**
+   * 注销当前字段校验规则。
+   */
+  removeRules: () => void
+
+  /**
+   * 设置字段交互状态。
+   *
+   * 传入路径设置字段修改状态。
+   */
+  setTouched(value: boolean): void
+
+  /**
+   * 检查当前字段是否已被触摸。
+   *
+   * @returns 是否已被触摸。
+   */
+  isTouched: () => boolean
+
+  /**
+   * 设置当前字段操作中状态。
+   *
+   * @param pending - 是否处于操作中。
+   * @param message - 可选的操作中提示信息。
+   */
+  setPending: (pending: boolean, message?: string | string[]) => void
+
+  /**
+   * 检查当前字段是否处于操作中。
+   *
+   * @returns 是否处于操作中。
+   */
+  isPending: () => boolean
+
+  /**
+   * 重置当前字段到初始值。
+   */
+  reset: () => void
+
+  /**
+   * 校验当前字段。
+   *
+   * @returns 当前字段校验结果。
+   */
+  validate: () => Promise<ValidationResult<TValues, TName>>
+
+  /**
+   * 创建 reactive effect
+   *
+   * 直接透传 form.effect，在回调中访问 getValue / getErrors / isPending 时
+   * 自动追踪对应 reactive 依赖，依赖变化时 effect 自动重新执行。
+   *
+   * @param fn - effect 回调函数
+   * @returns dispose 函数，取消 effect
+   *
+   * @example
+   * ```ts
+   * const dispose = field.effect(() => {
+   *   console.log('value:', field.getValue())
+   * })
+   * dispose()
+   * ```
+   */
+  effect: (fn: () => void) => () => void
   /**
    * 当前字段路径。
    */

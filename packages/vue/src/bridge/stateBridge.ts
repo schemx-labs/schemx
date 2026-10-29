@@ -1,5 +1,5 @@
 /**
- * 将 Core 原生只读状态投影为共享 Vue 浅引用。
+ * 将 Core adapter 快照来源投影为共享 Vue 浅引用。
  *
  * Core 负责派生状态和变化通知；这里仅管理 Vue 外壳、身份缓存与订阅释放。
  * @module vue/bridge/stateBridge
@@ -10,11 +10,11 @@ import type { ShallowRef } from "vue"
 
 import type {
   DeepReadonly,
-  FieldState,
+  FieldSnapshotSource,
   FieldValue,
+  FormStateAdapter,
   NamePath,
-  ReadonlyState,
-  SchemxFieldState,
+  SnapshotSource,
   Values,
 } from "@schemx/core"
 
@@ -52,51 +52,26 @@ export interface VueFieldState<
 }
 
 /**
- * 控制器投影额外保留当前路径；路径失效时由 Core 返回 undefined。
- * @typeParam TValues - 表单值类型。
- * @typeParam TName - 控制器的初始路径。
- */
-export interface VueBoundFieldState<
-  TValues extends Values,
-  TName extends NamePath<TValues>,
-> extends VueFieldState<TValues, TName> {
-  /**
-   * 当前实际路径。
-   */
-  readonly name: VueStateRef<NamePath<TValues> | undefined>
-}
-
-/**
- * 一个 Runtime 资源周期内共享的原生状态绑定。
+ * 一个 Runtime 资源周期内共享的 adapter 来源投影。
  */
 export interface VueStateBridge {
   /**
-   * 同一原生状态只订阅一次，释放后保留最后一次投影值。
+   * 同一快照来源只订阅一次，释放后保留最后一次投影值。
    * @typeParam TValue - 原生状态值类型。
-   * @param state - Core 提供的原生只读状态。
+   * @param state - Core adapter 提供的快照来源。
    * @throws bridge 已释放时不能再调用 bind，包括读取原有缓存。
-   * @example const loading = bridge.bind(form.state.loading)
+   * @example const loading = bridge.bind(adapter.loading)
    */
-  bind<TValue>(state: ReadonlyState<TValue>): VueStateRef<TValue>
+  bind<TValue>(state: SnapshotSource<TValue>): VueStateRef<TValue>
   /**
-   * 按控制器状态身份投影字段，保留其当前路径。
-   * @typeParam TValues - 表单值类型。
-   * @typeParam TName - 控制器初始路径。
-   * @param state - Core 字段控制器状态。
-   * @example const field = bridge.field(controller.state)
-   */
-  field<TValues extends Values, TName extends NamePath<TValues>>(
-    state: SchemxFieldState<TValues, TName>
-  ): VueBoundFieldState<TValues, TName>
-  /**
-   * 按固定路径的 Store 状态投影字段。
+   * 按固定路径的 adapter 来源投影字段。
    * @typeParam TValues - 表单值类型。
    * @typeParam TName - 固定字段路径。
    * @param state - Core Store 的路径状态。
-   * @example const field = bridge.field(form.state.field("name"))
+   * @example const field = bridge.field(adapter.field("name"))
    */
   field<TValues extends Values, TName extends NamePath<TValues>>(
-    state: FieldState<TValues, TName>
+    state: FieldSnapshotSource<TValues, TName>
   ): VueFieldState<TValues, TName>
   /**
    * 释放所有绑定的原生订阅，重复调用无副作用。
@@ -107,28 +82,29 @@ export interface VueStateBridge {
 }
 
 /**
- * 将 Core 原生状态绑定为 Vue Ref，共享缓存和订阅回收。
+ * 将 adapter 快照来源绑定为 Vue Ref，共享缓存并拥有 adapter 的释放周期。
+ * @typeParam TValues - adapter 对应的表单值类型。
+ * @param adapter - 当前资源周期专用的 Core adapter。
  * @example
- * const bridge = createVueStateBridge()
- * const loading = bridge.bind(form.state.loading)
+ * const bridge = createVueStateBridge(adapter)
+ * const loading = bridge.bind(adapter.loading)
  * bridge.dispose()
  */
-export function createVueStateBridge(): VueStateBridge {
+export function createVueStateBridge<TValues extends Values>(
+  adapter: FormStateAdapter<TValues>
+): VueStateBridge {
   // 状态对象与字段状态容器都是稳定身份，共用一份异构缓存。
   const cache = new WeakMap<object, unknown>()
-
-  // 这里只保存订阅取消函数，不维护第二套状态或监听器分发。
-  const subscriptions = new Set<() => void>()
 
   // 关闭后禁止创建新的桥接状态。
   let disposed = false
 
   /**
-   * 原生状态负责变化检测；Vue shallowRef 只传递引用。
+   * adapter 负责变化检测；Vue shallowRef 只传递引用。
    * @typeParam TValue - 原生状态值类型。
-   * @param state - 要绑定的原生只读状态。
+   * @param state - 要绑定的 adapter 快照来源。
    */
-  const bind = <TValue>(state: ReadonlyState<TValue>): VueStateRef<TValue> => {
+  const bind = <TValue>(state: SnapshotSource<TValue>): VueStateRef<TValue> => {
     if (disposed) {
       throw new Error("[schemx] Vue state bridge has been disposed.")
     }
@@ -141,36 +117,25 @@ export function createVueStateBridge(): VueStateBridge {
     }
 
     // shallowRef 不解包嵌套值；断言仅保留泛型的 Vue Ref 外壳。
-    const ref = shallowRef(state.peek()) as ShallowRef<DeepReadonly<TValue>>
+    const ref = shallowRef(state.getSnapshot()) as ShallowRef<DeepReadonly<TValue>>
 
     cache.set(state, ref)
-    subscriptions.add(
-      state.subscribe(
-        /**
-         * 将 Core 的同步首值和后续快照发布到同一个 Vue 引用。
-         * @param value - Core 当前的只读状态值。
-         */
-        (value) => {
-          ref.value = value
-        }
-      )
-    )
+    state.subscribe(() => {
+      ref.value = state.getSnapshot()
+    })
 
     return ref
   }
 
-  // 控制器重载遵循 VueStateBridge.field 的契约，额外投影其当前路径。
-  function field<TValues extends Values, TName extends NamePath<TValues>>(
-    state: SchemxFieldState<TValues, TName>
-  ): VueBoundFieldState<TValues, TName>
-  // Store 重载遵循 VueStateBridge.field 的契约，保持固定路径的状态来源。
-  function field<TValues extends Values, TName extends NamePath<TValues>>(
-    state: FieldState<TValues, TName>
-  ): VueFieldState<TValues, TName>
-  // 以状态容器身份缓存字段投影；各成员的订阅统一交给 bind 回收。
-  function field<TValues extends Values, TName extends NamePath<TValues>>(
-    state: FieldState<TValues, TName> | SchemxFieldState<TValues, TName>
-  ): VueFieldState<TValues, TName> {
+  /**
+   * 以固定路径来源身份缓存字段投影，成员订阅统一交给 bind 回收。
+   * @typeParam TValues - 表单值类型。
+   * @typeParam TName - 固定字段路径。
+   * @param state - Form adapter 的路径状态来源。
+   */
+  const field = <TValues extends Values, TName extends NamePath<TValues>>(
+    state: FieldSnapshotSource<TValues, TName>
+  ): VueFieldState<TValues, TName> => {
     // 同一状态容器复用投影对象，避免 Hook 各自拼装独立 Ref。
     const cached = cache.get(state)
 
@@ -184,7 +149,6 @@ export function createVueStateBridge(): VueStateBridge {
       errors: bind(state.errors),
       touched: bind(state.touched),
       pending: bind(state.pending),
-      ...("name" in state ? { name: bind(state.name) } : {}),
     }
 
     cache.set(state, projected)
@@ -199,12 +163,7 @@ export function createVueStateBridge(): VueStateBridge {
     }
 
     disposed = true
-    // 每个取消函数对应唯一的原生订阅，缓存仍可由 WeakMap 自动回收。
-    for (const stop of subscriptions) {
-      stop()
-    }
-
-    subscriptions.clear()
+    adapter.dispose()
   }
 
   return { bind, field, dispose }

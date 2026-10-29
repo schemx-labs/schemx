@@ -1,4 +1,4 @@
-import { createFormConfig } from "../../form"
+import { createFormConfig } from "../../config/createFormConfig"
 import {
   createForm,
   mergeConfig,
@@ -85,7 +85,7 @@ const invalidValueUpdate: SchemxRendererPropsMap = {
 
 const invalidFormInstance: SchemxRendererPropsMap = {
   custom: {
-    // @ts-expect-error formInstance 由 Runtime 注入，不能配置为 Renderer 默认值。
+    // @ts-expect-error formInstance 由公开视图层注入，不能配置为 Renderer 默认值。
     formInstance: undefined,
   },
 }

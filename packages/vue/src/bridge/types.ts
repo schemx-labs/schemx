@@ -9,16 +9,12 @@
 
 import type { ComputedRef, ShallowRef } from "vue"
 
-import type {
-  VueBoundFieldState,
-  VueFieldState,
-  VueStateBridge,
-  VueStateRef,
-} from "./index"
+import type { VueFieldState, VueStateBridge, VueStateRef } from "./index"
 import type { SchemxInstance as VueInstance } from "../types"
 import type {
+  FormStateAdapter,
   NamePath,
-  SchemxFieldInstance,
+  ReadonlyState,
   SchemxInstance,
   SchemxViewSchema,
   Values,
@@ -59,12 +55,6 @@ export interface VueViewSchemaState<TValues extends Values = Values> {
    * 当前 Form 的完整 ViewSchema 列表。
    */
   readonly viewSchemas: ShallowRef<readonly SchemxViewSchema<TValues>[]>
-  /**
-   * 取消 ViewSchema 订阅并释放该状态投影。
-   * 已取得的 Ref 保留最后一次列表值，重复调用无副作用。
-   * @example state.dispose()
-   */
-  dispose(): void
 }
 
 /**
@@ -75,6 +65,10 @@ export interface VueViewSchemaState<TValues extends Values = Values> {
  * @typeParam TValues - 表单值类型。
  */
 export interface VueFormResources<TValues extends Values> {
+  /**
+   * 当前资源周期独占的状态适配器，由 states 统一释放。
+   */
+  readonly adapter: FormStateAdapter<TValues>
   /**
    * 原生状态的唯一 Vue 绑定与订阅回收入口。
    */
@@ -104,12 +98,6 @@ export type VueFormDependency = "values" | "touchedFields" | "pendingFields" | "
  */
 export interface VueFormRuntime<TValues extends Values = Values> {
   /**
-   * 原始 Core Form 实例。
-   *
-   * @deprecated 请使用 {@link VueFormRuntime.instance}；该字段仅为兼容旧版 Runtime 消费者保留。
-   */
-  readonly core: SchemxInstance<TValues>
-  /**
    * 对外提供的 Vue 响应式 Form Instance。
    */
   readonly instance: VueInstance<TValues>
@@ -119,6 +107,13 @@ export interface VueFormRuntime<TValues extends Values = Values> {
    * @example const release = runtime.retain(); release()
    */
   retain(): () => void
+  /**
+   * 在 Form 实例读取边界追踪原生身份状态，复用共享状态订阅。
+   * @typeParam TValue - 原生状态值类型。
+   * @param state - Form 持有的状态来源。
+   * @example runtime.trackState(field.state.name)
+   */
+  trackState<TValue>(state: ReadonlyState<TValue>): void
   /**
    * 在当前 Vue effect 中追踪指定字段状态。
    * 不激活已释放资源；需要先通过 retain 或获取方法建立资源周期。
@@ -158,15 +153,6 @@ export interface VueFormRuntime<TValues extends Values = Values> {
   getFieldState<TName extends NamePath<TValues>>(
     name: TName
   ): VueFieldState<TValues, TName>
-  /**
-   * 获取已绑定字段的身份投影，不重新定位同名节点。
-   * @typeParam TName - 控制器的初始字段路径。
-   * @param field - Core 缓存的字段控制器。
-   * @example const state = runtime.getBoundFieldState(controller)
-   */
-  getBoundFieldState<TName extends NamePath<TValues>>(
-    field: SchemxFieldInstance<TValues, TName>
-  ): VueBoundFieldState<TValues, TName>
   /**
    * 获取当前 Form 的共享 ViewSchema 状态投影。
    * 首次读取时创建订阅，与当前资源周期一起释放。

@@ -8,8 +8,9 @@
 
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { getFormStateAdapterContext } from "../adapter/formStateAdapter/context"
 import { createForm } from "../createForm"
-import { createFormStateAdapter } from "../index"
+import { createField, createFormStateAdapter } from "../index"
 
 interface FormValues {
   name: string
@@ -47,7 +48,9 @@ describe("createFormStateAdapter", () => {
     form.setFieldValue("name", "Grace")
 
     expect(listener).toHaveBeenCalledTimes(1)
-    expect(store.values.getSnapshot()).toBe(form.state.values.peek())
+    expect(store.values.getSnapshot()).toBe(
+      getFormStateAdapterContext(form).store.state.values.peek()
+    )
     expect(store.values.getSnapshot()).toEqual({
       name: "Grace",
       age: 20,
@@ -192,13 +195,17 @@ describe("createFormStateAdapter", () => {
     form.setFieldTouched("name", true)
 
     expect(touchedListener).toHaveBeenCalledTimes(2)
-    expect(store.touchedFields.getSnapshot()).toBe(form.state.touchedFields.peek())
+    expect(store.touchedFields.getSnapshot()).toBe(
+      getFormStateAdapterContext(form).store.state.touchedFields.peek()
+    )
     expect(store.touchedFields.getSnapshot()).toEqual(["profile.name", "name"])
 
     form.setFieldPending("name", true, "上传中")
 
     expect(pendingListener).toHaveBeenCalledTimes(1)
-    expect(store.pendingFields.getSnapshot()).toBe(form.state.pendingFields.peek())
+    expect(store.pendingFields.getSnapshot()).toBe(
+      getFormStateAdapterContext(form).store.state.pendingFields.peek()
+    )
     expect(store.pendingFields.getSnapshot()).toEqual([
       { field: "name", message: ["上传中"] },
     ])
@@ -261,7 +268,9 @@ describe("createFormStateAdapter", () => {
       touched: true,
       pending: true,
     })
-    expect(snapshot.errors).toBe(form.state.field("profile.name").errors.peek())
+    expect(snapshot.errors).toBe(
+      getFormStateAdapterContext(form).store.state.field("profile.name").errors.peek()
+    )
     form.batch(() => {
       form.setFieldTouched("profile.name", false)
       form.setFieldTouched("profile.name", true)
@@ -307,12 +316,12 @@ describe("createFormStateAdapter", () => {
 
     const fixed = store.field("name")
 
-    const controller = form.createField("name")
+    const controller = createField(form, "name")
 
     form.setSchemas([
       { key: "field", name: "profile.name", label: "姓名", componentType: "input" },
     ])
-    expect(controller.state.name.value).toBe("profile.name")
+    expect(form.getFieldName(controller.ref)).toBe("profile.name")
     expect(controller.getValue()).toBe("Lovelace")
     expect(store.field("name")).toBe(fixed)
     expect(fixed.getSnapshot().value).toBe("Ada")
@@ -332,7 +341,7 @@ describe("createFormStateAdapter", () => {
 
     const nativeListener = vi.fn()
 
-    form.state.values.subscribe(nativeListener)
+    getFormStateAdapterContext(form).store.state.values.subscribe(nativeListener)
     const stop = store.values.subscribe(listener)
 
     form.setFieldValue("name", "Grace")
@@ -345,7 +354,9 @@ describe("createFormStateAdapter", () => {
     expect(listener).toHaveBeenCalledTimes(1)
     expect(lateListener).not.toHaveBeenCalled()
     expect(nativeListener).toHaveBeenCalledTimes(3)
-    expect(store.values.getSnapshot()).toBe(form.state.values.peek())
+    expect(store.values.getSnapshot()).toBe(
+      getFormStateAdapterContext(form).store.state.values.peek()
+    )
     expect(store.values.getSnapshot().name).toBe("Lin")
     form.destroy()
   })
@@ -366,5 +377,170 @@ describe("createFormStateAdapter", () => {
     store.dispose()
     store.dispose()
     expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it("共享原生状态来源并暴露配置与表单销毁状态", () => {
+    const form = createTestForm()
+
+    const adapter = createFormStateAdapter(form)
+
+    const configChanged = vi.fn()
+
+    const disposedChanged = vi.fn()
+
+    expect(adapter.bind(getFormStateAdapterContext(form).store.state.values)).toBe(
+      adapter.values
+    )
+    expect(adapter.bind(getFormStateAdapterContext(form).configuration.state)).toBe(
+      adapter.config
+    )
+    adapter.config.subscribe(configChanged)
+    adapter.disposed.subscribe(disposedChanged)
+    form.setConfig({ schemaConfig: { disabled: true } })
+    expect(configChanged).toHaveBeenCalledTimes(1)
+    expect(adapter.config.getSnapshot().schemaConfig.disabled).toBe(true)
+    expect(adapter.disposed.getSnapshot()).toBe(false)
+    form.destroy()
+    expect(disposedChanged).toHaveBeenCalledTimes(1)
+    expect(adapter.disposed.getSnapshot()).toBe(true)
+    adapter.dispose()
+    expect(() =>
+      adapter.bind(getFormStateAdapterContext(form).store.state.values)
+    ).toThrow("disposed")
+  })
+
+  it("字段各属性可以独立订阅且与原生状态来源共享身份", () => {
+    const form = createTestForm()
+
+    const adapter = createFormStateAdapter(form)
+
+    const field = adapter.field("name")
+
+    const valueChanged = vi.fn()
+
+    const errorsChanged = vi.fn()
+
+    expect(field.value).toBe(
+      adapter.bind(getFormStateAdapterContext(form).store.state.field("name").value)
+    )
+    field.value.subscribe(valueChanged)
+    field.errors.subscribe(errorsChanged)
+    form.setFieldErrors("name", ["invalid"])
+    form.setFieldTouched("name", true)
+    form.setFieldPending("name", true)
+    expect(valueChanged).not.toHaveBeenCalled()
+    expect(errorsChanged).toHaveBeenCalledTimes(1)
+    form.setFieldValue("name", "Grace")
+    expect(valueChanged).toHaveBeenCalledTimes(1)
+    expect(errorsChanged).toHaveBeenCalledTimes(1)
+    adapter.dispose()
+    form.destroy()
+  })
+
+  it("引用来源跟随节点移动并在节点替换后保持失效", () => {
+    const form = createTestForm()
+
+    form.setSchemas([
+      { key: "field", name: "name", label: "姓名", componentType: "input" },
+    ])
+    const adapter = createFormStateAdapter(form)
+
+    const controller = form.getFieldRef("name")
+
+    const bound = adapter.field(controller)
+
+    const changed = vi.fn()
+
+    expect(adapter.field(controller)).toBe(bound)
+    bound.value.subscribe(changed)
+    form.setSchemas([
+      { key: "field", name: "profile.name", label: "姓名", componentType: "input" },
+    ])
+    expect(bound.name.getSnapshot()).toBe("profile.name")
+    expect(bound.value.getSnapshot()).toBe("Lovelace")
+    expect(changed).toHaveBeenCalledTimes(1)
+    form.setFieldErrors("profile.name", ["invalid"])
+    form.setFieldTouched("profile.name", true)
+    form.setFieldPending("profile.name", true)
+    form.setSchemas([])
+    expect(bound.disposed.getSnapshot()).toBe(true)
+    expect(bound.name.getSnapshot()).toBeUndefined()
+    expect(bound.getSnapshot()).toEqual({
+      value: undefined,
+      errors: [],
+      touched: false,
+      pending: false,
+    })
+    expect(bound.value.getSnapshot()).toBeUndefined()
+    expect(bound.errors.getSnapshot()).toEqual([])
+    expect(bound.touched.getSnapshot()).toBe(false)
+    expect(bound.pending.getSnapshot()).toBe(false)
+    form.setSchemas([
+      { key: "replacement", name: "profile.name", label: "替换", componentType: "input" },
+    ])
+    expect(bound.value.getSnapshot()).toBeUndefined()
+    adapter.dispose()
+    form.destroy()
+  })
+
+  it("手动引用销毁后归一为空，固定路径来源仍保留原生状态", () => {
+    const form = createTestForm()
+
+    const adapter = createFormStateAdapter(form)
+
+    const bound = adapter.field(form.getFieldRef("name"))
+
+    const fixed = adapter.field("name")
+
+    expect(fixed.value.getSnapshot()).toBe("Ada")
+
+    const changed = vi.fn()
+
+    bound.value.subscribe(changed)
+    form.setFieldErrors("name", ["invalid"])
+    form.setFieldTouched("name", true)
+    form.setFieldPending("name", true)
+    form.destroy()
+    expect(bound.getSnapshot()).toEqual({
+      value: undefined,
+      errors: [],
+      touched: false,
+      pending: false,
+    })
+    expect(bound.value.getSnapshot()).toBeUndefined()
+    expect(changed).toHaveBeenCalledTimes(1)
+    expect(fixed.value.getSnapshot()).toBe("Ada")
+    adapter.dispose()
+  })
+
+  it("ViewSchema 来源沿用防抖订阅且随 adapter 释放", async () => {
+    vi.useFakeTimers()
+    const form = createTestForm()
+
+    const adapter = createFormStateAdapter(form)
+
+    const changed = vi.fn()
+
+    try {
+      adapter.viewSchemas.subscribe(changed)
+      expect(changed).not.toHaveBeenCalled()
+      form.setSchemas([{ name: "name", label: "first", componentType: "input" }])
+      form.setSchemas([{ name: "name", label: "second", componentType: "input" }])
+      expect(adapter.viewSchemas.getSnapshot()).toBe(form.getViewSchemas())
+      await vi.advanceTimersByTimeAsync(40)
+      expect(changed).toHaveBeenCalled()
+      expect(adapter.viewSchemas.getSnapshot()[0]?.label).toBe("second")
+      const calls = changed.mock.calls.length
+
+      adapter.dispose()
+      form.setSchemas([])
+      await vi.advanceTimersByTimeAsync(40)
+      expect(changed).toHaveBeenCalledTimes(calls)
+      expect(adapter.viewSchemas.getSnapshot()).toEqual([])
+    } finally {
+      adapter.dispose()
+      form.destroy()
+      vi.useRealTimers()
+    }
   })
 })

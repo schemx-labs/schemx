@@ -27,9 +27,9 @@ describe("createField", () => {
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
-    const field = form.createField("name")
+    const field = createField(form, "name")
 
-    expect(createField(form, "name")).toBe(field)
+    expect(createField(form, "name").ref).toBe(field.ref)
 
     const validate = vi.spyOn(form, "validateField")
 
@@ -46,35 +46,73 @@ describe("createField", () => {
     form.destroy()
   })
 
+  it("轻量工具复用 Form 绑定，读取与写入经过传入的扩展实例", async () => {
+    const form = createForm({
+      initialValues: { name: "Ada", nickname: "A" },
+      schemas: [{ key: "person", name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    const native = createField(form, "name")
+
+    const extended = { ...form }
+
+    const read = vi.spyOn(extended, "getFieldValue")
+
+    const write = vi.spyOn(extended, "setFieldValue")
+
+    const change = vi.spyOn(extended, "changeField")
+
+    const field = createField(extended, "name")
+
+    expect(field).not.toBe(native)
+    expect(createField(extended, "name").ref).toBe(field.ref)
+    expect(field.state).toBe(native.state)
+    expect(field.getValue()).toBe("Ada")
+    expect(read).toHaveBeenCalledExactlyOnceWith("name")
+    form.setSchemas([
+      { key: "person", name: "nickname", label: "昵称", componentType: "input" },
+    ])
+    field.setValue("next")
+    expect(write).toHaveBeenCalledWith("nickname", expect.any(Function))
+    await field.change("changed")
+    expect(change).toHaveBeenCalledExactlyOnceWith("nickname", "changed")
+    expect(native.getValue()).toBe("changed")
+    form.setSchemas([])
+    field.setValue("stale")
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(field.getValue()).toBeUndefined()
+    form.destroy()
+  })
+
   it("手动字段保持初始路径绑定，后挂载的 Schema 通过新调用取得节点绑定", () => {
     const form = createForm({ initialValues: { name: "Ada", nickname: "A" } })
 
-    const manual = form.createField("name")
+    const manual = createField(form, "name")
 
-    expect(form.createField("name")).toBe(manual)
+    expect(createField(form, "name").ref).toBe(manual.ref)
     form.setSchemas([
       { key: "field", name: "name", label: "姓名", componentType: "input" },
     ])
-    const field = form.createField("name")
+    const field = createField(form, "name")
 
-    expect(field).not.toBe(manual)
-    expect(form.createField("name")).toBe(field)
+    expect(field.ref).not.toBe(manual.ref)
+    expect(createField(form, "name").ref).toBe(field.ref)
     form.setSchemas([
       { key: "field", name: "nickname", label: "昵称", componentType: "input" },
     ])
-    expect(form.createField("nickname")).toBe(field)
+    expect(createField(form, "nickname").ref).toBe(field.ref)
     expect(field.getValue()).toBe("A")
     expect(manual.getValue()).toBe("Ada")
     expect(manual.state.name.value).toBe("name")
     form.setSchemas([])
     expect(field.state.disposed.value).toBe(true)
     expect(manual.state.disposed.value).toBe(false)
-    expect(form.createField("name")).toBe(manual)
+    expect(createField(form, "name").ref).toBe(manual.ref)
     form.destroy()
     expect(manual.state.disposed.value).toBe(true)
     expect(manual.state.name.value).toBeUndefined()
     expect(manual.getValue()).toBeUndefined()
-    expect(() => form.createField("name")).toThrow("destroyed")
+    expect(() => createField(form, "name")).toThrow("destroyed")
   })
 
   it("完整字段操作在改名后解析当前地址，删除后所有字段写操作停止", async () => {
@@ -144,7 +182,7 @@ describe("createField", () => {
     form.destroy()
   })
 
-  it("字段实例规则跟随动态行，路径级显式覆盖仍属于原路径", async () => {
+  it("setRules 暂按调用时的当前路径转发，不迁移已有规则", async () => {
     const form = createForm({
       initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
       schemas: [
@@ -161,30 +199,18 @@ describe("createField", () => {
     const second = createField(form, "users.1.name")
 
     first.setRules({
-      validate: () => ({ valid: false, issues: [{ message: "实例错误" }] }),
+      validate: () => ({ valid: false, issues: [{ message: "路径错误" }] }),
     })
-    await expect(first.validate()).resolves.toMatchObject({
+    await expect(first.validate()).resolves.toMatchObject({ valid: false })
+    form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
+    expect(createField(form, "users.1.name").ref).toBe(first.ref)
+    await expect(first.validate()).resolves.toMatchObject({ valid: true })
+    await expect(second.validate()).resolves.toMatchObject({
       valid: false,
       errors: [{ name: "users.0.name" }],
     })
+    second.removeRules()
     await expect(second.validate()).resolves.toMatchObject({ valid: true })
-    form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
-    expect(createField(form, "users.1.name")).toBe(first)
-    await expect(first.validate()).resolves.toMatchObject({
-      valid: false,
-      errors: [{ name: "users.1.name" }],
-    })
-    await expect(second.validate()).resolves.toMatchObject({ valid: true })
-    form.setFieldRules("users.1.name", {
-      validate: () => ({ valid: false, issues: [{ message: "路径覆盖" }] }),
-    })
-    await first.validate()
-    expect(first.getErrors()).toEqual(["路径覆盖"])
-    form.removeFieldRules("users.1.name")
-    await first.validate()
-    expect(first.getErrors()).toEqual(["实例错误"])
-    first.removeRules()
-    await expect(first.validate()).resolves.toMatchObject({ valid: true })
     form.destroy()
   })
 
@@ -224,7 +250,7 @@ describe("createField", () => {
     ])
     const replacement = createField(form, "name")
 
-    expect(replacement).not.toBe(field)
+    expect(replacement.ref).not.toBe(field.ref)
     field.setRules([])
     await expect(replacement.validate()).resolves.toMatchObject({ valid: false })
     expect(replacement.getErrors()).toEqual(["新规则"])

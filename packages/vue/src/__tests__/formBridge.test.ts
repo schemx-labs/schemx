@@ -9,6 +9,7 @@ import { effectScope, nextTick, watchEffect } from "vue"
 import { createForm } from "@schemx/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { getFormStateAdapterContext } from "../../../core/src/adapter/formStateAdapter/context"
 import { acquireVueFormRuntime } from "../bridge"
 import { useForm } from "../hooks"
 
@@ -19,18 +20,28 @@ describe("Vue Form Instance", () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
     // 订阅数量反映实际启用的状态，不应由 Runtime 创建动作提前增加。
-    const values = vi.spyOn(coreForm.state.values, "subscribe")
+    const values = vi.spyOn(
+      getFormStateAdapterContext(coreForm).store.state.values,
+      "subscribe"
+    )
 
-    const touched = vi.spyOn(coreForm.state.touchedFields, "subscribe")
+    const touched = vi.spyOn(
+      getFormStateAdapterContext(coreForm).store.state.touchedFields,
+      "subscribe"
+    )
 
-    const pending = vi.spyOn(coreForm.state.pendingFields, "subscribe")
+    const pending = vi.spyOn(
+      getFormStateAdapterContext(coreForm).store.state.pendingFields,
+      "subscribe"
+    )
 
-    const loading = vi.spyOn(coreForm.state.loading, "subscribe")
+    const loading = vi.spyOn(coreForm, "effect")
 
     const first = acquireVueFormRuntime(coreForm)
 
     const second = acquireVueFormRuntime(coreForm)
 
+    expect(first.runtime).not.toHaveProperty("core")
     expect(values).not.toHaveBeenCalled()
     expect(touched).not.toHaveBeenCalled()
     expect(pending).not.toHaveBeenCalled()
@@ -62,7 +73,7 @@ describe("Vue Form Instance", () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
     // 单属性读取与完整字段投影应共享原生状态，而非提前订阅其他属性。
-    const field = coreForm.state.field("name")
+    const field = getFormStateAdapterContext(coreForm).store.state.field("name")
 
     const value = vi.spyOn(field.value, "subscribe")
 

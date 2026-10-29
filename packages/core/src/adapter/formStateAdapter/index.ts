@@ -6,6 +6,7 @@
 
 export { createFormStateAdapter } from "./createFormStateAdapter"
 export type {
+  FieldRefSnapshotSource,
   FieldSnapshotSource,
   FieldStateSnapshot,
   FormStateAdapter,

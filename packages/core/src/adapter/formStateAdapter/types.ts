@@ -4,7 +4,10 @@
  * @module core/adapter/formStateAdapter/types
  */
 
+import type { ResolvedFormConfig } from "../../config"
+import type { ReadonlyState } from "../../reactivity"
 import type { StorePending } from "../../store"
+import type { FieldRef } from "../../types"
 import type {
   DeepReadonly,
   FieldValue,
@@ -12,6 +15,7 @@ import type {
   SchemxInstance,
   Values,
 } from "../../types"
+import type { SchemxViewSchema } from "../../view"
 
 /**
  * 可被 UI 框架消费的同步快照来源。
@@ -78,10 +82,46 @@ export interface FieldStateSnapshot<
  * @typeParam TValues - 所属表单的值类型。
  * @typeParam TName - 字段路径类型。
  */
-export type FieldSnapshotSource<
+export interface FieldSnapshotSource<
   TValues extends Values,
   TName extends NamePath<TValues>,
-> = SnapshotSource<FieldStateSnapshot<TValues, TName>>
+> extends SnapshotSource<FieldStateSnapshot<TValues, TName>> {
+  /**
+   * 当前字段值的独立来源。
+   */
+  readonly value: SnapshotSource<FieldValue<TValues, TName> | undefined>
+  /**
+   * 错误消息的独立来源。
+   */
+  readonly errors: SnapshotSource<readonly string[]>
+  /**
+   * 触摸状态的独立来源。
+   */
+  readonly touched: SnapshotSource<boolean>
+  /**
+   * 操作状态的独立来源。
+   */
+  readonly pending: SnapshotSource<boolean>
+}
+
+/**
+ * 跟随稳定字段引用的状态来源；失效后值为空、错误为空且交互状态为 false。
+ * @typeParam TValues - 所属表单的值类型。
+ * @typeParam TName - 引用初始字段路径。
+ */
+export interface FieldRefSnapshotSource<
+  TValues extends Values,
+  TName extends NamePath<TValues>,
+> extends FieldSnapshotSource<TValues, TName> {
+  /**
+   * 当前路径，失效后为 undefined。
+   */
+  readonly name: SnapshotSource<NamePath<TValues> | undefined>
+  /**
+   * 引用所属节点或表单是否已销毁。
+   */
+  readonly disposed: SnapshotSource<boolean>
+}
 
 /**
  * 一个 Form 的状态适配器。
@@ -124,6 +164,35 @@ export interface FormStateAdapter<TValues extends Values> {
    * 当前是否正在执行提交流程。
    */
   readonly loading: SnapshotSource<boolean>
+  /**
+   * 当前生效的运行期配置。
+   */
+  readonly config: SnapshotSource<ResolvedFormConfig<TValues>>
+  /**
+   * 原始表单是否已销毁；不表示 adapter 是否已释放。
+   */
+  readonly disposed: SnapshotSource<boolean>
+  /**
+   * 视图列表来源，保留 Core 现有的防抖通知策略。
+   */
+  readonly viewSchemas: SnapshotSource<readonly SchemxViewSchema<TValues>[]>
+  /**
+   * 转换任意原生状态，复用同一状态身份对应的来源。
+   * @typeParam TValue - 原生状态的值类型。
+   * @param state - 当前表单或字段提供的原生只读状态。
+   * @throws 适配器已经释放时抛出错误。
+   * @example const source = adapter.bind(form.getFieldState(form.getFieldRef("name")).value)
+   */
+  bind<TValue>(state: ReadonlyState<TValue>): SnapshotSource<TValue>
+  /**
+   * 按稳定引用读取字段，节点移动和失效语义由 Form 统一处理。
+   * @typeParam TName - 控制器初始路径，用于保留值类型。
+   * @param ref - 当前表单创建的字段引用。
+   * @example const field = adapter.field(form.getFieldRef("name"))
+   */
+  field<TName extends NamePath<TValues>>(
+    ref: FieldRef<TValues, TName>
+  ): FieldRefSnapshotSource<TValues, TName>
   /**
    * 复用同一路径状态对应的字段快照来源；节点移动不改变此来源的目标路径。
    *
