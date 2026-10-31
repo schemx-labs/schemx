@@ -1,16 +1,9 @@
 import { createFormConfig } from "../../config/createFormConfig"
-import {
-  createForm,
-  mergeConfig,
-  mergeSchemxConfig,
-  resolveSchemxConfig,
-} from "../../index"
+import { createForm, mergeConfig, resolveSchemxConfig } from "../../index"
 
 import type {
   CreateFormOptions,
   MergeConfigOptions,
-  SchedulerIdleOptions,
-  SchedulerTrackOptions,
   SchemxConfig,
   SchemxConfigSnapshot,
   SchemxRendererPropsMap,
@@ -126,23 +119,7 @@ const mergeOptions: MergeConfigOptions = {
 
 mergeOptions.rowMerge = "replace"
 
-// 空闲等待选项允许在调用前逐步组装。
-const idleOptions: SchedulerIdleOptions = {}
-
-idleOptions.timeout = 50
-idleOptions.includeIdle = false
-
-// 跟踪选项允许在调用前选择任务优先级。
-const trackOptions: SchedulerTrackOptions = {}
-
-trackOptions.priority = "idle"
-
-void idleOptions
-void trackOptions
-
 const arrayConfig = mergeConfig<{ name: string }>([coreDefaults], mergeOptions)
-
-const legacyConfig = mergeSchemxConfig<{ name: string }>(coreDefaults)
 
 const resolvedConfig = resolveSchemxConfig(arrayConfig)
 
@@ -170,7 +147,6 @@ const invalidCoreRequired: SchemxConfig<{ age: number }> = {
 }
 
 void coreFormOptions
-void legacyConfig
 void invalidCoreRequired
 
 // 混合字段值形成一个联合参数，调用方必须先收窄。

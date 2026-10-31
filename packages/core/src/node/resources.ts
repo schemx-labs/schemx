@@ -26,7 +26,7 @@ import {
   unmountPresentationResources,
   updatePresentationResources,
 } from "../presentation"
-import { batchUpdates, createComputed, createSignal } from "../reactivity"
+import { batchUpdates } from "../reactivity"
 import {
   createFieldKey,
   getSchemaKind,
@@ -45,9 +45,10 @@ import {
   updateFieldDiagnostics,
 } from "./index"
 
+import type { NodeUpdateSnapshot } from "./snapshot"
+import type { SchemaCompileResult } from "../compiler"
 import type { ChildReconciler, FormRuntimeContext } from "../runtimeContext"
 import type { ContainerNode, NodeManager, SchemaNode } from "./index"
-import type { SchemaCompileResult } from "../compiler"
 import type { NamePath, Values } from "../types"
 
 /**
@@ -76,7 +77,7 @@ export function mountNodeResources<TValues extends Values>(
   }
 
   mountDomainResources(node, context, childReconciler)
-  attachNodeViewSchemas(node, context.debug)
+  attachNodeViewSchemas(node, context.getInstance, context.debug)
 }
 
 /**
@@ -97,7 +98,7 @@ export function mountNodeResources<TValues extends Values>(
  */
 export function updateNodeResources<TValues extends Values>(
   node: SchemaNode<TValues>,
-  previousNode: SchemaNode<TValues>,
+  previousNode: NodeUpdateSnapshot<TValues>,
   desired: SchemaCompileResult<TValues>,
   context: FormRuntimeContext<TValues>,
   childReconciler: ChildReconciler<TValues>
@@ -159,55 +160,6 @@ export function disposeNodeResources<TValues extends Values>(
 }
 
 /**
- * 复制更新会改写的配置与派生态，Scope、effect 和树关系沿用原引用。
- * @typeParam TValues - 表单值类型。
- * @param node - 尚未写入本轮配置的活动节点。
- * @returns 与当前节点同类型的旧配置快照。
- * @example const previousNode = createNodeSnapshot(node)
- */
-export function createNodeSnapshot<TValues extends Values>(
-  node: SchemaNode<TValues>
-): SchemaNode<TValues> {
-  // 各类节点共用配置和依赖覆盖的复制方式，值来自同一个原节点。
-  const snapshot = Object.assign({}, node, {
-    compiledSchema: createSignal(node.compiledSchema.peek()),
-    dependencyOverrides: createSignal(node.dependencyOverrides.peek()),
-  })
-
-  if (isFieldNode(snapshot)) {
-    // 生效配置和校验切片必须先求值，不能继续追踪活动节点。
-    const resolvedSchema = snapshot.resolvedSchema.peek()
-
-    const validationState = snapshot.validationState.peek()
-
-    const diagnostics = snapshot.diagnostics?.peek()
-
-    return Object.assign(snapshot, {
-      name: createSignal(snapshot.name.peek()),
-      resolvedSchema: createComputed(() => resolvedSchema),
-      validationState: createComputed(() => validationState),
-      diagnostics: diagnostics === undefined ? undefined : createSignal(diagnostics),
-    })
-  }
-
-  // Group、Dependency 和 Dynamic 共用固定的旧呈现态。
-  const presentationState = snapshot.presentationState.peek()
-
-  Object.assign(snapshot, {
-    presentationState: createComputed(() => presentationState),
-  })
-
-  if (isDynamicNode(snapshot)) {
-    // 数组后续重排只替换活动行列表，不影响此次快照。
-    return Object.assign(snapshot, {
-      dynamicRows: createSignal(snapshot.dynamicRows.peek()),
-    })
-  }
-
-  return snapshot
-}
-
-/**
  * 根据旧配置使用目标节点更新当前 Node 的领域资源。
  *
  * @param node - 实际树中被复用的节点。
@@ -218,28 +170,28 @@ export function createNodeSnapshot<TValues extends Values>(
  */
 function updateDomainResources<TValues extends Values>(
   node: SchemaNode<TValues>,
-  previousNode: SchemaNode<TValues>,
+  previousNode: NodeUpdateSnapshot<TValues>,
   context: FormRuntimeContext<TValues>,
   childReconciler: ChildReconciler<TValues>
 ): NamePath<TValues> | undefined {
-  if (isFieldNode(node) && isFieldNode(previousNode)) {
+  if (isFieldNode(node) && previousNode.type === "field") {
     return updateFieldResources(node, previousNode, context)
   }
 
-  if (isGroupNode(node) && isGroupNode(previousNode)) {
+  if (isGroupNode(node) && previousNode.type === "group") {
     updatePresentationResources(node, previousNode, context)
 
     return undefined
   }
 
-  if (isDynamicNode(node) && isDynamicNode(previousNode)) {
+  if (isDynamicNode(node) && previousNode.type === "dynamic") {
     updatePresentationResources(node, previousNode, context)
     updateDynamicResources(node, previousNode, context, childReconciler)
 
     return undefined
   }
 
-  if (isDependencyNode(node) && isDependencyNode(previousNode)) {
+  if (isDependencyNode(node) && previousNode.type === "dependency") {
     updateDependencyResources(node, previousNode, context, childReconciler)
 
     return undefined
@@ -331,7 +283,7 @@ function applyNodeConfig<TValues extends Values>(
   desired: SchemaCompileResult<TValues>,
   nodeManager: NodeManager<TValues>
 ): void {
-  if (isFieldNode(node) && isFieldSchema(desired.schema)) {
+  if (isFieldNode(node) && isFieldSchema<TValues>(desired.schema)) {
     const previousPathController =
       createFieldKey(node.name.peek()) !== createFieldKey(desired.schema.name)
         ? node.pathController
@@ -355,14 +307,14 @@ function applyNodeConfig<TValues extends Values>(
     return
   }
 
-  if (isGroupNode(node) && isGroupSchema(desired.schema)) {
+  if (isGroupNode(node) && isGroupSchema<TValues>(desired.schema)) {
     node.configToken = desired.configToken
     node.compiledSchema.value = desired.schema
 
     return
   }
 
-  if (isDependencyNode(node) && isDependencySchema(desired.schema)) {
+  if (isDependencyNode(node) && isDependencySchema<TValues>(desired.schema)) {
     node.configToken = desired.configToken
     node.dynamicRow = desired.dynamicRow
     node.compiledSchema.value = desired.schema
@@ -370,7 +322,7 @@ function applyNodeConfig<TValues extends Values>(
     return
   }
 
-  if (isDynamicNode(node) && isDynamicSchema(desired.schema)) {
+  if (isDynamicNode(node) && isDynamicSchema<TValues>(desired.schema)) {
     node.configToken = desired.configToken
     node.compiledSchema.value = desired.schema
     nodeManager.updatePaths([
@@ -383,5 +335,7 @@ function applyNodeConfig<TValues extends Values>(
     return
   }
 
-  throw new Error(`unexpected runtime node type: ${getSchemaKind(desired.schema)}`)
+  throw new Error(
+    `unexpected runtime node type: ${getSchemaKind<TValues>(desired.schema)}`
+  )
 }

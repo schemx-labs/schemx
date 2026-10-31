@@ -141,7 +141,7 @@ describe("createSchemx", () => {
         {
           ...options,
           debug: false,
-          schedulerOptions: { idleTimeout: 20 },
+          schedulerOptions: { collectDiagnostics: false },
           validationConcurrency: 2,
         },
         api.createForm
@@ -153,7 +153,7 @@ describe("createSchemx", () => {
       getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: false,
-      schedulerOptions: { idleTimeout: 20 },
+      schedulerOptions: { collectDiagnostics: false },
       validationConcurrency: 2,
     })
     expect(
@@ -189,7 +189,7 @@ describe("createSchemx", () => {
 
     const appOptions = {
       debug: false,
-      schedulerOptions: { idleTimeout: 30 },
+      schedulerOptions: { collectDiagnostics: false },
       schemas,
       initialValues: { name: "ignored" },
     }
@@ -220,7 +220,7 @@ describe("createSchemx", () => {
     })
     expect(
       getFormCreationConfig(create.mock.results.at(-1)?.value)?.config.schedulerOptions
-    ).not.toHaveProperty("idleTimeout")
+    ).toMatchObject({ timeSliceMs: 7, collectDiagnostics: true })
     expect(form?.getViewSchemas()[0]?.debug).toBeDefined()
     expect(form?.getFieldsValue()).toEqual({ name: "A" })
     wrapper.unmount()
@@ -251,7 +251,7 @@ describe("createSchemx", () => {
     const localDebug = ref(false)
 
     const wrapper = mount(Provider, {
-      props: { schedulerOptions: { idleTimeout: 30 }, validationConcurrency: 3 },
+      props: { schedulerOptions: { timeSliceMs: 30 }, validationConcurrency: 3 },
       slots: {
         default: () => [
           h(Form, { ...options, ref: inherited, submitter: false, resetter: false }),
@@ -285,7 +285,7 @@ describe("createSchemx", () => {
     api.configureSchemx({ debug: false, validationConcurrency: 5 })
     localDebug.value = true
     await wrapper.setProps({
-      schedulerOptions: { idleTimeout: 40 },
+      schedulerOptions: { timeSliceMs: 40 },
       validationConcurrency: 4,
     })
     expect(create.mock.calls).toHaveLength(oldCallCount)
@@ -298,7 +298,7 @@ describe("createSchemx", () => {
       getFormCreationConfig(create.mock.results.at(-1)?.value)?.config
     ).toMatchObject({
       debug: false,
-      schedulerOptions: { idleTimeout: 40 },
+      schedulerOptions: { timeSliceMs: 40 },
       validationConcurrency: 4,
     })
     wrapper.unmount()

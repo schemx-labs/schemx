@@ -57,65 +57,6 @@ describe("schedule", () => {
     expect(order).toEqual(["normal", "post"])
   })
 
-  it("应该在 normal/post 完成后执行 idle 任务", async () => {
-    const scheduler = createScheduler()
-
-    const order: string[] = []
-
-    scheduler.schedule({
-      id: "idle-1",
-      priority: "idle",
-      run: () => {
-        order.push("idle")
-      },
-    })
-
-    scheduler.schedule({
-      id: "normal-1",
-      priority: "normal",
-      run: () => {
-        order.push("normal")
-      },
-    })
-
-    await scheduler.flush()
-
-    expect(order).toEqual(["normal", "idle"])
-  })
-
-  it("应该在浏览器空闲回调中自动执行 idle 任务", async () => {
-    const requestIdleCallback = vi.fn()
-
-    vi.stubGlobal("requestIdleCallback", requestIdleCallback)
-
-    const scheduler = createScheduler()
-
-    const task = vi.fn()
-
-    scheduler.schedule({
-      id: "idle-1",
-      priority: "idle",
-      run: task,
-    })
-
-    expect(requestIdleCallback).toHaveBeenCalledTimes(1)
-    expect(task).not.toHaveBeenCalled()
-
-    const callback = requestIdleCallback.mock.calls[0]?.[0] as
-      ((deadline: { didTimeout: boolean; timeRemaining(): number }) => void) | undefined
-
-    callback?.({
-      didTimeout: false,
-      timeRemaining: () => 5,
-    })
-
-    await scheduler.whenIdle()
-
-    expect(task).toHaveBeenCalledTimes(1)
-
-    vi.unstubAllGlobals()
-  })
-
   it("相同队列与任务 ID 只执行最后一次任务", async () => {
     const scheduler = createScheduler()
 
@@ -263,7 +204,7 @@ describe("flush", () => {
 
     expect(diagnostics.yieldedCount).toBe(1)
     expect(diagnostics.maxTaskDurationMs).toBeGreaterThanOrEqual(0)
-    expect(diagnostics.queued).toEqual({ normal: 0, post: 0, idle: 0 })
+    expect(diagnostics.queued).toEqual({ normal: 0, post: 0 })
   })
 })
 
@@ -314,24 +255,7 @@ describe("whenIdle", () => {
     expect(result).toBe(false)
   })
 
-  it("关键空闲判断不应等待 idle 队列", async () => {
-    const scheduler = createScheduler()
-
-    const task = vi.fn()
-
-    scheduler.schedule({
-      id: "idle-1",
-      priority: "idle",
-      run: task,
-    })
-
-    await expect(scheduler.whenIdle({ includeIdle: false })).resolves.toBe(true)
-    expect(task).not.toHaveBeenCalled()
-
-    scheduler.dispose()
-  })
-
-  it("关键空闲判断应等待 normal 任务及其异步工作", async () => {
+  it("统一完成判断应等待 normal 任务及其异步工作", async () => {
     const scheduler = createScheduler()
 
     let resolveTask: (() => void) | undefined
@@ -345,7 +269,7 @@ describe("whenIdle", () => {
         }),
     })
 
-    const idlePromise = scheduler.whenIdle({ includeIdle: false, timeout: 1000 })
+    const idlePromise = scheduler.whenIdle(1000)
 
     await Promise.resolve()
     expect(resolveTask).toBeDefined()
@@ -519,5 +443,82 @@ describe("dispose", () => {
     await scheduler.flush()
 
     expect(task).not.toHaveBeenCalled()
+  })
+})
+
+// 调度简化后的统一完成边界和重入行为。
+describe("统一完成边界", () => {
+  it("post 中新增的 normal 先于剩余 post 执行", async () => {
+    const scheduler = createScheduler()
+
+    const order: string[] = []
+
+    scheduler.schedule({
+      id: "first",
+      priority: "post",
+      run: () => {
+        order.push("first")
+        scheduler.schedule({
+          id: "normal",
+          priority: "normal",
+          run: () => {
+            order.push("normal")
+          },
+        })
+      },
+    })
+    scheduler.schedule({
+      id: "last",
+      priority: "post",
+      run: () => {
+        order.push("last")
+      },
+    })
+    await scheduler.flush()
+    expect(order).toEqual(["first", "normal", "last"])
+  })
+
+  it("逻辑取消不改写 Promise，多个等待者一起完成", async () => {
+    const scheduler = createScheduler()
+
+    let resolve!: (value: string) => void
+
+    const promise = new Promise<string>((done) => {
+      resolve = done
+    })
+
+    const task = scheduler.trackCancellable(promise)
+
+    const first = scheduler.whenIdle(100)
+
+    const second = scheduler.whenIdle(100)
+
+    task.cancel()
+    task.cancel()
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true])
+    resolve("original")
+    await expect(task.promise).resolves.toBe("original")
+    scheduler.dispose()
+    await expect(scheduler.whenIdle()).resolves.toBe(false)
+  })
+
+  it("执行任务时重入 flush 复用本轮，且不提前报告完成", async () => {
+    const scheduler = createScheduler()
+
+    let nested: Promise<void> | undefined
+
+    let waiting: Promise<boolean> | undefined
+
+    scheduler.schedule({
+      id: "reenter",
+      priority: "normal",
+      run: () => {
+        nested = scheduler.flush()
+        waiting = scheduler.whenIdle(100)
+      },
+    })
+    await scheduler.flush()
+    await nested
+    await expect(waiting).resolves.toBe(true)
   })
 })

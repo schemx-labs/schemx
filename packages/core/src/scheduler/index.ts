@@ -16,11 +16,9 @@ export {
   createScheduler,
   type Scheduler,
   type SchedulerDiagnostics,
-  type SchedulerIdleOptions,
   type SchedulerOptions,
   type ScheduledTask,
   type SchedulerTaskPriority,
-  type SchedulerTrackOptions,
   yieldToHost,
 } from "./scheduler"
 

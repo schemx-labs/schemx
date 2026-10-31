@@ -10,7 +10,13 @@
 import type { DynamicRowState, NodeId, NodeManager } from "../node"
 import type { Scheduler } from "../scheduler"
 import type { Store } from "../store"
-import type { SchemxField, SchemxFieldRulesMap, SchemxFormApi, Values } from "../types"
+import type {
+  SchemxField,
+  SchemxFieldRulesMap,
+  SchemxFormApi,
+  SchemxInstance,
+  Values,
+} from "../types"
 import type { Validator } from "../validator"
 
 /**
@@ -116,6 +122,11 @@ export interface ReconcileArrayOptions<TValues extends Values = Values> {
  * @typeParam TValues - 表单值类型。
  */
 export interface FormRuntimeContext<TValues extends Values = Values> {
+  /**
+   * 只在完整实例组装后读取，供节点视图注入稳定的 Form 实例。
+   * @example const form = context.getInstance()
+   */
+  getInstance(): SchemxInstance<TValues>
   /**
    * 是否启用 Runtime diagnostics。
    */

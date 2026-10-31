@@ -26,7 +26,7 @@ const form = createForm({ initialValues: { name: "" } })
 
 本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，根入口通过 `export *` 透传 `@schemx/vue` 的公共 API 和类型，包括 `createSchemx`；Form、`createForm`、`configureSchemx`、`getConfig`、`useForm`、默认配置与 Registry 使用本包实现。工厂类型与组件接入函数均可从本包根入口导入。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
 
-UI 根入口同步保留 Vue 的 `getGlobalSchemxConfig`、`mergeSchemxConfig` 和 `SchemxLayout` 兼容导出；推荐分别使用 `getConfig`、`mergeConfig` 和 `SchemxColConfig`。已发布的旧 Context API 保留并标为弃用；推荐使用 `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext` 和 `useConfigProviderContextRef`。旧 Form 提供函数改用 `provideFormContext`，旧实例/配置读取函数改从 `useFormContextValue()` 读取，旧 Provider 提供函数改用 `ConfigProvider`。组件、`useForm` 及默认配置的调用方式保持不变。本包的 Form 通过 `@schemx/vue` 绑定创建器，不向嵌套普通 Form 传播工厂。
+UI 根入口同步保留 Vue 的 `getGlobalSchemxConfig` 和 `SchemxLayout` 兼容导出；推荐分别使用 `getConfig` 和 `SchemxColConfig`。配置合并统一使用 `mergeConfig`。已发布的旧 Context API 保留并标为弃用；推荐使用 `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext` 和 `useConfigProviderContextRef`。旧 Form 提供函数改用 `provideFormContext`，旧实例/配置读取函数改从 `useFormContextValue()` 读取，旧 Provider 提供函数改用 `ConfigProvider`。组件、`useForm` 及默认配置的调用方式保持不变。本包的 Form 通过 `@schemx/vue` 绑定创建器，不向嵌套普通 Form 传播工厂。
 
 工厂默认值、App、`ConfigProvider` 和表单局部选项均支持 `debug`、`schedulerOptions`、`validationConcurrency`。局部选项优先，显式 `debug: false` 可关闭继承值；调度对象整体替换，并保存独立快照。这些选项只在创建时生效，更新配置不会重配已有表单。共享配置过滤实例数据、生命周期及业务回调，单次创建选项不受影响。
 

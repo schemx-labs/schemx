@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { createSchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
 import { createSchemas } from "../../createSchemas"
-import { createLifecycle } from "../../lifecycle"
 import { createNodeManager, createScope, isFieldNode } from "../../node"
 import { createSignalEffect } from "../../reactivity"
 import { createReconciler } from "../../reconciler"
@@ -12,9 +11,10 @@ import { createStore } from "../../store"
 import { createValidator } from "../../validator"
 
 import type { NodeManager } from "../../node"
-import type { NodeId } from "../../node/idAllocator"
+import type { NodeId } from "../../node/types"
 import type { FormRuntimeContext } from "../../runtimeContext"
 import type { Store } from "../../store/types"
+import type { SchemxInstance } from "../../types"
 import type { SchemxField, SchemxFieldRulesMap, SchemxFormApi } from "../../types"
 import type { ValidationRuleResult } from "../../validator/types"
 
@@ -88,6 +88,7 @@ function setup(fields: SchemxField[], options: LifecycleOptions = {}) {
 
   // 直接向节点模块提供同一组资源和消费端 API。
   const context: FormRuntimeContext = {
+    getInstance: () => context.formApi as SchemxInstance,
     debug: false,
     fieldRules: options.fieldRules ?? {},
     store,
@@ -98,7 +99,7 @@ function setup(fields: SchemxField[], options: LifecycleOptions = {}) {
   }
 
   // 实际提交本用例的节点更新。
-  const reconciler = createReconciler({ compiler, context, lifecycle: createLifecycle() })
+  const reconciler = createReconciler({ compiler, context, lifecycleHooks: {} })
 
   scope.add(reconciler.clear)
   scope.add(

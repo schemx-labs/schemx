@@ -61,10 +61,6 @@ export interface CreateValidationEffectOptions<TValues extends Values = Values> 
    * Placeholder 只作为规则工厂元数据传递，不参与校验注册 effect 的依赖追踪。
    */
   placeholder?: () => string
-  /**
-   * 读取节点所属的实例规则覆盖；显式空数组用于撤销 Schema 和默认规则。
-   */
-  rulesOverride?: () => SchemxBaseField<TValues>["rules"]
 }
 
 /**
@@ -174,7 +170,7 @@ export function createValidationEffect<TValues extends Values = Values>(
         label: validationStateValue.label,
         placeholder: resolvePlaceholder(),
         required: validationStateValue.required,
-        rules: options.rulesOverride?.() ?? fieldRules ?? fallbackRules ?? [],
+        rules: fieldRules ?? fallbackRules ?? [],
       }
     }
 

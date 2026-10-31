@@ -3,13 +3,13 @@ import { describe, expect, it } from "vite-plus/test"
 import { createNodeManager, createScope } from ".."
 import { createSchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
-import { createLifecycle } from "../../lifecycle"
 import { createReconciler } from "../../reconciler"
 import { createScheduler } from "../../scheduler"
 import { createStore } from "../../store"
 import { createValidator } from "../../validator"
 
 import type { FormRuntimeContext } from "../../runtimeContext"
+import type { SchemxInstance } from "../../types"
 import type { SchemxFormApi, Values } from "../../types"
 
 /**
@@ -58,6 +58,7 @@ function setup() {
 
   // 直接向节点模块提供同一组资源和消费端 API。
   const context: FormRuntimeContext = {
+    getInstance: () => context.formApi as SchemxInstance,
     debug: false,
     fieldRules: {},
     store,
@@ -68,7 +69,7 @@ function setup() {
   }
 
   // 实际提交本用例的节点更新。
-  const reconciler = createReconciler({ compiler, context, lifecycle: createLifecycle() })
+  const reconciler = createReconciler({ compiler, context, lifecycleHooks: {} })
 
   scope.add(reconciler.clear)
   scope.add(() => {

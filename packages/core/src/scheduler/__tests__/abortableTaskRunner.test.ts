@@ -230,4 +230,128 @@ describe("createAbortableTaskRunner", () => {
     expect(run).not.toHaveBeenCalled()
     expect(onSuccess).not.toHaveBeenCalled()
   })
+  it("独立释放只取消当前 runner，父资源和其他任务继续工作", async () => {
+    // 两个 runner 借用同一资源，只有第一个存在永不完成的请求。
+    const scope = createScope()
+
+    const scheduler = createScheduler()
+
+    let signal: AbortSignal | undefined
+
+    const first = createAbortableTaskRunner({
+      scope,
+      scheduler,
+      run: (current) => {
+        signal = current
+
+        return new Promise<void>(() => {})
+      },
+    })
+
+    const second = createAbortableTaskRunner({ scope, scheduler, run: () => "second" })
+
+    void first.run()
+    first.dispose()
+    first.dispose()
+    expect(signal?.aborted).toBe(true)
+    expect(scope.disposed).toBe(false)
+    await expect(second.run()).resolves.toBe("second")
+    await expect(scheduler.whenIdle(20)).resolves.toBe(true)
+    scope.dispose()
+    await expect(second.run()).resolves.toBeUndefined()
+  })
+
+  it("onStart 同步释放父资源时不调用任务或提交回调", async () => {
+    const scope = createScope()
+
+    const scheduler = createScheduler()
+
+    const run = vi.fn(() => "late")
+
+    const onSuccess = vi.fn()
+
+    const runner = createAbortableTaskRunner({
+      scope,
+      scheduler,
+      run,
+      onSuccess,
+      onStart: () => scope.dispose(),
+    })
+
+    await expect(runner.run()).resolves.toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
+    await expect(scheduler.whenIdle(20)).resolves.toBe(true)
+  })
+
+  it("onStart 重入时只运行最新请求，旧登记不会覆盖新任务", async () => {
+    const scope = createScope()
+
+    const scheduler = createScheduler()
+
+    const onSuccess = vi.fn()
+
+    let restarted = false
+
+    let latest: Promise<string | undefined> | undefined
+
+    const runner = createAbortableTaskRunner({
+      scope,
+      scheduler,
+      run: () => "latest",
+      onSuccess,
+      onStart: () => {
+        if (!restarted) {
+          restarted = true
+          latest = runner.run()
+        }
+      },
+    })
+
+    await expect(runner.run()).resolves.toBeUndefined()
+    await expect(latest).resolves.toBe("latest")
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    await expect(scheduler.whenIdle(20)).resolves.toBe(true)
+    scope.dispose()
+  })
+  it("替换任务不会让既有完成等待在新任务结束前提前兑现", async () => {
+    // 第一轮永不完成，第二轮由用例控制完成时间。
+    const scope = createScope()
+
+    const scheduler = createScheduler()
+
+    let count = 0
+
+    let finish!: (value: string) => void
+
+    const runner = createAbortableTaskRunner({
+      scope,
+      scheduler,
+      run: () => {
+        count += 1
+
+        return count === 1
+          ? new Promise<string>(() => {})
+          : new Promise<string>((resolve) => {
+              finish = resolve
+            })
+      },
+    })
+
+    void runner.run()
+    // 等待在替换前已经登记，不能被旧任务的逻辑取消误唤醒。
+    const settled = vi.fn()
+
+    const waiting = scheduler.whenIdle(1000).then(settled)
+
+    const latest = runner.run()
+
+    await Promise.resolve()
+    expect(settled).not.toHaveBeenCalled()
+    finish("latest")
+    await latest
+    await waiting
+    expect(settled).toHaveBeenCalledWith(true)
+    scope.dispose()
+  })
 })

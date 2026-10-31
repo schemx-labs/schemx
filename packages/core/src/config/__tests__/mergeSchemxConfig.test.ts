@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import {
-  mergeAndResolveSchemxConfig,
-  mergeConfig,
-  mergeSchemxConfig,
-  resolveSchemxConfig,
-} from ".."
+import { mergeConfig, resolveSchemxConfig } from ".."
 import { createPresetRuleRegistry, createRendererRegistry } from "../../registry"
 
 import type { SchemxConfig } from ".."
@@ -79,7 +74,7 @@ describe("mergeConfig", () => {
 
     const schemaConfig = { readonly: true }
 
-    const schedulerOptions = { timeSliceMs: 3, idleTimeout: 50 }
+    const schedulerOptions = { timeSliceMs: 3, collectDiagnostics: true }
 
     const validatorAdapters = [adapter]
 
@@ -147,12 +142,12 @@ describe("mergeConfig", () => {
     expect(Object.isFrozen(empty)).toBe(true)
     expect(mergeConfig({ debug: false })).not.toHaveProperty("schemaConfig")
     const result = mergeConfig(
-      { debug: false, schedulerOptions: { idleTimeout: 20 } },
+      { debug: false, schedulerOptions: { timeSliceMs: 20 } },
       { debug: true, schedulerOptions: { timeSliceMs: 3, collectDiagnostics: true } }
     )
 
     expect(result.debug).toBe(false)
-    expect(result.schedulerOptions).toEqual({ idleTimeout: 20 })
+    expect(result.schedulerOptions).toEqual({ timeSliceMs: 20 })
     expect(
       mergeConfig(
         { schemaConfig: { readonly: undefined } },
@@ -482,12 +477,6 @@ describe("mergeConfig", () => {
   })
 })
 
-describe("mergeSchemxConfig", () => {
-  it("作为 mergeConfig 的弃用兼容名称", () => {
-    expect(mergeSchemxConfig).toBe(mergeConfig)
-  })
-})
-
 describe("resolveSchemxConfig", () => {
   it("补齐缺失和显式 undefined 的 Schema 内置默认值", () => {
     // 保留用于验证输入不被修改的原始配置。
@@ -504,28 +493,5 @@ describe("resolveSchemxConfig", () => {
     })
     expect(config.schemaConfig.readonly).toBeUndefined()
     expect(config.schemaConfig).not.toHaveProperty("disabled")
-  })
-})
-
-describe("mergeAndResolveSchemxConfig", () => {
-  it("组合纯合并和默认值补齐", () => {
-    const result = mergeAndResolveSchemxConfig(
-      { schemaConfig: { readonly: undefined, labelWidth: "120px" } },
-      { schemaConfig: { readonly: true, disabled: true, labelWidth: "80px" } }
-    )
-
-    expect(result.schemaConfig).toMatchObject({
-      readonly: false,
-      disabled: true,
-      labelWidth: "120px",
-    })
-  })
-
-  it("未传入配置时返回完整的内置 schemaConfig", () => {
-    expect(mergeAndResolveSchemxConfig().schemaConfig).toMatchObject({
-      readonly: false,
-      disabled: false,
-      labelWidth: "auto",
-    })
   })
 })

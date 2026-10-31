@@ -9,7 +9,9 @@
 import { CompileError, createNodeKey } from "../compiler"
 import { rebaseDynamicSchemas } from "../dynamic"
 import { reconcileRows } from "../dynamic/rows"
+import { createLifecycle } from "../lifecycle"
 import {
+  captureNodeUpdate,
   createNodeSnapshot,
   disposeNodeResources,
   isDependencyNode,
@@ -35,8 +37,8 @@ import {
 } from "../utils"
 
 import type { SchemaCompiler, SchemaCompileResult } from "../compiler"
-import type { Lifecycle } from "../lifecycle"
 import type { ContainerNode, NodeId, ParentNode, SchemaNode } from "../node"
+import type { NodeLifecycleHooks, NodeSnapshot } from "../node/snapshot"
 import type { ChildReconciler, FormRuntimeContext } from "../runtimeContext"
 import type { NamePath, SchemxField, Values } from "../types"
 
@@ -78,7 +80,7 @@ interface CreateReconcilerOptions<TValues extends Values> {
   // 节点树和资源操作所需的基础服务。
   readonly context: FormRuntimeContext<TValues>
   // 资源操作完成后通知业务钩子，不承担资源处理。
-  readonly lifecycle: Lifecycle<ContainerNode<TValues>>
+  readonly lifecycleHooks?: NodeLifecycleHooks<TValues>
 }
 
 interface NodeUpdate<TValues extends Values> {
@@ -134,7 +136,7 @@ interface ReconcileNodeResult<TValues extends Values> {
  *
  * @example
  * ```ts
- * const reconciler = createReconciler({ compiler, context, lifecycle })
+ * const reconciler = createReconciler({ compiler, context, lifecycleHooks })
  * reconciler.reconcile(schemas)
  * ```
  */
@@ -142,7 +144,10 @@ export function createReconciler<TValues extends Values>(
   options: CreateReconcilerOptions<TValues>
 ): Reconciler<TValues> {
   // 编译、资源操作和钩子通知由协调器按阶段组织。
-  const { compiler, context, lifecycle } = options
+  const { compiler, context, lifecycleHooks = {} } = options
+
+  // 独立生命周期模块只负责通知和异常隔离，协调器决定阶段与快照时机。
+  const lifecycle = createLifecycle<NodeSnapshot<TValues>>(lifecycleHooks)
 
   // 活动节点树使用基础服务中的唯一节点管理器。
   const nodeManager = context.nodeManager
@@ -265,7 +270,12 @@ export function createReconciler<TValues extends Values>(
           // 同一位置实际保留或新增的节点。
           const node = result.children[index]
 
-          if (node && desired && isGroupNode(node) && isGroupSchema(desired.schema)) {
+          if (
+            node &&
+            desired &&
+            isGroupNode(node) &&
+            isGroupSchema<TValues>(desired.schema)
+          ) {
             reconcileChildren(
               node.id,
               desired.schema.children,
@@ -466,7 +476,7 @@ export function createReconciler<TValues extends Values>(
 
         const schemaLocation = `${location}[${index}]`
 
-        if (isFieldSchema(schema)) {
+        if (isFieldSchema<TValues>(schema)) {
           addField(schema.name, schemaLocation, schema)
           continue
         }
@@ -476,20 +486,20 @@ export function createReconciler<TValues extends Values>(
 
         const current = currentByKey.get(key)
 
-        if (isGroupSchema(schema)) {
+        if (isGroupSchema<TValues>(schema)) {
           const nestedParent = isGroupNode(current) ? current : currentParent
 
           visit(schema.children, nestedParent, key, `${schemaLocation}.children`)
           continue
         }
 
-        if (isDynamicSchema(schema)) {
+        if (isDynamicSchema<TValues>(schema)) {
           addField(schema.name as NamePath<TValues>, schemaLocation, schema)
         }
 
         const reusableGeneratedParent =
-          (isDependencySchema(schema) && isDependencyNode(current)) ||
-          (isDynamicSchema(schema) && isDynamicNode(current))
+          (isDependencySchema<TValues>(schema) && isDependencyNode(current)) ||
+          (isDynamicSchema<TValues>(schema) && isDynamicNode(current))
 
         if (reusableGeneratedParent && current) {
           for (const descendant of nodeManager.getDescendants(current.id)) {
@@ -550,7 +560,7 @@ export function createReconciler<TValues extends Values>(
         desiredSchemas.push({
           schema,
           config,
-          children: isGroupSchema(schema)
+          children: isGroupSchema<TValues>(schema)
             ? compileSchemas(config.schema.key, schema.children, validSchemas)
             : undefined,
         })
@@ -606,7 +616,10 @@ export function createReconciler<TValues extends Values>(
         // 字段冲突和 key 冲突共用原始位置，过滤输入不改变诊断路径。
         const schemaLocation = `${location}[${index}]`
 
-        if (locations && (isFieldSchema(schema) || isDynamicSchema(schema))) {
+        if (
+          locations &&
+          (isFieldSchema<TValues>(schema) || isDynamicSchema<TValues>(schema))
+        ) {
           // 当前静态字段或数组根的规范化地址。
           const fieldKey = createFieldKey(schema.name)
 
@@ -633,9 +646,9 @@ export function createReconciler<TValues extends Values>(
         keys.add(key)
         validSchemas.add(schema)
 
-        if (isGroupSchema(schema)) {
+        if (isGroupSchema<TValues>(schema)) {
           visitSchemas(schema.children, key, `${schemaLocation}.children`, locations)
-        } else if (isDynamicSchema(schema)) {
+        } else if (isDynamicSchema<TValues>(schema)) {
           // 入口结构校验已确认模板节点的形状，模板只在当前行内解释相对路径。
           visitSchemas(
             schema.item as readonly SchemxField<TValues>[],
@@ -689,7 +702,7 @@ export function createReconciler<TValues extends Values>(
 
         currentByKey.delete(desired.schema.key)
 
-        if (!current || current.type !== getSchemaKind(desired.schema)) {
+        if (!current || current.type !== getSchemaKind<TValues>(desired.schema)) {
           // 新增和类型替换共用唯一的节点创建入口。
           const node = compiler.createNode(desired, parent.scope.child())
 
@@ -739,16 +752,26 @@ export function createReconciler<TValues extends Values>(
             continue
           }
 
-          lifecycle.created(node)
+          if (lifecycleHooks.created) {
+            lifecycle.created(createNodeSnapshot(node))
+          }
+
           nodeManager.insert(node, parent.id, index)
           mountNodeResources(node, context, childReconciler)
-          lifecycle.mounted(node)
+          if (lifecycleHooks.mounted) {
+            lifecycle.mounted(createNodeSnapshot(node))
+          }
         }
       })
 
       for (const update of updates) {
-        // 更新前快照同时用于资源比较和 updated 钩子。
-        const previousNode = createNodeSnapshot(update.current)
+        // 普通旧配置用于资源比较；通知快照仅在 updated hook 存在时另行捕获。
+        const previousNode = captureNodeUpdate(update.current)
+
+        // 只有业务观察更新时才分配公开通知快照。
+        const previousSnapshot = lifecycleHooks.updated
+          ? createNodeSnapshot(update.current)
+          : undefined
 
         // 资源操作只报告待清理路径，值清理由最终树的占用情况决定。
         const path = updateNodeResources(
@@ -759,7 +782,9 @@ export function createReconciler<TValues extends Values>(
           childReconciler
         )
 
-        lifecycle.updated(update.current, previousNode)
+        if (previousSnapshot) {
+          lifecycle.updated(createNodeSnapshot(update.current), previousSnapshot)
+        }
 
         if (path !== undefined) {
           deferredValueRemovals.push(path)
@@ -842,7 +867,9 @@ export function createReconciler<TValues extends Values>(
 
       if (!isRootNode(node)) {
         unmountNodeResources(node, context)
-        lifecycle.unmounted(node)
+        if (lifecycleHooks.unmounted) {
+          lifecycle.unmounted(createNodeSnapshot(node))
+        }
       }
     }
 

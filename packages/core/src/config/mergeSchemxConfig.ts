@@ -110,8 +110,7 @@ export interface MergedSchemxConfig<TValues extends Values = Values> extends Omi
  * @remarks
  * `schemaConfig` 和单个 Renderer Props 中的显式 `undefined` 会覆盖低优先级同名属性；
  * 顶层配置项的 `undefined` 表示未配置。
- * 如需补齐 Core 内置默认值，请使用 {@link resolveSchemxConfig}；如需一步完成，
- * 请使用 {@link mergeAndResolveSchemxConfig}。
+ * 如需补齐 Core 内置默认值，请将合并结果传入 {@link resolveSchemxConfig}。
  * 配置层数为 L、参与浅层合并的属性及 adapter 总项数为 K 时，时间与峰值空间均为 O(L + K)。
  */
 export function mergeConfig<TValues extends Values = Values>(
@@ -246,22 +245,6 @@ export function mergeConfig<TValues extends Values = Values>(
 }
 
 /**
- * {@link mergeConfig} 的兼容名称。
- *
- * @deprecated 请改用 {@link mergeConfig}。
- * @param configs - 按优先级从高到低传入的配置列表。
- *
- * @example
- * ```ts
- * const config = mergeSchemxConfig(
- *   { schemaConfig: { readonly: true } },
- *   { schemaConfig: { readonly: false, disabled: true } },
- * )
- * ```
- */
-export const mergeSchemxConfig: typeof mergeConfig = mergeConfig
-
-/**
  * 为单个已合并 Schemx 配置补齐 Schema 内置默认值。
  *
  * 仅补齐嵌套字段默认值，其他配置项保持原值；输入及嵌套配置不会被修改。
@@ -300,32 +283,6 @@ export function resolveSchemxConfig<TValues extends Values = Values>(
     ...config,
     schemaConfig: resolvedSchemaConfig,
   }
-}
-
-/**
- * 按优先级合并多个 Schemx 配置并补齐 Schema 内置默认值。
- *
- * 这是 {@link mergeConfig} 与 {@link resolveSchemxConfig} 的便捷组合，
- * 适用于需要立即交给 Form Runtime 消费的场景。
- *
- * @param configs - 按高到低优先级传入的配置列表。
- * @returns 合并且补齐默认值后的完整配置。
- *
- * @example
- * ```ts
- * const config = mergeAndResolveSchemxConfig(
- *   { schemaConfig: { readonly: true } },
- *   { schemaConfig: { disabled: true } },
- * )
- * ```
- */
-export function mergeAndResolveSchemxConfig<TValues extends Values = Values>(
-  ...configs: readonly SchemxConfig<TValues>[]
-): MergedSchemxConfig<TValues> {
-  // 先保留所有层级的显式值，再在最后统一回退到内置默认值。
-  const mergedConfig = mergeConfig(...configs)
-
-  return resolveSchemxConfig(mergedConfig)
 }
 
 /**

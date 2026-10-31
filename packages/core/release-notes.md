@@ -1,3 +1,18 @@
+# 待发布：Core 架构精简
+
+此轮包含破坏性接口调整，版本号与发布操作由发布流程另行处理。
+
+- 删除 `createFormWithConfig`，显式继承配置改用 `createSchemx(config).createForm(options)`。
+- 删除 `mergeSchemxConfig` 和 `mergeAndResolveSchemxConfig`，分别改用 `mergeConfig` 和 `resolveSchemxConfig(mergeConfig(...configs))`。
+- 根入口不再公开 `normalizeSchemxConfig`、`defaultSchemxConfigKeys`、`excludeSchemxConfigKeys`、`SchemxConfigKey` 和 `ExcludeSchemxConfigKeys`；标准化与默认键列表保留为内部实现，未使用的排除键列表及类型删除。
+
+- 保留独立的 `lifecycle` 模块处理通知和异常隔离，Reconciler 负责阶段编排及按需捕获快照。生命周期统一使用 `NodeSnapshot`：将 `node.name.value` 改为 `snapshot.name`，将 `node.compiledSchema.peek()` 改为 `snapshot.compiledSchema`。`updated` 接收新旧普通快照，不再暴露内部节点或 Scope；通知顺序及异常隔离保持原语义。
+- 删除 Scheduler 的 idle 队列、`idleTimeout`、`includeIdle`、`SchedulerIdleOptions`、`SchedulerTrackOptions`。配置保留 `timeSliceMs` 与 `collectDiagnostics`，内部统一以 `whenIdle(timeout?)` 等待全部工作，跟踪异步任务不再指定优先级。
+- 移除未使用的节点 `rulesOverride`；手动规则继续由 Validator 管理。撤销手动规则后恢复 Schema 规则。
+- 资源更新使用普通配置快照，通知元数据只在对应 hook 存在时捕获。任务 runner 借用资源 Scope，独立释放不再创建或销毁额外子 Scope；移除内部 `throwOnError` 选项，过期任务不提交结果。
+- ViewSchema 直接生成包含稳定 `formInstance` 的最终 Props，删除二次递归绑定和缓存。Compiler 仍不接收 Form 实例。
+- Renderer 绑定直接返回公开 API，节点和数组行的 ID 序列由 Compiler 私有持有。
+
 # Release Notes — 1.1.1
 
 ## 版本信息
@@ -53,9 +68,9 @@ Core 的模块级 `configureSchemx()` 和 `getGlobalSchemxConfig()` 标记为弃
 
 - <a id="change-69736f6c617465642d636f6e6669672d666163746f7279"></a>新增 `createSchemx(config)`，返回 `createForm`、`configureSchemx`、`getConfig` 和两个 Registry。工厂不读取模块级全局配置；未显式提供 Registry 时创建独立注册表。配置覆盖层每次替换，无参数恢复创建基线；修改只影响后续表单。（影响范围：可按业务模块或请求隔离默认配置；共享默认值支持 debug、schedulerOptions 和 validationConcurrency。Registry 在工厂创建时固定，configureSchemx() 不接受 Registry 键，单个表单仍可局部覆盖。）
 
-- <a id="change-616461707465722d6372656174696f6e2d736e617073686f7473"></a>`@schemx/core/adapter` 新增 `createFormWithConfig(options, config)` 和 `getFormCreationConfig(form)`，以及 `FormCreationSnapshot` 类型。适配层可显式指定继承配置并读取创建时快照，避免后续展示更新重新读取全局默认值。
+- <a id="change-616461707465722d6372656174696f6e2d736e617073686f7473"></a>根入口新增 `getFormCreationConfig(form)`，以及 `FormCreationSnapshot` 类型。适配层可显式指定继承配置并读取创建时快照，避免后续展示更新重新读取全局默认值。
 
-- <a id="change-726f772d6d657267652d6f7074696f6e73"></a>`mergeConfig()` 新增配置数组调用方式和 `MergeConfigOptions`；通过 `{ rowMerge: "inherit" }` 可对 `schemaConfig.row` 按属性继承，默认仍整体替换。根入口同时新增 `normalizeSchemxConfig` 导出。
+- <a id="change-726f772d6d657267652d6f7074696f6e73"></a>`mergeConfig()` 新增配置数组调用方式和 `MergeConfigOptions`；通过 `{ rowMerge: "inherit" }` 可对 `schemaConfig.row` 按属性继承，默认仍整体替换。
 
 ## Fixes
 

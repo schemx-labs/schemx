@@ -16,6 +16,7 @@ import { areNamePathListsEqual } from "../utils"
 import { createDependencyRendererEffect } from "./index"
 
 import type { DependencyNode } from "../node"
+import type { NodeUpdateSnapshot } from "../node/snapshot"
 import type { ChildReconciler, FormRuntimeContext } from "../runtimeContext"
 import type { Values } from "../types"
 
@@ -56,13 +57,13 @@ export function mountDependencyResources<TValues extends Values>(
  */
 export function updateDependencyResources<TValues extends Values>(
   node: DependencyNode<TValues>,
-  previousNode: DependencyNode<TValues>,
+  previousNode: Extract<NodeUpdateSnapshot<TValues>, { type: "dependency" }>,
   context: FormRuntimeContext<TValues>,
   childReconciler: ChildReconciler<TValues>
 ): void {
   updatePresentationResources(node, previousNode, context)
 
-  const previousSchema = previousNode.compiledSchema.peek()
+  const previousSchema = previousNode.compiledSchema
 
   const currentSchema = node.compiledSchema.peek()
 

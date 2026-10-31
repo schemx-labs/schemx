@@ -1,861 +1,463 @@
 /**
- * Scheduler - 通用任务调度器。
- *
- * Scheduler 不存在 validation/dependency/renderer 业务 channel，
- * 只管理带优先级的 keyed 任务。
- *
- * @module core/scheduler/scheduler
+ * normal/post 两阶段 keyed 任务队列及统一异步完成边界。
  */
-
 import type { Scope } from "../node"
 
 /**
- * 任务优先级。
- *
- * 执行顺序: normal → post → idle
+ * 依赖计算先于校验注册；每次取任务都重新检查 normal 队列。
  */
-export type SchedulerTaskPriority = "normal" | "post" | "idle"
+export type SchedulerTaskPriority = "normal" | "post"
 
 /**
- * Scheduler 创建配置。
+ * 调度器的时间片和诊断配置。
  */
 export interface SchedulerOptions {
   /**
-   * 单次连续执行同步任务的最长时间（毫秒）。达到预算后会让出主线程。
-   *
-   * @defaultValue 5
+   * 连续同步工作的时间预算（毫秒），默认 5；只能在任务边界让出。
    */
   readonly timeSliceMs?: number
-
   /**
-   * idle 任务在没有空闲时间时的最长等待时间（毫秒）。
-   *
-   * @defaultValue 1000
-   */
-  readonly idleTimeout?: number
-
-  /**
-   * 是否收集调度诊断数据；默认关闭。
+   * 是否收集诊断数据，默认 false。
    */
   readonly collectDiagnostics?: boolean
 }
 
 /**
- * Scheduler 调度诊断快照。
+ * 调度器当前的队列及同步执行统计。
  */
 export interface SchedulerDiagnostics {
   /**
-   * 各优先级队列当前排队的任务数量。
+   * 各阶段尚未执行的任务数量。
    */
   readonly queued: Readonly<Record<SchedulerTaskPriority, number>>
   /**
-   * 调度过程中为让出主线程而暂停的次数。
+   * 为时间片让出主线程的次数。
    */
   readonly yieldedCount: number
   /**
-   * 已执行同步任务中的最长耗时（毫秒）。
+   * 同步执行部分的最长耗时（毫秒）。
    */
   readonly maxTaskDurationMs: number
 }
 
 /**
- * Scheduler 空闲等待配置。
- */
-export interface SchedulerIdleOptions {
-  /**
-   * 最大等待时间（毫秒）。
-   *
-   * @defaultValue 10000
-   */
-  timeout?: number
-
-  /**
-   * 是否等待 idle 队列和 idle 异步任务。
-   *
-   * @defaultValue true
-   */
-  includeIdle?: boolean
-}
-
-/**
- * 异步任务是否参与关键空闲判断的配置。
- */
-export interface SchedulerTrackOptions {
-  /**
-   * 任务所属优先级；idle 任务不会阻塞关键空闲判断。
-   *
-   * @defaultValue "normal"
-   */
-  priority?: SchedulerTaskPriority
-}
-
-/**
- * 调度任务。
+ * 队列中的一次工作，相同阶段及 ID 的待执行任务只保留最后一次。
  */
 export interface ScheduledTask {
   /**
-   * 任务唯一标识。
+   * 当前阶段内的去重标识。
    */
-  id: string
-
+  readonly id: string
   /**
-   * 任务优先级。
+   * 本次任务的执行阶段。
    */
-  priority: SchedulerTaskPriority
-
+  readonly priority: SchedulerTaskPriority
   /**
-   * 关联的 Scope，scope dispose 时任务被取消。
+   * 已释放作用域中的待执行任务会被跳过。
    */
-  scope?: Scope
-
+  readonly scope?: Scope
   /**
-   * 执行任务。
-   *
-   * @returns 同步任务返回 void，异步任务返回 Promise
+   * 执行同步工作或需要队列等待的异步工作。
    */
   run(): void | Promise<void>
-
   /**
-   * 错误回调。
-   *
-   * @param error - 执行错误
+   * @param error - 本次执行抛出的异常。
    */
   onError?(error: unknown): void
 }
 
 /**
- * 任务调度器。
- */
-export interface Scheduler {
-  /**
-   * 调度任务。
-   *
-   * @param task - 调度任务
-   */
-  schedule(task: ScheduledTask): void
-
-  /**
-   * 执行所有待执行任务。
-   *
-   * 包含 normal、post 和 idle 队列。
-   *
-   * @returns Promise 在所有任务完成后 resolve
-   */
-  flush(): Promise<void>
-
-  /**
-   * 等待指定范围内所有任务完成（包括异步任务）。
-   *
-   * @param options - 超时时间及是否包含 idle 任务的配置。
-   * @returns 所有指定范围的任务完成时返回 `true`，超时时返回 `false`。
-   */
-  whenIdle(options?: SchedulerIdleOptions): Promise<boolean>
-
-  /**
-   * 等待所有任务完成；保留数字参数以兼容旧调用方。
-   *
-   * @param timeout - 最大等待时间（毫秒）。
-   * @returns 所有任务完成时返回 `true`，超时时返回 `false`。
-   */
-  whenIdle(timeout?: number): Promise<boolean>
-
-  /**
-   * 跟踪异步任务。
-   *
-   * @typeParam TResult - 返回值类型。
-   * @param promise - 要跟踪的异步任务。
-   * @param options - 任务优先级配置。
-   * @returns 原始 Promise。
-   */
-  track<TResult>(
-    promise: Promise<TResult>,
-    options?: SchedulerTrackOptions
-  ): Promise<TResult>
-
-  /**
-   * 跟踪可提前从 idle 判断中移除的逻辑任务。
-   *
-   * cancel 不会中止原始 Promise；调用方仍需自行中止底层操作。
-   *
-   * @typeParam TResult - 任务返回值类型。
-   * @param promise - 要跟踪的异步任务。
-   * @param options - 任务优先级配置。
-   * @returns 原始 Promise 及其逻辑取消句柄。
-   */
-  trackCancellable<TResult>(
-    promise: Promise<TResult>,
-    options?: SchedulerTrackOptions
-  ): CancellableTask<TResult>
-
-  /**
-   * 释放调度器。
-   */
-  dispose(): void
-
-  /**
-   * 读取当前调度诊断快照。
-   *
-   * @returns 当前队列、让出次数和最长任务耗时。
-   */
-  getDiagnostics(): SchedulerDiagnostics
-}
-
-/**
- * Scheduler 跟踪的可取消逻辑任务。
- *
- * @typeParam TResult - 任务返回值类型。
+ * 可提前退出完成等待的逻辑任务；底层操作由调用方负责中止。
  */
 export interface CancellableTask<TResult> {
   /**
-   * 原始任务 Promise。
+   * 原始异步工作，不因 cancel 而改变结果。
    */
   readonly promise: Promise<TResult>
   /**
-   * 任务失效后将其从 idle 判断中移除，但不会中止原始 Promise。
+   * 从调度器完成判断中移除此任务，可以重复调用。
    */
   cancel(): void
 }
 
 /**
- * 保存等待调度器进入 idle 状态的调用方及其超时句柄。
+ * 队列执行和外部异步工作共用的完成边界。
+ */
+export interface Scheduler {
+  /**
+   * @param task - 要加入队列的工作。
+   */
+  schedule(task: ScheduledTask): void
+  /**
+   * 执行队列中的工作，复用正在执行的 flush。
+   */
+  flush(): Promise<void>
+  /**
+   * 等待所有队列、执行中工作和异步任务完成；超时或销毁返回 false。
+   * @param timeout - 最长等待毫秒数，默认 10000。
+   */
+  whenIdle(timeout?: number): Promise<boolean>
+  /**
+   * @param promise - 要纳入完成等待的异步工作。
+   */
+  track<TResult>(promise: Promise<TResult>): Promise<TResult>
+  /**
+   * @param promise - 可由调用方提前标记失效的异步工作。
+   */
+  trackCancellable<TResult>(promise: Promise<TResult>): CancellableTask<TResult>
+  /**
+   * 停止执行任务并以 false 结束所有尚未完成的等待。
+   */
+  dispose(): void
+  /**
+   * 读取当前诊断数据。
+   */
+  getDiagnostics(): SchedulerDiagnostics
+}
+
+/**
+ * 独立等待者的完成函数和超时定时器。
  */
 interface IdleWaiter {
   /**
-   * 等待结果的 resolve 回调。
+   * @param idle - 全部工作完成时为 true，超时或销毁时为 false。
    */
   readonly resolve: (idle: boolean) => void
   /**
-   * 是否将 idle 任务纳入空闲判断。
+   * 此等待者的超时句柄。
    */
-  readonly includeIdle: boolean
-  /**
-   * 等待超时句柄。
-   */
-  timeoutId?: ReturnType<typeof globalThis.setTimeout>
+  readonly timeoutId: ReturnType<typeof globalThis.setTimeout>
 }
 
 /**
- * 队列执行顺序。
+ * 每个任务边界都按此顺序选取工作。
  */
-const PRIORITY_ORDER: readonly SchedulerTaskPriority[] = ["normal", "post", "idle"]
-
-const DEFAULT_TIME_SLICE_MS = 5
-
-const DEFAULT_IDLE_TIMEOUT = 1000
+const PRIORITY_ORDER: readonly SchedulerTaskPriority[] = ["normal", "post"]
 
 /**
- * 浏览器空闲回调的最小结构，避免 Scheduler 依赖 DOM 类型。
- */
-interface IdleDeadlineLike {
-  readonly didTimeout: boolean
-  timeRemaining(): number
-}
-
-/**
- * 支持 requestIdleCallback 的运行时全局对象。
- */
-interface IdleCallbackHost {
-  /**
-   * 注册浏览器空闲回调。
-   *
-   * @param callback - 空闲时间到达时执行的回调。
-   * @param options - 空闲回调的最大等待时间。
-   * @returns 运行时生成的回调句柄。
-   */
-  requestIdleCallback?: (
-    callback: (deadline: IdleDeadlineLike) => void,
-    options: { timeout: number }
-  ) => unknown
-}
-
-/**
- * 创建一个 Scheduler 实例。
- *
- * @param options - 时间片、idle 超时和诊断配置。
- * @returns 新创建的 Scheduler
- *
+ * 创建具有任务去重、时间片和异步完成等待的调度器。
+ * @param options - 同步时间预算及诊断开关。
  * @example
- * ```ts
  * const scheduler = createScheduler()
- *
- * // 调度任务
- * scheduler.schedule({
- *   id: "task-1",
- *   priority: "normal",
- *   run: () => console.log("task 1"),
- * })
- *
- * // 等待所有任务完成
+ * scheduler.schedule({ id: "field", priority: "normal", run: () => {} })
  * await scheduler.whenIdle()
- *
- * // 跟踪异步任务
- * await scheduler.track(fetch("/api"))
- *
- * // 释放调度器
  * scheduler.dispose()
- * ```
  */
 export function createScheduler(options: SchedulerOptions = {}): Scheduler {
-  const timeSliceMs = options.timeSliceMs ?? DEFAULT_TIME_SLICE_MS
+  // 时间片只统计任务边界间的同步工作。
+  const timeSliceMs = options.timeSliceMs ?? 5
 
-  const idleTimeout = options.idleTimeout ?? DEFAULT_IDLE_TIMEOUT
-
+  // 关闭诊断时不累计统计量。
   const collectDiagnostics = options.collectDiagnostics ?? false
 
-  // normal/post/idle 三个 keyed 队列
+  // 各阶段内按 ID 覆盖待执行任务。
   const queues = new Map<SchedulerTaskPriority, Map<string, ScheduledTask>>(
     PRIORITY_ORDER.map((priority) => [priority, new Map()])
   )
 
-  // Idle 等待者
+  // 外部异步工作和独立等待者分别登记。
+  const pendingTasks = new Set<object>()
+
+  // 每个等待者保留独立超时和交付状态。
   const idleWaiters = new Set<IdleWaiter>()
 
-  // 参与 idle 判断的逻辑异步任务。
-  const pendingTasks = new Map<object, boolean>()
-
-  // 当前正在执行的 normal/post 任务数量；用于关键空闲判断。
-  let activeCriticalTasks = 0
-
-  // 是否已释放
+  // flush 状态覆盖同步执行、异步等待和主线程让出。
   let disposed = false
 
-  // 当前 flush Promise
-  let currentFlush: Promise<void> | null = null
+  // 在异步执行体创建 Promise 前也能阻止重入启动第二轮。
+  let flushing = false
 
-  // 是否已安排当前 tick 的 flush microtask
+  // 复用当前队列执行的完成句柄。
+  let currentFlush: Promise<void> | undefined
+
+  // 同一轮最多保留一个自动刷新 microtask。
   let flushScheduled = false
 
-  // 是否已安排 idle 队列的浏览器空闲回调。
-  let idleFlushScheduled = false
-
-  // 正在执行的 flush 是否应一并处理 idle 队列。
-  let shouldFlushIdleTasks = false
-
+  // 可选诊断累积值。
   let yieldedCount = 0
 
+  // 单个任务同步执行部分的最长耗时。
   let maxTaskDurationMs = 0
 
   /**
-   * 执行全部待执行任务。
-   *
-   * 显式 flush 是调用方要求的同步边界，因此会包含 idle 队列；自动调度仅在
-   * 浏览器空闲时处理 idle 任务。
+   * 当前是否还有任一阶段的待执行工作。
    */
-  const flush = async (): Promise<void> => {
-    shouldFlushIdleTasks = true
+  const hasQueuedTasks = (): boolean =>
+    // priority 为当前检查的队列阶段。
+    PRIORITY_ORDER.some((priority) => (queues.get(priority)?.size ?? 0) > 0)
 
-    return await startFlush()
+  /**
+   * 只有整轮 flush 和所有外部异步工作结束才算完成。
+   */
+  const isIdle = (): boolean => !flushing && !hasQueuedTasks() && pendingTasks.size === 0
+
+  /**
+   * 结束一个等待并撤销其超时。
+   * @param waiter - 本次要交付的等待者。
+   * @param idle - 已完成全部工作或因超时/销毁结束。
+   */
+  const settleWaiter = (waiter: IdleWaiter, idle: boolean): void => {
+    if (idleWaiters.delete(waiter)) {
+      globalThis.clearTimeout(waiter.timeoutId)
+      waiter.resolve(idle)
+    }
   }
 
   /**
-   * 在浏览器空闲回调中处理 idle 队列。
-   *
-   * @param deadline - 浏览器提供的空闲时间预算；非浏览器回退时为 `undefined`。
+   * 通知同一完成边界上的所有等待者。
    */
-  const flushIdle = async (deadline: IdleDeadlineLike | undefined): Promise<void> => {
-    if (disposed || !hasQueuedIdleTasks()) {
-      return
+  const notifyIdle = (): void => {
+    if (!disposed && isIdle()) {
+      for (const waiter of [...idleWaiters]) {
+        settleWaiter(waiter, true)
+      }
     }
-
-    if (deadline && !deadline.didTimeout && deadline.timeRemaining() <= 0) {
-      scheduleIdleFlush()
-
-      return
-    }
-
-    shouldFlushIdleTasks = true
-    await startFlush(deadline)
   }
 
   /**
-   * 启动或复用当前 flush。
-   *
-   * 如果已有正在执行的 flush 则复用其 Promise，防止并发执行；显式 flush
-   * 可通过 shouldFlushIdleTasks 让已有任务循环继续处理 idle 队列。
-   * flush 完成后自动检查空闲状态并通知等待者。
-   *
-   * @param idleDeadline - 当前浏览器空闲时间预算；主动 flush 时为 `undefined`。
+   * 跟踪逻辑任务；取消只影响完成判断，不影响原始 Promise。
+   * @param promise - 需要跟踪的异步工作。
+   * @example const task = scheduler.trackCancellable(request); task.cancel()
    */
-  const startFlush = async (idleDeadline?: IdleDeadlineLike): Promise<void> => {
-    if (disposed) {
-      return
+  const trackCancellable = <TResult>(
+    promise: Promise<TResult>
+  ): CancellableTask<TResult> => {
+    // 每个登记都有独立身份，相同 Promise 可以多次登记。
+    const task = {}
+
+    if (!disposed) {
+      pendingTasks.add(task)
     }
 
-    if (currentFlush) {
-      return currentFlush
+    /**
+     * 幂等移除逻辑工作，并重新检查完成边界。
+     */
+    const cancel = (): void => {
+      if (pendingTasks.delete(task)) {
+        notifyIdle()
+      }
     }
 
-    currentFlush = flushOnce(idleDeadline).finally(() => {
-      currentFlush = null
-      shouldFlushIdleTasks = false
-      notifyIdleIfNeeded()
-      scheduleQueuedFlushes()
-    })
+    void promise.then(cancel, cancel)
 
-    return currentFlush
+    return { promise, cancel }
   }
 
   /**
-   * 单次 flush 执行。
-   *
-   * 循环按优先级从队列中取任务，直到当前可执行队列为空或调度器被释放。
-   * 每个时间片最多连续执行 timeSliceMs 毫秒的同步工作，随后让出主线程；
-   * 这只能在任务边界切片，单个长同步任务仍需调用方自行拆分。
-   *
-   * @param idleDeadline - 当前浏览器空闲时间预算；非 idle flush 时为 `undefined`。
+   * 等待被跟踪的 Promise，同时把它纳入调度器完成判断。
+   * @param promise - 本次异步工作。
+   * @example await scheduler.track(Promise.resolve())
    */
-  const flushOnce = async (idleDeadline?: IdleDeadlineLike): Promise<void> => {
+  const track = <TResult>(promise: Promise<TResult>): Promise<TResult> =>
+    trackCancellable(promise).promise
+
+  /**
+   * 从最高优先级非空队列取出并移除一个任务。
+   */
+  const takeNextTask = (): ScheduledTask | undefined => {
+    for (const priority of PRIORITY_ORDER) {
+      // queue/task 分别为当前阶段队列及其中最早登记的工作。
+      const queue = queues.get(priority)
+
+      const task = queue?.values().next().value
+
+      if (task) {
+        queue?.delete(task.id)
+
+        return task
+      }
+    }
+
+    return undefined
+  }
+
+  /**
+   * 连续执行队列工作，必要时在任务边界让出主线程。
+   */
+  const flushOnce = async (): Promise<void> => {
+    // 异步任务完成后重新开始计算同步时间片。
     let sliceStartedAt = getCurrentTime()
 
     while (!disposed) {
-      if (shouldPauseForIdleDeadline(idleDeadline)) {
-        return
-      }
-
+      // 每轮重新选择阶段，post 新增的 normal 会先于剩余 post 执行。
       const task = takeNextTask()
 
       if (!task) {
         return
       }
 
-      // 跳过已 disposed 的任务
       if (task.scope?.disposed) {
         continue
       }
 
-      const isCriticalTask = task.priority !== "idle"
-
-      if (isCriticalTask) {
-        activeCriticalTasks += 1
-      }
-
       try {
+        // 只统计 run 的同步部分，不把网络等待计入最长任务耗时。
         const taskStartedAt = getCurrentTime()
 
         const result = task.run()
 
-        const taskDurationMs = getCurrentTime() - taskStartedAt
-
         if (collectDiagnostics) {
-          maxTaskDurationMs = Math.max(maxTaskDurationMs, taskDurationMs)
+          maxTaskDurationMs = Math.max(
+            maxTaskDurationMs,
+            getCurrentTime() - taskStartedAt
+          )
         }
 
-        // 跟踪异步任务
-        if (isPromiseLike(result)) {
-          await track(result, { priority: task.priority })
+        if (result) {
+          await track(result)
+          sliceStartedAt = getCurrentTime()
         }
       } catch (error) {
-        if (task.onError) {
-          task.onError(error)
-        } else {
-          console.error(`[schemx] 调度任务 "${task.id}" 执行错误`, error)
+        // 业务错误处理器抛错同样不应中断剩余队列。
+        try {
+          if (task.onError) {
+            task.onError(error)
+          } else {
+            console.error(`[schemx] 调度任务 "${task.id}" 执行错误`, error)
+          }
+        } catch (handlerError) {
+          console.error("[schemx] 调度任务错误处理器执行错误", handlerError)
         }
-      } finally {
-        if (isCriticalTask) {
-          activeCriticalTasks -= 1
-          notifyIdleIfNeeded()
+      }
+
+      if (getCurrentTime() - sliceStartedAt >= timeSliceMs && hasQueuedTasks()) {
+        await yieldToHost()
+        if (collectDiagnostics) {
+          yieldedCount += 1
         }
-      }
 
-      if (!shouldYield(sliceStartedAt, idleDeadline) || !hasTasksForCurrentFlush()) {
-        continue
+        sliceStartedAt = getCurrentTime()
       }
-
-      if (shouldPauseForIdleDeadline(idleDeadline)) {
-        return
-      }
-
-      await yieldToHost()
-      if (collectDiagnostics) {
-        yieldedCount += 1
-      }
-
-      sliceStartedAt = getCurrentTime()
     }
   }
 
   /**
-   * 调度任务。
-   *
-   * 按优先级将任务加入对应队列。normal/post 通过 microtask 执行；idle 任务
-   * 则等待浏览器空闲回调，并由超时兜底避免长期饥饿。
-   * 已释放的调度器或任务直接忽略。
-   *
-   * @param task - 要加入对应优先级队列的任务。
+   * 执行队列，正在执行的 flush 由所有调用者共享。
+   * @example await scheduler.flush()
    */
-  const schedule = (task: ScheduledTask): void => {
-    // 跳过已 disposed 的调度器或任务
-    if (disposed || task.scope?.disposed) {
-      return
-    }
-
-    queues.get(task.priority)?.set(task.id, task)
-
-    scheduleQueuedFlushes()
-  }
-
-  /**
-   * 按待执行任务的优先级安排下一次 flush。
-   */
-  const scheduleQueuedFlushes = (): void => {
+  const flush = (): Promise<void> => {
     if (disposed) {
-      return
+      return Promise.resolve()
     }
 
-    if (hasQueuedNonIdleTasks()) {
-      scheduleFlush()
+    if (flushing) {
+      // run 内部重入时异步执行体尚未返回 Promise，延迟读取同一轮句柄。
+      return currentFlush ?? Promise.resolve().then(() => currentFlush)
     }
 
-    if (hasQueuedIdleTasks()) {
-      scheduleIdleFlush()
-    }
+    flushing = true
+    currentFlush = flushOnce().finally(() => {
+      flushing = false
+      currentFlush = undefined
+      notifyIdle()
+      if (hasQueuedTasks() && !disposed) {
+        scheduleFlush()
+      }
+    })
+
+    return currentFlush
   }
 
   /**
-   * 通过 microtask 执行 normal/post 队列。
+   * 同一轮最多安排一次 microtask；flush 中新增工作由当前执行循环消费。
    */
   const scheduleFlush = (): void => {
-    if (flushScheduled) {
+    if (flushScheduled || flushing || disposed) {
       return
     }
 
     flushScheduled = true
     queueMicrotask(() => {
       flushScheduled = false
-      void startFlush()
+      void flush()
     })
   }
 
   /**
-   * 通过 requestIdleCallback 在浏览器空闲时执行 idle 队列。
-   * 不支持该 API 的运行时退化为下一个 macrotask。
+   * 按阶段和任务 ID 登记工作。
+   * @param task - 本次待执行任务。
+   * @example scheduler.schedule({ id: "x", priority: "post", run: () => {} })
    */
-  const scheduleIdleFlush = (): void => {
-    if (idleFlushScheduled) {
+  const schedule = (task: ScheduledTask): void => {
+    if (disposed || task.scope?.disposed) {
       return
     }
 
-    idleFlushScheduled = true
-
-    const run = (deadline?: IdleDeadlineLike): void => {
-      idleFlushScheduled = false
-      void flushIdle(deadline)
-    }
-
-    const idleHost = globalThis as typeof globalThis & IdleCallbackHost
-
-    if (idleHost.requestIdleCallback) {
-      idleHost.requestIdleCallback(run, { timeout: idleTimeout })
-
-      return
-    }
-
-    globalThis.setTimeout(run, 0)
+    queues.get(task.priority)?.set(task.id, task)
+    scheduleFlush()
   }
 
   /**
-   * 按优先级从待执行队列取出一个任务。
-   *
-   * normal 和 post 始终优先于 idle。自动 flush 不处理 idle 队列，只有显式
-   * flush 或空闲回调才会将其纳入执行范围。
+   * 等待统一完成边界，所有等待者独立计时。
+   * @param timeout - 最长等待毫秒数，默认 10000。
+   * @example const ready = await scheduler.whenIdle(1000)
    */
-  const takeNextTask = (): ScheduledTask | undefined => {
-    for (const priority of PRIORITY_ORDER) {
-      if (priority === "idle" && !shouldFlushIdleTasks) {
-        continue
-      }
-
-      const queue = queues.get(priority)
-
-      const task = queue?.values().next().value
-
-      if (!task) {
-        continue
-      }
-
-      queue.delete(task.id)
-
-      return task
+  const whenIdle = (timeout = 10000): Promise<boolean> => {
+    if (disposed) {
+      return Promise.resolve(false)
     }
 
-    return
-  }
-
-  /**
-   * 当前时间片是否应让出主线程。
-   *
-   * @param sliceStartedAt - 当前时间片开始时的单调时间戳。
-   * @param idleDeadline - 当前浏览器空闲时间预算；非 idle flush 时为 `undefined`。
-   * @returns 达到时间片或空闲预算时返回 `true`。
-   */
-  const shouldYield = (
-    sliceStartedAt: number,
-    idleDeadline: IdleDeadlineLike | undefined
-  ): boolean => {
-    if (idleDeadline && !idleDeadline.didTimeout && idleDeadline.timeRemaining() <= 0) {
-      return true
-    }
-
-    return getCurrentTime() - sliceStartedAt >= timeSliceMs
-  }
-
-  /**
-   * 空闲预算耗尽且没有前台任务时，结束本次 idle 回调并等待下一次机会。
-   *
-   * @param idleDeadline - 当前浏览器空闲时间预算。
-   * @returns 应暂停当前 idle flush 时返回 `true`。
-   */
-  const shouldPauseForIdleDeadline = (
-    idleDeadline: IdleDeadlineLike | undefined
-  ): boolean => {
-    return Boolean(
-      idleDeadline &&
-      !idleDeadline.didTimeout &&
-      idleDeadline.timeRemaining() <= 0 &&
-      !hasQueuedNonIdleTasks()
-    )
-  }
-
-  /**
-   * 跟踪异步任务。
-   *
-   * 增加飞行中任务计数，任务完成后减少计数并检查空闲状态。
-   * 用于确保 whenIdle 能正确等待所有异步任务完成。
-   *
-   * @typeParam TResult - 任务返回值类型。
-   * @param promise - 要跟踪的异步任务。
-   * @param options - 任务优先级配置。
-   * @returns 原始任务结果。
-   */
-  const track = async <TResult>(
-    promise: Promise<TResult>,
-    options: SchedulerTrackOptions = {}
-  ): Promise<TResult> => {
-    return await trackCancellable(promise, options).promise
-  }
-
-  /**
-   * 将异步工作作为可取消的逻辑任务纳入 idle 判断。
-   *
-   * @typeParam TResult - 任务返回值类型。
-   * @param promise - 要跟踪的异步任务。
-   * @param options - 任务优先级配置。
-   * @returns 原始 Promise 及其逻辑取消句柄。
-   */
-  const trackCancellable = <TResult>(
-    promise: Promise<TResult>,
-    options: SchedulerTrackOptions = {}
-  ): CancellableTask<TResult> => {
-    const task = {}
-
-    const isCritical = options.priority !== "idle"
-
-    let settled = false
-
-    const settle = (): void => {
-      if (settled) {
-        return
-      }
-
-      settled = true
-      pendingTasks.delete(task)
-      notifyIdleIfNeeded()
-    }
-
-    pendingTasks.set(task, isCritical)
-    void promise.then(settle, settle)
-
-    return {
-      promise,
-      cancel: settle,
-    }
-  }
-
-  /**
-   * 等待指定范围内所有任务完成。
-   *
-   * 如果当前空闲则立即 resolve true；
-   * 否则注册回调，等待指定范围的队列清空且异步任务完成后 resolve。
-   * 超时未完成则 resolve false。
-   *
-   * @param timeoutOrOptions - 最大等待时间，或包含超时和 idle 范围的配置。
-   * @returns 指定范围的任务已完成时返回 `true`，超时时返回 `false`。
-   */
-  const whenIdle = (
-    timeoutOrOptions: number | SchedulerIdleOptions = 10000
-  ): Promise<boolean> => {
-    const idleOptions = normalizeIdleOptions(timeoutOrOptions)
-
-    if (isIdle(idleOptions.includeIdle)) {
+    if (isIdle()) {
       return Promise.resolve(true)
     }
 
+    // resolve 为当前等待者的结果接收函数。
     return new Promise((resolve) => {
+      // waiter 在超时回调真正执行前完成初始化。
       const waiter: IdleWaiter = {
         resolve,
-        includeIdle: idleOptions.includeIdle,
+        timeoutId: globalThis.setTimeout(() => settleWaiter(waiter, false), timeout),
       }
-
-      waiter.timeoutId = globalThis.setTimeout(() => {
-        settleIdleWaiter(waiter, false)
-      }, idleOptions.timeout)
 
       idleWaiters.add(waiter)
     })
   }
 
   /**
-   * 检查调度器是否空闲。
-   *
-   * 当 `includeIdle` 为 `true` 时检查全部队列和异步任务；为 `false` 时只检查
-   * normal/post 队列及关键异步任务。
-   *
-   * @param includeIdle - 是否将 idle 队列和 idle 异步任务纳入判断。
-   * @returns 调度器达到指定范围的空闲条件时返回 `true`。
-   */
-  const isIdle = (includeIdle = true): boolean => {
-    const hasActiveTasks = includeIdle ? currentFlush !== null : activeCriticalTasks > 0
-
-    const hasPendingTasks = includeIdle
-      ? pendingTasks.size > 0
-      : hasCriticalPendingTasks()
-
-    const hasQueuedWork = includeIdle ? hasQueuedTasks() : hasQueuedNonIdleTasks()
-
-    return !hasActiveTasks && !hasPendingTasks && !hasQueuedWork
-  }
-
-  /**
-   * 检查是否有待执行任务。
-   */
-  const hasQueuedTasks = (): boolean => {
-    return Array.from(queues.values()).some((queue) => queue.size > 0)
-  }
-
-  /**
-   * 检查是否有待执行的 normal 或 post 任务。
-   */
-  const hasQueuedNonIdleTasks = (): boolean => {
-    return PRIORITY_ORDER.some(
-      (priority) => priority !== "idle" && (queues.get(priority)?.size ?? 0) > 0
-    )
-  }
-
-  /**
-   * 检查是否有待执行的 idle 任务。
-   */
-  const hasQueuedIdleTasks = (): boolean => {
-    return (queues.get("idle")?.size ?? 0) > 0
-  }
-
-  /**
-   * 检查是否有参与关键空闲判断的异步任务。
-   */
-  const hasCriticalPendingTasks = (): boolean => {
-    return Array.from(pendingTasks.values()).some((isCritical) => isCritical)
-  }
-
-  /**
-   * 检查当前 flush 是否还有可执行任务，避免最后一个任务后额外让出一次主线程。
-   */
-  const hasTasksForCurrentFlush = (): boolean => {
-    return hasQueuedNonIdleTasks() || (shouldFlushIdleTasks && hasQueuedIdleTasks())
-  }
-
-  /**
-   * 如果空闲则通知所有等待者。
-   */
-  const notifyIdleIfNeeded = (): void => {
-    const waiters = Array.from(idleWaiters)
-
-    waiters.forEach((waiter) => {
-      if (isIdle(waiter.includeIdle)) {
-        settleIdleWaiter(waiter, true)
-      }
-    })
-  }
-
-  /**
-   * 结束一个 idle waiter，并清理其 timeout。
-   *
-   * @param waiter - 要结束的空闲等待者。
-   * @param idle - 要交付给等待者的空闲结果。
-   */
-  const settleIdleWaiter = (waiter: IdleWaiter, idle: boolean): void => {
-    if (!idleWaiters.delete(waiter)) {
-      return
-    }
-
-    if (waiter.timeoutId !== undefined) {
-      globalThis.clearTimeout(waiter.timeoutId)
-    }
-
-    waiter.resolve(idle)
-  }
-
-  /**
-   * 释放调度器。
-   *
-   * 标记已释放，清空所有任务队列，并通知所有等待者。
-   * 释放后 schedule() 和 flush() 将不再执行新任务。
+   * 清空工作登记并以失败状态结束等待，底层请求由所属资源负责中止。
+   * @example scheduler.dispose()
    */
   const dispose = (): void => {
     disposed = true
-    shouldFlushIdleTasks = false
-    queues.forEach((queue) => queue.clear())
+    for (const queue of queues.values()) {
+      queue.clear()
+    }
+
     pendingTasks.clear()
-
-    const waiters = Array.from(idleWaiters)
-
-    waiters.forEach((waiter) => settleIdleWaiter(waiter, false))
+    for (const waiter of [...idleWaiters]) {
+      settleWaiter(waiter, false)
+    }
   }
 
   /**
-   * 读取当前队列、让出次数和最长同步任务耗时。
+   * 读取不暴露内部队列的统计快照。
+   * @example const diagnostics = scheduler.getDiagnostics()
    */
-  const getDiagnostics = (): SchedulerDiagnostics => {
-    const queued = {
+  const getDiagnostics = (): SchedulerDiagnostics => ({
+    queued: {
       normal: queues.get("normal")?.size ?? 0,
       post: queues.get("post")?.size ?? 0,
-      idle: queues.get("idle")?.size ?? 0,
-    }
+    },
+    yieldedCount: collectDiagnostics ? yieldedCount : 0,
+    maxTaskDurationMs: collectDiagnostics ? maxTaskDurationMs : 0,
+  })
 
-    return {
-      queued,
-      yieldedCount: collectDiagnostics ? yieldedCount : 0,
-      maxTaskDurationMs: collectDiagnostics ? maxTaskDurationMs : 0,
-    }
-  }
-
-  return {
-    schedule,
-    flush,
-    whenIdle,
-    track,
-    trackCancellable,
-    dispose,
-    getDiagnostics,
-  }
+  return { schedule, flush, whenIdle, track, trackCancellable, dispose, getDiagnostics }
 }
 
 /**
- * 读取单调递增的当前时间，浏览器和非浏览器运行时均可用。
+ * 读取浏览器和 Node 都支持的单调时间。
  */
 function getCurrentTime(): number {
   return globalThis.performance?.now() ?? Date.now()
 }
 
 /**
- * 让出当前事件循环，使浏览器有机会处理输入和绘制。
- *
- * @returns 在下一个事件循环阶段完成的 Promise。
- *
- * @example
- * ```ts
- * await yieldToHost()
- * ```
+ * 让出事件循环，让输入、绘制或其他任务有机会运行。
+ * @example await yieldToHost()
  */
 export function yieldToHost(): Promise<void> {
+  // resolve 在一个新的宿主事件循环阶段执行。
   return new Promise((resolve) => {
     if (typeof MessageChannel === "undefined") {
       globalThis.setTimeout(resolve, 0)
@@ -863,6 +465,7 @@ export function yieldToHost(): Promise<void> {
       return
     }
 
+    // channel 仅为本次让出创建，收到消息后关闭两端。
     const channel = new MessageChannel()
 
     channel.port1.onmessage = () => {
@@ -873,43 +476,4 @@ export function yieldToHost(): Promise<void> {
 
     channel.port2.postMessage(undefined)
   })
-}
-
-/**
- * 规范化空闲等待参数，保留旧的数字参数形式。
- *
- * @param timeoutOrOptions - 数字超时，或空闲等待配置。
- * @returns 补齐默认值后的空闲等待配置。
- */
-function normalizeIdleOptions(
-  timeoutOrOptions: number | SchedulerIdleOptions
-): Required<SchedulerIdleOptions> {
-  if (typeof timeoutOrOptions === "number") {
-    return {
-      timeout: timeoutOrOptions,
-      includeIdle: true,
-    }
-  }
-
-  return {
-    timeout: timeoutOrOptions.timeout ?? 10000,
-    includeIdle: timeoutOrOptions.includeIdle ?? true,
-  }
-}
-
-/**
- * 检查值是否为 PromiseLike（具有 then 方法的对象）。
- *
- * 用于区分同步任务与异步任务，以便 track() 正确计数。
- *
- * @param value - 要检查的值。
- * @returns 值具有可调用的 `then` 方法时返回 `true`。
- */
-const isPromiseLike = (value: unknown): value is PromiseLike<unknown> => {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    "then" in value &&
-    typeof (value as PromiseLike<unknown>).then === "function"
-  )
 }

@@ -11,6 +11,7 @@ import { areNamePathListsEqual, createFieldKey } from "../utils"
 import { createFieldDependenciesEffect, createValidationEffect } from "./index"
 
 import type { FieldNode } from "../node"
+import type { NodeUpdateSnapshot } from "../node/snapshot"
 import type { FormRuntimeContext } from "../runtimeContext"
 import type { NamePath, SchemxFieldDependencies, Values } from "../types"
 
@@ -55,11 +56,11 @@ export function mountFieldResources<TValues extends Values>(
  */
 export function updateFieldResources<TValues extends Values>(
   node: FieldNode<TValues>,
-  previousNode: FieldNode<TValues>,
+  previousNode: Extract<NodeUpdateSnapshot<TValues>, { type: "field" }>,
   context: FormRuntimeContext<TValues>
 ): NamePath<TValues> | undefined {
   // 旧路径只用于解除旧注册和延迟值清理，不把其数据复制到目标路径。
-  const previousName = previousNode.name.peek()
+  const previousName = previousNode.name
 
   const nameChanged = createFieldKey(previousName) !== createFieldKey(node.name.peek())
 
@@ -74,7 +75,7 @@ export function updateFieldResources<TValues extends Values>(
     recreateValidationEffect(node, context)
   }
 
-  const previousDependencies = previousNode.compiledSchema.peek().dependencies
+  const previousDependencies = previousNode.compiledSchema.dependencies
 
   const nextDependencies = node.compiledSchema.peek().dependencies
 
@@ -89,7 +90,7 @@ export function updateFieldResources<TValues extends Values>(
     recreateDependenciesEffect(node, context)
   }
 
-  return nameChanged && previousNode.compiledSchema.peek().preserve === false
+  return nameChanged && previousNode.compiledSchema.preserve === false
     ? previousName
     : undefined
 }
@@ -168,7 +169,6 @@ function recreateValidationEffect<TValues extends Values>(
     validationState: node.validationState,
     scope: validationEffectScope,
     placeholder: () => node.resolvedSchema.peek().placeholder,
-    rulesOverride: () => node.rulesOverride.value,
   })
 
   validationEffectScope.add(() => {

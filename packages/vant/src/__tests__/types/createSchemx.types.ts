@@ -15,7 +15,7 @@ export type FactoryOptions = UiApi.CreateSchemxOptions
 
 // 旧 getter 与 Vue 根入口保持一致，推荐使用本包 getConfig。
 export type DeprecatedGlobalGetter = typeof UiApi.getGlobalSchemxConfig
-// 旧合并别名与 Vue 根入口保持一致，推荐使用 mergeConfig。
+// @ts-expect-error Core 已移除旧合并别名，上层包不再透传。
 export type DeprecatedMergeAlias = typeof UiApi.mergeSchemxConfig
 // 旧上下文保持导出以兼容已发布 API。
 export type DeprecatedFormContext = typeof UiApi.createFormContext

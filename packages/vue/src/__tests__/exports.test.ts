@@ -24,12 +24,12 @@ describe("@schemx/vue 根入口", () => {
       createFormComponent: expect.any(Function),
       provideSchemxAppConfig: expect.any(Function),
       createFormStateAdapter: expect.any(Function),
-      createFormWithConfig: expect.any(Function),
       getFormCreationConfig: expect.any(Function),
     })
 
     expect("provideSchemxFormRuntime" in vuePackage).toBe(false)
     expect(vuePackage.createSchemx).toEqual(expect.any(Function))
+    expect("createFormWithConfig" in vuePackage).toBe(false)
     expect("createFieldHook" in vuePackage).toBe(false)
     expect("useViewSchema" in vuePackage).toBe(false)
     expect("getGroupScrollPathKey" in vuePackage).toBe(false)

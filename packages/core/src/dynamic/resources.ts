@@ -9,6 +9,7 @@ import { createFieldKey } from "../utils/path"
 
 import { createDynamicSchemaExpander } from "./expandSchemas"
 
+import type { NodeUpdateSnapshot } from "../node/snapshot"
 import type { DynamicNode } from "../node/types"
 import type { ChildReconciler, FormRuntimeContext } from "../runtimeContext"
 import type { FieldArrayPath, NamePath, Values } from "../types"
@@ -41,12 +42,12 @@ export function mountDynamicResources<TValues extends Values>(
  */
 export function updateDynamicResources<TValues extends Values>(
   node: DynamicNode<TValues>,
-  previousNode: DynamicNode<TValues>,
+  previousNode: Extract<NodeUpdateSnapshot<TValues>, { type: "dynamic" }>,
   context: FormRuntimeContext<TValues>,
   childReconciler: ChildReconciler<TValues>
 ): void {
   // 当前和旧路径用于切换 Store 注册，数组值不随节点改名复制。
-  const previousSchema = previousNode.compiledSchema.peek()
+  const previousSchema = previousNode.compiledSchema
 
   const currentSchema = node.compiledSchema.peek()
 

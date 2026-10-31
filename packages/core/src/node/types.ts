@@ -21,7 +21,11 @@ import type {
   Values,
 } from "../types"
 import type { SchemxViewSchema } from "../view"
-import type { NodeId } from "./idAllocator"
+
+/**
+ * 当前表单内节点和数组行的稳定身份；0 保留给根节点。
+ */
+export type NodeId = number
 
 /**
  * Scope 执行的清理函数。
@@ -371,11 +375,6 @@ export interface FieldNode<TValues extends Values = Values> extends BaseNode<TVa
    * 当前路径绑定的取消域；改名时替换，卸载时中止。
    */
   pathController: AbortController
-
-  /**
-   * 字段实例覆盖规则，归节点持有，路径变化时保留，卸载时释放。
-   */
-  readonly rulesOverride: Signal<SchemxBaseField<TValues>["rules"]>
 
   /**
    * 编译后的字段静态配置。

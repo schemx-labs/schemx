@@ -399,7 +399,9 @@ describe("RuntimeReconciler + NodeManager", () => {
     expect(hooks.updated).toHaveBeenCalledTimes(1)
     expect(hooks.unmounted).toHaveBeenCalledTimes(1)
     expect(hooks.created).toHaveBeenCalledTimes(1)
-    expect(hooks.created.mock.calls).toEqual(hooks.mounted.mock.calls)
+    expect(hooks.created.mock.calls.map(([node]) => node.id)).toEqual(
+      hooks.mounted.mock.calls.map(([node]) => node.id)
+    )
   })
 
   it("排序复用不触发 created，类型替换只通知实际挂载的新节点", () => {
@@ -421,8 +423,12 @@ describe("RuntimeReconciler + NodeManager", () => {
 
     commitSchemas(root, [{ key: "second", label: "分组", children: [] }, first])
     expect(hooks.created).toHaveBeenCalledTimes(3)
-    expect(hooks.created.mock.calls).toEqual(hooks.mounted.mock.calls)
-    expect(hooks.created).toHaveBeenLastCalledWith(root.childNodes.peek()[0])
+    expect(hooks.created.mock.calls.map(([node]) => node.id)).toEqual(
+      hooks.mounted.mock.calls.map(([node]) => node.id)
+    )
+    expect(hooks.created).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: root.childNodes.peek()[0]?.id, parentId: null })
+    )
   })
 
   it("reconcileChildren 拒绝不存在或非容器 parent", () => {

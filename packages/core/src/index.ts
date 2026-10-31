@@ -29,7 +29,6 @@ export type {
 
 export {
   createForm,
-  createFormWithConfig,
   type CreateFormOptions,
   type FormCallbackOptions,
   type FormLifecycleOptions,
@@ -52,30 +51,21 @@ export { getFormCreationConfig, type FormCreationSnapshot } from "./adapter"
 
 export type {
   SchedulerDiagnostics,
-  SchedulerIdleOptions,
   SchedulerOptions,
   SchedulerTaskPriority,
-  SchedulerTrackOptions,
 } from "./scheduler"
 
 export {
   configureSchemx,
   getGlobalSchemxConfig,
-  normalizeSchemxConfig,
   mergeConfig,
-  mergeAndResolveSchemxConfig,
-  mergeSchemxConfig,
   resolveSchemxConfig,
   type MergedSchemxConfig,
   type MergeConfigOptions,
   type SchemxConfigSnapshot,
   defaultSchemxConfig,
-  defaultSchemxConfigKeys,
-  excludeSchemxConfigKeys,
   type SchemxConfig,
   type SchemxConfigDefinition,
-  type SchemxConfigKey,
-  type ExcludeSchemxConfigKeys,
 } from "./config"
 
 export {
@@ -242,3 +232,5 @@ export {
   type SchemxConfigureOptions,
   type CreateSchemxOptions,
 } from "./createSchemx"
+
+export type { NodeSnapshot, NodeLifecycleHooks } from "./node/snapshot"

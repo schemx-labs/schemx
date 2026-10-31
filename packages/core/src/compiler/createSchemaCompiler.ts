@@ -10,7 +10,6 @@ import { createDynamicNode } from "../dynamic/createNode"
 import { getDynamicRow } from "../dynamic/rowContext"
 import { createFieldNode } from "../field/createNode"
 import { createGroupNode } from "../group/createNode"
-import { createNodeIdAllocator } from "../node/idAllocator"
 import { isDependencySchema, isDynamicSchema, isGroupSchema } from "../utils"
 
 import { compileFieldSchema, createNodeKey } from "./helper"
@@ -50,8 +49,8 @@ export function createSchemaCompiler<TValues extends Values = Values>(
   // 直接持有配置模块的快照；更新和失败恢复都只替换引用。
   let formConfig = options.config
 
-  // 节点和数组行共用私有序列，配置编译与缓存失效不消耗身份。
-  const nodeIdAllocator = createNodeIdAllocator()
+  // 节点与数组行共享序列，复用配置不消耗身份；0 保留给根。
+  let nextId = 1
 
   // 只缓存纯配置，节点的 Signal 和 Scope 始终独立创建。
   let compiledCache: CompiledConfigCache<TValues> = new WeakMap()
@@ -87,7 +86,7 @@ export function createSchemaCompiler<TValues extends Values = Values>(
     // 仅 Dependency 的行上下文需要在 Schema 之外单独传递。
     let dynamicRow: DynamicRowState | undefined
 
-    if (isDynamicSchema(schema)) {
+    if (isDynamicSchema<TValues>(schema)) {
       compiledSchema = {
         ...schema,
         key,
@@ -95,7 +94,7 @@ export function createSchemaCompiler<TValues extends Values = Values>(
         readonly: schema.readonly ?? formConfig.schemaConfig.readonly,
         disabled: schema.disabled ?? formConfig.schemaConfig.disabled,
       }
-    } else if (isGroupSchema(schema)) {
+    } else if (isGroupSchema<TValues>(schema)) {
       compiledSchema = {
         ...schema,
         key,
@@ -104,7 +103,7 @@ export function createSchemaCompiler<TValues extends Values = Values>(
         readonly: schema.readonly ?? formConfig.schemaConfig.readonly,
         disabled: schema.disabled ?? formConfig.schemaConfig.disabled,
       }
-    } else if (isDependencySchema(schema)) {
+    } else if (isDependencySchema<TValues>(schema)) {
       // 只读取展开阶段关联的类型化行快照，不向业务 Schema 添加内部属性。
       dynamicRow = getDynamicRow(schema)
       compiledSchema = {
@@ -115,13 +114,14 @@ export function createSchemaCompiler<TValues extends Values = Values>(
         disabled: schema.disabled ?? formConfig.schemaConfig.disabled,
       }
     } else {
+      // 展开和补充 dependencies 不改变 componentType 与 Renderer Props 的对应关系。
       compiledSchema = {
-        ...compileFieldSchema(schema, key, {
+        ...compileFieldSchema<TValues>(schema, key, {
           config: formConfig,
         }),
         key,
         dependencies: schema.dependencies,
-      }
+      } as SchemaCompileResult<TValues>["schema"]
     }
 
     // 协调令牌只标识此编译结果，类型与 key 直接从 Schema 读取。
@@ -155,7 +155,7 @@ export function createSchemaCompiler<TValues extends Values = Values>(
 
     // 身份只在节点创建入口分配，Node 工厂只消费已编译配置。
     const nodeOptions = {
-      id: nodeIdAllocator.allocate(),
+      id: nextId++,
       scope,
       debug: formConfig.debug,
       key: schema.key,
@@ -163,23 +163,23 @@ export function createSchemaCompiler<TValues extends Values = Values>(
     }
 
     try {
-      if (isDynamicSchema(schema)) {
-        return createDynamicNode({ ...nodeOptions, schema })
+      if (isDynamicSchema<TValues>(schema)) {
+        return createDynamicNode<TValues>({ ...nodeOptions, schema })
       }
 
-      if (isGroupSchema(schema)) {
-        return createGroupNode({ ...nodeOptions, schema })
+      if (isGroupSchema<TValues>(schema)) {
+        return createGroupNode<TValues>({ ...nodeOptions, schema })
       }
 
-      if (isDependencySchema(schema)) {
-        return createDependencyNode({
+      if (isDependencySchema<TValues>(schema)) {
+        return createDependencyNode<TValues>({
           ...nodeOptions,
           schema,
           dynamicRow: config.dynamicRow,
         })
       }
 
-      return createFieldNode({ ...nodeOptions, schema })
+      return createFieldNode<TValues>({ ...nodeOptions, schema })
     } catch (error) {
       scope.dispose()
       throw error
@@ -193,7 +193,7 @@ export function createSchemaCompiler<TValues extends Values = Values>(
    */
   const createDynamicRow = (location: CreateDynamicRowOptions): DynamicRowState => ({
     ...location,
-    id: nodeIdAllocator.allocate(),
+    id: nextId++,
   })
 
   /**

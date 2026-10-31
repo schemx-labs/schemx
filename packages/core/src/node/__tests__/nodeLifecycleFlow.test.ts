@@ -19,7 +19,7 @@ import {
   unmountNodeResources,
 } from ".."
 import { createFormConfig } from "../../config/createFormConfig"
-import { createLifecycle } from "../../lifecycle"
+import * as snapshots from "../snapshot"
 
 import { createRawFieldSchema, createRuntimeGraphHarness } from "./graphTestUtils"
 import {
@@ -33,28 +33,56 @@ import type { SchemxBaseField } from "../../types"
 
 // 节点生命周期：create/update/remove 事件触发时机、节点配置同步、validationEffectScope 与 Root 查询维护
 describe("node lifecycle flow", () => {
-  it("created 通知与 detached scope 释放相互独立", () => {
-    const hooks = {
-      created: vi.fn(),
-      unmounted: vi.fn(),
-    }
+  it("detached 节点创建和丢弃不自行通知生命周期", () => {
+    const hooks = { created: vi.fn(), unmounted: vi.fn() }
 
     const { compiler } = createRuntimeGraphHarness(hooks)
-
-    const lifecycle = createLifecycle(hooks)
 
     const node = compiler.createNode(
       compiler.compile(createRawFieldSchema("detached"), "", 0),
       createScope()
     )
 
-    lifecycle.created(node)
     disposeNodeResources(node)
-
-    expect(hooks.created).toHaveBeenCalledWith(node)
+    expect(hooks.created).not.toHaveBeenCalled()
     expect(hooks.unmounted).not.toHaveBeenCalled()
-    expect(node.disposed.value).toBe(true)
     expect(node.scope.disposed).toBe(true)
+  })
+
+  it("没有 hook 时不构造通知快照，created 不提前求值子字段呈现态", () => {
+    // 通知开关不能导致节点更新额外分配公开快照。
+    const capture = vi.spyOn(snapshots, "createNodeSnapshot")
+
+    const plain = createRuntimeGraphHarness()
+
+    try {
+      plain.commitSchemas(plain.root, [createRawFieldSchema("name")])
+      plain.commitSchemas(plain.root, [
+        { ...createRawFieldSchema("name"), label: "next" },
+      ])
+      plain.reconciler.clear()
+      expect(capture).not.toHaveBeenCalled()
+    } finally {
+      capture.mockRestore()
+    }
+
+    // created 时字段尚无 parent，快照不能访问会缓存继承状态的 computed。
+    const observed = createRuntimeGraphHarness({ created: vi.fn() })
+
+    try {
+      observed.commitSchemas(observed.root, [
+        { label: "disabled", disabled: true, children: [createRawFieldSchema("child")] },
+      ])
+      const group = observed.root.childNodes.peek()[0]
+
+      if (!group || group.type !== "group") throw new Error("分组未挂载")
+      const field = group.childNodes.peek()[0]
+
+      if (!isFieldNode(field)) throw new Error("字段未挂载")
+      expect(field.resolvedSchema.peek().disabled).toBe(true)
+    } finally {
+      observed.reconciler.clear()
+    }
   })
 
   it("没有 parent 的描述节点不能进入 mount", () => {
@@ -113,104 +141,69 @@ describe("node lifecycle flow", () => {
     error.mockRestore()
   })
 
-  it("生命周期回调只接收 node，更新回调接收 previousNode", () => {
-    const hooks = {
-      mounted: vi.fn(),
-      updated: vi.fn(),
-    }
+  it("生命周期只接收冻结的普通数据，旧快照不随后续更新改变", () => {
+    const hooks = { mounted: vi.fn(), updated: vi.fn() }
 
-    const { commitSchemas, root, compiler } = createRuntimeGraphHarness(hooks)
+    const { commitSchemas, root, compiler, reconciler } = createRuntimeGraphHarness(hooks)
 
-    // 开启真实字段 diagnostics，覆盖快照中的可选 Signal。
     const configuration = createFormConfig({ config: { debug: true } })
 
     compiler.setConfig(configuration.getConfig())
     configuration.dispose()
-    commitSchemas(root, [{ ...createRawFieldSchema("name", "name"), label: "旧标签" }])
-    const node = root.childNodes.value[0] as FieldNode
+    try {
+      commitSchemas(root, [{ ...createRawFieldSchema("name"), label: "旧标签" }])
+      const node = root.childNodes.peek()[0] as FieldNode
 
-    setFieldDependencyOverrides(
-      node,
-      { visible: false },
-      {
-        source: "dependencies",
-        triggerFields: ["visible" as never],
+      setFieldDependencyOverrides(
+        node,
+        { visible: false },
+        {
+          source: "dependencies",
+          triggerFields: ["visible" as never],
+        }
+      )
+      commitSchemas(root, [
+        { ...createRawFieldSchema("name", "nickname"), label: "新标签" },
+      ])
+      const [current, previous] = hooks.updated.mock.calls[0] ?? []
+
+      expect(hooks.mounted.mock.calls[0]?.[0]).toMatchObject({
+        name: "name",
+        parentId: 0,
+      })
+      expect(current).toMatchObject({
+        id: node.id,
+        name: "nickname",
+        compiledSchema: { label: "新标签" },
+      })
+      expect(previous).toMatchObject({
+        name: "name",
+        compiledSchema: { label: "旧标签" },
+        dependencyOverrides: { visible: false },
+      })
+      for (const snapshot of [current, previous]) {
+        expect(Object.isFrozen(snapshot)).toBe(true)
+        expect(Object.isFrozen(snapshot.dependencyOverrides)).toBe(true)
+        expect(Object.isFrozen(snapshot.diagnostics.triggerFields)).toBe(true)
+        for (const resource of [
+          "scope",
+          "parent",
+          "pathController",
+          "resolvedSchema",
+          "validationState",
+          "viewSchemas",
+        ]) {
+          expect(snapshot).not.toHaveProperty(resource)
+        }
       }
-    )
 
-    const previousConfigToken = node.configToken
-
-    // 记录更新前的校验切片和诊断值，后续活动节点变化不能改写它们。
-    const previousValidationState = node.validationState.peek()
-
-    const previousDiagnostics = node.diagnostics?.peek()
-
-    expect(previousDiagnostics).toBeDefined()
-
-    commitSchemas(root, [
-      { ...createRawFieldSchema("name", "nickname"), label: "新标签" },
-    ])
-    const nextConfigToken = node.configToken
-
-    expect(hooks.mounted).toHaveBeenCalledWith(node)
-
-    const [updatedNode, updatedPreviousNode] = hooks.updated.mock.calls[0] ?? []
-
-    expect(updatedNode).toBe(node)
-    expect(updatedPreviousNode).toMatchObject({
-      type: "field",
-      key: "name",
-    })
-    expect(updatedPreviousNode).toHaveProperty("configToken")
-    expect(updatedPreviousNode.configToken).toBe(previousConfigToken)
-    expect(isFieldNode(updatedPreviousNode) && updatedPreviousNode.name.value).toBe(
-      "name"
-    )
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.compiledSchema.value.name
-    ).toBe("name")
-    expect(updatedPreviousNode).not.toBe(updatedNode)
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.compiledSchema
-    ).not.toBe(updatedNode.compiledSchema)
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.dependencyOverrides
-    ).not.toBe(updatedNode.dependencyOverrides)
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema
-    ).not.toBe(updatedNode.resolvedSchema)
-    expect(updatedPreviousNode.validationState).not.toBe(updatedNode.validationState)
-    expect(updatedPreviousNode.validationState.peek()).toBe(previousValidationState)
-    expect(updatedPreviousNode.diagnostics).not.toBe(updatedNode.diagnostics)
-    expect(updatedPreviousNode.diagnostics.peek()).toBe(previousDiagnostics)
-    expect(updatedPreviousNode).not.toHaveProperty("staticSchema")
-    expect(updatedPreviousNode).not.toHaveProperty("dynamicOverrides")
-    expect(updatedPreviousNode).not.toHaveProperty("effectiveSchema")
-    expect(updatedPreviousNode).not.toHaveProperty("validationSchema")
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema.value
-    ).toMatchObject({ label: "旧标签", visible: false })
-    expect(isFieldNode(updatedNode) && updatedNode.name.value).toBe("nickname")
-    expect(isFieldNode(updatedNode) && updatedNode.resolvedSchema.value).toMatchObject({
-      label: "新标签",
-      visible: false,
-    })
-
-    setFieldDependencyOverrides(
-      updatedNode,
-      { visible: true },
-      {
-        source: "dependencies",
-        triggerFields: ["visible" as never],
-      }
-    )
-
-    expect(
-      isFieldNode(updatedPreviousNode) && updatedPreviousNode.resolvedSchema.value.visible
-    ).toBe(false)
-    expect(updatedPreviousNode.validationState.peek().visible).toBe(false)
-    expect(updatedPreviousNode.diagnostics.peek()).toBe(previousDiagnostics)
-    expect(nextConfigToken).not.toBe(previousConfigToken)
+      node.dependencyOverrides.value = { visible: true }
+      expect(previous.dependencyOverrides).toEqual({ visible: false })
+      expect(previous.diagnostics.triggerFields).toEqual(["visible"])
+      expect(node.name.peek()).toBe("nickname")
+    } finally {
+      reconciler.clear()
+    }
   })
 
   it.each([
@@ -223,60 +216,33 @@ describe("node lifecycle flow", () => {
       kind: "Dynamic",
       schema: { key: "container", label: "旧标签", name: "users", item: [] },
     },
-  ])("$kind 更新快照隔离配置和呈现态，资源句柄沿用原引用", ({ schema }) => {
-    // schema 分别覆盖三类容器，updated 保存回调实际收到的旧节点。
+  ])("$kind 更新快照保存配置和元数据，不暴露资源句柄", ({ schema }) => {
     const hooks = { updated: vi.fn() }
 
     const { commitSchemas, root, context, reconciler } = createRuntimeGraphHarness(hooks)
 
     context.store.setFieldValue("users", [{ name: "Ada" }])
     commitSchemas(root, [schema])
-
-    // 当前活动容器具有呈现态，数组容器还具有独立行结构。
     const node = root.childNodes.peek()[0]
 
-    if (!node || isFieldNode(node)) {
-      throw new Error("容器节点未挂载")
-    }
-
+    if (!node || isFieldNode(node)) throw new Error("容器节点未挂载")
     node.dependencyOverrides.value = { visible: false }
-
-    // 旧 Scope 和配置令牌需要保留在快照中。
-    const scope = node.scope
-
-    const token = node.configToken
-
     try {
       commitSchemas(root, [{ ...schema, label: "新标签", disabled: true }])
-
-      // updated 的第二个参数必须独立保存更新前的配置值。
       const previous = hooks.updated.mock.calls[0]?.[1]
 
-      expect(previous).toBeDefined()
-      expect(previous).not.toBe(node)
-      expect(previous.scope).toBe(scope)
-      expect(previous.configToken).toBe(token)
-      expect(previous.compiledSchema).not.toBe(node.compiledSchema)
-      expect(previous.dependencyOverrides).not.toBe(node.dependencyOverrides)
-      expect(previous.presentationState).not.toBe(node.presentationState)
-      expect(previous.compiledSchema.peek().label).toBe("旧标签")
-      expect(previous.presentationState.peek()).toMatchObject({
-        visible: false,
-        disabled: false,
-      })
-      expect(node.presentationState.peek().disabled).toBe(true)
-
+      expect(previous.compiledSchema.label).toBe("旧标签")
+      expect(previous).not.toHaveProperty("scope")
+      expect(previous).not.toHaveProperty("presentationState")
+      expect(Object.isFrozen(previous.childIds)).toBe(true)
       node.dependencyOverrides.value = { visible: true }
-      expect(previous.dependencyOverrides.peek()).toEqual({ visible: false })
-      expect(previous.presentationState.peek().visible).toBe(false)
-      expect(node.presentationState.peek().visible).toBe(true)
-
-      if (isDynamicNode(node) && isDynamicNode(previous)) {
-        expect(previous.dynamicRows).not.toBe(node.dynamicRows)
-        expect(previous.dynamicRows.peek()).toHaveLength(1)
+      expect(previous.dependencyOverrides).toEqual({ visible: false })
+      if (isDynamicNode(node)) {
+        expect(Object.isFrozen(previous.rows)).toBe(true)
+        expect(Object.isFrozen(previous.rows[0])).toBe(true)
         context.store.setFieldValue("users", [])
         expect(node.dynamicRows.peek()).toEqual([])
-        expect(previous.dynamicRows.peek()).toHaveLength(1)
+        expect(previous.rows).toHaveLength(1)
       }
     } finally {
       reconciler.clear()

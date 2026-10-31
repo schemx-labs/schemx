@@ -144,38 +144,6 @@ describe("createDependencySchedulerEffect", () => {
     scope.dispose()
   })
 
-  it("idle 优先级的首次任务不应阻塞关键空闲", async () => {
-    const store = createStore<DependencySchedulerTestValues>({
-      initialValues: { country: "CN", city: "Beijing" },
-    })
-
-    const formApi = createTestFormApi(store)
-
-    const scheduler = createScheduler()
-
-    const context = createTestContext(formApi, scheduler)
-
-    const scope = createScope()
-
-    const run = vi.fn(() => "resolved")
-
-    createDependencySchedulerEffect({
-      context,
-      triggerFields: ["country"],
-      taskId: "test:idle-dependency",
-      scope,
-      priority: "idle",
-      run,
-    })
-
-    await expect(scheduler.whenIdle({ includeIdle: false })).resolves.toBe(true)
-    expect(run).not.toHaveBeenCalled()
-
-    await scheduler.whenIdle()
-    expect(run).toHaveBeenCalledTimes(1)
-    scope.dispose()
-  })
-
   it("同一轮多次字段变化应按 taskId 合并", async () => {
     // 提供连续更新触发字段的测试 Store。
     const store = createStore<DependencySchedulerTestValues>({

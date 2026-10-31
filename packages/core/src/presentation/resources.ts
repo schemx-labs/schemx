@@ -10,6 +10,7 @@ import { areNamePathListsEqual } from "../utils"
 import { createPresentationDependenciesEffect } from "./index"
 
 import type { StatefulPresentationNode } from "../node"
+import type { NodeUpdateSnapshot } from "../node/snapshot"
 import type { FormRuntimeContext } from "../runtimeContext"
 import type { SchemxContainerDependencies, Values } from "../types"
 
@@ -40,10 +41,13 @@ export function mountPresentationResources<TValues extends Values>(
  */
 export function updatePresentationResources<TValues extends Values>(
   node: StatefulPresentationNode<TValues>,
-  previousNode: StatefulPresentationNode<TValues>,
+  previousNode: Extract<
+    NodeUpdateSnapshot<TValues>,
+    { type: "group" | "dependency" | "dynamic" }
+  >,
   context: FormRuntimeContext<TValues>
 ): void {
-  const previousDependencies = previousNode.compiledSchema.peek().dependencies
+  const previousDependencies = previousNode.compiledSchema.dependencies
 
   const nextDependencies = node.compiledSchema.peek().dependencies
 

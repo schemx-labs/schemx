@@ -124,29 +124,3 @@ export type SchemxConfigKey =
 export const defaultSchemxConfigKeys = Object.keys(
   defaultSchemxConfig
 ) as SchemxConfigKey[]
-
-/**
- * 运行时需要排除默认配置字段时使用。
- */
-export const excludeSchemxConfigKeys = [
-  "key",
-  "name",
-  "label",
-  "componentType",
-  "dependencies",
-  "componentProps",
-  "placeholder",
-  "readonlyPlaceholder",
-  "initialValue",
-  "rules",
-  "onChange",
-  "onBlur",
-  "children",
-  "to",
-  "renderer",
-] as const
-
-/**
- * 需要排除的 Schema 配置字段名称。
- */
-export type ExcludeSchemxConfigKeys = (typeof excludeSchemxConfigKeys)[number]

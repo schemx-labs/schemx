@@ -13,7 +13,7 @@ describe("@schemx/element-plus 根入口", () => {
     expect(elementPlusPackage.getGlobalSchemxConfig).toBe(
       vuePackage.getGlobalSchemxConfig
     )
-    expect(elementPlusPackage.mergeSchemxConfig).toBe(vuePackage.mergeSchemxConfig)
+    expect("mergeSchemxConfig" in elementPlusPackage).toBe(false)
 
     expect(elementPlusPackage.createFormContext).toEqual(expect.any(Function))
     expect(elementPlusPackage.createFormConfigContext).toEqual(expect.any(Function))

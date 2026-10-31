@@ -23,7 +23,12 @@ import {
 } from "../../node/__tests__/nodeTestUtils"
 import { setFieldDependencyOverrides } from "../../node/__tests__/signalsTestUtils"
 
-import type { SchemxBaseField, SchemxDependencyField } from "../../types"
+import type { SchemxBaseField, SchemxDependencyField, SchemxInstance } from "../../types"
+// 投影通过延迟读取注入同一公开实例。
+const instance = {} as SchemxInstance
+
+const getInstance = () => instance
+
 // 验证 viewProjection 对各类 Node 的 ViewSchema 创建、更新与清理。
 describe("viewProjection", () => {
   it("为 root 创建并注册 root viewSchemas", () => {
@@ -43,7 +48,7 @@ describe("viewProjection", () => {
       scope: createScope(),
     })
 
-    attachNodeViewSchemas(node)
+    attachNodeViewSchemas(node, getInstance)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
     expect(node.viewSchemas?.value[0]).toMatchObject({
@@ -51,7 +56,10 @@ describe("viewProjection", () => {
       nodeId: 1,
     })
     expect(node.viewSchemas?.value[0]).not.toHaveProperty("dependencies")
-    expect(node.viewSchemas?.value[0]).not.toHaveProperty("componentProps.formInstance")
+    expect(node.viewSchemas?.value[0]).toHaveProperty(
+      "componentProps.formInstance",
+      instance
+    )
   })
 
   it("field viewSchemas 跟随 resolvedSchema computed 更新", () => {
@@ -63,7 +71,7 @@ describe("viewProjection", () => {
       scope: createScope(),
     })
 
-    attachNodeViewSchemas(node)
+    attachNodeViewSchemas(node, getInstance)
 
     expect(node.viewSchemas?.value[0]?.visible).toBe(true)
 
@@ -76,7 +84,7 @@ describe("viewProjection", () => {
     expect(node.viewSchemas?.value[0]?.visible).toBe(false)
   })
 
-  it("field viewSchemas 保留 componentProps 原始引用和原型", () => {
+  it("field viewSchemas 创建最终 Props，不修改用户对象", () => {
     const componentProps = Object.assign(Object.create({ inherited: true }), {
       "data-test": "field",
     })
@@ -91,7 +99,7 @@ describe("viewProjection", () => {
       scope: createScope(),
     })
 
-    attachNodeViewSchemas(node)
+    attachNodeViewSchemas(node, getInstance)
 
     const viewSchema = node.viewSchemas?.value[0]
 
@@ -101,8 +109,10 @@ describe("viewProjection", () => {
 
     const viewProps = viewSchema.componentProps
 
-    expect(viewProps).toBe(componentProps)
-    expect(Object.getPrototypeOf(viewProps)).toBe(Object.getPrototypeOf(componentProps))
+    expect(viewProps).not.toBe(componentProps)
+    expect(viewProps).toMatchObject({ "data-test": "field", formInstance: instance })
+    expect(componentProps).not.toHaveProperty("formInstance")
+    expect(node.viewSchemas?.value[0]).toBe(viewSchema)
   })
 
   it("为 group 创建并注册 group viewSchemas", () => {
@@ -114,7 +124,7 @@ describe("viewProjection", () => {
       scope: createScope(),
     })
 
-    attachNodeViewSchemas(node)
+    attachNodeViewSchemas(node, getInstance)
 
     expect(node.viewSchemas?.value).toHaveLength(1)
     expect(node.viewSchemas?.value[0]).toMatchObject({
@@ -131,7 +141,7 @@ describe("viewProjection", () => {
       scope: createScope(),
     })
 
-    attachNodeViewSchemas(node, true)
+    attachNodeViewSchemas(node, getInstance, true)
 
     expect(node.viewSchemas?.value[0]).toMatchObject({
       nodeId: 1,
@@ -166,10 +176,10 @@ describe("viewProjection", () => {
     })
 
     attachRootViewSchemas(root)
-    attachNodeViewSchemas(group)
-    attachNodeViewSchemas(dependency)
+    attachNodeViewSchemas(group, getInstance)
+    attachNodeViewSchemas(dependency, getInstance)
 
-    attachNodeViewSchemas(field)
+    attachNodeViewSchemas(field, getInstance)
 
     nodeManager.insert(group, root.id)
     nodeManager.insert(dependency, group.id)

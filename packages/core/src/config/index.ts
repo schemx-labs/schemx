@@ -4,25 +4,17 @@
  * 标准化能力先于全局配置导出，供全局配置在模块加载时建立初始快照。
  */
 
-export {
-  defaultSchemxConfig,
-  defaultSchemxConfigKeys,
-  excludeSchemxConfigKeys,
-} from "./defaultSchemxConfig"
-
-export type { ExcludeSchemxConfigKeys, SchemxConfigKey } from "./defaultSchemxConfig"
+export { defaultSchemxConfig } from "./defaultSchemxConfig"
+export type { SchemxConfigKey } from "./defaultSchemxConfig"
 
 export {
   mergeConfig,
-  mergeAndResolveSchemxConfig,
-  mergeSchemxConfig,
   resolveSchemxConfig,
   type MergedSchemxConfig,
   type MergeConfigOptions,
   type SchemxConfigSnapshot,
 } from "./mergeSchemxConfig"
 
-export { normalizeSchemxConfig } from "./normalizeSchemxConfig"
 export { configureSchemx, getGlobalSchemxConfig } from "./schemxConfig"
 
 export type {

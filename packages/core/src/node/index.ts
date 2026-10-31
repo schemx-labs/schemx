@@ -50,10 +50,11 @@ export type {
 export { createNodeManager } from "./nodeManager"
 export type { NodeManager, NodePathUpdate } from "./nodeManager"
 
-export type { NodeId } from "./idAllocator"
+export type { NodeId } from "./types"
+export type { NodeSnapshot, NodeUpdateSnapshot, NodeLifecycleHooks } from "./snapshot"
+export { createNodeSnapshot, captureNodeUpdate } from "./snapshot"
 
 export {
-  createNodeSnapshot,
   disposeNodeResources,
   mountNodeResources,
   unmountNodeResources,

@@ -78,7 +78,7 @@ const fullOptions: CreateFormOptions = {
   initialValues: {},
   fieldRules: {},
   debug: true,
-  schedulerOptions: { idleTimeout: 20 },
+  schedulerOptions: { timeSliceMs: 20 },
 }
 
 createSchemx(fullOptions)
@@ -93,7 +93,7 @@ void api.useForm
 
 const merged = mergeConfig({
   debug: false,
-  schedulerOptions: { idleTimeout: 20 },
+  schedulerOptions: { timeSliceMs: 20 },
   validationConcurrency: 2,
 })
 

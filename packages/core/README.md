@@ -78,6 +78,29 @@ form.destroy()
 | `lifecycleHooks`                                       | Runtime 生命周期钩子。                                                                                                                       |
 | `debug` / `schedulerOptions` / `validationConcurrency` | 分别控制 Runtime 诊断、任务调度和整表校验并发数。                                                                                            |
 
+## Runtime 精简后的接口迁移
+
+独立的 `lifecycle` 模块负责钩子通知和异常隔离；Reconciler 决定通知阶段，并仅在配置了对应钩子时捕获快照。生命周期钩子统一接收只读 `NodeSnapshot`。读取字段路径使用 `snapshot.name`，读取配置使用 `snapshot.compiledSchema`，不再访问 `.value`、`peek()`、Scope 或内部 Node。`updated(current, previous)` 的两个参数均为阶段快照；其他钩子只接收一个参数。
+
+```ts
+const form = createForm({
+  schemas: [{ name: "name", label: "姓名", componentType: "input" }],
+  lifecycleHooks: {
+    updated(current, previous) {
+      if (current.type === "field" && previous.type === "field") {
+        console.log(previous.name, current.name)
+      }
+    },
+  },
+})
+```
+
+快照保存 `id`、`key`、`type`、`parentId`、`disposed`、`compiledSchema` 和 `dependencyOverrides`。Field 包含 `name` 及可选诊断；容器包含 `childIds`；Dynamic 还包含 `rows`；Dependency 可包含 `dynamicRow`。创建阶段 `parentId` 为 `null`，挂载后为父节点 ID；卸载通知时节点已从树中移除且 `disposed` 为 `true`。快照及其复制的元数据被冻结，Schema 和业务对象仍按不可变输入契约使用，不会递归冻结用户对象。
+
+调度器只保留 `normal`、`post` 两阶段。移除 `idleTimeout`，`schedulerOptions` 只接受 `timeSliceMs` 和 `collectDiagnostics`。内部等待统一为 `whenIdle(timeout?)`，不再导出 `SchedulerIdleOptions`、`SchedulerTrackOptions` 或支持 `includeIdle`；`waitForDependencies(timeout?)` 继续等待所有队列和被跟踪的异步工作。
+
+ViewSchema 在节点投影阶段一次生成最终 Props，包括稳定的 `componentProps.formInstance`。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。Compiler 的配置编译保持与 Form 实例独立。
+
 ## Schema
 
 `SchemxField<TValues>` 有 4 种结构：普通字段、分组字段、动态依赖字段和动态数组字段。
@@ -395,15 +418,15 @@ form.destroy()
 
 ## 全局配置与响应式工具
 
-| API                                                                         | 说明                                                                                      |
-| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `configureSchemx(config)`                                                   | 已弃用的模块级配置；保留原行为，新代码使用工厂实例的配置方法。                    |
-| `getGlobalSchemxConfig()`                                                   | 已弃用的模块级 getter；新代码使用工厂实例的 `getConfig()`。                                                                  |
-| `mergeConfig`、`resolveSchemxConfig`、`mergeAndResolveSchemxConfig`         | 供适配层合并、解析配置。                                                                  |
-| `defaultSchemxConfig`、`defaultSchemxConfigKeys`、`excludeSchemxConfigKeys` | Core 内置默认配置及其键列表；`excludeSchemxConfigKeys` 用于识别不属于 Schema 配置的选项。 |
-| `createSignalEffect(fn)`                                                    | 创建底层响应式副作用，返回清理函数。                                                      |
-| `runSignalUntracked(fn)`                                                    | 在不收集依赖的上下文执行函数。                                                            |
-| `createSignalWatch`、`createDebouncedSignalWatch`                           | 监听底层 Signal；后者提供防抖控制。                                                       |
+| API                                               | 说明                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| `configureSchemx(config)`                         | 已弃用的模块级配置；保留原行为，新代码使用工厂实例的配置方法。 |
+| `getGlobalSchemxConfig()`                         | 已弃用的模块级 getter；新代码使用工厂实例的 `getConfig()`。    |
+| `mergeConfig`、`resolveSchemxConfig`              | 供适配层合并、解析配置。                                       |
+| `defaultSchemxConfig`                             | Core 内置默认配置。                                            |
+| `createSignalEffect(fn)`                          | 创建底层响应式副作用，返回清理函数。                           |
+| `runSignalUntracked(fn)`                          | 在不收集依赖的上下文执行函数。                                 |
+| `createSignalWatch`、`createDebouncedSignalWatch` | 监听底层 Signal；后者提供防抖控制。                            |
 
 通常优先使用 `form.effect()`、`form.batch()` 与 `createWatch*()`；只有编写框架适配层或底层扩展时才需要直接使用响应式工具。
 
@@ -419,6 +442,6 @@ form.destroy()
 | 兼容类型        | `SchemxLayout`（已弃用；Vue 表单请改用 `@schemx/vue` 的 `SchemxColConfig`）                                                                                                                                                                                                                                                                              |
 | 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点；Vue 布局类型由 `@schemx/vue` 提供） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
-| 状态适配 | `createFormStateAdapter`、`createFormWithConfig`、`getFormCreationConfig`，以及 `SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                                     |
+| 状态适配        | `createFormStateAdapter`、`getFormCreationConfig`，以及 `SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                                                 |
 
 所有公开 API 和类型统一从 `@schemx/core` 根入口导入，包括状态适配与创建快照；包不开放代码子入口。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。

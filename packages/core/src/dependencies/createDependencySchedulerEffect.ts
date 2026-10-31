@@ -65,7 +65,7 @@ export interface CreateDependencySchedulerEffectOptions<TValues extends Values, 
   readonly priority?: SchedulerTaskPriority
 
   /**
-   * effect 所属的父生命周期作用域。
+   * 调用方提供的专用资源作用域；effect.dispose 会释放整个作用域。
    */
   readonly scope: Scope
 
@@ -128,6 +128,9 @@ export interface CreateDependencySchedulerEffectOptions<TValues extends Values, 
  * @typeParam TResult - 依赖任务成功完成时产生的结果类型。
  * @param options - 字段订阅、任务实现、生命周期回调和调度配置。
  * @returns 可手动执行或释放的依赖任务 effect。
+ * @example
+ * const effect = createDependencySchedulerEffect({ context, triggerFields: ["name"], taskId: "name", scope: node.scope.child(), run: () => 1 })
+ * effect.dispose()
  *
  * @remarks
  * 仅 `triggerFields` 的读取会进入响应式追踪。任务实现和生命周期回调均在
@@ -136,8 +139,8 @@ export interface CreateDependencySchedulerEffectOptions<TValues extends Values, 
 export function createDependencySchedulerEffect<TValues extends Values, TResult>(
   options: CreateDependencySchedulerEffectOptions<TValues, TResult>
 ): DependencySchedulerEffect<TResult> {
-  // 当前 effect 独占的生命周期作用域。
-  const effectScope = options.scope.child()
+  // 调用方提供的专用资源作用域，由此 effect 接管释放。
+  const effectScope = options.scope
 
   // 依赖任务所需的字段读取接口与 Scheduler。
   const { formApi, scheduler } = options.context
@@ -146,7 +149,6 @@ export function createDependencySchedulerEffect<TValues extends Values, TResult>
   const taskRunner = createAbortableTaskRunner<TResult>({
     scope: effectScope,
     scheduler,
-    priority: options.priority,
     run: options.run,
     onStart: options.onStart,
     onSuccess: options.onSuccess,
@@ -176,17 +178,6 @@ export function createDependencySchedulerEffect<TValues extends Values, TResult>
     })
   }
 
-  // idle effect 的首次执行也应等待浏览器空闲；其他优先级保留原有立即执行时机。
-  const runInitial = (): void => {
-    if (options.priority === "idle") {
-      schedule()
-
-      return
-    }
-
-    void run()
-  }
-
   if (options.triggerFields.length > 0) {
     // 标记响应式 effect 是否已完成首次依赖收集。
     let initialized = false
@@ -199,9 +190,9 @@ export function createDependencySchedulerEffect<TValues extends Values, TResult>
         initialized = true
 
         if (options.immediate !== false) {
-          // 普通任务首次直接执行；idle 任务通过同一 Scheduler 等待空闲时机。
+          // 首次执行立即计算；后续字段变化才进入调度队列。
           runSignalUntracked(() => {
-            runInitial()
+            void run()
           })
         }
 
@@ -215,7 +206,10 @@ export function createDependencySchedulerEffect<TValues extends Values, TResult>
     effectScope.add(disposeSubscription)
   }
 
-  // 释放当前 effect 的订阅和任务子作用域。
+  /**
+   * 释放调用方提供的专用资源作用域及其订阅、任务。
+   * @example effect.dispose()
+   */
   const dispose = (): void => {
     effectScope.dispose()
   }

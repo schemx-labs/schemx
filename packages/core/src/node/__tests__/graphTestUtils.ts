@@ -11,17 +11,16 @@ import { vi } from "vite-plus/test"
 import { createNodeManager } from ".."
 import { createSchemaCompiler, type SchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
-import { createLifecycle } from "../../lifecycle"
 import { createSignal } from "../../reactivity"
 import { createReconciler } from "../../reconciler"
 import { createScheduler, type Scheduler } from "../../scheduler"
 import { createStore } from "../../store/store"
 
-import type { ContainerNode, ParentNode, RootNode } from ".."
-import type { LifecycleHooks } from "../../lifecycle"
+import type { ParentNode, RootNode } from ".."
 import type { Reconciler } from "../../reconciler"
 import type { FormRuntimeContext } from "../../runtimeContext"
-import type { SchemxField, SchemxFormApi, Values } from "../../types"
+import type { SchemxField, SchemxFormApi, SchemxInstance, Values } from "../../types"
+import type { NodeLifecycleHooks } from "../snapshot"
 
 /**
  * 运行时图测试夹具的接口类型，包含 context、root、scheduler 及 formApi。
@@ -87,7 +86,7 @@ export function createRawFieldSchema<TValues extends Values = Values>(
  * @param initialValues - 初始字段值
  */
 export function createRuntimeGraphHarness<TValues extends Values = Values>(
-  lifecycleHooks: LifecycleHooks<ContainerNode<TValues>> = {},
+  lifecycleHooks: NodeLifecycleHooks<TValues> = {},
   initialValues: Record<string, unknown> = {}
 ): RuntimeGraphTestHarness<TValues> {
   const signals = new Map<string, ReturnType<typeof createSignal<unknown>>>()
@@ -176,6 +175,7 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
   })
 
   const context = {
+    getInstance: () => formApi as SchemxInstance<TValues>,
     debug: false,
     fieldRules: {},
     store,
@@ -187,13 +187,10 @@ export function createRuntimeGraphHarness<TValues extends Values = Values>(
 
   const root = nodeManager.getRoot()
 
-  // 通用生命周期只负责通知，资源操作由 Reconciler 编排。
-  const lifecycle = createLifecycle<ContainerNode<TValues>>(lifecycleHooks)
-
   const reconciler = createReconciler({
     compiler,
     context,
-    lifecycle,
+    lifecycleHooks,
   })
 
   const commitSchemas = (

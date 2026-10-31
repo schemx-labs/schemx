@@ -68,7 +68,6 @@ export function createFieldNode<TValues extends Values>(
     configToken,
     name: nameSignal,
     pathController: new AbortController(),
-    rulesOverride: createSignal<SchemxBaseField<TValues>["rules"]>(undefined),
     compiledSchema,
     dependencyOverrides,
     diagnostics,

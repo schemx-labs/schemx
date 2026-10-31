@@ -26,7 +26,7 @@ import type {
   RootNode,
   Scope,
 } from ".."
-import type { SchemxBaseField, Values } from "../../types"
+import type { Values } from "../../types"
 
 /**
  * 仅供测试创建 RootNode。
@@ -76,7 +76,6 @@ export function createFieldNode<TValues extends Values = Values>(
     configToken: options.configToken,
     ...signals,
     pathController: new AbortController(),
-    rulesOverride: createSignal<SchemxBaseField<TValues>["rules"]>(undefined),
     viewSchemas: null,
     validationEffectScope: null,
     dependenciesEffectScope: null,

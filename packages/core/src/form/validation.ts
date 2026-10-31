@@ -236,7 +236,7 @@ export function createFormValidation<TValues extends Values>(
      * 等待依赖稳定；重置或节点路径失效时提前结束，不继续启动校验。
      * @param signal - 当前节点路径绑定的可选取消信号。
      */
-    const waitForCriticalIdle = async (
+    const waitForDependencies = async (
       signal?: AbortSignal
     ): Promise<DependencyIdleState> => {
       if (signal?.aborted) return { ready: false, cancelled: true }
@@ -258,9 +258,7 @@ export function createFormValidation<TValues extends Values>(
 
       try {
         return await Promise.race([
-          scheduler
-            .whenIdle({ timeout: 10000, includeIdle: false })
-            .then((ready) => ({ ready, cancelled: false })),
+          scheduler.whenIdle().then((ready) => ({ ready, cancelled: false })),
           cancellation.then(() => ({ ready: false, cancelled: true })),
         ])
       } finally {
@@ -306,8 +304,8 @@ export function createFormValidation<TValues extends Values>(
       // 重置版本必须在任何等待之前捕获。
       const resetRevision = store.getResetRevision()
 
-      // 只等待关键依赖，后台 idle 任务不阻塞校验。
-      const dependencyState = await waitForCriticalIdle(signal)
+      // 等待所有队列与有效异步工作，确保规则注册和动态子树已提交。
+      const dependencyState = await waitForDependencies(signal)
 
       if (
         signal?.aborted ||
@@ -427,7 +425,7 @@ export function createFormValidation<TValues extends Values>(
       resetRevision: number
     ): Promise<FormValidationRun<TValues>> => {
       // 重置可提前终止依赖等待；本流程只负责生成校验结果。
-      const dependency = await waitForCriticalIdle()
+      const dependency = await waitForDependencies()
 
       // 采样点位于依赖稳定之后、校验之前，submit 用它拒绝过期成功结果。
       const mutationRevision = store.getMutationRevision()

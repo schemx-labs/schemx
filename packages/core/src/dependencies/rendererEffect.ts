@@ -111,7 +111,7 @@ export interface CreateDependencyRendererEffectOptions<TValues extends Values = 
   node: DependencyNode<TValues>
 
   /**
-   * 关联的 scope，默认创建 node 的子 scope。
+   * 当前 renderer 独占的 scope，默认创建 node 的子 scope。
    */
   scope?: Scope
 }

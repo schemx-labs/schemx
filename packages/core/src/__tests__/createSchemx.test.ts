@@ -4,7 +4,6 @@ import {
   configureSchemx as configureCore,
   createForm,
   createFormStateAdapter,
-  createFormWithConfig,
   createSchemx,
   getFormCreationConfig,
 } from "../index"
@@ -107,7 +106,7 @@ describe("Core createSchemx", () => {
   })
 
   it("调度配置快照隔离输入，整体替换并可恢复基线", () => {
-    const schedulerOptions = { timeSliceMs: 3, idleTimeout: 200 }
+    const schedulerOptions = { timeSliceMs: 3, collectDiagnostics: true }
 
     const api = createSchemx({
       debug: true,
@@ -116,14 +115,20 @@ describe("Core createSchemx", () => {
     })
 
     schedulerOptions.timeSliceMs = 99
-    expect(api.getConfig().schedulerOptions).toEqual({ timeSliceMs: 3, idleTimeout: 200 })
+    expect(api.getConfig().schedulerOptions).toEqual({
+      timeSliceMs: 3,
+      collectDiagnostics: true,
+    })
     expect(Object.isFrozen(api.getConfig().schedulerOptions)).toBe(true)
     api.configureSchemx({ debug: false, schedulerOptions: { collectDiagnostics: false } })
     expect(api.getConfig().debug).toBe(false)
     expect(api.getConfig().schedulerOptions).toEqual({ collectDiagnostics: false })
     api.configureSchemx({ validationConcurrency: 1 })
     expect(api.getConfig().debug).toBe(true)
-    expect(api.getConfig().schedulerOptions).toEqual({ timeSliceMs: 3, idleTimeout: 200 })
+    expect(api.getConfig().schedulerOptions).toEqual({
+      timeSliceMs: 3,
+      collectDiagnostics: true,
+    })
     api.configureSchemx()
     expect(api.getConfig().validationConcurrency).toBe(2)
   })
@@ -276,15 +281,11 @@ describe("Core createSchemx", () => {
     const legacy = createForm(options)
 
     expect(getFormCreationConfig(legacy)?.defaults).toBeUndefined()
-    const explicit = createFormWithConfig(options, { debug: true })
-
-    expect(getFormCreationConfig(explicit)?.defaults?.debug).toBe(true)
     const custom = Object.fromEntries(Object.entries(form))
 
     expect(getFormCreationConfig(custom as typeof form)).toBeUndefined()
     form.destroy()
     legacy.destroy()
-    explicit.destroy()
   })
 
   it("Row、Col 和调度对象在所有工厂层整体替换", () => {
@@ -297,7 +298,7 @@ describe("Core createSchemx", () => {
 
     const override = {
       schemaConfig: { readonly: false, row: { justify: "center" }, col: { offset: 2 } },
-      schedulerOptions: { idleTimeout: 20 },
+      schedulerOptions: { timeSliceMs: 20 },
     }
 
     api.configureSchemx(override)
@@ -310,7 +311,7 @@ describe("Core createSchemx", () => {
       Reflect.get(getFormCreationConfig(form)?.config.schemaConfig ?? {}, "col")
     ).toEqual({ offset: 2 })
     expect(getFormCreationConfig(form)?.config.schedulerOptions).toEqual({
-      idleTimeout: 20,
+      timeSliceMs: 20,
       collectDiagnostics: false,
     })
     form.destroy()

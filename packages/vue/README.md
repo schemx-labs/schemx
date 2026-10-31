@@ -1360,3 +1360,7 @@ Vue 根入口提供以下常用类型：
 | Core API   | `createForm`、`createSchemas`、`createRendererRegistry` 等                                                          | 通过根入口传递导出，完整语义见 [Core README](../core/README.md)。    |
 
 Vue 根入口的表单命名别名为 `schemxForm`；`SchemxForm` 可用作默认导入的本地名称。Core 状态适配 API 同样由根入口透传。
+
+### Core Runtime 接口迁移
+
+`lifecycleHooks` 透传 Core 的只读 `NodeSnapshot`：字段路径从 `snapshot.name` 读取，配置从 `snapshot.compiledSchema` 读取，不再提供 Signal、Scope 或内部节点。`updated` 接收新旧两个快照。`schedulerOptions` 移除 `idleTimeout`，保留 `timeSliceMs` 和 `collectDiagnostics`；等待依赖会覆盖全部 normal/post 队列与异步工作。ViewSchema 已包含最终的 `componentProps.formInstance`，框架桥接继续消费同一投影。

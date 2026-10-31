@@ -10,6 +10,7 @@ import * as nodes from "../node"
 import * as schedulers from "../scheduler"
 import * as stores from "../store"
 import * as validators from "../validator"
+import { isViewGroupSchema } from "../view"
 
 import type { Values } from "../types"
 
@@ -318,6 +319,63 @@ describe("Form 的完整装配与资源清理", () => {
       createScheduler.mockRestore()
       failingFactory.mockRestore()
       configuration.dispose()
+    }
+  })
+  it("单次投影在订阅和读取间共享快照，修改一个字段保留兄弟引用", async () => {
+    // 两个字段位于同一分组，配置更新仅替换第一个字段的 Schema 对象。
+    const first = { key: "first", name: "first", label: "first", componentType: "input" }
+
+    const second = {
+      key: "second",
+      name: "second",
+      label: "second",
+      componentType: "input",
+    }
+
+    const form = createForm({
+      schemas: [{ key: "group", label: "group", children: [first, second] }],
+    })
+
+    // 同步读取和订阅必须复用节点 computed 的最终列表。
+    const observed = vi.fn()
+
+    const stop = form.subscribeViewSchemas(observed)
+
+    try {
+      const before = form.getViewSchemas()
+
+      expect(form.getViewSchemas()).toBe(before)
+      const group = before[0]
+
+      if (!group || !isViewGroupSchema(group)) {
+        throw new Error("Group 视图未创建")
+      }
+
+      expect(group.children[1]).toHaveProperty("componentProps.formInstance", form)
+      form.setSchemas([
+        {
+          key: "group",
+          label: "group",
+          children: [{ ...first, label: "updated" }, second],
+        },
+      ])
+      await form.waitForDependencies()
+      // 视图订阅使用既有防抖策略，等待同一公开通知边界。
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      const after = form.getViewSchemas()
+
+      const nextGroup = after[0]
+
+      if (!nextGroup || !isViewGroupSchema(nextGroup)) {
+        throw new Error("Group 视图未创建")
+      }
+
+      expect(nextGroup.children[0]).not.toBe(group.children[0])
+      expect(nextGroup.children[1]).toBe(group.children[1])
+      expect(observed.mock.calls.at(-1)?.[0]).toBe(after)
+    } finally {
+      stop()
+      form.destroy()
     }
   })
 })

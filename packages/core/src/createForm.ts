@@ -17,7 +17,6 @@ import { createFormRenderer } from "./form/renderer"
 import { createFormSchemas } from "./form/schemas"
 import { createFormStore } from "./form/store"
 import { createFormValidation } from "./form/validation"
-import { createLifecycle } from "./lifecycle"
 import { createNodeManager, createScope } from "./node"
 import { batchUpdates, createReactiveScope, createSignal } from "./reactivity"
 import { createReconciler } from "./reconciler"
@@ -26,7 +25,6 @@ import { createStore } from "./store"
 import { attachRootViewSchemas } from "./view"
 
 import type { CreateFormOptions, SchemxConfig } from "./config"
-import type { ContainerNode } from "./node"
 import type { FormRuntimeContext } from "./runtimeContext"
 import type { SchemxField, SchemxFormApi, SchemxInstance, Values } from "./types"
 
@@ -57,7 +55,7 @@ export type {
 export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
-  // 旧入口保留全局继承；框架工厂直接调用显式配置入口。
+  // 独立创建继承全局配置；工厂创建传入固定快照。
   return createFormWithSnapshot(
     options,
     getGlobalSchemxConfig() as SchemxConfig<TValues>,
@@ -66,36 +64,18 @@ export function createForm<TValues extends Values>(
 }
 
 /**
- * 使用显式继承配置创建表单，不读取 Core 全局配置。
- *
- * @typeParam TValues - 表单值对象类型。
- * @param options - 表单数据、局部配置和生命周期选项。
- * @param config - 显式提供的继承配置；空对象表示仅使用内置默认值。
- * @returns 由调用方负责销毁的同步表单实例。
- * @example
- * const form = createFormWithConfig({ initialValues: { name: "" } }, {})
- * form.destroy()
- */
-export function createFormWithConfig<TValues extends Values>(
-  options: CreateFormOptions<TValues>,
-  config: SchemxConfig<TValues>
-): SchemxInstance<TValues> {
-  return createFormWithSnapshot(options, config, "explicit")
-}
-
-/**
  * 按固定继承层装配配置、运行模块和公开实例，失败或销毁时逆序释放资源。
  * @internal
  * @typeParam TValues - 表单值类型。
  * @param options - 本次表单的完整创建选项。
  * @param config - 显式继承配置。
- * @param source - 全局路径省略继承记录；显式配置捕获快照；工厂快照保留原引用。
+ * @param source - 全局路径省略继承记录；工厂快照保留原引用。
  * @example const form = createFormWithSnapshot(options, factoryDefaults)
  */
 export function createFormWithSnapshot<TValues extends Values>(
   options: CreateFormOptions<TValues>,
   config: SchemxConfig<TValues>,
-  source: "global" | "explicit" | "snapshot" = "snapshot"
+  source: "global" | "snapshot" = "snapshot"
 ): SchemxInstance<TValues> {
   // 所有表单资源只登记到此清单，销毁及初始化失败均按逆序清理。
   const scope = createScope()
@@ -119,9 +99,6 @@ export function createFormWithSnapshot<TValues extends Values>(
     const schemas = isSchemxSchemas(schemaInput)
       ? schemaInput
       : createSchemas<TValues>(schemaInput ?? [])
-
-    // 生命周期由 Form 统一创建，直接传给 Reconciler。
-    const lifecycle = createLifecycle<ContainerNode<TValues>>(options.lifecycleHooks)
 
     // 表单操作和提交、重置事件共享同一份回调。
     const callbacks = {
@@ -255,6 +232,7 @@ export function createFormWithSnapshot<TValues extends Values>(
       get debug() {
         return configuration.getConfig().debug
       },
+      getInstance,
       fieldRules: options.fieldRules ?? {},
       store,
       validator: validation.validator,
@@ -269,7 +247,11 @@ export function createFormWithSnapshot<TValues extends Values>(
     scope.add(compiler.invalidateConfigCache)
 
     // 依赖齐全后创建协调器，随后才允许挂载节点。
-    const reconciler = createReconciler({ compiler, context, lifecycle })
+    const reconciler = createReconciler({
+      compiler,
+      context,
+      lifecycleHooks: options.lifecycleHooks,
+    })
 
     scope.add(reconciler.clear)
 
@@ -293,7 +275,6 @@ export function createFormWithSnapshot<TValues extends Values>(
       reconciler,
       schemas,
       configuration,
-      getInstance,
     })
 
     // 实例仅组合各域明确提供的公开 API。
@@ -301,7 +282,7 @@ export function createFormWithSnapshot<TValues extends Values>(
       ...storeDomain.api,
       ...validation.api,
       ...schemasDomain.api,
-      ...renderer.api,
+      ...renderer,
       ...validation.rulesApi,
       ...fieldRefs.api,
       effect,
@@ -330,12 +311,9 @@ export function createFormWithSnapshot<TValues extends Values>(
       )
     )
 
-    const snapshotDefaults =
-      source === "snapshot" ? config : configuration.inheritedConfig
-
     setFormCreationConfig(instance, {
       config: effectiveConfig,
-      ...(source === "global" ? {} : { defaults: snapshotDefaults }),
+      ...(source === "global" ? {} : { defaults: config }),
     })
 
     return instance
