@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemx } from "../createSchemx"
 
@@ -27,32 +26,32 @@ describe("Core 字段交互", () => {
       ],
     })
 
-    const field = createField(form, "name")
-
-    field.setValue("programmatic")
+    form.setFieldValue("name", "programmatic")
     form.setFieldsValue({ name: "another" })
-    expect(field.isTouched()).toBe(false)
-    expect(field.getErrors()).toEqual([])
+    expect(form.isFieldTouched("name")).toBe(false)
+    expect(form.getFieldErrors("name")).toEqual([])
     expect(onChange).not.toHaveBeenCalled()
     expect(onBlur).not.toHaveBeenCalled()
 
     const observed: unknown[] = []
 
-    form.effect(() => observed.push([field.state.value.value, field.state.touched.value]))
-    const change = field.change("")
+    form.effect(() =>
+      observed.push([form.getFieldValue("name"), form.isFieldTouched("name")])
+    )
+    const change = form.changeField("name", "")
 
-    expect(field.getValue()).toBe("")
-    expect(field.isTouched()).toBe(true)
+    expect(form.getFieldValue("name")).toBe("")
+    expect(form.isFieldTouched("name")).toBe(true)
     expect(observed).toEqual([
       ["another", false],
       ["", true],
     ])
     expect(onChange).toHaveBeenCalledExactlyOnceWith("", form)
     await expect(change).resolves.toBeUndefined()
-    expect(field.getErrors()).toEqual([])
-    await expect(field.blur()).resolves.toMatchObject({ valid: false })
+    expect(form.getFieldErrors("name")).toEqual([])
+    await expect(form.blurField("name")).resolves.toMatchObject({ valid: false })
     expect(onBlur).toHaveBeenCalledExactlyOnceWith(form)
-    expect(field.getErrors()).toEqual(["姓名为必填项"])
+    expect(form.getFieldErrors("name")).toEqual(["姓名为必填项"])
     form.destroy()
   })
 
@@ -70,12 +69,10 @@ describe("Core 字段交互", () => {
       ],
     })
 
-    const field = createField(form, "name")
-
-    await expect(field.blur()).resolves.toBeUndefined()
-    expect(field.isTouched()).toBe(true)
-    expect(field.getValue()).toBe("")
-    await expect(field.validate()).resolves.toMatchObject({ valid: false })
+    await expect(form.blurField("name")).resolves.toBeUndefined()
+    expect(form.isFieldTouched("name")).toBe(true)
+    expect(form.getFieldValue("name")).toBe("")
+    await expect(form.validateField("name")).resolves.toMatchObject({ valid: false })
     await expect(form.submit()).resolves.toMatchObject({ valid: false })
     form.destroy()
   })
@@ -117,7 +114,7 @@ describe("Core 字段交互", () => {
     form.destroy()
   })
 
-  it("同一字段控制器始终使用最新消费配置，字段覆盖优先于表单默认值", async () => {
+  it("路径交互始终使用最新消费配置，字段覆盖优先于表单默认值", async () => {
     const api = createSchemx({ schemaConfig: { validationTrigger: "change" } })
 
     const form = api.createForm({
@@ -134,19 +131,17 @@ describe("Core 字段交互", () => {
       ],
     })
 
-    const field = createField(form, "name")
-
-    await expect(field.change("")).resolves.toMatchObject({ valid: false })
+    await expect(form.changeField("name", "")).resolves.toMatchObject({ valid: false })
     await expect(form.changeField("fixed", "")).resolves.toBeUndefined()
     form.setConfig({ schemaConfig: { validationTrigger: "onBlur" } })
-    await expect(field.change("")).resolves.toBeUndefined()
-    await expect(field.blur()).resolves.toMatchObject({ valid: false })
+    await expect(form.changeField("name", "")).resolves.toBeUndefined()
+    await expect(form.blurField("name")).resolves.toMatchObject({ valid: false })
     form.setConfig({})
-    await expect(field.change("")).resolves.toMatchObject({ valid: false })
+    await expect(form.changeField("name", "")).resolves.toMatchObject({ valid: false })
     form.updateSchemas((schemas) =>
       schemas.map((schema) => ({ ...schema, validationTrigger: "submit" }))
     )
-    await expect(field.change("")).resolves.toBeUndefined()
+    await expect(form.changeField("name", "")).resolves.toBeUndefined()
     form.destroy()
   })
 
@@ -209,16 +204,14 @@ describe("Core 字段交互", () => {
   it("无 Schema 的手动字段使用 Core 表单配置与手动规则", async () => {
     const form = createForm({ initialValues: { name: "" } })
 
-    const field = createField(form, "name")
-
-    field.setRules({ required: true, message: "不能为空" })
-    await expect(field.change("")).resolves.toBeUndefined()
-    await expect(field.blur()).resolves.toMatchObject({ valid: false })
+    form.setFieldRules("name", { required: true, message: "不能为空" })
+    await expect(form.changeField("name", "")).resolves.toBeUndefined()
+    await expect(form.blurField("name")).resolves.toMatchObject({ valid: false })
     form.setConfig({ schemaConfig: { validationTrigger: "change" } })
-    await expect(field.change("Ada")).resolves.toMatchObject({ valid: true })
+    await expect(form.changeField("name", "Ada")).resolves.toMatchObject({ valid: true })
     form.setConfig({ schemaConfig: { disabled: true } })
-    await expect(field.change("ignored")).resolves.toBeUndefined()
-    expect(field.getValue()).toBe("Ada")
+    await expect(form.changeField("name", "ignored")).resolves.toBeUndefined()
+    expect(form.getFieldValue("name")).toBe("Ada")
     form.destroy()
   })
 
@@ -456,17 +449,15 @@ describe("Core 字段交互", () => {
       ],
     })
 
-    const field = createField(form, "name")
-
-    const old = field.change("old")
+    const old = form.changeField("name", "old")
 
     await vi.waitFor(() => expect(validate).toHaveBeenCalledTimes(1))
-    await expect(field.change("new")).resolves.toMatchObject({ valid: true })
+    await expect(form.changeField("name", "new")).resolves.toMatchObject({ valid: true })
     await expect(old).resolves.toMatchObject({ cancelled: true, errors: [] })
     finishOld?.({ valid: false, issues: [{ message: "旧错误" }] })
     await oldRule
-    expect(field.getValue()).toBe("new")
-    expect(field.getErrors()).toEqual([])
+    expect(form.getFieldValue("name")).toBe("new")
+    expect(form.getFieldErrors("name")).toEqual([])
     form.destroy()
   })
 })

@@ -120,18 +120,15 @@ export function updateNodeResources<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型。
  * @param node - 需要释放资源的节点。
- * @param context - 表单运行时上下文。
  *
  * @example
  * ```ts
- * unmountNodeResources(node, context)
+ * unmountNodeResources(node)
  * ```
  */
 export function unmountNodeResources<TValues extends Values>(
-  node: SchemaNode<TValues>,
-  context: FormRuntimeContext<TValues>
+  node: SchemaNode<TValues>
 ): void {
-  // 卸载回调开始前使所有节点控制器失效，保留值由 preserve 单独决定。
   // 身份已随树结构移除退出活动索引；preserve 仅决定 Store 数据是否保留。
   node.disposed.value = true
   if (isFieldNode(node)) {
@@ -139,7 +136,7 @@ export function unmountNodeResources<TValues extends Values>(
   }
 
   detachNodeViewSchemas(node)
-  unmountDomainResources(node, context)
+  unmountDomainResources(node)
 }
 
 /**
@@ -240,14 +237,12 @@ function mountDomainResources<TValues extends Values>(
  * 按节点类型释放领域资源。
  *
  * @param node - 需要释放资源的节点。
- * @param context - 数组行注销使用的 Runtime 上下文。
  */
 function unmountDomainResources<TValues extends Values>(
-  node: ContainerNode<TValues>,
-  context: FormRuntimeContext<TValues>
+  node: ContainerNode<TValues>
 ): void {
   if (isFieldNode(node)) {
-    unmountFieldResources(node, context)
+    unmountFieldResources(node)
 
     return
   }
@@ -259,7 +254,7 @@ function unmountDomainResources<TValues extends Values>(
   }
 
   if (isDynamicNode(node)) {
-    unmountDynamicResources(node, context)
+    unmountDynamicResources(node)
     unmountPresentationResources(node)
 
     return

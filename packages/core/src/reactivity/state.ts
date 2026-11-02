@@ -51,7 +51,6 @@ export interface ReactiveScope {
 /**
  * 创建 Core 原生响应式生命周期，复用 Signal 的缓存、依赖图和调度。
  *
- * @param isDisposed - 可选的响应式终态；变为 true 后交付最后一次状态并自动释放订阅。
  * @returns 管理当前子系统 effect 与只读状态的生命周期。
  * @example
  * const scope = createReactiveScope()
@@ -60,38 +59,25 @@ export interface ReactiveScope {
  * stop()
  * scope.dispose()
  */
-export function createReactiveScope(isDisposed?: () => boolean): ReactiveScope {
+export function createReactiveScope(): ReactiveScope {
   // 生命周期只管理取消函数；状态依赖和通知完全由底层 Signal 维护。
   let disposed = false
 
   const effects = new Set<() => void>()
-
-  // 外部终态只提供生命周期信号；通知顺序与依赖切换仍交给原生 effect。
-  const isClosed = (): boolean => disposed || (isDisposed?.() ?? false)
 
   /**
    * 注册 effect，并覆盖首次同步执行期间销毁生命周期的情况。
    * @param run - 当前 effect 的回调。
    */
   const effect = (run: () => void): (() => void) => {
-    if (runSignalUntracked(isClosed)) {
+    if (disposed) {
       return () => {}
     }
 
-    // 首次同步回调可能关闭生命周期，真实取消函数会在 effect 创建后接管。
-    let stop = (): void => {}
+    // 原生 effect 首次同步执行，返回后再次检查显式销毁状态。
+    const cancel = createSignalEffect(run)
 
-    const cancel = createSignalEffect(() => {
-      const finished = isDisposed?.() ?? false
-
-      try {
-        run()
-      } finally {
-        if (finished) stop()
-      }
-    })
-
-    if (runSignalUntracked(isClosed)) {
+    if (disposed) {
       cancel()
 
       return () => {}
@@ -99,7 +85,7 @@ export function createReactiveScope(isDisposed?: () => boolean): ReactiveScope {
 
     effects.add(cancel)
 
-    stop = (): void => {
+    const stop = (): void => {
       if (effects.delete(cancel)) {
         cancel()
       }
@@ -114,7 +100,7 @@ export function createReactiveScope(isDisposed?: () => boolean): ReactiveScope {
    * @param read - Core 状态读取函数。
    */
   const state = <TValue>(read: () => TValue): ReadonlyState<TValue> => {
-    if (runSignalUntracked(isClosed)) {
+    if (disposed) {
       throw new Error("[schemx] Reactive scope has been disposed.")
     }
 
@@ -163,7 +149,7 @@ export function createReactiveScope(isDisposed?: () => boolean): ReactiveScope {
 
   // 仅生命周期状态使用 getter，其余能力都是稳定函数引用。
   const scope = Object.defineProperty({ effect, state, dispose }, "disposed", {
-    get: () => runSignalUntracked(isClosed),
+    get: () => disposed,
   }) as ReactiveScope
 
   return scope

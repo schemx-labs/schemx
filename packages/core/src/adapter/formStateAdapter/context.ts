@@ -12,6 +12,10 @@ const contextKey = Symbol("schemx:form-state-adapter-context")
  */
 export interface FormStateAdapterContext<TValues extends Values> {
   /**
+   * 各框架副本共用的原始实例，避免 getter 包装参与底层订阅。
+   */
+  readonly form: SchemxInstance<TValues>
+  /**
    * 提供原生字段状态和全部资源操作的 Store。
    */
   readonly store: Store<TValues>
@@ -30,6 +34,15 @@ export interface FormStateAdapterContext<TValues extends Values> {
 }
 
 /**
+ * Form 装配时提供的底层服务，原始实例身份由登记入口补齐。
+ * @typeParam TValues - 表单值类型。
+ */
+type FormStateAdapterServices<TValues extends Values> = Omit<
+  FormStateAdapterContext<TValues>,
+  "form"
+>
+
+/**
  * 为适配器登记内部依赖，框架复制实例时保留同一上下文。
  * @typeParam TValues - 表单值类型。
  * @param form - 已组装的表单实例。
@@ -38,11 +51,11 @@ export interface FormStateAdapterContext<TValues extends Values> {
  */
 export function setFormStateAdapterContext<TValues extends Values>(
   form: SchemxInstance<TValues>,
-  context: FormStateAdapterContext<TValues>
+  context: FormStateAdapterServices<TValues>
 ): void {
   // 固定上下文身份，避免框架代理不可配置的 Symbol 属性值。
   Object.defineProperty(form, contextKey, {
-    value: Object.freeze(context),
+    value: Object.freeze({ ...context, form }),
     enumerable: true,
   })
 }
@@ -56,5 +69,13 @@ export function setFormStateAdapterContext<TValues extends Values>(
 export function getFormStateAdapterContext<TValues extends Values>(
   form: SchemxInstance<TValues>
 ): FormStateAdapterContext<TValues> {
-  return Reflect.get(form, contextKey) as FormStateAdapterContext<TValues>
+  // Symbol 仅由 Core 装配入口写入，缺失时拒绝不完整的框架副本。
+  const context = Reflect.get(form, contextKey) as
+    FormStateAdapterContext<TValues> | undefined
+
+  if (!context) {
+    throw new TypeError("[schemx] Form is missing its adapter context.")
+  }
+
+  return context
 }

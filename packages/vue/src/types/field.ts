@@ -4,12 +4,10 @@
  * @module types/field
  */
 
-import type { ComputedRef, VNodeChild, WritableComputedRef } from "vue"
+import type { ComputedRef, Ref, VNodeChild, WritableComputedRef } from "vue"
 
 import type {
   DeepReadonly,
-  FieldRef,
-  FieldRefState,
   FieldRules,
   FieldValue,
   NamePath,
@@ -37,26 +35,25 @@ export type SchemxVueBaseComponentProps<
 > = SchemxBaseComponentProps<TValues, TName, TValue>
 
 /**
+ * 消费端提供的字段路径：固定字符串、只读 Ref 或动态 getter。
+ * @typeParam TName - 允许访问的字段路径。
+ */
+export type FieldPathSource<TName extends string> =
+  TName | Readonly<Ref<TName>> | (() => TName)
+
+/**
  * Vue 层字段控制器实例
  *
- * 复用 Core 字段命令，将 Signal 驱动的只读状态桥接为 Vue Ref，
+ * 按当前路径调用 Form API，将 Core 的只读状态桥接为 Vue Ref，
  * 供模板、computed、watchEffect 等响应式上下文直接使用。
  *
  * @typeParam TValues - 表单值类型。
- * @typeParam TName - 初始字段路径，用于保留值类型。
+ * @typeParam TName - 路径来源允许的字段路径，用于保留值类型。
  */
 export interface FieldInstance<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > {
-  /**
-   * 字段引用，所有操作都经由 Form instance。
-   */
-  readonly ref: FieldRef<TValues, TName>
-  /**
-   * 兼容只读状态，状态实际由 Form 持有。
-   */
-  readonly state: FieldRefState<TValues, TName>
   /**
    * 用户修改直接委托 Form 的交互入口。
    */
@@ -197,6 +194,7 @@ export interface FieldInstance<
    *
    * 直接透传 form.effect，在回调中访问 getValue / getErrors / isPending 时
    * 自动追踪对应 reactive 依赖，依赖变化时 effect 自动重新执行。
+   * Vue 路径 Ref 或 getter 的响应式变化应通过 Vue watchEffect 消费。
    *
    * @param fn - effect 回调函数
    * @returns dispose 函数，取消 effect
@@ -213,7 +211,7 @@ export interface FieldInstance<
   /**
    * 当前字段路径。
    */
-  readonly name: NamePath<TValues> | undefined
+  readonly name: TName
   /**
    * 当前字段的只读值；整体赋值通过 Core setValue 提交。
    */

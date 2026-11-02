@@ -109,14 +109,16 @@ const Field = defineComponent({
     // 按 key 复用表单级 ViewSchema 订阅，避免每个 Field 建立独立 Core effect。
     const latestSchema = useViewSchema(runtime, () => inputSchema.value.key)
 
-    // 优先使用桥接中的最新字段；首帧或字段暂不存在时回退到输入 schema。
+    // 共享视图有防抖；父层路径已更新时，旧地址的缓存不能覆盖当前 props。
     const schemaRef = computed<SchemxViewFieldSchema<Values>>(() => {
-      return latestSchema.value && isSchemxViewFieldSchema(latestSchema.value)
+      return latestSchema.value &&
+        isSchemxViewFieldSchema(latestSchema.value) &&
+        latestSchema.value.name === inputSchema.value.name
         ? latestSchema.value
         : inputSchema.value
     })
 
-    const field = createFieldHook(runtime, schemaRef.value.name)
+    const field = createFieldHook(runtime, () => schemaRef.value.name)
 
     createFieldContext(field)
 

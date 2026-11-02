@@ -7,8 +7,6 @@
  * @module core/node/helper
  */
 
-import { createFieldKey } from "../utils"
-
 import {
   ContainerNode,
   DependencyNode,
@@ -21,7 +19,7 @@ import {
   SchemaNode,
 } from "./index"
 
-import type { NamePath, Values } from "../types"
+import type { Values } from "../types"
 
 /**
  * 字段 diagnostics 的部分更新内容，不包含由 helper 自动递增的版本号。
@@ -161,59 +159,4 @@ export function isParentNode<TValues extends Values>(
     node?.type === "dependency" ||
     node?.type === "dynamic"
   )
-}
-
-/**
- * 获取 Node 的子节点列表。
- *
- * 对可承载子节点的 Node 返回其 childNodes signal 的当前值；
- * 对 field 节点返回空数组。
- *
- * @typeParam TValues - 表单值类型。
- * @param node - 要读取子节点的 Node。
- * @returns 只读的子节点数组。
- */
-export function getNodeChildren<TValues extends Values>(
-  node: ContainerNode<TValues>
-): readonly SchemaNode<TValues>[] {
-  return isParentNode(node) ? node.childNodes.value : []
-}
-
-/**
- * 从 Node 子树查找指定字段路径的字段节点。
- *
- * @typeParam TValues - 表单值类型。
- * @param root - 查找开始的 Node，通常为 root 节点。
- * @param name - 要查找的字段路径。
- * @returns 匹配的字段节点；找不到时返回 `undefined`。
- *
- * @example
- * ```ts
- * const field = findFieldNode(root, "email")
- * ```
- */
-export function findFieldNode<TValues extends Values>(
-  root: ContainerNode<TValues>,
-  name: NamePath<TValues>
-): FieldNode<TValues> | undefined {
-  const fieldKey = createFieldKey(name)
-
-  // 按层级查找，保留同一路径优先匹配较浅节点的顺序。
-  const queue: ContainerNode<TValues>[] = [root]
-
-  for (let index = 0; index < queue.length; index += 1) {
-    const node = queue[index]
-
-    if (!node) {
-      continue
-    }
-
-    if (isFieldNode(node) && createFieldKey(node.name.value) === fieldKey) {
-      return node
-    }
-
-    queue.push(...getNodeChildren(node))
-  }
-
-  return undefined
 }

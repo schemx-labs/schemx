@@ -46,7 +46,7 @@ export function updateDynamicResources<TValues extends Values>(
   context: FormRuntimeContext<TValues>,
   childReconciler: ChildReconciler<TValues>
 ): void {
-  // 当前和旧路径用于切换 Store 注册，数组值不随节点改名复制。
+  // 对比模板和路径以判断是否重建订阅，数组值不随节点改名复制。
   const previousSchema = previousNode.compiledSchema
 
   const currentSchema = node.compiledSchema.peek()
@@ -60,13 +60,6 @@ export function updateDynamicResources<TValues extends Values>(
     return
   }
 
-  if (
-    createFieldKey(previousSchema.name) !== createFieldKey(currentSchema.name) &&
-    context.nodeManager.getNodeIds(previousSchema.name as NamePath<TValues>).length === 0
-  ) {
-    context.store.unregisterFieldPath(previousSchema.name as NamePath<TValues>)
-  }
-
   recreateDynamicSubscription(node, context, childReconciler)
 }
 
@@ -74,25 +67,15 @@ export function updateDynamicResources<TValues extends Values>(
  * 解除结构监听和行身份登记，数据继续留在 Store 中。
  * @typeParam TValues - 表单值类型。
  * @param node - 正在卸载的 Dynamic。
- * @param context - 用于注销路径和数组行的 Runtime 上下文。
- * @example unmountDynamicResources(node, context)
+ * @example unmountDynamicResources(node)
  */
 export function unmountDynamicResources<TValues extends Values>(
-  node: DynamicNode<TValues>,
-  context: FormRuntimeContext<TValues>
+  node: DynamicNode<TValues>
 ): void {
   node.dynamicEffectScope?.dispose()
   node.dynamicEffectScope = null
 
   node.dynamicRows.value = []
-  if (
-    context.nodeManager.getNodeIds(node.compiledSchema.peek().name as NamePath<TValues>)
-      .length === 0
-  ) {
-    context.store.unregisterFieldPath(
-      node.compiledSchema.peek().name as NamePath<TValues>
-    )
-  }
 }
 
 /**

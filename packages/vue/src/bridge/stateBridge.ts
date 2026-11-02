@@ -143,7 +143,7 @@ export function createVueStateBridge<TValues extends Values>(
       return cached as VueFieldState<TValues, TName>
     }
 
-    // 控制器包含 name 状态；普通 Store 路径状态无需维护另一份路径。
+    // Vue 只组合路径状态的 Ref，路径本身由消费端提供。
     const projected = {
       value: bind(state.value),
       errors: bind(state.errors),

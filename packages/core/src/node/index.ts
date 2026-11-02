@@ -7,7 +7,6 @@
  */
 
 export {
-  findFieldNode,
   isDynamicNode,
   isRootNode,
   isSchemaNode,

@@ -7,7 +7,6 @@
 import type { ResolvedFormConfig } from "../../config"
 import type { ReadonlyState } from "../../reactivity"
 import type { StorePending } from "../../store"
-import type { FieldRef } from "../../types"
 import type {
   DeepReadonly,
   FieldValue,
@@ -105,25 +104,6 @@ export interface FieldSnapshotSource<
 }
 
 /**
- * 跟随稳定字段引用的状态来源；失效后值为空、错误为空且交互状态为 false。
- * @typeParam TValues - 所属表单的值类型。
- * @typeParam TName - 引用初始字段路径。
- */
-export interface FieldRefSnapshotSource<
-  TValues extends Values,
-  TName extends NamePath<TValues>,
-> extends FieldSnapshotSource<TValues, TName> {
-  /**
-   * 当前路径，失效后为 undefined。
-   */
-  readonly name: SnapshotSource<NamePath<TValues> | undefined>
-  /**
-   * 引用所属节点或表单是否已销毁。
-   */
-  readonly disposed: SnapshotSource<boolean>
-}
-
-/**
  * 一个 Form 的状态适配器。
  *
  * 适配器不拥有也不会销毁原始 Form；`dispose()` 只释放该适配器创建的订阅和字段缓存。
@@ -179,20 +159,12 @@ export interface FormStateAdapter<TValues extends Values> {
   /**
    * 转换任意原生状态，复用同一状态身份对应的来源。
    * @typeParam TValue - 原生状态的值类型。
-   * @param state - 当前表单或字段提供的原生只读状态。
+   * 订阅由当前 Form 管理，即使来源属于其他 Form，也随当前 Form 销毁而停止。
+   * @param state - value 可被 Core effect 追踪的原生只读状态。
    * @throws 适配器已经释放时抛出错误。
-   * @example const source = adapter.bind(form.getFieldState(form.getFieldRef("name")).value)
+   * @example const source = adapter.bind(getFormAdapter(form).field("name").value)
    */
   bind<TValue>(state: ReadonlyState<TValue>): SnapshotSource<TValue>
-  /**
-   * 按稳定引用读取字段，节点移动和失效语义由 Form 统一处理。
-   * @typeParam TName - 控制器初始路径，用于保留值类型。
-   * @param ref - 当前表单创建的字段引用。
-   * @example const field = adapter.field(form.getFieldRef("name"))
-   */
-  field<TName extends NamePath<TValues>>(
-    ref: FieldRef<TValues, TName>
-  ): FieldRefSnapshotSource<TValues, TName>
   /**
    * 复用同一路径状态对应的字段快照来源；节点移动不改变此来源的目标路径。
    *

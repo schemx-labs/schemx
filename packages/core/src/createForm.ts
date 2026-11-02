@@ -11,7 +11,6 @@ import { setFormStateAdapterContext } from "./adapter/formStateAdapter/context"
 import { createSchemaCompiler } from "./compiler"
 import { createFormConfig, getGlobalSchemxConfig } from "./config"
 import { createSchemas, isSchemxSchemas } from "./createSchemas"
-import { createFormFieldRefs } from "./form/fieldRefs"
 import { createFormObserver } from "./form/observer"
 import { createFormRenderer } from "./form/renderer"
 import { createFormSchemas } from "./form/schemas"
@@ -142,7 +141,7 @@ export function createFormWithSnapshot<TValues extends Values>(
     // 根节点承载整棵表单树和视图订阅。
     const root = nodeManager.getRoot()
 
-    // 字段引用、校验与 adapter 共用此表单级终态。
+    // 校验与 adapter 共用此表单级终态。
     const disposed = root.disposed
 
     scope.add(root.scope.dispose)
@@ -151,7 +150,7 @@ export function createFormWithSnapshot<TValues extends Values>(
     // 提交状态只由公开校验流程更新。
     const loading = createSignal(false)
 
-    // 引用、校验和 adapter 共用同一表单级终态。
+    // 校验和 adapter 共用同一表单级终态。
     const isDisposed = (): boolean => disposed.value
 
     // 域内回调只在完整实例就绪后执行。
@@ -192,10 +191,8 @@ export function createFormWithSnapshot<TValues extends Values>(
       timeout
     ) => (disposed.value ? Promise.resolve(true) : scheduler.whenIdle(timeout))
 
-    // 数据、引用和校验域直接消费已创建的基础资源。
+    // 数据和校验域直接消费已创建的基础资源。
     const storeDomain = createFormStore({ store, onReset: callbacks.onReset })
-
-    const fieldRefs = createFormFieldRefs({ store, nodeManager, isDisposed })
 
     const validation = createFormValidation({
       store,
@@ -217,7 +214,6 @@ export function createFormWithSnapshot<TValues extends Values>(
     // 消费端 API 复用同一方法和锁，显式排除提交、交互及注册表能力。
     const formApi: SchemxFormApi<TValues> = {
       ...storeDomain.api,
-      ...fieldRefs.api,
       setFieldRules: validation.rulesApi.setFieldRules,
       setFieldsRules: validation.rulesApi.setFieldsRules,
       removeFieldRules: validation.rulesApi.removeFieldRules,
@@ -284,7 +280,6 @@ export function createFormWithSnapshot<TValues extends Values>(
       ...schemasDomain.api,
       ...renderer,
       ...validation.rulesApi,
-      ...fieldRefs.api,
       effect,
       batch,
       waitForDependencies,
@@ -311,7 +306,7 @@ export function createFormWithSnapshot<TValues extends Values>(
       )
     )
 
-    setFormCreationConfig(instance, {
+    setFormCreationConfig<TValues>(instance, {
       config: effectiveConfig,
       ...(source === "global" ? {} : { defaults: config }),
     })

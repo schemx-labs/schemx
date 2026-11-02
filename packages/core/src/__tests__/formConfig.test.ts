@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { getFormAdapter } from "../adapter/formAdapter"
 import { getFormStateAdapterContext } from "../adapter/formStateAdapter/context"
 import { createFormConfig } from "../config/createFormConfig"
 import { createForm, createSchemas, createSchemx, mergeConfig } from "../index"
@@ -226,7 +227,7 @@ describe("固定库默认值与消费配置", () => {
   it("消费配置在首帧即生效，撤销后恢复独立的库默认值", () => {
     const form = createTestForm()
 
-    const field = form.getFieldState(form.getFieldRef("name"))
+    const field = getFormAdapter(form).field("name")
 
     const id = form.getViewSchemas()[0].nodeId
 
@@ -234,7 +235,7 @@ describe("固定库默认值与消费配置", () => {
     form.setConfig({ schemaConfig: { labelWidth: 220 } })
     expect(form.getViewSchemas()[0]).toMatchObject({ disabled: true, labelWidth: 220 })
     expect(form.getFieldValue("name")).toBe("Ada")
-    expect(form.getFieldState(form.getFieldRef("name"))).toBe(field)
+    expect(getFormAdapter(form).field("name")).toBe(field)
     expect(form.getViewSchemas()[0].nodeId).toBe(id)
     form.setConfig({})
     expect(form.getViewSchemas()[0]).toMatchObject({ disabled: true, labelWidth: 140 })

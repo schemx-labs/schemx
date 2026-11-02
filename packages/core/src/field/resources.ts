@@ -59,7 +59,7 @@ export function updateFieldResources<TValues extends Values>(
   previousNode: Extract<NodeUpdateSnapshot<TValues>, { type: "field" }>,
   context: FormRuntimeContext<TValues>
 ): NamePath<TValues> | undefined {
-  // 旧路径只用于解除旧注册和延迟值清理，不把其数据复制到目标路径。
+  // 旧路径用于延迟值清理，不把其数据复制到目标路径。
   const previousName = previousNode.name
 
   const nameChanged = createFieldKey(previousName) !== createFieldKey(node.name.peek())
@@ -67,11 +67,6 @@ export function updateFieldResources<TValues extends Values>(
   context.store.registerFieldPath(node.name.peek())
 
   if (nameChanged) {
-    // 其他节点已经占用旧地址时，保留该地址的 Store 注册。
-    if (context.nodeManager.getNodeIds(previousName).length === 0) {
-      context.store.unregisterFieldPath(previousName)
-    }
-
     recreateValidationEffect(node, context)
   }
 
@@ -102,22 +97,15 @@ export function updateFieldResources<TValues extends Values>(
  *
  * @typeParam TValues - 表单值类型
  * @param node - 目标字段运行时节点
- * @param context - 用于解除路径注册的 Runtime 上下文。
  *
  * @example
  * ```ts
- * unmountFieldResources(fieldNode, runtimeContext)
+ * unmountFieldResources(fieldNode)
  * ```
  */
 export function unmountFieldResources<TValues extends Values>(
-  node: FieldNode<TValues>,
-  context: FormRuntimeContext<TValues>
+  node: FieldNode<TValues>
 ): void {
-  // 同路径新节点已挂载时，其路径注册不能被旧节点的卸载移除。
-  if (context.nodeManager.getNodeIds(node.name.peek()).length === 0) {
-    context.store.unregisterFieldPath(node.name.peek())
-  }
-
   node.validationEffectScope?.dispose()
   node.validationEffectScope = null
   node.dependenciesEffectScope?.dispose()

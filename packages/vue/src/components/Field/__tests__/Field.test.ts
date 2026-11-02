@@ -9,7 +9,7 @@
  */
 
 /* eslint-disable vue/one-component-per-file, vue/require-default-prop */
-import { defineComponent, h, nextTick, reactive } from "vue"
+import { defineComponent, h, nextTick, reactive, shallowRef } from "vue"
 import type { Component } from "vue"
 
 import { createForm } from "@schemx/core"
@@ -185,6 +185,48 @@ const DictionaryRenderer = defineComponent({
 const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("Field 集成测试", () => {
+  it("同 key 字段的路径 prop 更新后立即切换读写，不等待视图防抖", async () => {
+    vi.useFakeTimers()
+    // 父层提供当前 Schema，稳定 key 保留同一 Field 实例。
+    const form = createForm({
+      initialValues: { name: "Ada", nickname: "Grace" },
+      schemas: [{ key: "person", name: "name", label: "姓名", componentType: "input" }],
+    })
+
+    form.registerRenderer("input", ControlledRenderer)
+    const schema = shallowRef(form.getViewSchemas()[0])
+
+    const Host = defineComponent({
+      setup() {
+        provideFormContextState<{ name: string; nickname: string }>({
+          form,
+          config: createFormContext(),
+        })
+
+        return () => h(Field, { schema: schema.value })
+      },
+    })
+
+    const wrapper = mount(Host)
+
+    try {
+      expect(wrapper.get<HTMLInputElement>("input").element.value).toBe("Ada")
+      form.setSchemas([
+        { key: "person", name: "nickname", label: "昵称", componentType: "input" },
+      ])
+      schema.value = form.getViewSchemas()[0]
+      await nextTick()
+      expect(wrapper.get<HTMLInputElement>("input").element.value).toBe("Grace")
+      await wrapper.get("input").setValue("Updated")
+      expect(form.getFieldValue("nickname")).toBe("Updated")
+      expect(form.getFieldValue("name")).toBe("Ada")
+    } finally {
+      wrapper.unmount()
+      form.destroy()
+      vi.useRealTimers()
+    }
+  })
+
   it("共享 Runtime 同步 Schema、字段值和错误，卸载后释放并可重新挂载", async () => {
     const form = createForm({
       initialValues: { name: "initial" },

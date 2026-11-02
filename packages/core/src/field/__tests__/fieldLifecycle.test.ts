@@ -4,6 +4,7 @@ import { createSchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
 import { createSchemas } from "../../createSchemas"
 import { createNodeManager, createScope, isFieldNode } from "../../node"
+import { readNodePath } from "../../node/__tests__/nodeTestUtils"
 import { createSignalEffect } from "../../reactivity"
 import { createReconciler } from "../../reconciler"
 import { createScheduler } from "../../scheduler"
@@ -201,7 +202,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     reconciler.reconcile(schemas.peek())
     expect(store.getFieldValue("name")).toBe("Form")
     expect(store.getInitialValue("name")).toBe("Form")
-    expect(nodeManager.getPath(fieldId(nodeManager, "name"))).toBe("name")
+    expect(readNodePath(nodeManager, fieldId(nodeManager, "name"))).toBe("name")
   })
 
   it("函数默认值作为普通值保存，不作为 Store updater 执行", () => {
@@ -244,7 +245,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
       await scheduler.whenIdle()
       expect(nodeManager.getNodeIds("name")).toEqual([])
       expect(fieldId(nodeManager, "nickname")).toBe(nodeId)
-      expect(nodeManager.getPath(nodeId)).toBe("nickname")
+      expect(readNodePath(nodeManager, nodeId)).toBe("nickname")
       expect(nodeManager.get(nodeId)).toMatchObject({
         type: "field",
         resolvedSchema: { value: { label: "昵称" } },
@@ -402,7 +403,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     expect(store.getFieldValue("name")).toBeUndefined()
     expect(store.getInitialValue("name")).toBe("Alice")
     expect(store.isFieldTouched("name")).toBe(false)
-    expect(nodeManager.getPath(nodeId)).toBeUndefined()
+    expect(readNodePath(nodeManager, nodeId)).toBeUndefined()
     expect(nodeManager.getNodeIds("name")).toEqual([])
     store.resetField("name")
     expect(store.getFieldValue("name")).toBe("Alice")
@@ -424,7 +425,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     schemas.update(() => [])
     expect(removeField).toHaveBeenCalledWith("name")
     expect(nodeManager.getNodeIds("name")).toEqual([])
-    expect(nodeManager.getPath(previousId)).toBeUndefined()
+    expect(readNodePath(nodeManager, previousId)).toBeUndefined()
     expect(store.getFieldValue("name")).toBe("edited")
     schemas.update(() => [
       { name: "name", label: "姓名", componentType: "input", initialValue: "新的默认值" },
@@ -485,7 +486,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     await scheduler.whenIdle()
     await expect(oldResult).resolves.toMatchObject({ cancelled: true })
     expect(fieldId(nodeManager, "name")).not.toBe(previousId)
-    expect(nodeManager.getPath(previousId)).toBeUndefined()
+    expect(readNodePath(nodeManager, previousId)).toBeUndefined()
     expect(store.getFieldsSnapshot()).toEqual({ name: "edited" })
     expect(removeField).not.toHaveBeenCalled()
     await expect(
@@ -560,7 +561,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
         },
       ])
 
-      expect(nodeManager.getPath(previousId)).toBe(
+      expect(readNodePath(nodeManager, previousId)).toBe(
         action === "rename" ? "nickname" : undefined
       )
       expect(fieldId(nodeManager, "name")).not.toBe(previousId)
@@ -647,7 +648,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     const node = nodeManager.get(nodeId)
 
     const cancelled = vi.fn(() => [
-      nodeManager.getPath(nodeId),
+      readNodePath(nodeManager, nodeId),
       nodeManager.getNodeIds("nickname"),
     ])
 
@@ -661,7 +662,7 @@ describe("Runtime 的 NodeId 身份与 NamePath 字段生命周期", () => {
     const paths: unknown[] = []
 
     const dispose = createSignalEffect(() => {
-      const path = nodeManager.getPath(nodeId)
+      const path = readNodePath(nodeManager, nodeId)
 
       paths.push([path, path === undefined ? [] : nodeManager.getNodeIds(path)])
     })

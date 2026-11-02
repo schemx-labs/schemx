@@ -152,11 +152,10 @@ nameField.value.value = 20
 // @ts-expect-error Core 命令同样保留初始路径的值类型。
 nameField.setValue(20)
 
-// 路径允许因节点销毁而失效，值中的嵌套对象仍为只读投影。
+// 路径由消费端提供，值中的嵌套对象仍为只读投影。
 declare const profileField: FieldInstance<{ profile: { tags: string[] } }, "profile">
 
-const currentName: NamePath<{ profile: { tags: string[] } }> | undefined =
-  profileField.name
+const currentName: NamePath<{ profile: { tags: string[] } }> = profileField.name
 
 profileField.value.value = { tags: ["new"] }
 // @ts-expect-error 不通过快照原地修改 Core 值。

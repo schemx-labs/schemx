@@ -9,7 +9,6 @@ import { effectScope, nextTick, watchEffect } from "vue"
 import { createForm } from "@schemx/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { getFormStateAdapterContext } from "../../../core/src/adapter/formStateAdapter/context"
 import { acquireVueFormRuntime } from "../bridge"
 import { useForm } from "../hooks"
 
@@ -19,33 +18,15 @@ describe("Vue Form Instance", () => {
   it("保留 owner 时不预订阅聚合状态，首次读取后共用同一状态引用", () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
-    // 订阅数量反映实际启用的状态，不应由 Runtime 创建动作提前增加。
-    const values = vi.spyOn(
-      getFormStateAdapterContext(coreForm).store.state.values,
-      "subscribe"
-    )
-
-    const touched = vi.spyOn(
-      getFormStateAdapterContext(coreForm).store.state.touchedFields,
-      "subscribe"
-    )
-
-    const pending = vi.spyOn(
-      getFormStateAdapterContext(coreForm).store.state.pendingFields,
-      "subscribe"
-    )
-
-    const loading = vi.spyOn(coreForm, "effect")
+    // Runtime 取得 owner 时不提前创建 Core effect。
+    const effects = vi.spyOn(coreForm, "effect")
 
     const first = acquireVueFormRuntime(coreForm)
 
     const second = acquireVueFormRuntime(coreForm)
 
     expect(first.runtime).not.toHaveProperty("core")
-    expect(values).not.toHaveBeenCalled()
-    expect(touched).not.toHaveBeenCalled()
-    expect(pending).not.toHaveBeenCalled()
-    expect(loading).not.toHaveBeenCalled()
+    expect(effects).not.toHaveBeenCalled()
 
     first.runtime.instance.getFieldsValue()
     first.runtime.instance.isLoading()
@@ -53,10 +34,7 @@ describe("Vue Form Instance", () => {
     const state = first.runtime.getValuesRef()
 
     expect(second.runtime.getValuesRef()).toBe(state)
-    expect(values).toHaveBeenCalledOnce()
-    expect(loading).toHaveBeenCalledOnce()
-    expect(touched).not.toHaveBeenCalled()
-    expect(pending).not.toHaveBeenCalled()
+    expect(effects).toHaveBeenCalledTimes(2)
 
     first.release()
     coreForm.setFieldValue("name", "Grace")
@@ -72,32 +50,18 @@ describe("Vue Form Instance", () => {
   it("读取字段值只订阅值状态，完整字段投影继续复用已有订阅", () => {
     const coreForm = createForm({ initialValues: { name: "Ada" } })
 
-    // 单属性读取与完整字段投影应共享原生状态，而非提前订阅其他属性。
-    const field = getFormStateAdapterContext(coreForm).store.state.field("name")
-
-    const value = vi.spyOn(field.value, "subscribe")
-
-    const errors = vi.spyOn(field.errors, "subscribe")
-
-    const touched = vi.spyOn(field.touched, "subscribe")
-
-    const pending = vi.spyOn(field.pending, "subscribe")
+    // 单属性读取只创建一个 effect，其他属性在首次消费时才订阅。
+    const effects = vi.spyOn(coreForm, "effect")
 
     const acquired = acquireVueFormRuntime(coreForm)
 
     expect(acquired.runtime.instance.getFieldValue("name")).toBe("Ada")
     expect(acquired.runtime.instance.getFieldValue("name")).toBe("Ada")
-    expect(value).toHaveBeenCalledOnce()
-    expect(errors).not.toHaveBeenCalled()
-    expect(touched).not.toHaveBeenCalled()
-    expect(pending).not.toHaveBeenCalled()
+    expect(effects).toHaveBeenCalledTimes(1)
 
     const projected = acquired.runtime.getFieldState("name")
 
-    expect(value).toHaveBeenCalledOnce()
-    expect(errors).toHaveBeenCalledOnce()
-    expect(touched).toHaveBeenCalledOnce()
-    expect(pending).toHaveBeenCalledOnce()
+    expect(effects).toHaveBeenCalledTimes(4)
 
     coreForm.setFieldValue("name", "Grace")
     expect(projected.value.value).toBe("Grace")

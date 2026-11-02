@@ -7,8 +7,6 @@
  */
 
 import type {
-  FieldRef,
-  FieldRefState,
   FieldRules,
   FieldValue,
   NamePath,
@@ -41,39 +39,13 @@ export interface SchemxInstanceDefinition<TValues extends Values = Values> {}
 /**
  * 表单实例接口
  *
- * 定义表单的所有操作方法，是 useForm 返回值的基础接口。
- * SchemxInstance 类实现此接口，提供完整的表单操作能力。
+ * 字段操作始终使用本次传入的路径，不持有或跟随字段身份。
+ * 路径 getter 保留响应式依赖收集；异步校验在路径绑定失效时取消。
+ * 消费端负责在每次操作前提供目标字段的当前路径。
  *
  * @typeParam TValues - 表单值类型，默认为 Values
  */
 export type SchemxInstance<TValues extends Values = Values> = {
-  /**
-   * 取得稳定字段引用；Schema 字段随节点移动，手动字段保持初始路径。
-   * 删除后引用失效，不接管同路径的新节点。
-   * @typeParam TName - 初始路径，用于推导值类型。
-   * @param name - 初次定位的字段路径。
-   * @throws Form 已销毁时抛出错误。
-   * @example const ref = form.getFieldRef("users.0.name")
-   */
-  getFieldRef<TName extends NamePath<TValues>>(name: TName): FieldRef<TValues, TName>
-  /**
-   * 读取引用当前路径，失效后返回 undefined；传入其他 Form 的引用时抛出 TypeError。
-   * @typeParam TName - 引用初始路径。
-   * @param ref - 当前 Form 的字段引用。
-   * @example const name = form.getFieldName(ref)
-   */
-  getFieldName<TName extends NamePath<TValues>>(
-    ref: FieldRef<TValues, TName>
-  ): NamePath<TValues> | undefined
-  /**
-   * 获取引用对应的稳定只读状态，失效后值为空、错误为空、交互状态为 false。
-   * @typeParam TName - 引用初始路径。
-   * @param ref - 当前 Form 的字段引用。
-   * @example const state = form.getFieldState(ref)
-   */
-  getFieldState<TName extends NamePath<TValues>>(
-    ref: FieldRef<TValues, TName>
-  ): FieldRefState<TValues, TName>
   /**
    * 获取单个字段的当前值
    *
@@ -884,9 +856,6 @@ export type SchemxInstance<TValues extends Values = Values> = {
  */
 export type SchemxFormApi<TValues extends Values = Values> = Pick<
   SchemxInstance<TValues>,
-  | "getFieldRef"
-  | "getFieldName"
-  | "getFieldState"
   | "setFieldValue"
   | "setFieldsValue"
   | "getFieldValue"

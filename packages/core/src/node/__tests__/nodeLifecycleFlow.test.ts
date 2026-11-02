@@ -12,7 +12,6 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import {
   createScope,
   disposeNodeResources,
-  findFieldNode,
   isDynamicNode,
   isFieldNode,
   mountNodeResources,
@@ -127,7 +126,7 @@ describe("node lifecycle flow", () => {
       }),
     }
 
-    const { commitSchemas, root } = createRuntimeGraphHarness(hooks)
+    const { commitSchemas, context, root } = createRuntimeGraphHarness(hooks)
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const node = root.childNodes.value[0] as FieldNode
@@ -135,7 +134,9 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [])
 
     expect(node.disposed.value).toBe(true)
-    expect(findFieldNode(root, "name" as never)).toBeUndefined()
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("name")[0] ?? -1)
+    ).toBeUndefined()
     expect(error).toHaveBeenCalledTimes(2)
 
     error.mockRestore()
@@ -275,7 +276,7 @@ describe("node lifecycle flow", () => {
 
     try {
       context.nodeManager.remove(node.id)
-      unmountNodeResources(node, context)
+      unmountNodeResources(node)
       expect(node.validationEffectScope).toBeNull()
       expect(node.viewSchemas).toBeNull()
       expect(context.store.getFieldValue("name")).toBe("edited")
@@ -304,7 +305,7 @@ describe("node lifecycle flow", () => {
   })
 
   it("disposed field 会释放 node-local 字段资源并从 Root 查询中消失", () => {
-    const { commitSchemas, root } = createRuntimeGraphHarness()
+    const { commitSchemas, context, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldNode
@@ -312,7 +313,9 @@ describe("node lifecycle flow", () => {
     expect(field.compiledSchema).toBeDefined()
     expect(field.viewSchemas).not.toBeNull()
     expect(field.validationEffectScope).toBeDefined()
-    expect(findFieldNode(root, "name" as any)).toBe(field)
+    expect(context.nodeManager.get(context.nodeManager.getNodeIds("name")[0] ?? -1)).toBe(
+      field
+    )
 
     commitSchemas(root, [])
 
@@ -320,7 +323,9 @@ describe("node lifecycle flow", () => {
     expect(field.compiledSchema).toBeDefined()
     expect(field.viewSchemas).toBeNull()
     expect(field.validationEffectScope).toBeNull()
-    expect(findFieldNode(root, "name" as any)).toBeUndefined()
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("name")[0] ?? -1)
+    ).toBeUndefined()
   })
 
   it("字段改名保留节点身份，重建路径校验作用域并注销旧配置", () => {
@@ -339,7 +344,9 @@ describe("node lifecycle flow", () => {
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
 
     expect(previousValidationEffectScope?.disposed).toBe(true)
-    expect(findFieldNode(root, "nickname")).toBe(field)
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("nickname")[0] ?? -1)
+    ).toBe(field)
     expect(field.validationEffectScope).not.toBeNull()
     expect(field.validationEffectScope).not.toBe(previousValidationEffectScope)
     expect(field.validationEffectScope?.disposed).toBe(false)
@@ -365,21 +372,29 @@ describe("node lifecycle flow", () => {
   })
 
   it("Root 查询跟随 field mount/update/unmount 更新", () => {
-    const { commitSchemas, root } = createRuntimeGraphHarness()
+    const { commitSchemas, context, root } = createRuntimeGraphHarness()
 
     commitSchemas(root, [createRawFieldSchema("name", "name")])
     const field = root.childNodes.value[0] as FieldNode
 
-    expect(findFieldNode(root, "name" as any)).toBe(field)
+    expect(context.nodeManager.get(context.nodeManager.getNodeIds("name")[0] ?? -1)).toBe(
+      field
+    )
 
     commitSchemas(root, [createRawFieldSchema("name", "nickname")])
 
-    expect(findFieldNode(root, "name" as any)).toBeUndefined()
-    expect(findFieldNode(root, "nickname" as any)).toBe(field)
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("name")[0] ?? -1)
+    ).toBeUndefined()
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("nickname")[0] ?? -1)
+    ).toBe(field)
 
     commitSchemas(root, [])
 
-    expect(findFieldNode(root, "nickname" as any)).toBeUndefined()
+    expect(
+      context.nodeManager.get(context.nodeManager.getNodeIds("nickname")[0] ?? -1)
+    ).toBeUndefined()
   })
 })
 

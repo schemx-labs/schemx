@@ -7,25 +7,32 @@
 import { inject, type InjectionKey, provide } from "vue"
 
 import type { FieldInstance } from "../types"
-import type { Values } from "@schemx/core"
+import type { NamePath, Values } from "@schemx/core"
 
-const SCHEMX_FIELD_CONTEXT_KEY: InjectionKey<FieldInstance<Values>> =
-  Symbol("schemx:field")
+// 注入容器擦除业务泛型，字段对象按原样传递。
+const SCHEMX_FIELD_CONTEXT_KEY: InjectionKey<object> = Symbol("schemx:field")
 
 /**
- * 向后代组件提供当前字段实例。
+ * 向后代组件提供当前路径字段实例。
+ * @typeParam TValues - 表单值类型。
+ * @typeParam TName - 字段允许的路径。
+ * @param field - 当前 Vue 字段工具。
+ * @example createFieldContext(useField("name"))
  */
-export function createFieldContext<TValues extends Values = Values>(
-  field: FieldInstance<TValues>
-): void {
-  provide<FieldInstance<Values>>(SCHEMX_FIELD_CONTEXT_KEY, field as FieldInstance<Values>)
+export function createFieldContext<
+  TValues extends Values = Values,
+  TName extends NamePath<TValues> = NamePath<TValues>,
+>(field: FieldInstance<TValues, TName>): void {
+  provide(SCHEMX_FIELD_CONTEXT_KEY, field)
 }
 
 /**
  * 获取最近祖先组件提供的当前字段实例。
+ * @example const field = useFieldContext()
  */
 export function useFieldContext(): FieldInstance<Values> {
-  const field = inject<FieldInstance<Values> | null>(SCHEMX_FIELD_CONTEXT_KEY, null)
+  // 当前注入键只存放 Vue 字段工具。
+  const field = inject<object | null>(SCHEMX_FIELD_CONTEXT_KEY, null)
 
   if (!field) {
     throw new Error(
@@ -34,5 +41,6 @@ export function useFieldContext(): FieldInstance<Values> {
     )
   }
 
-  return field
+  // Context key 只由 createFieldContext 写入，在注入边界恢复擦除的表单类型。
+  return field as FieldInstance<Values>
 }

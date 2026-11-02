@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getFormStateAdapterContext } from "../adapter/formStateAdapter/context"
 import { createForm } from "../createForm"
-import { createField, createFormStateAdapter } from "../index"
+import { createFormStateAdapter, getFormAdapter } from "../index"
 
 interface FormValues {
   name: string
@@ -30,6 +30,104 @@ const createTestForm = () =>
   })
 
 describe("createFormStateAdapter", () => {
+  it("框架副本统一使用原始 Form 和原生状态入口", () => {
+    // 对象展开模拟保留 Core 上下文的框架副本。
+    const form = createTestForm()
+
+    const wrapped = { ...form }
+
+    // 快照订阅和视图读取都不应调用框架包装方法。
+    const effect = vi.spyOn(wrapped, "effect")
+
+    const readView = vi.spyOn(wrapped, "getViewSchemas")
+
+    const subscribeView = vi.spyOn(wrapped, "subscribeViewSchemas")
+
+    const adapter = createFormStateAdapter(wrapped)
+
+    const native = getFormAdapter(form)
+
+    const changed = vi.fn()
+
+    expect(adapter.form).toBe(form)
+    expect(adapter.bind(native.loading)).toBe(adapter.loading)
+    expect(adapter.bind(native.disposed)).toBe(adapter.disposed)
+    expect(adapter.bind(native.viewSchemas)).toBe(adapter.viewSchemas)
+    adapter.loading.subscribe(changed)
+    adapter.field("name").subscribe(changed)
+    adapter.viewSchemas.subscribe(changed)
+    expect(adapter.viewSchemas.getSnapshot()).toBe(native.viewSchemas.peek())
+    expect(effect).not.toHaveBeenCalled()
+    expect(readView).not.toHaveBeenCalled()
+    expect(subscribeView).not.toHaveBeenCalled()
+    adapter.dispose()
+    form.destroy()
+  })
+
+  it.each(["dispose", "destroy"] as const)(
+    "%s 释放绑定其他 Form 状态的订阅，独立消费者继续接收通知",
+    (action) => {
+      // action 选择适配器释放或所属 Form 销毁。
+      const owner = createTestForm()
+
+      const other = createTestForm()
+
+      const adapter = createFormStateAdapter(owner)
+
+      const state = getFormAdapter(other).field("name").value
+
+      // 原生订阅仍属于另一张 Form，快照订阅由当前 Form 的 effect 管理。
+      const subscribe = vi.spyOn(state, "subscribe")
+
+      const independent = vi.fn()
+
+      const stopIndependent = state.subscribe(independent)
+
+      const changed = vi.fn()
+
+      const source = adapter.bind(state)
+
+      const stop = source.subscribe(changed)
+
+      expect(subscribe).toHaveBeenCalledTimes(1)
+      expect(changed).not.toHaveBeenCalled()
+      other.setFieldValue("name", "Grace")
+      expect(changed).toHaveBeenCalledTimes(1)
+      if (action === "dispose") adapter.dispose()
+      else owner.destroy()
+      other.setFieldValue("name", "Lin")
+      expect(changed).toHaveBeenCalledTimes(1)
+      expect(independent).toHaveBeenCalledTimes(3)
+      expect(source.getSnapshot()).toBe("Lin")
+      source.subscribe(changed)()
+      stop()
+      stop()
+      stopIndependent()
+      adapter.dispose()
+      owner.destroy()
+      other.destroy()
+    }
+  )
+
+  it("Form 销毁后视图空快照保持稳定引用，且不再接受订阅", () => {
+    // 原生入口统一提供终态空数组，快照协议直接复用。
+    const form = createTestForm()
+
+    const adapter = createFormStateAdapter(form)
+
+    const native = getFormAdapter(form)
+
+    const changed = vi.fn()
+
+    form.destroy()
+    expect(adapter.viewSchemas.getSnapshot()).toEqual([])
+    expect(adapter.viewSchemas.getSnapshot()).toBe(adapter.viewSchemas.getSnapshot())
+    expect(adapter.viewSchemas.getSnapshot()).toBe(native.viewSchemas.peek())
+    adapter.viewSchemas.subscribe(changed)()
+    expect(changed).not.toHaveBeenCalled()
+    adapter.dispose()
+  })
+
   it("提供稳定的全表快照，并且只在值变化后通知", () => {
     const form = createTestForm()
 
@@ -306,7 +404,7 @@ describe("createFormStateAdapter", () => {
     form.destroy()
   })
 
-  it("字段来源保持固定路径，节点绑定的移动由字段控制器负责", () => {
+  it("字段来源保持固定路径，Schema 改名后消费端显式选择新路径", () => {
     const form = createTestForm()
 
     form.setSchemas([
@@ -316,16 +414,13 @@ describe("createFormStateAdapter", () => {
 
     const fixed = store.field("name")
 
-    const controller = createField(form, "name")
-
     form.setSchemas([
       { key: "field", name: "profile.name", label: "姓名", componentType: "input" },
     ])
-    expect(form.getFieldName(controller.ref)).toBe("profile.name")
-    expect(controller.getValue()).toBe("Lovelace")
+    expect(form.getFieldValue("profile.name")).toBe("Lovelace")
     expect(store.field("name")).toBe(fixed)
     expect(fixed.getSnapshot().value).toBe("Ada")
-    controller.setValue("Byron")
+    form.setFieldValue("profile.name", "Byron")
     expect(fixed.getSnapshot().value).toBe("Ada")
     expect(store.field("profile.name").getSnapshot().value).toBe("Byron")
     store.dispose()
@@ -435,82 +530,6 @@ describe("createFormStateAdapter", () => {
     expect(errorsChanged).toHaveBeenCalledTimes(1)
     adapter.dispose()
     form.destroy()
-  })
-
-  it("引用来源跟随节点移动并在节点替换后保持失效", () => {
-    const form = createTestForm()
-
-    form.setSchemas([
-      { key: "field", name: "name", label: "姓名", componentType: "input" },
-    ])
-    const adapter = createFormStateAdapter(form)
-
-    const controller = form.getFieldRef("name")
-
-    const bound = adapter.field(controller)
-
-    const changed = vi.fn()
-
-    expect(adapter.field(controller)).toBe(bound)
-    bound.value.subscribe(changed)
-    form.setSchemas([
-      { key: "field", name: "profile.name", label: "姓名", componentType: "input" },
-    ])
-    expect(bound.name.getSnapshot()).toBe("profile.name")
-    expect(bound.value.getSnapshot()).toBe("Lovelace")
-    expect(changed).toHaveBeenCalledTimes(1)
-    form.setFieldErrors("profile.name", ["invalid"])
-    form.setFieldTouched("profile.name", true)
-    form.setFieldPending("profile.name", true)
-    form.setSchemas([])
-    expect(bound.disposed.getSnapshot()).toBe(true)
-    expect(bound.name.getSnapshot()).toBeUndefined()
-    expect(bound.getSnapshot()).toEqual({
-      value: undefined,
-      errors: [],
-      touched: false,
-      pending: false,
-    })
-    expect(bound.value.getSnapshot()).toBeUndefined()
-    expect(bound.errors.getSnapshot()).toEqual([])
-    expect(bound.touched.getSnapshot()).toBe(false)
-    expect(bound.pending.getSnapshot()).toBe(false)
-    form.setSchemas([
-      { key: "replacement", name: "profile.name", label: "替换", componentType: "input" },
-    ])
-    expect(bound.value.getSnapshot()).toBeUndefined()
-    adapter.dispose()
-    form.destroy()
-  })
-
-  it("手动引用销毁后归一为空，固定路径来源仍保留原生状态", () => {
-    const form = createTestForm()
-
-    const adapter = createFormStateAdapter(form)
-
-    const bound = adapter.field(form.getFieldRef("name"))
-
-    const fixed = adapter.field("name")
-
-    expect(fixed.value.getSnapshot()).toBe("Ada")
-
-    const changed = vi.fn()
-
-    bound.value.subscribe(changed)
-    form.setFieldErrors("name", ["invalid"])
-    form.setFieldTouched("name", true)
-    form.setFieldPending("name", true)
-    form.destroy()
-    expect(bound.getSnapshot()).toEqual({
-      value: undefined,
-      errors: [],
-      touched: false,
-      pending: false,
-    })
-    expect(bound.value.getSnapshot()).toBeUndefined()
-    expect(changed).toHaveBeenCalledTimes(1)
-    expect(fixed.value.getSnapshot()).toBe("Ada")
-    adapter.dispose()
   })
 
   it("ViewSchema 来源沿用防抖订阅且随 adapter 释放", async () => {

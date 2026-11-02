@@ -5,19 +5,22 @@
  */
 
 import { createComputed, runSignalUntracked } from "../../reactivity"
-
-import { getFormStateAdapterContext } from "./context"
+import { getFormAdapter } from "../formAdapter"
 
 import type {
-  FieldRefSnapshotSource,
   FieldSnapshotSource,
   FieldStateSnapshot,
   FormStateAdapter,
   SnapshotSource,
 } from "./types"
 import type { ReadonlyState } from "../../reactivity"
-import type { FieldRef } from "../../types"
 import type { DeepReadonly, NamePath, SchemxInstance, Values } from "../../types"
+
+/**
+ * 快照读取所需的最小原生状态，Signal 和 ReadonlyState 都可直接使用。
+ * @typeParam TValue - 原生状态内容。
+ */
+type SnapshotState<TValue> = Pick<ReadonlyState<TValue>, "value" | "peek">
 
 /**
  * 为 Core Form 提供快照读取与变化订阅，直接复用原生状态的缓存和依赖图。
@@ -42,13 +45,8 @@ import type { DeepReadonly, NamePath, SchemxInstance, Values } from "../../types
 export function createFormStateAdapter<TValues extends Values>(
   form: SchemxInstance<TValues>
 ): FormStateAdapter<TValues> {
-  // 直接使用所属表单操作，公开实例不再提供聚合 state。
-  const {
-    store,
-    configuration,
-    disposed: formDisposed,
-    loading: formLoading,
-  } = getFormStateAdapterContext(form)
+  // 所有状态和原始实例统一从原生适配入口获取。
+  const native = getFormAdapter(form)
 
   // 仅登记此适配器创建的取消函数，不管理共享来源或监听器分发。
   const subscriptions = new Set<() => void>()
@@ -67,13 +65,13 @@ export function createFormStateAdapter<TValues extends Values>(
    * @param start - 创建底层订阅的函数。
    */
   const subscribeOwned = (start: () => () => void): (() => void) => {
-    if (disposed || formDisposed.peek()) {
+    if (disposed || native.disposed.peek()) {
       return () => {}
     }
 
     const cancel = start()
 
-    if (disposed) {
+    if (disposed || native.disposed.peek()) {
       cancel()
 
       return () => {}
@@ -91,23 +89,29 @@ export function createFormStateAdapter<TValues extends Values>(
   }
 
   /**
-   * 由原生 computed 缓存聚合结果，快照读取和监听器均不污染 Core 依赖。
-   * @typeParam TSnapshot - 聚合结果类型。
-   * @param read - 读取原生响应式状态。
+   * 转换快照协议；普通状态使用所属 Form 的 effect，特殊调度沿用原生订阅。
+   * @typeParam TSnapshot - 快照内容类型。
+   * @param state - 原生状态或唯一的聚合 computed。
+   * @param subscribeState - 可选的原生订阅入口，保留视图防抖和同步首值语义。
    */
   const createSource = <TSnapshot>(
-    read: () => DeepReadonly<TSnapshot>
+    state: SnapshotState<TSnapshot>,
+    subscribeState?: (listener: () => void) => () => void
   ): SnapshotSource<TSnapshot> => {
-    const snapshot = createComputed(read)
+    // 原生状态已经缓存当前值，不再增加 computed 包装。
+    const getSnapshot = (): DeepReadonly<TSnapshot> => state.peek()
 
-    const getSnapshot = (): DeepReadonly<TSnapshot> => snapshot.peek()
-
+    /**
+     * 独立订阅变化，跳过同步首值；监听器读取不扩展状态依赖。
+     * @param listener - 快照变化时执行的消费端回调。
+     */
     const subscribe = (listener: () => void): (() => void) =>
       subscribeOwned(() => {
+        // 每次订阅单独跳过首次执行。
         let initial = true
 
-        return form.effect(() => {
-          void snapshot.value
+        // 统一原生 subscribe 和 effect 的通知协议。
+        const notify = (): void => {
           if (initial) {
             initial = false
 
@@ -115,6 +119,16 @@ export function createFormStateAdapter<TValues extends Values>(
           }
 
           runSignalUntracked(listener)
+        }
+
+        if (subscribeState) {
+          return subscribeState(notify)
+        }
+
+        return native.form.effect(() => {
+          // 即使绑定其他 Form 的状态，订阅仍归当前 Form 所有。
+          void state.value
+          notify()
         })
       })
 
@@ -129,7 +143,7 @@ export function createFormStateAdapter<TValues extends Values>(
   }
 
   /**
-   * 转换原生状态，复用其缓存和订阅生命周期，不创建另一套 effect。
+   * 复用原生状态缓存，将订阅生命周期交由当前 Form 和 adapter 管理。
    * @typeParam TValue - 原生状态值类型。
    * @param state - 要转换的原生只读状态。
    */
@@ -141,94 +155,44 @@ export function createFormStateAdapter<TValues extends Values>(
       return cached as SnapshotSource<TValue>
     }
 
-    const getSnapshot = (): DeepReadonly<TValue> => state.peek()
-
-    const subscribe = (listener: () => void): (() => void) =>
-      subscribeOwned(() => {
-        let initial = true
-
-        return state.subscribe(() => {
-          if (initial) {
-            initial = false
-
-            return
-          }
-
-          runSignalUntracked(listener)
-        })
-      })
-
-    const source = { getSnapshot, subscribe }
+    // 视图沿用原生防抖订阅；普通状态由所属 Form 的 effect 追踪。
+    const source = createSource(
+      state,
+      Object.is(state, native.viewSchemas) ? native.viewSchemas.subscribe : undefined
+    )
 
     stateSources.set(state, source)
 
     return source
   }
 
-  // 聚合状态来源直接复用原生只读状态。
-  const values = bind(store.state.values)
+  // 直接转换已有原生状态，不再分别装配 loading、disposed 或视图来源。
+  const values = bind(native.values)
 
-  const touchedFields = bind(store.state.touchedFields)
+  const touchedFields = bind(native.touchedFields)
 
-  const pendingFields = bind(store.state.pendingFields)
+  const pendingFields = bind(native.pendingFields)
 
-  const loading = createSource(() => formLoading.value)
+  const loading = bind(native.loading)
 
-  const config = bind(configuration.state)
+  const config = bind(native.config)
 
-  const disposedState = createSource(() => formDisposed.value)
+  const disposedState = bind(native.disposed)
 
-  // ViewSchema 使用原来的订阅入口，保留其防抖与首值语义。
-  // 深层只读是消费契约；不复制或代理 Schema 内的组件与回调定义。
-  const getViewSnapshot = (): ReturnType<
-    FormStateAdapter<TValues>["viewSchemas"]["getSnapshot"]
-  > =>
-    runSignalUntracked(() => form.getViewSchemas()) as ReturnType<
-      FormStateAdapter<TValues>["viewSchemas"]["getSnapshot"]
-    >
+  const viewSchemas = bind(native.viewSchemas)
 
-  const subscribeView = (listener: () => void): (() => void) =>
-    subscribeOwned(() => {
-      let initial = true
-
-      return form.subscribeViewSchemas(() => {
-        if (initial) {
-          initial = false
-
-          return
-        }
-
-        runSignalUntracked(listener)
-      })
-    })
-
-  const viewSchemas = { getSnapshot: getViewSnapshot, subscribe: subscribeView }
-
-  /**
-   * 按引用身份读取，移动后继续跟随该节点。
-   * @typeParam TName - 引用初始字段路径。
-   * @param ref - 当前表单的稳定字段引用。
-   */
-  function field<TName extends NamePath<TValues>>(
-    ref: FieldRef<TValues, TName>
-  ): FieldRefSnapshotSource<TValues, TName>
   /**
    * 按固定路径读取，不跟随节点移动。
    * @typeParam TName - 固定字段路径。
    * @param name - 要读取的路径。
+   * @example const source = adapter.field("name")
    */
   function field<TName extends NamePath<TValues>>(
     name: TName
-  ): FieldSnapshotSource<TValues, TName>
-  // 引用的失效语义由 Form 处理，Store 路径来源仍保留原生读取语义。
-  function field<TName extends NamePath<TValues>>(
-    input: TName | FieldRef<TValues, TName>
   ): FieldSnapshotSource<TValues, TName> {
     assertActive()
-    const ref =
-      typeof input === "object" ? (input as FieldRef<TValues, TName>) : undefined
-
-    const state = ref ? form.getFieldState(ref) : store.state.field(input as TName)
+    // 路径状态及有效性检查统一委托原生适配入口。
+    const state = native.field(name)
 
     const cached = fieldSources.get(state)
 
@@ -236,7 +200,7 @@ export function createFormStateAdapter<TValues extends Values>(
       return cached as FieldSnapshotSource<TValues, TName>
     }
 
-    // Form 已统一引用状态的终态语义，adapter 只转换订阅协议。
+    // adapter 只转换 Store 原生路径状态的订阅协议。
     const value = bind(state.value)
 
     const errors = bind(state.errors)
@@ -245,12 +209,14 @@ export function createFormStateAdapter<TValues extends Values>(
 
     const pending = bind(state.pending)
 
-    const aggregate = createSource<FieldStateSnapshot<TValues, TName>>(() => ({
-      value: state.value.value,
-      errors: state.errors.value,
-      touched: state.touched.value,
-      pending: state.pending.value,
-    }))
+    const aggregate = createSource<FieldStateSnapshot<TValues, TName>>(
+      createComputed(() => ({
+        value: state.value.value,
+        errors: state.errors.value,
+        touched: state.touched.value,
+        pending: state.pending.value,
+      }))
+    )
 
     const source = {
       ...aggregate,
@@ -258,12 +224,6 @@ export function createFormStateAdapter<TValues extends Values>(
       errors,
       touched,
       pending,
-      ...(ref
-        ? {
-            name: bind(form.getFieldState(ref).name),
-            disposed: bind(form.getFieldState(ref).disposed),
-          }
-        : {}),
     }
 
     fieldSources.set(state, source)
@@ -288,7 +248,7 @@ export function createFormStateAdapter<TValues extends Values>(
   }
 
   return {
-    form,
+    form: native.form,
     values,
     touchedFields,
     pendingFields,

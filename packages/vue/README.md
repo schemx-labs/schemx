@@ -1083,13 +1083,23 @@ const field = useFieldContext()
 
 ```ts
 function useField<TValues extends Values = Values>(
-  name: NamePath<TValues>
+  name: FieldPathSource<NamePath<TValues>>
 ): FieldInstance<TValues>
 ```
 
-Hook 从祖先上下文取得 Instance，为 `name` 创建 Core 字段控制器，并复用共享 Runtime 中的字段状态。它保留 Core `SchemxFieldInstance` 的全部成员，并增加 `value: Ref<FieldValue<...> | undefined>`、`errors: ComputedRef<readonly string[]>`、`dirty: ComputedRef<boolean>` 与 `pending: ComputedRef<boolean>`；`dirty` 读取字段 touched Ref。`getValue()`、`getErrors()`、`isTouched()` 和 `isPending()` 都读取对应 Vue Ref，`getValues()` 则通过 Instance 读取全表值。只有 `value` 可通过 `.value` 写入，其余三个 computed 状态只读。Core 方法的完整签名见 [Core Schema source、字段与监听](../core#schema-source字段与监听)。
+Hook 从祖先上下文取得 Instance，每次操作按当前路径调用 Form API，并复用共享 Runtime 的字段状态。`name` 可以是固定路径、路径 Ref 或 getter；固定路径不会因 Schema 改名或数组移动而改变，动态路径由消费端更新。
 
-`useField()` 不缓存字段控制器对象；每次调用只创建轻量的 Core 控制器包装，并复用当前 Runtime 中按字段 `SnapshotSource` 缓存的字段 Ref。Runtime 由 `useForm()`、Form Context 和 `useFormSelector()` 等 Vue owner 的引用计数持有，最后一个 owner 释放或手动销毁后停止订阅。`FieldInstance` 可从 `@schemx/vue` 根入口导入；不需要依赖深层路径。
+`value` 是可整体赋值的 Vue computed；`errors`、`dirty`、`pending` 是只读 computed。`getValue()`、`getErrors()`、`isTouched()` 和 `isPending()` 使用已桥接的 Form 读取，`getValues()` 读取全表值；其他命令、规则和快照操作也直接委托当前路径对应的 Form API。不再公开 `ref` 或 Core 字段引用状态。
+
+`useField()` 每次返回轻量的 Vue 字段工具；Runtime 按路径来源缓存 Ref 和 Core 订阅。最后一个 Vue owner 释放后停止同步，显式 getter 仍可读取最新 Core 值。`FieldInstance` 从 `@schemx/vue` 根入口导入。
+
+```ts
+// 固定位置。
+const firstName = useField<Values>("users.0.name")
+
+// 路径由当前组件 props 决定，数组移动时父层传入最新地址。
+const currentName = useField<Values>(() => props.name)
+```
 
 ```ts
 import { createFieldContext, useField } from "@schemx/vue"

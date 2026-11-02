@@ -866,7 +866,7 @@ export function createReconciler<TValues extends Values>(
       }
 
       if (!isRootNode(node)) {
-        unmountNodeResources(node, context)
+        unmountNodeResources(node)
         if (lifecycleHooks.unmounted) {
           lifecycle.unmounted(createNodeSnapshot(node))
         }

@@ -104,5 +104,3 @@ export type { StandardSchemaV1 } from "./standardSchema"
 export type { AsyncValidatorRule, AsyncValidatorDescriptor } from "./asyncValidator"
 
 export type { ValidationAdapterV1 } from "./validationAdapter"
-
-export type { FieldRef, FieldRefState } from "./fieldRef"

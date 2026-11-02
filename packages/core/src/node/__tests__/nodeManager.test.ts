@@ -13,6 +13,7 @@ import { createSchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
 import { batchUpdates, createSignalEffect } from "../../reactivity"
 
+import { readNodePath } from "./nodeTestUtils"
 import { createFieldNode, createGroupNode } from "./nodeTestUtils"
 
 describe("NodeManager", () => {
@@ -118,8 +119,7 @@ describe("NodeManager", () => {
     expect(root.disposed.value).toBe(false)
     expect(root.scope.disposed).toBe(false)
     expect(manager.size).toBe(0)
-    expect(manager.getPaths()).toEqual([])
-    expect(manager.getNodeId("field")).toBeUndefined()
+    expect(manager.getNodeIds("field")[0]).toBeUndefined()
     expect(() => manager.updatePaths([])).toThrow("disposed")
     expect(() => manager.setArrayRows(1, [])).toThrow("disposed")
     expect(() =>
@@ -142,25 +142,20 @@ describe("NodeManager", () => {
     group.childNodes.value = [first, second]
     manager.insert(group, 0)
 
-    const paths = manager.getPaths()
-
     const ids = manager.getNodeIds("users.0.name")
 
-    expect(paths).toEqual(["users.0.name"])
     expect(ids).toEqual([2, 3])
-    expect(manager.getNodeId("users[0].name")).toBe(2)
-    expect(manager.getNodeId("missing")).toBeUndefined()
-    expect(manager.getPath(group.id)).toBeUndefined()
-    expect(manager.getPath(0)).toBeUndefined()
+    expect(manager.getNodeIds("users[0].name")[0]).toBe(2)
+    expect(manager.getNodeIds("missing")[0]).toBeUndefined()
+    expect(readNodePath(manager, group.id)).toBeUndefined()
+    expect(readNodePath(manager, 0)).toBeUndefined()
     manager.reorderChildren(group.id, [second, first])
     expect(manager.getNodeIds("users.0.name")).toEqual([2, 3])
     manager.updatePaths([{ nodeId: first.id, path: "email" }])
-    expect(paths).toEqual(["users.0.name"])
     expect(ids).toEqual([2, 3])
-    expect(manager.getNodeId("users.0.name")).toBe(3)
+    expect(manager.getNodeIds("users.0.name")[0]).toBe(3)
     manager.remove(group.id)
-    expect(manager.getPaths()).toEqual([])
-    expect(manager.getPath(first.id)).toBeUndefined()
+    expect(readNodePath(manager, first.id)).toBeUndefined()
     expect(manager.getNodeIds("users.0.name")).toEqual([])
   })
 
@@ -179,9 +174,8 @@ describe("NodeManager", () => {
     manager.updatePaths([{ nodeId: nested.id, path: "user.name" }])
     expect(manager.getNodeIds('["user.name"]')).toEqual([1])
     expect(manager.getNodeIds("user.name")).toEqual([2, 3])
-    expect(manager.getPaths()).toEqual(['["user.name"]', "user.name"])
     manager.remove(nested.id)
-    expect(manager.getNodeId("user.name")).toBe(replacement.id)
+    expect(manager.getNodeIds("user.name")[0]).toBe(replacement.id)
   })
 
   it("批量交换路径时消费者只观察到同步的节点路径和索引", () => {
@@ -196,15 +190,15 @@ describe("NodeManager", () => {
     const seen: unknown[] = []
 
     const stop = createSignalEffect(() => {
-      const firstPath = manager.getPath(first.id)
+      const firstPath = readNodePath(manager, first.id)
 
-      const secondPath = manager.getPath(second.id)
+      const secondPath = readNodePath(manager, second.id)
 
       seen.push([
         firstPath,
         secondPath,
-        manager.getNodeId("first"),
-        manager.getNodeId("second"),
+        manager.getNodeIds("first")[0],
+        manager.getNodeIds("second")[0],
       ])
     })
 
@@ -218,7 +212,7 @@ describe("NodeManager", () => {
     ])
     expect(first.compiledSchema.peek().name).toBe("first")
     manager.move(first.id, 0, 1)
-    expect(manager.getPath(first.id)).toBe("second")
+    expect(readNodePath(manager, first.id)).toBe("second")
     stop()
   })
 
@@ -238,7 +232,7 @@ describe("NodeManager", () => {
           { nodeId: invalidId, path: "invalid" },
         ])
       ).toThrow("path node")
-      expect(manager.getPath(field.id)).toBe("name")
+      expect(readNodePath(manager, field.id)).toBe("name")
       expect(field.compiledSchema.peek().name).toBe("name")
       expect(manager.getNodeIds("next")).toEqual([])
     }
@@ -266,13 +260,12 @@ describe("NodeManager", () => {
     expect(manager.has(10)).toBe(false)
     expect(manager.get(10)).toBeUndefined()
     expect(manager.values().map((node) => node.id)).toEqual([0, array.id, field.id])
-    expect(manager.getPaths()).toEqual(["users", "users.0", "users.1"])
     expect(manager.getNodeIds("users.0")).toEqual([10, field.id])
 
     const seen: unknown[] = []
 
     const stop = createSignalEffect(() =>
-      seen.push([manager.getPath(10), manager.getPath(11)])
+      seen.push([readNodePath(manager, 10), readNodePath(manager, 11)])
     )
 
     manager.updatePaths([
@@ -284,7 +277,7 @@ describe("NodeManager", () => {
       ["users.1", "users.0"],
     ])
     manager.setArrayRows(array.id, [{ id: 11, key: "second", index: 0, path: "users.0" }])
-    expect(manager.getPath(10)).toBeUndefined()
+    expect(readNodePath(manager, 10)).toBeUndefined()
     expect(manager.getNodeIds("users.0")).toEqual([field.id, 11])
     expect(() => manager.updatePaths([{ nodeId: 10, path: "users.0" }])).toThrow(
       "path node"
@@ -294,15 +287,14 @@ describe("NodeManager", () => {
       array.compiledSchema.value = { ...array.compiledSchema.peek(), name: "members" }
       manager.updatePaths([{ nodeId: array.id, path: "members" }])
     })
-    expect(manager.getPath(array.id)).toBe("members")
-    expect(manager.getNodeId("users")).toBeUndefined()
+    expect(readNodePath(manager, array.id)).toBe("members")
+    expect(manager.getNodeIds("users")[0]).toBeUndefined()
     manager.remove(array.id)
-    expect(manager.getPath(11)).toBeUndefined()
+    expect(readNodePath(manager, 11)).toBeUndefined()
     expect(manager.getNodeIds("users.0")).toEqual([field.id])
-    expect(manager.getNodeId("members")).toBeUndefined()
+    expect(manager.getNodeIds("members")[0]).toBeUndefined()
     stop()
     manager.clear()
-    expect(manager.getPaths()).toEqual([])
   })
 
   it("数组行列表校验失败不改变原有行和索引", () => {
@@ -338,14 +330,13 @@ describe("NodeManager", () => {
     array.childNodes.value = [field]
     expect(() => manager.insert(array, 0)).toThrow("row id")
     expect(manager.size).toBe(1)
-    expect(manager.getPaths()).toEqual([])
     expect(manager.getChildren(0)).toEqual([])
     array.dynamicRows.value = [{ id: 10, key: "row", index: 0, path: "users.0" }]
     manager.insert(array, 0)
-    expect(manager.getNodeId("users.0")).toBe(10)
+    expect(manager.getNodeIds("users.0")[0]).toBe(10)
     expect(manager.size).toBe(3)
     manager.clear()
-    expect(manager.getNodeId("users.0")).toBeUndefined()
+    expect(manager.getNodeIds("users.0")[0]).toBeUndefined()
   })
 })
 

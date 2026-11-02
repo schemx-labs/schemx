@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { getFormStateAdapterContext } from "../adapter/formStateAdapter/context"
-import { createField, createForm, createFormStateAdapter } from "../index"
+import { createForm, createFormStateAdapter, getFormAdapter } from "../index"
 
 import type { Values } from "../index"
 
@@ -20,7 +20,7 @@ function createTestForm() {
 }
 
 describe("Core 表单底层状态", () => {
-  it("状态直接来自 Model 与 Store，字段控制器复用同一路径的状态来源", () => {
+  it("状态直接来自 Model 与 Store，adapter 复用同一路径的状态来源", () => {
     const form = createForm<Values>({ initialValues: { profile: { name: "Lovelace" } } })
 
     const state = getFormStateAdapterContext(form).store.state
@@ -32,13 +32,7 @@ describe("Core 表单底层状态", () => {
     expect(form).not.toHaveProperty("state")
     expect(getFormStateAdapterContext(form).store.state).toBe(state)
     expect(state.field("profile[name]")).toBe(field)
-    const controller = createField(form, "profile.name")
-
-    expect(createField(form, "profile.name").ref).toBe(controller.ref)
-    expect(controller.state.value.peek()).toBe(field.value.peek())
-    expect(controller.state.errors.peek()).toBe(field.errors.peek())
-    expect(controller.state.touched.peek()).toBe(field.touched.peek())
-    expect(controller.state.pending.peek()).toBe(field.pending.peek())
+    expect(getFormAdapter(form).field("profile.name")).toBe(field)
     expect(field.value.value).toBe("Lovelace")
     expect(field.value.peek()).toBe("Lovelace")
     expect(field.errors.value).toBe(field.errors.value)

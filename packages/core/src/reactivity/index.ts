@@ -29,7 +29,7 @@ export {
   createDebouncedSignalWatch,
 } from "./watch"
 
-export { batchUpdates, onBatchComplete } from "./batch"
+export { batchUpdates } from "./batch"
 
 export { createComputed, type ComputedSignal } from "./computed"
 

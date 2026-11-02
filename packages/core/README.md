@@ -101,6 +101,108 @@ const form = createForm({
 
 ViewSchema 在节点投影阶段一次生成最终 Props，包括稳定的 `componentProps.formInstance`。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。Compiler 的配置编译保持与 Form 实例独立。
 
+## 框架适配：直接消费 Core 原生状态
+
+`getFormAdapter(form)` 提供稳定的原生只读状态入口。values、touched、pending、config 和字段状态直接返回 Core 已有对象；loading 与 disposed 仅提供现有 Signal 的只读访问；ViewSchema 沿用原有视图读取和防抖订阅。获取入口或读取值不会提前建立订阅，也不创建框架容器、第二份状态或监听器分发层。
+
+```ts
+import { createForm, getFormAdapter } from "@schemx/core"
+
+const form = createForm({ initialValues: { email: "" } })
+const adapter = getFormAdapter(form)
+const state = adapter.field("email").value
+
+console.log(state.peek()) // ""，无依赖读取。
+
+const stop = state.subscribe((value) => {
+  console.log(value)
+}) // 首次同步通知 ""，之后由原生 Signal 通知。
+
+form.setFieldValue("email", "hello@example.com")
+stop()
+form.destroy()
+```
+
+每个状态都遵循已有的 `ReadonlyState<T>`：
+
+| API | 行为 |
+| --- | --- |
+| `state.value` | 读取当前值，在 Core effect 中建立依赖。 |
+| `state.peek()` | 无依赖读取同一个当前值，不复制业务对象。 |
+| `state.subscribe(listener)` | 首次同步交付当前值，后续由 Core 通知，返回独立取消函数。 |
+
+入口提供 `values`、`loading`、`config`、`disposed`、`touchedFields`、`pendingFields`、`viewSchemas` 和 `field(name)`。字段状态始终绑定传入的固定路径；数组移动或 Schema 改名不会使其跟随原字段。
+
+所有字段 API 都操作本次传入的路径。Core 不提供字段引用或字段控制器；框架层、UI 层或业务层负责在每次调用前提供当前路径，需要跟随业务数据时自行维护业务 key 与路径的对应关系。
+
+```ts
+const state = adapter.field("email")
+
+// 状态观察 email 路径，命令直接通过 Form 执行。
+form.changeField("email", "hello@example.com")
+console.log(state.value.peek())
+```
+
+此处假定 form 仍然存活。原始 Form 与保留 Core 上下文 Symbol 的框架副本共用入口，`adapter.form` 始终指向原始实例。适配器不提供 `dispose()`，消费者取消自己的原生订阅；Form 销毁时原有作用域统一停止通知，已有状态仍可读取，不能再通过 `field()` 获取状态。框架容器缓存及组件生命周期由框架层决定。
+
+### React：直接读取与订阅
+
+React 层可以直接将原生 `subscribe` 和 `peek` 交给 `useSyncExternalStore`，不需要投影驱动。以下是客户端 Hook，SSR 需要另外提供 `getServerSnapshot` 并保证 hydration 初值一致。
+
+```ts
+import { useSyncExternalStore } from "react"
+import type { DeepReadonly, ReadonlyState } from "@schemx/core"
+
+export function useCoreState<TValue>(
+  state: ReadonlyState<TValue>
+): DeepReadonly<TValue> {
+  return useSyncExternalStore(state.subscribe, state.peek)
+}
+```
+
+例如在 React 组件内使用 `useCoreState(getFormAdapter(form).field("email").value)`。方法引用保持稳定，每个 Hook 的订阅由 React 建立和取消；取消之后可以再次订阅同一个原生状态。
+
+### Vue：连接通知，读取时直接访问 Core
+
+Vue 层通过 `customRef` 接入自己的依赖收集与通知，getter 直接读取 Core 的 `peek()`，不再将快照保存到另一个 `shallowRef`。以下工具应在活动的 Vue scope 中调用：
+
+```ts
+import { customRef, getCurrentScope, onScopeDispose } from "vue"
+import type { Ref } from "vue"
+import type { DeepReadonly, ReadonlyState } from "@schemx/core"
+
+export function useCoreState<TValue>(
+  state: ReadonlyState<TValue>
+): Readonly<Ref<DeepReadonly<TValue>>> {
+  if (!getCurrentScope()) {
+    throw new Error("useCoreState requires an active Vue scope")
+  }
+
+  const target = customRef<DeepReadonly<TValue>>((track, trigger) => {
+    const stop = state.subscribe(() => trigger())
+
+    onScopeDispose(stop)
+
+    const get = (): DeepReadonly<TValue> => {
+      track()
+      return state.peek()
+    }
+
+    const set = (): void => {
+      throw new TypeError("只读状态，请通过 Form 方法修改")
+    }
+
+    return { get, set }
+  })
+
+  return target
+}
+```
+
+在 Vue setup 内使用 `useCoreState(getFormAdapter(form).field("email").value)`，状态变化的路径是 `Core Signal → trigger() → Vue 重新读取 peek()`。字段可写 computed、change/blur 等接口由 Vue 的 `useField()` 组织，Core 不维护框架 Ref、owner 或读取追踪驱动。
+
+旧的 `createFormStateAdapter()` 继续为现有 bridge 提供独立快照协议：它的 `getSnapshot()` 对应原生 `peek()`，订阅跳过首次通知。新的 `getFormAdapter()` 不经过旧适配器。框架 bridge 需使用路径接口，组件的动态路径和生命周期由消费端管理。
+
 ## Schema
 
 `SchemxField<TValues>` 有 4 种结构：普通字段、分组字段、动态依赖字段和动态数组字段。
@@ -386,13 +488,12 @@ Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregi
 | ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
 | `createSchemas(initial?)` | 创建可订阅、可更新的 Schema source。 | `const schemas = createSchemas([{ name: "x", label: "X", componentType: "input" }])` |
 | `isSchemxSchemas(value)`  | 判断值是否为 Schema source。         | `if (isSchemxSchemas(schemas)) {}`                                                   |
-| `createField(form, name)` | 从 Form 派生单字段控制器。           | `const field = createField(form, "email"); field.setValue("a@b.com")`                |
 | `createWatchField`        | 监听单一字段。                       | `createWatchField(form, "email", callback, { immediate: true })`                     |
 | `createWatchFields`       | 监听多个字段。                       | `createWatchFields(form, ["firstName", "lastName"], callback, {})`                   |
 | `createWatchAll`          | 监听所有字段变更。                   | `createWatchAll(form, callback, {})`                                                 |
 | `createWatch`             | 根据参数自动选择上述监听模式。       | `createWatch(form, "email", callback)`                                               |
 
-`createField()` 返回的 `SchemxFieldInstance` 包含字段值、初始值、错误、规则、touched、pending、重置、校验和 `effect` 等单字段 API。所有 watch API 都返回取消监听函数；回调接收最新表单快照与变更 payload。
+所有 watch API 都返回取消监听函数；回调接收最新表单快照与变更 payload。字段值、错误、规则、touched、pending、重置和校验均使用 Form 上对应的路径 API。
 
 ## 独立默认配置工厂
 
@@ -442,6 +543,6 @@ form.destroy()
 | 兼容类型        | `SchemxLayout`（已弃用；Vue 表单请改用 `@schemx/vue` 的 `SchemxColConfig`）                                                                                                                                                                                                                                                                              |
 | 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点；Vue 布局类型由 `@schemx/vue` 提供） |
 | 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
-| 状态适配        | `createFormStateAdapter`、`getFormCreationConfig`，以及 `SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                                                 |
+| 状态适配        | `getFormAdapter`、`createFormStateAdapter`、`getFormCreationConfig`，以及 `FormAdapter`、`SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                                                 |
 
 所有公开 API 和类型统一从 `@schemx/core` 根入口导入，包括状态适配与创建快照；包不开放代码子入口。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。

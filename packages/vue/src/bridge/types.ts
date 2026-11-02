@@ -14,7 +14,6 @@ import type { SchemxInstance as VueInstance } from "../types"
 import type {
   FormStateAdapter,
   NamePath,
-  ReadonlyState,
   SchemxInstance,
   SchemxViewSchema,
   Values,
@@ -107,13 +106,6 @@ export interface VueFormRuntime<TValues extends Values = Values> {
    * @example const release = runtime.retain(); release()
    */
   retain(): () => void
-  /**
-   * 在 Form 实例读取边界追踪原生身份状态，复用共享状态订阅。
-   * @typeParam TValue - 原生状态值类型。
-   * @param state - Form 持有的状态来源。
-   * @example runtime.trackState(field.state.name)
-   */
-  trackState<TValue>(state: ReadonlyState<TValue>): void
   /**
    * 在当前 Vue effect 中追踪指定字段状态。
    * 不激活已释放资源；需要先通过 retain 或获取方法建立资源周期。

@@ -5,6 +5,7 @@ import { createSchemaCompiler } from "../../compiler"
 import { createFormConfig } from "../../config/createFormConfig"
 import { createSchemas } from "../../createSchemas"
 import { createNodeManager, createScope, isDynamicNode } from "../../node"
+import { readNodePath } from "../../node/__tests__/nodeTestUtils"
 import { createSignal, createSignalEffect } from "../../reactivity"
 import { createReconciler } from "../../reconciler"
 import { createScheduler } from "../../scheduler"
@@ -280,7 +281,7 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     expect(node.dynamicRows.peek().map((row) => row.id)).toEqual(
       rows.map((row) => row.id)
     )
-    expect(nodeManager.getPath(added ?? -1)).toBeUndefined()
+    expect(readNodePath(nodeManager, added ?? -1)).toBeUndefined()
     expect(store.getFieldValue("users")).toEqual([{ name: "Ada" }, { name: "Grace" }])
 
     store.setFieldValue(node.compiledSchema.peek().name, (items: unknown[] | undefined) =>
@@ -301,7 +302,7 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     store.setFieldTouched("users.0.name", true)
     store.setFieldValue(node.compiledSchema.peek().name, [{ name: "Ada" }])
     expect(node.dynamicRows.peek()[0]?.id).not.toBe(previous)
-    expect(nodeManager.getPath(oldField)).toBeUndefined()
+    expect(readNodePath(nodeManager, oldField)).toBeUndefined()
     expect(store.isFieldTouched("users.0.name")).toBe(false)
     store.setFieldValue(node.compiledSchema.peek().name, [{}])
     expect(store.getFieldValue("users.0.name")).toBeUndefined()
@@ -463,7 +464,7 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     store.resetField(node.compiledSchema.peek().name)
     expect(node.dynamicRows.peek()[0]?.id).not.toBe(previous?.id)
     expect(other.dynamicRows.peek()[0]?.id).toBe(otherRow?.id)
-    expect(nodeManager.getPath(previous?.id ?? -1)).toBeUndefined()
+    expect(readNodePath(nodeManager, previous?.id ?? -1)).toBeUndefined()
     expect(store.getFieldValue("users.0.name")).toBe("Ada")
   })
 
@@ -480,8 +481,8 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     const stop = createSignalEffect(() => {
       void store.getFieldValue("users")
       samples.push([
-        nodeManager.getPath(first),
-        nodeManager.getPath(second),
+        readNodePath(nodeManager, first),
+        readNodePath(nodeManager, second),
         fieldId(nodeManager, "users.0.name"),
         fieldId(nodeManager, "users.1.name"),
         store.getFieldValue("users.0.name"),
@@ -547,8 +548,8 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     const field = fieldId(nodeManager, "users.0.name")
 
     schemas.update(() => [])
-    expect(nodeManager.getPath(field)).toBeUndefined()
-    expect(rows.map((row) => nodeManager.getPath(row.id))).toEqual([undefined])
+    expect(readNodePath(nodeManager, field)).toBeUndefined()
+    expect(rows.map((row) => readNodePath(nodeManager, row.id))).toEqual([undefined])
     expect(store.getFieldValue("users")).toEqual([{ name: "Ada" }])
     store.setFieldValue("users", [{ name: "Late" }])
     expect(nodeManager.getNodeIds("users.0.name")).toEqual([])
@@ -565,8 +566,8 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     store.removeFieldValue("users")
     expect(node.dynamicRows.peek()).toEqual([])
     expect(nodeManager.getNodeIds("users.0.name")).toEqual([])
-    expect(nodeManager.getPath(row ?? -1)).toBeUndefined()
-    expect(nodeManager.getPath(field)).toBeUndefined()
+    expect(readNodePath(nodeManager, row ?? -1)).toBeUndefined()
+    expect(readNodePath(nodeManager, field)).toBeUndefined()
     expect(store.getFieldsValue()).toEqual({})
     store.setFieldValue("users", [{ name: "New" }])
     expect(node.dynamicRows.peek()[0]?.id).not.toBe(row)
@@ -602,9 +603,9 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
     ])
     expect(node.dynamicRows.peek()[0]?.id).toBe(row)
     expect(fieldId(nodeManager, "members.0.name")).toBe(field)
-    expect(nodeManager.getPath(row ?? -1)).toBe("members.0")
+    expect(readNodePath(nodeManager, row ?? -1)).toBe("members.0")
     expect(nodeManager.getNodeIds("users")).toEqual([])
-    expect(nodeManager.getPath(node.id)).toBe("members")
+    expect(readNodePath(nodeManager, node.id)).toBe("members")
     expect(store.getFieldValue("members.0.name")).toBe("Target")
     expect(store.getFieldValue("users.0.name")).toBe("Ada")
   })
@@ -653,7 +654,7 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
       if (action === "move") {
         expect(fieldId(nodeManager, "users.1.idCard")).toBe(first)
       } else {
-        expect(nodeManager.getPath(first)).toBeUndefined()
+        expect(readNodePath(nodeManager, first)).toBeUndefined()
       }
 
       expect(store.getFieldValue("users.0.idCard")).toBe("B")
@@ -713,7 +714,7 @@ describe("Dynamic 的 Store 行 key 与 Runtime 身份", () => {
       items?.slice().reverse()
     )
 
-    expect(nodeManager.getPath(first)).toBe('users.1["display.name"]')
+    expect(readNodePath(nodeManager, first)).toBe('users.1["display.name"]')
     expect(fieldId(nodeManager, 'users.1["display.name"]')).toBe(first)
     expect(store.getFieldValue('users.1["display.name"]')).toBe("Ada")
     await scheduler.whenIdle()

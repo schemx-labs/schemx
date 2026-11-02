@@ -28,7 +28,6 @@ import type { Validator } from "../validator"
 export type RuntimeStorePort<TValues extends Values = Values> = Pick<
   Store<TValues>,
   | "registerFieldPath"
-  | "unregisterFieldPath"
   | "getArrayStructureHandle"
   | "getFieldValue"
   | "getFieldSnapshot"

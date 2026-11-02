@@ -100,25 +100,11 @@ describe("FieldSignalMap", () => {
     expect(map.isFieldTouched(bracketPath)).toBe(false)
   })
 
-  it("反注册不会删除已注册的字段状态", () => {
-    const map = createFieldSignalMap<TestValues>()
-
-    map.registerFieldPath("profile.name")
-    map.setFieldTouched("profile.name", true)
-    map.unregisterFieldPath("profile.name")
-
-    expect(map.isFieldTouched("profile.name")).toBe(true)
-    expect([...map.getFieldKeys()]).toEqual(["profile.name"])
-  })
-
   it("应该返回当前值、初始值和独立快照，并正确触发写入回调", () => {
-    const onValueChanged = vi.fn()
-
     const onInitialValueChanged = vi.fn()
 
     const map = createFieldSignalMap<TestValues>({
       initialValues,
-      onValueChanged,
       onInitialValueChanged,
     })
 
@@ -128,10 +114,8 @@ describe("FieldSignalMap", () => {
     expect(map.peekFieldInitialValue("profile.name")).toBe("Ada")
 
     expect(map.setFieldValue("profile.name", "Ada")).toBe(false)
-    expect(onValueChanged).toHaveBeenCalledTimes(0)
 
     expect(map.setFieldValue("profile.name", "Grace")).toBe(true)
-    expect(onValueChanged).toHaveBeenCalledTimes(1)
 
     const snapshot = map.getFieldSnapshot("profile")
 
@@ -192,7 +176,12 @@ describe("FieldSignalMap", () => {
     expect(map.getFieldInitialValue("profile.name")).toBe("Ada")
     expect(map.isFieldTouched("profile.name")).toBe(false)
     expect(map.isFieldPending("profile.name")).toBe(false)
-    expect(map.getFieldPendingMessage("profile.name")).toEqual([])
+    expect(
+      map
+        .getFieldStates()
+        .find((state) => state.path === "profile.name")
+        ?.pendingMessage.peek()
+    ).toEqual([])
     expect(map.getFieldValue("profile.email")).toBe("ada@example.com")
   })
 
@@ -239,10 +228,20 @@ describe("FieldSignalMap", () => {
 
     expect(map.isFieldTouched("profile.name")).toBe(true)
     expect(map.isFieldPending("profile.email")).toBe(true)
-    expect(map.getFieldPendingMessage("profile.email")).toEqual(["保存中"])
+    expect(
+      map
+        .getFieldStates()
+        .find((state) => state.path === "profile.email")
+        ?.pendingMessage.peek()
+    ).toEqual(["保存中"])
 
     map.setFieldPending("profile.email", true, ["校验中", "请稍候"])
-    expect(map.getFieldPendingMessage("profile.email")).toEqual(["校验中", "请稍候"])
+    expect(
+      map
+        .getFieldStates()
+        .find((state) => state.path === "profile.email")
+        ?.pendingMessage.peek()
+    ).toEqual(["校验中", "请稍候"])
   })
 
   it("应该响应单字段 touched/pending 状态变化，并在清除时移除消息", () => {
@@ -273,7 +272,12 @@ describe("FieldSignalMap", () => {
     map.setFieldPending("profile.email", true, ["保存中"])
 
     expect(map.isFieldPending("profile.email")).toBe(true)
-    expect(map.getFieldPendingMessage("profile.email")).toEqual(["保存中"])
+    expect(
+      map
+        .getFieldStates()
+        .find((state) => state.path === "profile.email")
+        ?.pendingMessage.peek()
+    ).toEqual(["保存中"])
     expect(pendingRuns).toBe(2)
 
     map.setFieldPending("profile.email", true, ["保存中"])
@@ -282,7 +286,12 @@ describe("FieldSignalMap", () => {
     map.setFieldPending("profile.email", false, "忽略")
 
     expect(map.isFieldPending("profile.email")).toBe(false)
-    expect(map.getFieldPendingMessage("profile.email")).toEqual([])
+    expect(
+      map
+        .getFieldStates()
+        .find((state) => state.path === "profile.email")
+        ?.pendingMessage.peek()
+    ).toEqual([])
     expect(pendingRuns).toBe(3)
 
     disposeTouched()
@@ -299,7 +308,7 @@ describe("FieldSignalMap", () => {
       map.getFieldErrors("profile.name")
     })
 
-    expect(map.peekFieldErrors("profile.name")).toEqual([])
+    expect(map.getFieldErrors("profile.name")).toEqual([])
 
     map.setFieldErrors("profile.name", [
       createIssue("姓名配置错误", "configuration"),
@@ -315,7 +324,7 @@ describe("FieldSignalMap", () => {
     expect(runs).toBe(2)
 
     map.clearAllErrors()
-    expect(map.peekFieldErrors("profile.name")).toEqual([])
+    expect(map.getFieldErrors("profile.name")).toEqual([])
 
     dispose()
   })
@@ -346,7 +355,7 @@ describe("FieldSignalMap", () => {
     disposeField()
   })
 
-  it("应该按 paths 获取多个或全部已注册字段状态", () => {
+  it("按创建顺序获取全部路径状态", () => {
     const map = createFieldSignalMap<TestValues>({ initialValues })
 
     map.registerFieldPath("profile.name")
@@ -355,24 +364,10 @@ describe("FieldSignalMap", () => {
     map.setFieldPending("profile.email", true, "保存中")
     map.setFieldErrors("profile.email", [createIssue("邮箱错误", "validation")])
 
-    expect(
-      map.getFieldStates(["profile.email", "profile.name"]).map((state) => state.path)
-    ).toEqual(["profile.email", "profile.name"])
-    expect([...map.getFieldKeys(["profile.name", "profile.email"])]).toEqual([
+    expect(map.getFieldStates().map((state) => state.path)).toEqual([
       "profile.name",
       "profile.email",
     ])
-    expect([...map.getFieldValues(["profile.name"])].map((state) => state.path)).toEqual([
-      "profile.name",
-    ])
-    expect([...map.getFieldEntries()].map(([path]) => path)).toEqual([
-      "profile.name",
-      "profile.email",
-    ])
-    expect([...map.getFieldEntries(["profile.email"])].map(([path]) => path)).toEqual([
-      "profile.email",
-    ])
-    expect([...map.getFieldKeys()]).toEqual(["profile.name", "profile.email"])
     expect(map.getFieldStates()).toHaveLength(2)
   })
 

@@ -1,4 +1,4 @@
-import { createField, createForm, createFormStateAdapter } from "../../index"
+import { createForm, createFormStateAdapter, getFormAdapter } from "../../index"
 
 import type { FieldState, ReadonlyState } from "../../index"
 
@@ -7,22 +7,22 @@ const form = createForm({
   initialValues: { name: "Ada", count: 1, profile: { active: true } },
 })
 
-const state = form.getFieldState(form.getFieldRef("name"))
+const state = getFormAdapter(form).field("name")
 
 const name: ReadonlyState<string | undefined> = state.value
 
-const count: ReadonlyState<number | undefined> = createField(form, "count").state.value
+const count: ReadonlyState<number | undefined> = getFormAdapter(form).field("count").value
 
 const active: FieldState<
   { name: string; count: number; profile: { active: boolean } },
   "profile.active"
-> = form.getFieldState(form.getFieldRef("profile.active"))
+> = getFormAdapter(form).field("profile.active")
 
 void name
 void count
 void active
 // @ts-expect-error 字段路径必须存在。
-form.getFieldRef("missing")
+getFormAdapter(form).field("missing")
 // @ts-expect-error 字段值类型不能退化为其他字段的联合类型。
 const invalid: ReadonlyState<number | undefined> = state.value
 

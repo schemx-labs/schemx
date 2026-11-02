@@ -10,7 +10,6 @@ import { createForm } from "@schemx/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { useFormSelector } from ".."
-import { getFormStateAdapterContext } from "../../../../core/src/adapter/formStateAdapter/context"
 
 describe("useFormSelector", () => {
   it("提供初始 selector 结果，并使其可被 Vue watch 捕获", async () => {
@@ -129,10 +128,7 @@ describe("useFormSelector", () => {
   it("同一表单复用一份 Core 订阅，并在最后一个 scope 销毁后释放", () => {
     const form = createForm({ initialValues: { count: 1 } })
 
-    const subscribe = vi.spyOn(
-      getFormStateAdapterContext(form).store.state.values,
-      "subscribe"
-    )
+    const subscribe = vi.spyOn(form, "effect")
 
     const firstScope = effectScope()
 
@@ -142,7 +138,7 @@ describe("useFormSelector", () => {
 
     const second = secondScope.run(() => useFormSelector(form, (values) => values.count))
 
-    // selector 共享 values 的原生订阅，不依赖 FormStateAdapter 或公开 effect 包装。
+    // selector 共享 Core adapter 创建的一个 effect。
     expect(subscribe).toHaveBeenCalledTimes(1)
 
     firstScope.stop()

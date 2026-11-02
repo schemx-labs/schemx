@@ -91,26 +91,6 @@ export interface NodeManager<TValues extends Values = Values> {
    * @returns 节点存在时返回 `true`。
    */
   has(id: NodeId): boolean
-
-  /**
-   * 响应式读取活动字段、数组根或数组行的当前路径。
-   *
-   * @param nodeId - 要查询的身份。
-   * @example const path = manager.getPath(fieldId)
-   */
-  getPath(nodeId: NodeId): NamePath<TValues> | undefined
-  /**
-   * 返回按规范化路径去重的快照，顺序与路径首次登记顺序一致。
-   * @example const paths = manager.getPaths()
-   */
-  getPaths(): readonly NamePath<TValues>[]
-  /**
-   * 返回路径上最先登记的活动身份；不存在时返回 undefined。
-   *
-   * @param path - 要查询的业务路径。
-   * @example const id = manager.getNodeId("name")
-   */
-  getNodeId(path: NamePath<TValues>): NodeId | undefined
   /**
    * 返回同路径的全部活动身份快照，顺序不随树重排变化。
    *
@@ -605,68 +585,6 @@ export function createNodeManager<
   }
 
   /**
-   * 复用现有节点与行的信号，不为查询新增响应式索引。
-   * @param nodeId - 要读取路径的身份。
-   */
-  const getPath = (nodeId: NodeId): NamePath<TValues> | undefined => {
-    // Schema 节点的路径继续由原有 Signal 驱动。
-    const node = nodes.get(nodeId)
-
-    if (isFieldNode(node)) {
-      return node.disposed.value ? undefined : node.name.value
-    }
-
-    if (isDynamicNode(node)) {
-      return node.disposed.value
-        ? undefined
-        : (node.compiledSchema.value.name as NamePath<TValues>)
-    }
-
-    // 数组行通过稳定身份关联所属容器。
-    const ownerId = arrayOwners.get(nodeId)
-
-    // 容器的原生行 Signal 负责通知路径变更。
-    const owner = ownerId === undefined ? undefined : nodes.get(ownerId)
-
-    if (isDynamicNode(owner) && !owner.disposed.value) {
-      // row 是容器中待匹配当前身份的行记录。
-      return owner.dynamicRows.value.find((row) => row.id === nodeId)?.path as
-        NamePath<TValues> | undefined
-    }
-
-    return undefined
-  }
-
-  // 快照按当前路径桶顺序取代表写法，不暴露内部集合。
-  const getPaths = (): readonly NamePath<TValues>[] => {
-    // 每个非空路径桶只返回一个代表写法。
-    const paths: NamePath<TValues>[] = []
-
-    for (const ids of pathNodes.values()) {
-      // 最早登记的身份提供该地址的代表写法。
-      const first = ids.values().next().value
-
-      if (first !== undefined) {
-        // 保留该身份提交时使用的路径格式。
-        const path = nodePaths.get(first)
-
-        if (path !== undefined) {
-          paths.push(path)
-        }
-      }
-    }
-
-    return paths
-  }
-
-  /**
-   * 直接读取第一个身份，避免创建完整集合快照。
-   * @param path - 当前业务路径。
-   */
-  const getNodeId = (path: NamePath<TValues>): NodeId | undefined =>
-    pathNodes.get(createFieldKey(path))?.values().next().value
-
-  /**
    * 复制同路径身份，调用方不能修改内部索引。
    * @param path - 当前业务路径。
    */
@@ -1102,9 +1020,6 @@ export function createNodeManager<
     get,
     has,
     getRoot,
-    getPath,
-    getPaths,
-    getNodeId,
     getNodeIds,
     updatePaths,
     setArrayRows,

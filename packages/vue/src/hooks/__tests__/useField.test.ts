@@ -4,19 +4,18 @@
  * @module hooks/__tests__/useField
  */
 
-import { defineComponent, h, nextTick, watchEffect } from "vue"
+import { defineComponent, h, nextTick, shallowRef, watchEffect } from "vue"
 
 import { createForm } from "@schemx/core"
 import { mount } from "@vue/test-utils"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createFieldHook, useField } from ".."
-import { getFormStateAdapterContext } from "../../../../core/src/adapter/formStateAdapter/context"
 import { acquireVueFormRuntime } from "../../bridge"
 import { createFormContext } from "../../context"
 
 import type { VueFormRuntime } from "../../bridge"
-import type { FieldInstance } from "../../types"
+import type { FieldInstance, FieldPathSource } from "../../types"
 import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
 // 内存中的字段 owner，直接复用真实 Runtime 的资源释放流程。
@@ -36,7 +35,7 @@ interface FieldHarness<TValues extends Values, TName extends NamePath<TValues>> 
  */
 function createFieldHarness<TValues extends Values, TName extends NamePath<TValues>>(
   form: SchemxInstance<TValues>,
-  name: TName
+  name: FieldPathSource<TName>
 ): FieldHarness<TValues, TName> {
   const { runtime, release } = acquireVueFormRuntime(form)
 
@@ -44,6 +43,59 @@ function createFieldHarness<TValues extends Values, TName extends NamePath<TValu
 }
 
 describe("useField", () => {
+  it("路径 Ref 切换后状态和命令使用新路径，旧路径更新不再触发观察", async () => {
+    // 路径是消费端的响应式状态，与 Schema 节点无关。
+    const path = shallowRef<"name" | "nickname">("name")
+
+    const form = createForm({ initialValues: { name: "Ada", nickname: "Grace" } })
+
+    const { field, release } = createFieldHarness(form, path)
+
+    const samples: unknown[] = []
+
+    const stop = watchEffect(() =>
+      samples.push([
+        field.name,
+        field.value.value,
+        field.errors.value,
+        field.dirty.value,
+        field.pending.value,
+      ])
+    )
+
+    form.setFieldErrors("nickname", ["昵称错误"])
+    form.setFieldTouched("nickname", true)
+    form.setFieldPending("nickname", true)
+    path.value = "nickname"
+    await nextTick()
+    expect(samples.at(-1)).toEqual(["nickname", "Grace", ["昵称错误"], true, true])
+    expect(field.getInitialValue()).toBe("Grace")
+    expect(field.getSnapshot()).toBe("Grace")
+    field.setInitialValue("Baseline")
+    field.setPending(false)
+    field.reset()
+    expect(form.getFieldValue("nickname")).toBe("Baseline")
+    expect(form.getInitialValue("nickname")).toBe("Baseline")
+    expect(form.getInitialValue("name")).toBe("Ada")
+    field.setRules({ required: true, message: "不能为空" })
+    await field.change("")
+    await expect(field.validate()).resolves.toMatchObject({ valid: false })
+    expect(field.getErrors()).toEqual(["不能为空"])
+    field.removeRules()
+    await expect(field.validate()).resolves.toMatchObject({ valid: true })
+    await nextTick()
+    const count = samples.length
+
+    form.setFieldValue("name", "Old path")
+    form.setFieldErrors("name", ["旧路径错误"])
+    await nextTick()
+    expect(samples).toHaveLength(count)
+    expect(form.getFieldValue("nickname")).toBe("")
+    stop()
+    release()
+    form.destroy()
+  })
+
   it("Ref 整体赋值提交到 Core，保留程序赋值语义", () => {
     const onChange = vi.fn()
 
@@ -66,7 +118,7 @@ describe("useField", () => {
     form.destroy()
   })
 
-  it("同 key 改名后读写跟随节点，Form 路径来源保留原目标", () => {
+  it("固定路径不会因同 key 的 Schema 改名而改变目标", () => {
     const form = createForm({
       initialValues: { name: "Ada", nickname: "A" },
       schemas: [{ key: "person", name: "name", label: "姓名", componentType: "input" }],
@@ -83,21 +135,22 @@ describe("useField", () => {
       { key: "person", name: "nickname", label: "昵称", componentType: "input" },
     ])
 
-    expect(field.name).toBe("nickname")
-    expect(field.value.value).toBe("A")
-    expect(field.getValue()).toBe("A")
-    expect(field.errors.value).toEqual(["昵称错误"])
-    expect(field.dirty.value).toBe(true)
-    expect(field.pending.value).toBe(true)
+    expect(field.name).toBe("name")
+    expect(field.value.value).toBe("Ada")
+    expect(field.getValue()).toBe("Ada")
+    expect(field.errors.value).toEqual([])
+    expect(field.dirty.value).toBe(false)
+    expect(field.pending.value).toBe(false)
     field.value.value = "Updated"
-    expect(form.getFieldValue("nickname")).toBe("Updated")
-    expect(fixedPath.value.value).toBe("Ada")
+    expect(form.getFieldValue("name")).toBe("Updated")
+    expect(form.getFieldValue("nickname")).toBe("A")
+    expect(fixedPath.value.value).toBe("Updated")
 
     release()
     form.destroy()
   })
 
-  it("数组重排后 Vue 订阅跟随原行，删除后不接管同址新节点", async () => {
+  it("动态路径由消费端更新，数组重排和替换后按当前路径操作", async () => {
     const form = createForm({
       initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
       schemas: [
@@ -109,7 +162,10 @@ describe("useField", () => {
       ],
     })
 
-    const { field, release } = createFieldHarness(form, "users.0.name")
+    // 消费端保存当前地址，并在重排后显式更新。
+    const path = shallowRef<`users.${number}.name`>("users.0.name")
+
+    const { field, release } = createFieldHarness(form, () => path.value)
 
     // 路径、值和交互状态必须在同一次 Vue 更新中指向原字段。
     const samples: unknown[] = []
@@ -126,24 +182,22 @@ describe("useField", () => {
 
     try {
       form.setFieldValue("users", (users) => [...(users ?? [])].reverse())
+      path.value = "users.1.name"
       await nextTick()
       expect(samples).toEqual([
         ["users.0.name", "Ada", [], false, false],
         ["users.1.name", "Ada", [], false, false],
       ])
-      expect(form.getFieldRef("users.1.name")).toBe(field.ref)
       field.value.value = "Updated"
       expect(form.getFieldValue("users.1.name")).toBe("Updated")
       expect(form.getFieldValue("users.0.name")).toBe("Grace")
       form.setFieldValue("users", [{ name: "New0" }, { name: "New1" }])
       await nextTick()
-      expect(field.name).toBeUndefined()
-      expect(field.value.value).toBeUndefined()
-      expect(field.state.disposed.peek()).toBe(true)
-      expect(form.getFieldRef("users.1.name")).not.toBe(field.ref)
-      field.value.value = "Stale"
-      expect(form.getFieldValue("users.1.name")).toBe("New1")
-      expect(samples.at(-1)).toEqual([undefined, undefined, [], false, false])
+      expect(field.name).toBe("users.1.name")
+      expect(field.value.value).toBe("New1")
+      field.value.value = "Latest"
+      expect(form.getFieldValue("users.1.name")).toBe("Latest")
+      expect(form.getFieldValue("users.0.name")).toBe("New0")
     } finally {
       stop()
       release()
@@ -151,7 +205,7 @@ describe("useField", () => {
     }
   })
 
-  it("旧节点失效后不接管同址新节点，订阅观察当前路径变化", async () => {
+  it("固定路径在 Schema 移除和同址替换后继续使用当前数据", async () => {
     const form = createForm({
       initialValues: { name: "Ada" },
       schemas: [{ key: "old", name: "name", label: "姓名", componentType: "input" }],
@@ -167,24 +221,24 @@ describe("useField", () => {
 
     form.setSchemas([])
     await nextTick()
-    expect(field.name).toBeUndefined()
-    expect(field.value.value).toBeUndefined()
+    expect(field.name).toBe("name")
+    expect(field.value.value).toBe("Ada")
     expect(field.errors.value).toEqual([])
     form.setSchemas([
       { key: "new", name: "name", label: "新姓名", componentType: "input" },
     ])
     form.setFieldValue("name", "Replacement")
-    field.value.value = "Stale"
-    expect(form.getFieldValue("name")).toBe("Replacement")
-    expect(field.getValue()).toBeUndefined()
-    expect(names).toEqual(["name", undefined])
+    field.value.value = "Latest"
+    expect(form.getFieldValue("name")).toBe("Latest")
+    expect(field.getValue()).toBe("Latest")
+    expect(names).toEqual(["name"])
 
     stop()
     release()
     form.destroy()
   })
 
-  it("手动字段保留固定路径，Form 销毁后发布失效状态", () => {
+  it("手动字段使用固定路径，Form 销毁不改变消费端路径", () => {
     const form = createForm({ initialValues: { name: "Ada" } })
 
     const { field, release } = createFieldHarness(form, "name")
@@ -195,7 +249,7 @@ describe("useField", () => {
     expect(field.name).toBe("name")
     expect(form.getFieldValue("name")).toBe("Manual")
     form.destroy()
-    expect(field.name).toBeUndefined()
+    expect(field.name).toBe("name")
     expect(field.getValue()).toBeUndefined()
     expect(field.value.value).toBeUndefined()
     release()
@@ -204,10 +258,8 @@ describe("useField", () => {
   it("重复获取同一字段复用 Form 订阅，释放后停止通知但显式读取仍有效", async () => {
     const form = createForm({ initialValues: { name: "Ada" } })
 
-    const subscribe = vi.spyOn(
-      getFormStateAdapterContext(form).store.state.field("name").value,
-      "subscribe"
-    )
+    // Core adapter 统一使用所属 Form 的 effect。
+    const subscribe = vi.spyOn(form, "effect")
 
     const first = createFieldHarness(form, "name")
 
@@ -260,7 +312,7 @@ describe("useField", () => {
     await nextTick()
     expect(command).toHaveBeenCalledTimes(1)
     expect(snapshot).toHaveBeenCalledTimes(1)
-    expect(field.getValue()).toBe("A")
+    expect(field.getValue()).toBe("written")
     stopCommand()
     stopSnapshot()
     release()

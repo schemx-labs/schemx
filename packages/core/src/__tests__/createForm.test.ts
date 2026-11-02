@@ -11,7 +11,6 @@ import fc from "fast-check"
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import * as config from "../config"
-import { createField } from "../createField"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createFormStateAdapter } from "../index"
@@ -595,7 +594,7 @@ describe("校验与赋值一致性回归", () => {
       initialValues: { users: [{ name: "Ada" }, { name: "Grace" }] },
     })
 
-    createField(form, "users.0.name").setInitialValue("Changed")
+    form.setInitialValue("users.0.name", "Changed")
     form.reset()
 
     expect(form.getFieldsValue()).toEqual({

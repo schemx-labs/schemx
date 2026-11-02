@@ -179,20 +179,6 @@ export interface Store<TValues extends Values = Values> {
   registerFieldPath<TName extends NamePath<TValues>>(path: TName): void
 
   /**
-   * 反注册 Schema 字段路径；不会删除当前值、初始值或已缓存的路径状态。
-   *
-   * @param path - 要反注册的字段路径。
-   */
-  unregisterFieldPath<TName extends NamePath<TValues>>(path: TName): void
-
-  /**
-   * 批量注册 Schema 字段路径并物化对应路径状态。
-   *
-   * @param paths - 要注册的字段路径数组。
-   */
-  registerFieldPaths<TName extends NamePath<TValues>>(paths: TName[]): void
-
-  /**
    * 设置指定字段的当前值。
    *
    * @param path - 要写入的字段路径。
@@ -369,11 +355,6 @@ export interface Store<TValues extends Values = Values> {
   ): void
 
   /**
-   * 清除 pending 提交流程写入的错误，保留其他来源。
-   */
-  clearFieldPendingErrors(path: NamePath<TValues>): void
-
-  /**
    * 批量设置字段的 pending 状态。
    *
    * @param paths - 要设置的字段路径数组。
@@ -456,22 +437,6 @@ export interface Store<TValues extends Values = Values> {
 
   /** 订阅显式 reset 操作，返回可重复调用的取消函数。 */
   subscribeResets(listener: () => void): () => void
-
-  /**
-   * 无依赖读取指定字段的问题。
-   *
-   * @param path - 要读取的字段路径。
-   * @returns 字段错误问题的独立快照。
-   */
-  peekFieldErrors(path: NamePath<TValues>): readonly ValidationRuleIssue[]
-
-  /**
-   * 无依赖读取多个字段的错误问题；省略路径时返回全部有错误的字段。
-   *
-   * @param paths - 可选的字段路径数组；传入后按路径顺序返回，空错误也会保留。
-   * @returns 字段错误问题的独立快照。
-   */
-  peekFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[]
 
   /**
    * 清除指定字段的全部错误来源。

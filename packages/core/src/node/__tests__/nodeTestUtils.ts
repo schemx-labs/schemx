@@ -22,11 +22,13 @@ import type {
   DependencyNode,
   FieldNode,
   GroupNode,
+  NodeId,
+  NodeManager,
   ParentNode,
   RootNode,
   Scope,
 } from ".."
-import type { Values } from "../../types"
+import type { NamePath, Values } from "../../types"
 
 /**
  * 仅供测试创建 RootNode。
@@ -242,4 +244,40 @@ export function createTestDependencyNode(options: {
     ...options.node,
     scope: options.scope ?? options.parent.scope.child(),
   })
+}
+
+/**
+ * 直接检查测试节点和行的路径信号，仅供运行时协调断言使用。
+ * @typeParam TValues - 测试表单值类型。
+ * @param manager - 被测节点树。
+ * @param id - 要检查的节点或行身份。
+ * @returns 活动节点或行的路径；已移除时为 undefined。
+ * @example const path = readNodePath(manager, field.id)
+ */
+export function readNodePath<TValues extends Values>(
+  manager: NodeManager<TValues>,
+  id: NodeId
+): NamePath<TValues> | undefined {
+  // 节点路径由原生信号提供，不依赖被删除的查询门面。
+  const node = manager.get(id)
+
+  if (node?.disposed.value) return undefined
+  if (node?.type === "field") return node.name.value
+  if (node?.type === "dynamic") {
+    return node.compiledSchema.value.name as NamePath<TValues>
+  }
+
+  for (const current of manager.values()) {
+    if (current.type === "dynamic" && !current.disposed.value) {
+      // 行身份保存在所属容器的原生行列表中。
+      const row = current.dynamicRows.value.find(
+        // item 是当前容器中的候选行。
+        (item) => item.id === id
+      )
+
+      if (row) return row.path as NamePath<TValues>
+    }
+  }
+
+  return undefined
 }

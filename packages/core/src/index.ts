@@ -40,12 +40,14 @@ export {
 
 export {
   createFormStateAdapter,
-  type FieldRefSnapshotSource,
   type FieldSnapshotSource,
   type FieldStateSnapshot,
   type FormStateAdapter,
   type SnapshotSource,
 } from "./adapter/formStateAdapter"
+
+export { getFormAdapter } from "./adapter/formAdapter"
+export type { FormAdapter } from "./adapter/formAdapter"
 
 export { getFormCreationConfig, type FormCreationSnapshot } from "./adapter"
 
@@ -92,8 +94,6 @@ export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from 
 export type { FormConfig, ResolvedFormConfig } from "./config"
 
 export type {
-  FieldRef,
-  FieldRefState,
   RequiredOptions,
   RequiredConfig,
   DefinedFieldValue,
@@ -158,12 +158,6 @@ export type {
 } from "./types"
 export type { FieldState, StoreState } from "./store"
 export type { ReadonlyState } from "./reactivity"
-
-export {
-  createField,
-  type SchemxFieldInstance,
-  type SchemxFieldState,
-} from "./createField"
 
 export {
   createWatch,

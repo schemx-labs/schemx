@@ -24,13 +24,7 @@ import type {
   VueFormRuntime,
   VueStateRef,
 } from "./index"
-import type {
-  NamePath,
-  ReadonlyState,
-  SchemxInstance,
-  SnapshotSource,
-  Values,
-} from "@schemx/core"
+import type { NamePath, SchemxInstance, SnapshotSource, Values } from "@schemx/core"
 
 /**
  * 原始 Core Form 与 Vue Instance 共用同一个 Runtime 缓存项。
@@ -216,17 +210,6 @@ function createVueFormRuntime<TValues extends Values>(
   }
 
   /**
-   * 在 Form 读取边界追踪原生身份状态，不重建已释放资源。
-   * @typeParam TValue - 当前状态值类型。
-   * @param state - Form 持有的原生只读状态。
-   */
-  const trackState = <TValue>(state: ReadonlyState<TValue>): void => {
-    if (resources) {
-      void resources.states.bind(resources.adapter.bind(state)).value
-    }
-  }
-
-  /**
    * 通过固定路径的状态 Ref 建立 Vue 依赖，不因读取而重新激活已释放资源。
    * @param name - 当前查询的字段路径。
    * @param dependency - 本次读取对应的字段状态种类。
@@ -235,7 +218,7 @@ function createVueFormRuntime<TValues extends Values>(
     name: TName,
     dependency: VueFieldDependency
   ): void => {
-    if (!resources) {
+    if (!resources || resources.adapter.disposed.getSnapshot()) {
       return
     }
 
@@ -250,7 +233,7 @@ function createVueFormRuntime<TValues extends Values>(
    * @param names - 要追踪的路径；省略时追踪整表，空数组不建立字段依赖。
    */
   const trackFieldsValue = (names?: NamePath<TValues>[]): void => {
-    if (!resources) {
+    if (!resources || resources.adapter.disposed.getSnapshot()) {
       return
     }
 
@@ -271,7 +254,7 @@ function createVueFormRuntime<TValues extends Values>(
    * @param dependency - 当前查询的表单级状态种类。
    */
   const trackForm = (dependency: VueFormDependency): void => {
-    if (!resources) {
+    if (!resources || resources.adapter.disposed.getSnapshot()) {
       return
     }
 
@@ -323,7 +306,6 @@ function createVueFormRuntime<TValues extends Values>(
 
   // 包装读取与销毁动作，其余 Core 方法保持原始引用。
   const instance = createVueFormInstance(core, {
-    trackState,
     trackField,
     trackFieldsValue,
     trackForm,
@@ -334,7 +316,6 @@ function createVueFormRuntime<TValues extends Values>(
   const runtime: VueFormRuntime<TValues> = {
     instance,
     retain,
-    trackState,
     trackField,
     trackFieldsValue,
     trackForm,

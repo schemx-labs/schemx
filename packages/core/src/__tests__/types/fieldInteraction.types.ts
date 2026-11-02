@@ -1,4 +1,4 @@
-import { createField, createForm } from "../../index"
+import { createForm } from "../../index"
 
 import type { FieldValue, ValidationResult } from "../../index"
 
@@ -27,11 +27,12 @@ const form = createForm<FormValues>({
   ],
 })
 
-const field = createField(form, "age")
+const changed: Promise<ValidationResult<FormValues> | undefined> = form.changeField(
+  "age",
+  21
+)
 
-const changed: Promise<ValidationResult<FormValues> | undefined> = field.change(21)
-
-const blurred: Promise<ValidationResult<FormValues> | undefined> = field.blur()
+const blurred: Promise<ValidationResult<FormValues> | undefined> = form.blurField("age")
 
 const named: Promise<ValidationResult<FormValues, "name"> | undefined> = form.changeField(
   "name",
@@ -46,7 +47,7 @@ void blurred
 void named
 void nested
 // @ts-expect-error 用户修改值必须匹配字段路径类型。
-void field.change("21")
+void form.changeField("age", "21")
 // @ts-expect-error 字段值不能退化为其他路径的值联合。
 void form.changeField("name", 21)
 // @ts-expect-error 用户交互只接受字段值，不接受 updater。

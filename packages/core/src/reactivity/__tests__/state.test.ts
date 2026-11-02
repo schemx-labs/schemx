@@ -1,35 +1,8 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-import { batchUpdates, createReactiveScope, createSignal } from ".."
+import { createReactiveScope, createSignal } from ".."
 
 describe("Core 原生只读状态", () => {
-  it("响应式终态在批次结束交付最后一次状态后释放订阅，并拒绝新订阅", () => {
-    const disposed = createSignal(false)
-
-    const count = createSignal(1)
-
-    const scope = createReactiveScope(() => disposed.value)
-
-    const state = scope.state(() => (disposed.value ? undefined : count.value))
-
-    const listener = vi.fn()
-
-    state.subscribe(listener)
-    batchUpdates(() => {
-      count.value = 2
-      disposed.value = true
-    })
-    expect(listener.mock.calls.map(([value]) => value)).toEqual([1, undefined])
-    expect(scope.disposed).toBe(true)
-    count.value = 3
-    expect(listener).toHaveBeenCalledTimes(2)
-    const late = vi.fn()
-
-    state.subscribe(late)
-    expect(late).not.toHaveBeenCalled()
-    scope.dispose()
-  })
-
   it("保持原生 computed 的惰性与共享求值，不为每个消费者重新计算", () => {
     const scope = createReactiveScope()
 

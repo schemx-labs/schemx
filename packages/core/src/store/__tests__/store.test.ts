@@ -234,7 +234,7 @@ describe("Store", () => {
       })
 
       store.registerFieldPath("profile.name")
-      store.registerFieldPaths(["profile.email"])
+      store.registerFieldPath("profile.email")
 
       store.setFieldsValue({ profile: { name: "Jane", email: "jane@example.com" } })
 
@@ -916,7 +916,7 @@ describe("Store", () => {
         },
         { field: "age", errors: [] },
       ])
-      expect(store.peekFieldsErrors(["name"])).toEqual([
+      expect(store.getFieldsErrors(["name"])).toEqual([
         {
           field: "name",
           errors: [{ type: "validation", message: "姓名错误" }],
@@ -934,40 +934,30 @@ describe("Store", () => {
 
       store.clearFieldsErrors()
 
-      expect(store.peekFieldsErrors()).toEqual([])
+      expect(store.getFieldsErrors()).toEqual([])
     })
 
-    it("getFieldsErrors 建立依赖，peekFieldsErrors 不建立依赖", () => {
+    it("getFieldsErrors 建立响应式依赖", () => {
       const store = createStore<TestForm>()
 
       store.registerFieldPath("name")
 
       let trackedRuns = 0
 
-      let untrackedRuns = 0
-
       const disposeTracked = createSignalEffect(() => {
         trackedRuns += 1
         store.getFieldsErrors()
       })
 
-      const disposeUntracked = createSignalEffect(() => {
-        untrackedRuns += 1
-        store.peekFieldsErrors()
-      })
-
       store.setFieldErrors("name", [{ type: "external", message: "服务端错误" }])
 
       expect(trackedRuns).toBe(2)
-      expect(untrackedRuns).toBe(1)
 
       store.clearFieldsErrors(["name"])
 
       expect(trackedRuns).toBe(3)
-      expect(untrackedRuns).toBe(1)
 
       disposeTracked()
-      disposeUntracked()
     })
   })
 
@@ -1052,20 +1042,31 @@ describe("Store", () => {
       expect(store.isFieldPending("name")).toBe(false)
     })
 
-    it("destroy 清空所有路径状态", () => {
-      const store = createStore<TestForm>({
-        initialValues: { name: "John", age: 25, email: "j@t.com" },
-      })
+    it.each([false, true])(
+      "destroy 清空所有路径状态，提前读取=%s",
+      (readBeforeDestroy) => {
+        // readBeforeDestroy 覆盖聚合 computed 尚未求值和已经缓存两种情况。
+        const store = createStore<TestForm>({
+          initialValues: { name: "John", age: 25, email: "j@t.com" },
+        })
 
-      store.setFieldTouched("name", true)
-      store.setFieldPending("email", true)
+        store.setFieldTouched("name", true)
+        store.setFieldPending("email", true)
 
-      store.destroy()
+        if (readBeforeDestroy) {
+          expect(store.getTouchedFields()).toEqual(["name"])
+          expect(store.getPendingFields()).toEqual([{ field: "email", message: [] }])
+        }
 
-      expect(store.getFieldsSnapshot()).toEqual({})
-      expect(store.getTouchedFields()).toEqual([])
-      expect(store.getPendingFields()).toEqual([])
-    })
+        store.destroy()
+
+        expect(store.getFieldsSnapshot()).toEqual({})
+        expect(store.getTouchedFields()).toEqual([])
+        expect(store.getPendingFields()).toEqual([])
+        expect(store.state.touchedFields.peek()).toEqual([])
+        expect(store.state.pendingFields.peek()).toEqual([])
+      }
+    )
   })
 })
 

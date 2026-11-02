@@ -195,28 +195,6 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
   }
 
   /**
-   * 反注册字段路径，同时保留当前值、初始值和已缓存的路径状态。
-   *
-   * @param path - 要反注册的字段路径。
-   */
-  unregisterFieldPath<TName extends NamePath<TValues>>(path: TName): void {
-    this.fieldStates.unregisterFieldPath(path)
-  }
-
-  /**
-   * 在同一个响应式批次中注册多个字段路径。
-   *
-   * @param paths - 要注册的字段路径列表。
-   */
-  registerFieldPaths<TName extends NamePath<TValues>>(paths: TName[]): void {
-    batchUpdates(() => {
-      for (const path of paths) {
-        this.registerFieldPath(path)
-      }
-    })
-  }
-
-  /**
    * 写入字段当前值；函数参数按 updater 解释。
    *
    * @param path - 要写入的字段路径。
@@ -524,10 +502,8 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @returns 按路径状态创建顺序返回 touched 字段路径。
    */
   getTouchedFields(): NamePath<TValues>[] {
-    return this.fieldStates
-      .getFieldStates()
-      .filter((i) => i.touched.value)
-      .map((i) => i.path)
+    // 路径是不可变字符串，恢复只读映射未能化简的路径泛型。
+    return [...this.state.touchedFields.value] as NamePath<TValues>[]
   }
 
   /**
@@ -546,10 +522,6 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
       this.fieldStates.setFieldPending(path, pending, message)
       if (!pending) this.fieldStates.clearFieldPendingErrors(path)
     })
-  }
-
-  clearFieldPendingErrors(path: NamePath<TValues>): void {
-    this.fieldStates.clearFieldPendingErrors(path)
   }
 
   /**
@@ -609,13 +581,12 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
    * @returns pending 字段信息列表。
    */
   getPendingFields(): StorePending<TValues, NamePath<TValues>>[] {
-    return this.fieldStates
-      .getFieldStates()
-      .filter((i) => i.pending.value)
-      .map((i) => ({
-        field: i.path,
-        message: i.pendingMessage.value,
-      }))
+    // 对外返回独立条目，聚合计算复用 Store 原生状态。
+    return this.state.pendingFields.value.map((item) => ({
+      // 深层只读映射不改变字符串路径的类型。
+      field: item.field as NamePath<TValues>,
+      message: item.message,
+    }))
   }
 
   /**
@@ -660,33 +631,6 @@ class StoreImpl<TValues extends Values = Values> implements Store<TValues> {
     return paths.map((field) => ({
       field,
       errors: [...this.fieldStates.getFieldErrors(field)],
-    }))
-  }
-
-  /**
-   * 无依赖读取单个字段的错误问题。
-   */
-  peekFieldErrors(path: NamePath<TValues>): readonly ValidationRuleIssue[] {
-    return this.fieldStates.peekFieldErrors(path)
-  }
-
-  /**
-   * 无依赖读取多个字段的错误问题；省略路径时返回全部存在错误的已注册字段。
-   */
-  peekFieldsErrors(paths?: readonly NamePath<TValues>[]): StoreFieldError<TValues>[] {
-    if (paths === undefined) {
-      return this.fieldStates
-        .getFieldStates()
-        .filter((i) => i.errors.peek().length)
-        .map((i) => ({
-          field: i.path,
-          errors: [...i.errors.peek()],
-        }))
-    }
-
-    return paths.map((field) => ({
-      field,
-      errors: [...this.fieldStates.peekFieldErrors(field)],
     }))
   }
 

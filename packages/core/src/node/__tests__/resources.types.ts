@@ -10,7 +10,7 @@ declare const node: FieldNode
 declare const context: FormRuntimeContext
 
 hooks.unmounted?.(snapshot)
-unmountNodeResources(node, context)
+unmountNodeResources(node)
 // @ts-expect-error 普通快照不公开 Scope。
 snapshot.scope.dispose()
 if (snapshot.type === "field") {

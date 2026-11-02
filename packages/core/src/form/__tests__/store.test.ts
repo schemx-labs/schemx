@@ -38,7 +38,7 @@ describe("Form Store 域", () => {
 
     try {
       store.setFieldErrors("name", [{ type: "external", message: "invalid" }])
-      expect(store.peekFieldErrors("name")).toEqual([
+      expect(store.getFieldErrors("name")).toEqual([
         { type: "external", message: "invalid" },
       ])
       expect(form.getFieldErrors("name")).toEqual(["invalid"])
@@ -46,11 +46,11 @@ describe("Form Store 域", () => {
       store.reset({ name: "Bob" })
       expect(store.getFieldValue("name")).toBe("Bob")
       expect(onReset).not.toHaveBeenCalled()
-      expect(store.peekFieldErrors("name")).toHaveLength(1)
+      expect(store.getFieldErrors("name")).toHaveLength(1)
 
       form.reset()
       expect(onReset).toHaveBeenCalledTimes(1)
-      expect(store.peekFieldErrors("name")).toEqual([])
+      expect(store.getFieldErrors("name")).toEqual([])
     } finally {
       form.destroy()
     }
