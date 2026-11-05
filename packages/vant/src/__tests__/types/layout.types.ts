@@ -24,3 +24,19 @@ const field: SchemxField = {
 void col
 void row
 void field
+
+// auto 与当前 UI 包声明合并的栅格属性并存。
+const autoCol: SchemxColConfig = "auto"
+
+const autoField: SchemxField = {
+  name: "auto",
+  label: "自动",
+  componentType: "input",
+  col: autoCol,
+}
+
+// @ts-expect-error 仅接受 auto 字符串。
+const invalidAuto: SchemxColConfig = "content"
+
+void autoField
+void invalidAuto

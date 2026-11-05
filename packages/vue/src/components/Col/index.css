@@ -1,0 +1,10 @@
+/*
+ * 自动列只解除当前列的栅格宽度，不改变 Field、Wrapper 或 Renderer 的内部布局。
+ * 两个类名提高优先级，以覆盖 UI 库默认的百分比列宽。
+ */
+.schemx-col.schemx-col--auto {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+}

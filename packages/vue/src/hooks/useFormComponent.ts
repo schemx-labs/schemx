@@ -19,9 +19,9 @@ import type {
   Values,
 } from "@schemx/core"
 
-// 组件已通过 withDefaults 补齐模型、初始值与 Schema 输入。
+// 组件已补齐模型与初始值；省略 schemas 时不覆盖外部实例的节点。
 type FormComponentProps<TValues extends Values> = Readonly<SchemxFormProps<TValues>> &
-  Required<Pick<SchemxFormProps<TValues>, "modelValue" | "initialValues" | "schemas">>
+  Required<Pick<SchemxFormProps<TValues>, "modelValue" | "initialValues">>
 
 /**
  * 组件内部接入结果；实例来源与同步策略不暴露到展示层。
@@ -238,7 +238,7 @@ export function useFormComponent<TValues extends Values>(
   watch(
     () => props.schemas,
     (schemas) => {
-      if (!isSchemxSchemas(schemas)) {
+      if (schemas !== undefined && !isSchemxSchemas(schemas)) {
         formInstance.setSchemas(schemas)
       }
     },

@@ -4,6 +4,8 @@
 
 ## 示例列表
 
+- **auto-col**：自动列与栅格混排、窄容器自然换行及校验提示。
+
 1. **form-groups**：合并表单示例，通过 Group 区分基础表单、动态表单、字段联动和动态数组。
 2. **array-value-update**：数组字段赋值示例，对比 `setFieldsValue` 与 `setFieldValue` 对普通数组和 Dynamic 数组的整体替换行为。
 3. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
@@ -16,7 +18,7 @@
 pnpm dev
 
 # 或只运行示例包
-pnpm --filter vant-demo dev
+VITE_USE_SOURCE=true pnpm --filter vant-demo dev
 ```
 
 浏览器访问终端输出的地址，默认是 <http://localhost:5173>。项目 `.env` 已设置 `VITE_USE_SOURCE=true`，开发时引用 workspace 依赖源码并同步 TypeScript 路径；切换为 `false` 后，在仓库根目录运行 `pnpm source:sync`。包 API 统一从 `@schemx/vant` 根入口导入。

@@ -16,13 +16,15 @@ import { DefaultCol } from "./index"
 
 import type { SchemxColComponent, SchemxColConfig, SchemxLayout } from "../../types"
 
+import "./index.css"
+
 const Col = defineComponent({
   name: "SchemxCol",
   inheritAttrs: false,
 
   props: {
     col: {
-      type: Object as PropType<SchemxColConfig>,
+      type: [String, Object] as PropType<SchemxColConfig>,
       required: false,
       default: undefined,
     },
@@ -64,16 +66,23 @@ const Col = defineComponent({
     return (): VNodeChild => {
       const col = props.col ?? props.layout ?? {}
 
+      // 自动列整体替换栅格配置，不保留继承的 span、offset 或响应式断点。
+      const auto = col === "auto"
+
       const {
         block,
         span: configuredSpan,
         offset: configuredOffset,
         ...extensionProps
-      } = col
+      } = auto ? {} : col
 
-      const span = block ? 24 : (configuredSpan ?? 24)
-
-      const offset = block ? 0 : (configuredOffset ?? 0)
+      // 仅普通列生成栅格参数，自动列切换时撤销旧的 span 与 offset。
+      const grid = auto
+        ? undefined
+        : {
+            span: block ? 24 : (configuredSpan ?? 24),
+            offset: block ? 0 : (configuredOffset ?? 0),
+          }
 
       const { class: attrsClass, style: attrsStyle, ...restAttrs } = attrs
 
@@ -82,10 +91,10 @@ const Col = defineComponent({
         {
           ...extensionProps,
           ...restAttrs,
-          class: ["schemx-col", attrsClass as ClassValue],
+          class: ["schemx-col", { "schemx-col--auto": auto }, attrsClass as ClassValue],
           style: attrsStyle,
-          span,
-          offset,
+          span: grid?.span,
+          offset: grid?.offset,
         },
         slots
       )

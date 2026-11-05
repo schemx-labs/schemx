@@ -70,6 +70,99 @@ Vue 包的样式只定义 Row/Col、Field、Group 和状态类的通用结构；
 
 `v-model` 的非空初始值会作为内部表单的初始快照和重置基准；后续外部替换也会同步到内部表单。完整行为见 [`v-model`、`initialValues` 与事件](#v-modelinitialvalues-与事件)。
 
+## SchemxSearch 搜索组件
+
+`SchemxSearch` 与默认的 `SchemxForm` 并存，两者均基于内部 `BaseForm` 实现。基础层统一管理实例、模型同步、配置继承、字段渲染、操作区和字段定位；Search 在此基础上增加折叠状态、布局和动画。`BaseForm` 是内部实现，不从包根导出。它把操作区放在条件区右侧，容器较窄时操作区换行；默认收起，按已渲染条件的实际布局保留第一行高度；全部可见 schema 始终挂载。展开收起使用 250ms 高度过渡，展开后恢复自然高度，收起高度随布局更新；连续切换从当前动画高度继续。系统启用减少动态效果，或浏览器不支持 Web Animations API 时，直接切换布局。
+
+```vue
+<script setup lang="ts">
+  import { markRaw, ref } from "vue"
+  import { SchemxSearch, createRendererRegistry } from "@schemx/vue"
+  import type { SchemxField } from "@schemx/vue"
+  import InputRenderer from "./components/InputRenderer.vue"
+
+  interface SearchValues {
+    keyword: string
+    status: string
+    owner: string
+    category: string
+  }
+
+  const values = ref<SearchValues>({ keyword: "", status: "", owner: "", category: "" })
+  const collapsed = ref(true)
+  const rendererRegistry = createRendererRegistry()
+  rendererRegistry.register("input", markRaw(InputRenderer))
+  const schemas: SchemxField<SearchValues>[] = [
+    { name: "keyword", label: "关键词", componentType: "input" },
+    { name: "status", label: "状态", componentType: "input" },
+    { name: "owner", label: "负责人", componentType: "input" },
+    { name: "category", label: "分类", componentType: "input" },
+  ]
+
+  function handleCollapsedChange(next: boolean): void {
+    collapsed.value = next
+  }
+
+  function search(conditions: SearchValues): void {
+    console.log(conditions)
+  }
+</script>
+
+<template>
+  <SchemxSearch
+    v-model="values"
+    :collapse="{
+      collapsed,
+      onCollapsedChange: handleCollapsedChange,
+      buttonProps: { type: 'primary', style: { color: '#2563eb' } },
+    }"
+    :schemas="schemas"
+    :col="{ span: 8 }"
+    :renderer-registry="rendererRegistry"
+    :on-finish="search"
+  />
+</template>
+```
+
+Search 专属配置为 `collapse`，默认 `true`；设为 `false` 时显示全部可见节点并隐藏触发器，对象形式支持：
+
+| `collapse` 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `collapsed` | 未提供 | 受控折叠状态，通过 `onCollapsedChange` 接受切换请求。 |
+| `defaultCollapsed` | `true` | 非受控初始状态，后续修改不重置状态。 |
+| `expandText` | `"展开"` | 展开按钮文案。 |
+| `collapseText` | `"收起"` | 收起按钮文案。 |
+| `buttonProps` | 未提供 | 折叠按钮属性，沿用当前 UI 按钮类型；点击和原生行为由 Search 管理。 |
+| `onCollapsedChange` | 未提供 | 用户切换或字段定位时接收期望的折叠状态。 |
+
+其他 Props 沿用 `SchemxFormProps`，但不支持 `actionCol`，操作区不参与字段栅格。默认查询按钮文案为“查询”，重置为“重置”；使用 `submitter`、`resetter` 以及对应插槽定制，查询回调继续使用 `onFinish` / `onFinishFailed`。没有后续可见节点时不显示展开按钮。受控与非受控切换都会调用 `collapse.onCollapsedChange`；撤销受控配置后沿用最后一次受控值。重置只恢复表单数据，不改变折叠状态。
+
+第一行根据已渲染根级节点的位置和尺寸计算，兼容栅格、`col: "auto"`、混排及响应式断点。收起高度取第一行的实际下边界，包含不同控件高度、标签和行间距；Group 按实际根级容器整体参与计算，不截取其内部内容。组件通过 `ResizeObserver` 监听内容和根级节点，在容器缩放、字段显隐或内容尺寸变化后重新测量；隐藏容器恢复可见后也会重新计算。
+
+折叠不修改 Core schemas 或字段 `visible`。全部可见字段保持挂载，收起时只裁剪条件区高度，首行之后的节点添加 `inert` 和 `aria-hidden`，不会参与键盘交互或辅助技术浏览；控件局部状态、字段值、规则和错误均保留，查询和重置处理完整条件。展开收起触发器由 `canCollapse` 控制显隐：折叠功能启用且实际存在后续行时，展开和收起状态都保留入口；`isCollapsed` 只决定文案和条件区高度。仅一行时通过 `v-show` 隐藏触发器（包括自定义插槽），不保留布局占位；`collapse: false` 时不渲染触发器。传入外部 `form` 且省略 `schemas` 时保留实例已有节点，实例仍由调用方销毁。`ref` 暴露完整的 `SchemxInstance`；`scrollToField()` 定位折叠字段时先请求展开，受控调用方未接受更新时返回 `false`。
+
+`collapse` 是保留插槽，接收 `SchemxSearchCollapseSlotProps`，与默认按钮共用显隐规则。自定义触发器应设置 `type="button"` 并提供展开状态：
+
+```vue
+<template #collapse="{ collapsed, toggle }">
+  <button type="button" :aria-expanded="!collapsed" @click="toggle">
+    {{ collapsed ? "更多条件" : "收起条件" }}
+  </button>
+</template>
+```
+
+命名导出 `SchemxSearch` 与 `schemxSearch` 指向同一可安装组件；`app.use(SchemxSearch, options)` 注册全局 `SchemxSearch` 并使用与 Form 相同的 App 配置约定，默认 Form 的安装行为不变。
+
+自定义 UI 适配层可通过 `createSearchComponent()` 绑定自己的表单创建器。Element Plus 已提供绑定本包创建器的 `SchemxSearch`；其他适配层可按以下方式接入：
+
+```ts
+import { createSchemx, createSearchComponent } from "@schemx/vue"
+
+const api = createSchemx({ schemaConfig: { col: { span: 8 } } })
+const Search = createSearchComponent(api.createForm, "MySchemxSearch")
+// 使用前向 api.rendererRegistry 注册业务 Renderer。
+```
+
 ## Schemx 组件
 
 默认导出和命名导出 `schemxForm` 指向同一个可安装组件：
@@ -168,6 +261,19 @@ const schemas = [
 ]
 ```
 
+`col` 支持 `"auto" | SchemxColDefinition`。`col: "auto"` 解除列的栅格宽度约束，按字段整体宽度排列，空间不足时自然换行，不撑满剩余空间；可用于普通字段、Form 字段默认值、Provider 的 `schemaConfig.col` 和 `actionCol`。字段显式配置整体覆盖继承值，不保留默认 `span`、`offset` 或响应式栅格宽度。
+
+```ts
+{ name: "status", label: "状态", componentType: "select", col: "auto",
+  componentProps: { style: { width: "180px" } } }
+```
+
+自动列只影响 Col 排列，不修改 Field、Wrapper、Renderer 的宽度或伸缩规则；控件宽度仍由 Renderer 自身样式与配置决定，不保证任意控件都自动获得紧凑宽度。列最大宽度为容器宽度，可与普通栅格列混排。Group、Dynamic 外层和旧版 `layout` 继续只接受对象。
+
+Search 的自动列和栅格列共用实测高度折叠：内容超过第一行时显示折叠按钮，仅一行时隐藏按钮并保留用户的折叠状态。切换列模式或调整容器宽度只更新布局，不额外触发 `onCollapsedChange`。
+
+自定义 `colComponent` 通过 `schemx-col--auto` 类名应用自动列布局，不会收到额外的 `auto` Prop。自动模式不生成 `span`、`offset`；实现只需将 class/style 透传到实际列根节点。内置、Element Plus、Vant 列适配器均遵循此约定。
+
 操作区使用根级 Row 内的独立 Col，通过 Form 的 `actionCol` 或共享配置的 `schemaConfig.actionCol` 设置列宽和偏移。Form Prop 优先；所有配置层均未提供时占满一行，且不继承字段默认 `col`。提交和重置均隐藏时不渲染操作列。
 
 旧的 `layout` 字段以及 `SchemxLayout` 类型进入弃用期。兼容期内 Field 的 `col` 优先于旧 `layout`；新代码应迁移到 `row` / `col`。
@@ -264,7 +370,17 @@ const schemas = [
 | Registry 与规则        | `getRenderer`、`registerRenderer`、`hasRenderer`、`getPresetRule`、`registerPresetRule`、`hasPresetRule`、`setFieldRules`、`setFieldsRules`、`removeFieldRules`、`removeFieldsRules` |
 | 生命周期               | `destroy`                                                                                                                                                                            |
 
-`scrollToField()` 默认平滑滚动并将字段垂直居中；目标位于折叠 Group 时会依次展开祖先 Group。未渲染或不可见时返回 `false`；`options` 支持覆盖 `behavior`、`block` 和 `inline`。
+`scrollToField()` 默认平滑滚动并将字段垂直居中；目标位于折叠 Group 时会依次展开祖先 Group。未渲染或不可见时返回 `false`；`options` 支持覆盖 `behavior`、`block` 和 `inline`，并可通过 `highlight` 在滚动到位后短暂高亮字段（包含标签、控件和错误提示）。
+
+```ts
+await form.scrollToField("profile.nickname", { highlight: true })
+await form.scrollToField("profile.nickname", { highlight: { duration: 2000 } })
+await form.scrollToField("profile.nickname", { highlight: { duration: 0 } })
+```
+
+`highlight` 默认 `true`，设为 `false` 关闭提示；默认高亮持续 `1500ms`，对象形式通过 `duration` 指定毫秒数。`duration: 0` 关闭自动结束计时，持续显示直到点击或编辑目标区域、发起新定位或目标失效；负数或非有限数使用默认值。字段无需滚动时立即提示。返回 `true` 表示已发起定位，不等待滚动结束或高亮消失；字段不可用或展开期间被新请求取代时返回 `false`。同一表单的新请求会清除旧提示。等待滚动期间，滚轮、触摸滚动和页面滚动按键会取消本次等待；普通输入不取消。高亮显示后，点击或编辑目标区域会提前关闭；区域外点击、按键及滚动不影响提示。目标隐藏、移除或滚动等待超过 3 秒时取消提示。减少动态效果偏好开启时，高亮定位直接到位并使用静态提示。
+
+高亮外观可通过 `--schemx-field-highlight-background`、`--schemx-field-highlight-color` 和 `--schemx-field-highlight-radius` 自定义，默认沿用主题色和小圆角。
 
 ```vue
 <script setup lang="ts">
@@ -1328,7 +1444,8 @@ Vue 根入口提供以下常用类型：
 | `UseDictionaryReturn<TOption>`                  | `{ list, loading, error, loadDict, refresh, mutate }`，`list` 和 `mutate` 使用 `TOption`。见 [`useDictionary`](#usedictionary)。                |
 | `UseDictOptionsReturn<TOption>`                 | `UseDictionaryReturn<TOption>` 的弃用别名。                                                                                                     |
 | `SchemxFormProps<TValues>`                      | `Schemx` 组件 Props 类型，由 Core 表单选项和 Vue 专属 `modelValue`、`form`、`class`、`style` 等属性组合而成。                                   |
-| `ScrollToFieldOptions`                          | `scrollToField()` 的滚动方式和对齐选项。                                                                                                        |
+| `ScrollToFieldHighlightOptions`                 | `scrollToField()` 的高亮持续时间配置。                                                                                                          |
+| `ScrollToFieldOptions`                          | `scrollToField()` 的滚动、对齐和高亮选项。                                                                                                        |
 | `VueSchemxInstance<TValues>`                    | `SchemxInstance<TValues>` 的弃用别名。                                                                                                          |
 | `FieldInstance<TValues>`                        | Vue Ref / Computed 桥接后的字段控制器类型，由 `useField()` 返回。                                                                               |
 | `SchemxFieldSlotProps<TValues>`                 | 字段整体、Label、Before、After 插槽的公共参数。                                                                                                 |
@@ -1358,6 +1475,7 @@ Vue 根入口提供以下常用类型：
 | 类别       | 常用导出                                                                                                            | 说明                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | 表单       | `default`、`schemxForm`、`SchemxFormPlugin`、`SchemxInstallOptions`                                                 | 可安装表单组件及插件配置类型；默认导出与 `schemxForm` 指向同一对象。 |
+| 搜索       | `SchemxSearch`、`schemxSearch`、`SchemxSearchProps`、`SchemxSearchPlugin` | 可折叠搜索条件区，操作区独立布局。 |
 | 组件       | `Field`、`Group`、`Row`、`Col`、`Icon`、`Wrapper`、`ConfigProvider`                                                 | 表单结构、布局和状态包装。                                           |
 | 组合式 API | `useForm`、`useField`、`useFormSelector`、`useViewSchemas`                                                          | 表单、字段和视图的 Vue 响应式桥接，见 [组合式 API](#组合式-api)。    |
 | 上下文     | `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext`、`useConfigProviderContextRef` | 向后代提供或读取表单、字段上下文，见 [Context API](#context-api)。   |
@@ -1366,7 +1484,7 @@ Vue 根入口提供以下常用类型：
 | Registry   | `rendererRegistry`、`presetRuleRegistry`                                                                            | Vue 模块级回退注册表。                                               |
 | 布局       | `normalizeSchemxGutter`、`SchemxNormalizedGutter`、`SchemxGutter`、`SchemxRowConfig`、`SchemxColConfig`             | Row / Col 间距和布局配置。                                           |
 | 图标       | `SchemxIconComponent`、`SchemxIconValue`、`SchemxIconProps`                                                         | 自定义图标适配器的类型。                                             |
-| 集成 | `createFormComponent`、`provideSchemxAppConfig` | 从根入口创建绑定工厂的 Form，或安装 App 配置。 |
+| 集成 | `createFormComponent`、`createSearchComponent`、`provideSchemxAppConfig` | 创建绑定工厂的 Form / Search，或安装 App 配置。 |
 | Core API   | `createForm`、`createSchemas`、`createRendererRegistry` 等                                                          | 通过根入口传递导出，完整语义见 [Core README](../core/README.md)。    |
 
 Vue 根入口的表单命名别名为 `schemxForm`；`SchemxForm` 可用作默认导入的本地名称。Core 状态适配 API 同样由根入口透传。

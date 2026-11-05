@@ -11,7 +11,7 @@ import type { NamePath, Values } from "@schemx/core"
  * 已挂载的 `<Schemx>` 组件提供的字段滚动实现。
  *
  * @param name - 目标字段路径。
- * @param options - 滚动行为与对齐方式。
+ * @param options - 滚动行为、对齐方式与定位高亮。
  * @returns 字段可滚动时返回 `true`。
  * @typeParam TValues - 表单值类型。
  *
@@ -35,7 +35,7 @@ interface ScrollToFieldRegistration {
    * 将字段定位请求交给对应的已挂载组件。
    *
    * @param name - 目标字段路径。
-   * @param options - 滚动行为与对齐方式。
+   * @param options - 滚动行为、对齐方式与定位高亮。
    * @returns 目标组件完成定位流程后返回是否成功。
    */
   handler: (name: unknown, options?: ScrollToFieldOptions) => Promise<boolean>

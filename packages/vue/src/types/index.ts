@@ -12,6 +12,8 @@ export * from "./dictionary"
 
 export * from "./form"
 
+export * from "./search"
+
 export type { SchemxInstance } from "./instance"
 
 export * from "./field"

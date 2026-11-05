@@ -1,0 +1,198 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  color: #303133;
+  background: #fff;
+  --demo-text: #303133;
+  --demo-muted: #73767a;
+  --demo-border: #ebeef5;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button {
+  font: inherit;
+}
+a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 3px;
+}
+.demo-app {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 24px 32px;
+}
+.demo-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 48px;
+}
+.demo-logo {
+  position: relative;
+  display: block;
+  flex: 0 0 136px;
+  height: 36px;
+  overflow: hidden;
+}
+/*
+ * 通过展示窗口去除原图四周留白，复用根目录 Logo，不修改图片文件。
+ */
+.demo-logo img {
+  position: absolute;
+  width: 160px;
+  max-width: none;
+  height: 90px;
+  top: -26px;
+  left: -14px;
+}
+.demo-header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #606266;
+}
+.repository-link {
+  margin-left: auto;
+  font-size: 12px;
+}
+.demo-tabs {
+  display: flex;
+  gap: 22px;
+  margin: 12px 0 20px;
+  border-bottom: 1px solid var(--demo-border);
+}
+.demo-tabs button {
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #606266;
+  font-size: 13px;
+  cursor: pointer;
+}
+.demo-tabs button[aria-pressed="true"] {
+  color: var(--el-color-primary);
+  border-bottom-color: currentColor;
+}
+.example-panel {
+  min-width: 0;
+  border: 1px solid var(--demo-border);
+  border-radius: 5px;
+  background: #fff;
+}
+.panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.panel-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.panel-description {
+  margin: 6px 0 0;
+  color: var(--demo-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.demo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  border-block: 1px solid var(--demo-border);
+}
+.demo-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.demo-segmented button {
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  color: #606266;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.demo-segmented button[aria-pressed="true"] {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary-light-5);
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.button-row .el-button + .el-button {
+  margin-left: 0;
+}
+.inline-feedback {
+  margin: 0;
+  color: var(--demo-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.api-source {
+  margin-top: 12px;
+  color: #606266;
+  font-size: 12px;
+}
+.api-source summary {
+  width: fit-content;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.data-preview {
+  margin: 8px 0 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--demo-border);
+  border-radius: 4px;
+  background: #f8f9fb;
+  color: #4e5969;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .demo-app {
+    padding: 12px;
+  }
+  .demo-header {
+    gap: 10px;
+  }
+  .demo-header h1 {
+    font-size: 12px;
+  }
+  .demo-tabs {
+    gap: 18px;
+  }
+  .demo-tabs button {
+    font-size: 12px;
+  }
+  .panel-heading,
+  .demo-toolbar {
+    padding-inline: 12px;
+  }
+}

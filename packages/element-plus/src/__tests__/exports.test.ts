@@ -27,6 +27,12 @@ describe("@schemx/element-plus 根入口", () => {
     expect(getConfig().rendererRegistry).toBe(rendererRegistry)
     expect(getConfig().presetRuleRegistry).toBe(presetRuleRegistry)
   })
+  test("搜索导出绑定 Element Plus 创建器，命名别名指向同一组件", () => {
+    expect(elementPlusPackage.SchemxSearch).toBe(elementPlusPackage.schemxSearch)
+    expect(elementPlusPackage.SchemxSearch).not.toBe(vuePackage.SchemxSearch)
+    expect(elementPlusPackage.SchemxSearch.name).toBe("ElementPlusSchemxSearch")
+    expect(elementPlusPackage.default).toBe(elementPlusPackage.SchemxForm)
+  })
   test("导出 Element Plus Renderer 公共 API", () => {
     expect(elementPlusPackage).toMatchObject({
       InputRenderer: expect.any(Object),

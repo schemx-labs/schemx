@@ -88,6 +88,9 @@
   --schemx-field-content-padding-inline: 6px;
   --schemx-field-required-gap: 2px;
   --schemx-field-error-gap: 6px;
+  --schemx-field-highlight-background: var(--schemx-primary-color-light);
+  --schemx-field-highlight-color: var(--el-color-primary-light-3);
+  --schemx-field-highlight-radius: var(--schemx-border-radius-sm);
   --schemx-component-size: 28px;
 
   /*

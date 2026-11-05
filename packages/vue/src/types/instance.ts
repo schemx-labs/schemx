@@ -10,10 +10,11 @@ export interface SchemxInstance<
 > extends CoreInstance<TValues> {
   /**
    * 定位已挂载的字段，并展开折叠的祖先 Group；未找到时返回 false。
+   * 返回 true 表示已发起定位，不等待滚动结束或高亮消失；被新请求取代时返回 false。
    * @typeParam TName - 目标字段路径。
    * @param name - 要定位的字段路径。
-   * @param options - 滚动行为和对齐方式。
-   * @example await form.scrollToField("profile.nickname", { block: "center" })
+   * @param options - 滚动行为、对齐方式和定位高亮。
+   * @example await form.scrollToField("profile.nickname", { block: "center", highlight: true })
    */
   scrollToField<TName extends NamePath<TValues>>(
     this: void,

@@ -4,7 +4,7 @@
 
 基于 Vue 3 和 Element Plus 的 Schemx Renderer 适配包，提供预注册控件、表单布局默认值及远程选项支持。使用其他 UI 组件库或自研控件时，可改用 [`@schemx/vue`](../vue)。
 
-本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，根入口通过 `export *` 透传 `@schemx/vue` 的公共 API 和类型，包括 `createSchemx`；Form、`createForm`、`configureSchemx`、`getConfig`、`useForm`、默认配置与 Registry 使用本包实现。工厂类型与组件接入函数均可从本包根入口导入。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
+本包内部使用 `@schemx/vue` 的 `createSchemx` 管理配置、Registry 与表单创建；组件、`ConfigProvider` 和插件安装由独立模块提供，根入口通过 `export *` 透传 `@schemx/vue` 的公共 API 和类型，包括 `createSchemx`；Form、Search、`createForm`、`configureSchemx`、`getConfig`、`useForm`、默认配置与 Registry 使用本包实现。工厂类型与组件接入函数均可从本包根入口导入。`configureSchemx(options)` 每次替换本包覆盖层，仅影响新表单；无参数恢复 UI 默认配置。`getConfig()` 读取本包默认配置。Registry 引用固定，注册内容通过导出的 Registry 修改。
 
 UI 根入口同步保留 Vue 的 `getGlobalSchemxConfig` 和 `SchemxLayout` 兼容导出；推荐分别使用 `getConfig` 和 `SchemxColConfig`。配置合并统一使用 `mergeConfig`。已发布的旧 Context API 保留并标为弃用；推荐使用 `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext` 和 `useConfigProviderContextRef`。旧 Form 提供函数改用 `provideFormContext`，旧实例/配置读取函数改从 `useFormContextValue()` 读取，旧 Provider 提供函数改用 `ConfigProvider`。组件、`useForm` 及默认配置的调用方式保持不变。本包的 Form 通过 `@schemx/vue` 绑定创建器，不向嵌套普通 Form 传播工厂。
 
@@ -70,6 +70,37 @@ const form = createForm({ initialValues: { name: "" } })
 若业务代码直接导入 `@schemx/vue`、`@schemx/core` 或其公开子路径（例如上面的 `@schemx/vue/style.css`），也应显式声明对应依赖。
 
 根入口导出的 `rendererRegistry` 和 `presetRuleRegistry` 可用于扩展默认 Renderer 与规则。Form 配置、布局组件和 `ConfigProvider` 的用法见 [`@schemx/vue`](../vue)。
+
+## SchemxSearch
+
+本包导出的 `SchemxSearch` 和 `schemxSearch` 指向同一搜索组件，使用与 `SchemxForm` 相同的 Element Plus 创建器，自动继承本包的 Renderer、布局、按钮和配置。默认导出仍为表单组件。
+
+```vue
+<script setup lang="ts">
+  import { ref } from "vue"
+  import { SchemxSearch } from "@schemx/element-plus"
+  import type { SchemxField } from "@schemx/element-plus"
+
+  interface SearchValues {
+    keyword: string
+    owner: string
+    city: string
+  }
+
+  const values = ref<SearchValues>({ keyword: "", owner: "", city: "" })
+  const schemas: SchemxField<SearchValues>[] = [
+    { name: "keyword", label: "关键词", componentType: "input" },
+    { name: "owner", label: "负责人", componentType: "input" },
+    { name: "city", label: "城市", componentType: "input" },
+  ]
+</script>
+
+<template>
+  <SchemxSearch v-model="values" :schemas="schemas" :col="{ span: 12 }" />
+</template>
+```
+
+支持 `collapse` 折叠配置、`submitter` / `resetter`、查询回调及自定义折叠触发器；完整行为见 [Vue 搜索组件](../vue/README.md#schemxsearch-搜索组件)。`app.use(SchemxSearch, options)` 将其注册为全局 `SchemxSearch`，App 配置约定与 Form 一致。
 
 ## 快速开始
 
@@ -187,3 +218,16 @@ const avatarField: SchemxField<ProfileValues> = {
 将 `avatarField` 放入表单的 `schemas`，并在 `initialValues` 或 `v-model` 中设置 `avatar: []`。接口使用其他字段名时，可通过 `componentProps.propsHttp` 配置 `data`、`url` 和 `name` 的映射；文件列表、上传完成和失败事件由 Renderer 同步到字段。
 
 通用 Form Props、Slots 和 Composition API 见 [`@schemx/vue`](../vue)；Schema、动态字段和校验能力见 [`@schemx/core`](../core)。可运行示例见 [`examples/element-plus`](../../examples/element-plus)。
+
+
+### 自动列宽
+
+字段可配置 `col: "auto"`，解除列的栅格宽度约束并自然换行；字段内部布局与控件宽度仍由 Renderer 自身样式和配置决定。也可通过 Form 的 `col="auto"` 设置字段默认值，或通过 `actionCol="auto"` 设置操作列。对象形式仍使用原有栅格规则；Group、Dynamic 外层和旧版 `layout` 仍只接受对象。
+
+输入框、数字输入框、敏感输入框、自动补全、标签输入、提及、下拉选择（含虚拟列表和树选择）、级联、滑块及日期/时间选择 Renderer 默认宽度上限为 `220px`，容器内容宽度不足时按 `100%` 缩小。日期时间单值的宽度上限为 `260px`，日期范围（含月、年范围）为 `320px`，时间范围为 `280px`，日期时间范围为 `440px`。颜色选择器、Switch、评分、单复选、验证码和上传不设置此宽度上限。日期/时间的加宽规则在显示输入控件时生效。
+
+`col: "auto"` 中的输入类控件先使用上述默认宽度参与列宽计算，再通过 `max-width: 100%` 适应窄容器；普通栅格列使用 `width: 100%` 并以上述默认宽度作为上限。左侧标签和间距计入整列宽度，不包含在控件的 `220px` 中。此规则仅作用于字段直接所属的自动列，嵌套栅格不受外层自动列影响。颜色选择器、Switch 等紧凑控件仍按自身尺寸排列。
+
+可在表单或字段 `className` 对应的样式中设置 `--schemx-renderer-width` 覆盖上述上限，例如设为 `180px`，或设为 `100%` 跟随容器宽度。
+
+Search 根据已渲染条件的实际位置和高度折叠，自动列与栅格列混排同样生效；收起时保留第一行高度，全部可见字段保持挂载，容器尺寸变化后自动重新测量。完整规则见 [Vue 布局说明](../vue/README.md#row--col-布局)。

@@ -1,473 +1,117 @@
-<template>
-  <main class="app">
-    <section class="intro">
-      <p class="eyebrow">SCHEMX / ELEMENT PLUS</p>
-      <h1>Element Plus Renderer 示例</h1>
-      <p>展示 Element Plus Renderer、字段定位，以及自动展开 Group 并滚动到字段。</p>
-    </section>
-    <ElCard class="form-card">
-      <SchemxForm ref="formRef" :initial-values="initialValues" :schemas="schemas" />
-
-      <div class="actions">
-        <ElButton type="primary" @click="submitForm">提交</ElButton>
-        <ElButton @click="formRef?.validate()">校验</ElButton>
-        <ElButton @click="formRef?.reset()">重置</ElButton>
-        <ElButton @click="scrollToBasicAge">定位到分组中的年龄</ElButton>
-      </div>
-    </ElCard>
-
-    <ElCard v-if="submitResult" class="result-card">
-      <template #header>最近一次提交结果</template>
-      <pre>{{ submitResult }}</pre>
-    </ElCard>
-  </main>
-</template>
-
 <script setup lang="ts">
-  import { ref } from "vue"
+  import { onScopeDispose, ref } from "vue"
 
-  import SchemxForm, { type SchemxField, type SchemxInstance } from "@schemx/element-plus"
-  import { ElButton, ElCard } from "element-plus"
+  import logo from "../../../logo.png"
 
-  interface ExampleValues {
-    name: string
-    note: string
-    suggestion: string | number
-    favoriteColor: string | null
-    appointment: string | Date | null
-    tags: string[]
-    otp: string
-    mention: string
-    quantity: number | null
-    enabled: boolean
-    gender: string
-    hobbies: string[]
-    choice: string | null
-    remoteChoice: string | null
-    virtualChoice: string | null
-    birthday: string | Date | null
-    time: string | Date | null
-    fixedTime: string | null
-    category: string | null
-    region: string[]
-    secret: string
-    score: number
-    progress: number
-    files: Array<{ name: string; url?: string }>
-    basic: {
-      username: string
-      website: string
-      phone: string
-      bio: string
-      age: number
-      notification: boolean
-      gender: "male" | "female"
-      hobbies: string[]
-      birthday?: string
-      travelDate?: string
-      city?: string
-      frequentCampus?: string
-      affiliatedCampus?: string
-      preferredCities: string[]
-      education?: string
-      satisfaction?: number
-      volume?: number
-      quantity?: number
-      avatar: Array<{ name: string; url?: string }>
-      region: string[]
-    }
+  import AutoColExample from "./AutoColExample.vue"
+  import RenderersExample from "./renderers/RenderersExample.vue"
+  import SearchExample from "./search/SearchExample.vue"
+
+  import "./styles/demo.css"
+
+  /**
+   * 可独立访问的三个示例页面。
+   */
+  type ExamplePage = "search" | "renderers" | "layout"
+
+  /**
+   * 导航和页面标题使用同一份展示配置。
+   */
+  interface PageDefinition {
+    /**
+     * 同时作为 URL hash 和页面标识。
+     */
+    id: ExamplePage
+    /**
+     * 导航中展示的中文名称。
+     */
+    label: string
   }
 
-  const formRef = ref<SchemxInstance<ExampleValues>>()
-
-  const submitResult = ref<unknown>()
-
-  const initialValues: ExampleValues = {
-    name: "",
-    note: "",
-    suggestion: "",
-    favoriteColor: null,
-    appointment: null,
-    tags: [],
-    otp: "",
-    mention: "",
-    quantity: 1,
-    enabled: true,
-    gender: "female",
-    hobbies: ["coding"],
-    choice: null,
-    remoteChoice: null,
-    virtualChoice: null,
-    birthday: null,
-    time: null,
-    fixedTime: null,
-    category: null,
-    region: [],
-    secret: "demo-secret",
-    score: 3,
-    progress: 40,
-    files: [],
-    basic: {
-      username: "Ada",
-      website: "",
-      phone: "",
-      bio: "",
-      age: 28,
-      notification: true,
-      gender: "female",
-      hobbies: [],
-      preferredCities: [],
-      avatar: [],
-      region: [],
-    },
-  }
-
-  const schemas: SchemxField<ExampleValues>[] = [
-    {
-      name: "name",
-      label: "姓名",
-      componentType: "input",
-      required: true,
-    },
-    {
-      name: "note",
-      label: "备注",
-      componentType: "input",
-      required: true,
-      componentProps: {
-        type: "textarea",
-        autosize: { minRows: 2, maxRows: 5 },
-      },
-    },
-    {
-      name: "suggestion",
-      label: "自动补全",
-      componentType: "autocomplete",
-      required: true,
-      componentProps: {
-        options: [
-          { text: "Ada", id: "ada" },
-          { text: "Grace", id: "grace" },
-        ],
-        props: { label: "text", value: "id" },
-      },
-    },
-    {
-      name: "favoriteColor",
-      label: "颜色",
-      componentType: "colorPicker",
-      required: true,
-    },
-    {
-      name: "appointment",
-      label: "预约时间",
-      componentType: "datetimePicker",
-      required: true,
-      componentProps: { valueFormat: "YYYY-MM-DD HH:mm:ss" },
-    },
-    {
-      name: "tags",
-      label: "标签",
-      componentType: "inputTag",
-      required: true,
-      componentProps: { trigger: "Enter", clearable: true },
-    },
-    {
-      name: "otp",
-      label: "验证码",
-      componentType: "inputOtp",
-      required: true,
-      componentProps: { length: 6, inputmode: "numeric" },
-    },
-    {
-      name: "mention",
-      label: "提及",
-      componentType: "mention",
-      required: true,
-      componentProps: {
-        options: [
-          { label: "Ada", value: "Ada" },
-          { label: "Grace", value: "Grace" },
-        ],
-      },
-    },
-    {
-      name: "quantity",
-      label: "数量",
-      componentType: "inputNumber",
-      required: true,
-      componentProps: { min: 0, max: 99, precision: 0 },
-    },
-    {
-      name: "enabled",
-      label: "启用状态",
-      componentType: "switch",
-      required: true,
-    },
-    {
-      name: "gender",
-      label: "性别",
-      componentType: "radio",
-      required: true,
-      componentProps: {
-        options: [
-          { label: "男", value: "male" },
-          { label: "女", value: "female" },
-        ],
-      },
-    },
-    {
-      name: "hobbies",
-      label: "兴趣",
-      componentType: "checkbox",
-      required: true,
-      componentProps: {
-        options: [
-          { label: "编程", value: "coding" },
-          { label: "阅读", value: "reading" },
-          { label: "音乐", value: "music" },
-        ],
-      },
-    },
-    {
-      name: "choice",
-      label: "选择器",
-      componentType: "select",
-      required: true,
-      componentProps: {
-        options: [
-          { text: "选项 A", id: "a" },
-          { text: "选项 B", id: "b" },
-        ],
-        props: { label: "text", value: "id" },
-        clearable: true,
-      },
-    },
-    {
-      name: "virtualChoice",
-      label: "虚拟化选择器",
-      componentType: "virtualizedSelect",
-      required: true,
-      componentProps: {
-        options: [
-          { label: "虚拟选项 A", value: "a" },
-          { label: "虚拟选项 B", value: "b" },
-        ],
-        height: 180,
-      },
-    },
-    {
-      name: "remoteChoice",
-      label: "远程选择器",
-      componentType: "select",
-      required: true,
-      componentProps: {
-        dict: {
-          api: async () => [
-            { label: "远程选项 A", value: "remote-a" },
-            { label: "远程选项 B", value: "remote-b" },
-          ],
-        },
-        loadingText: "加载中",
-      },
-    },
-    {
-      name: "birthday",
-      label: "生日",
-      componentType: "datePicker",
-      required: true,
-      componentProps: { valueFormat: "YYYY-MM-DD", placeholder: "请选择日期" },
-    },
-    {
-      name: "time",
-      label: "时间",
-      componentType: "timePicker",
-      required: true,
-      componentProps: { valueFormat: "HH:mm:ss" },
-    },
-    {
-      name: "fixedTime",
-      label: "固定时间",
-      componentType: "timeSelect",
-      required: true,
-      componentProps: { start: "08:00", end: "18:00", step: "00:30" },
-    },
-    {
-      name: "category",
-      label: "树形选择",
-      componentType: "treeSelect",
-      required: true,
-      componentProps: {
-        options: [
-          {
-            value: "frontend",
-            label: "前端",
-            children: [{ value: "vue", label: "Vue" }],
-          },
-          { value: "backend", label: "后端" },
-        ],
-        filterable: true,
-      },
-    },
-    {
-      name: "region",
-      label: "地区",
-      componentType: "cascader",
-      required: true,
-      componentProps: {
-        options: [
-          {
-            value: "east",
-            label: "华东",
-            children: [
-              { value: "shanghai", label: "上海" },
-              { value: "hangzhou", label: "杭州" },
-            ],
-          },
-          {
-            value: "south",
-            label: "华南",
-            children: [{ value: "shenzhen", label: "深圳" }],
-          },
-        ],
-      },
-    },
-    {
-      name: "secret",
-      label: "敏感信息",
-      componentType: "sensitiveInput",
-      required: true,
-    },
-    {
-      name: "score",
-      label: "评分",
-      componentType: "rate",
-      required: true,
-    },
-    {
-      name: "progress",
-      label: "进度",
-      componentType: "slider",
-      required: true,
-    },
-    {
-      name: "files",
-      label: "附件",
-      componentType: "upload",
-      required: true,
-      componentProps: {
-        accept: "image/*",
-        uploader: async (file) => ({
-          name: file.name,
-          url: URL.createObjectURL(file),
-        }),
-        listType: "text",
-        multiple: true,
-      },
-    },
-    {
-      key: "basic-information",
-      label: "基础信息",
-      collapsible: true,
-      defaultCollapsed: true,
-      children: [
-        {
-          name: "basic.username",
-          label: "用户名（text）",
-          componentType: "input",
-          required: true,
-          componentProps: { placeholder: "请输入用户名" },
-          disabled: true,
-        },
-        {
-          name: "basic.age",
-          label: "年龄（number）",
-          componentType: "inputNumber",
-          required: true,
-          componentProps: { min: 0, max: 150 },
-        },
-        {
-          name: "basic.notification",
-          label: "通知开关（switch）",
-          componentType: "switch",
-          required: true,
-        },
-        {
-          name: "basic.gender",
-          label: "性别（radio）",
-          componentType: "radio",
-          required: true,
-          componentProps: {
-            options: [
-              { label: "男", value: "male" },
-              { label: "女", value: "female" },
-            ],
-          },
-        },
-      ],
-    },
+  // 只按 API 用途划分示例，不增加独立站点的介绍和导航层级。
+  const pages: PageDefinition[] = [
+    { id: "renderers", label: "表单与 Renderer" },
+    { id: "search", label: "搜索与折叠" },
+    { id: "layout", label: "列布局" },
   ]
 
-  /** 提交当前表单并展示返回结果。 */
-  const submitForm = async (): Promise<void> => {
-    submitResult.value = await formRef.value?.submit()
+  /**
+   * 从链接中恢复当前页面，未知地址回到表单示例。
+   */
+  const getPageFromHash = (): ExamplePage => {
+    // hash 仅用于在本地页面配置中查找，不参与 HTML 或脚本拼接。
+    const hash = window.location.hash.slice(1)
+
+    // page 是已有的示例配置，过滤未知页面 ID。
+    return pages.find((page) => page.id === hash)?.id ?? "renderers"
   }
 
-  /** 展开基础信息分组，并滚动到年龄字段。 */
-  const scrollToBasicAge = async (): Promise<void> => {
-    await formRef.value?.scrollToField("basic.age", { block: "center" })
+  // 三个示例保持挂载，切换导航时保留用户输入。
+  const activePage = ref<ExamplePage>(getPageFromHash())
+
+  /**
+   * 切换示例并更新地址，支持浏览器前进和后退。
+   * @param page - 需要展示的示例 ID。
+   */
+  const navigate = (page: ExamplePage): void => {
+    if (activePage.value === page) {
+      return
+    }
+
+    activePage.value = page
+    window.history.pushState(null, "", `#${page}`)
+    window.scrollTo({ top: 0, behavior: "instant" })
   }
+
+  /**
+   * 浏览器历史或地址变化后恢复当前示例。
+   */
+  const syncPage = (): void => {
+    activePage.value = getPageFromHash()
+  }
+
+  window.addEventListener("popstate", syncPage)
+  window.addEventListener("hashchange", syncPage)
+  onScopeDispose(() => {
+    window.removeEventListener("popstate", syncPage)
+    window.removeEventListener("hashchange", syncPage)
+  })
 </script>
 
-<style>
-  :root {
-    color: #303133;
-    background: #f4f7fb;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
+<template>
+  <main class="demo-app">
+    <header class="demo-header">
+      <a
+        class="demo-logo"
+        href="#renderers"
+        aria-label="Schemx"
+        @click.prevent="navigate('renderers')"
+        ><img :src="logo" alt="Schemx"
+      /></a>
+      <h1>Element Plus 示例</h1>
+      <a
+        class="repository-link"
+        href="https://github.com/Jiohon/schemx"
+        target="_blank"
+        rel="noopener noreferrer"
+        >GitHub</a
+      >
+    </header>
 
-  body {
-    margin: 0;
-  }
+    <nav class="demo-tabs" aria-label="API 示例">
+      <button
+        v-for="page in pages"
+        :key="page.id"
+        type="button"
+        :aria-pressed="activePage === page.id"
+        @click="navigate(page.id)"
+      >
+        {{ page.label }}
+      </button>
+    </nav>
 
-  .app {
-    width: min(960px, calc(100% - 32px));
-    margin: 0 auto;
-    padding: 48px 0;
-  }
-
-  .intro {
-    margin-bottom: 24px;
-  }
-
-  .eyebrow {
-    margin: 0 0 8px;
-    color: var(--el-color-primary);
-    font-size: 12px;
-    letter-spacing: 0.12em;
-  }
-
-  h1 {
-    margin: 0 0 8px;
-  }
-
-  .intro p:last-child {
-    margin: 0;
-    color: var(--el-text-color-secondary);
-  }
-
-  .actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 24px;
-  }
-
-  .result-card {
-    margin-top: 24px;
-  }
-
-  pre {
-    margin: 0;
-    white-space: pre-wrap;
-  }
-</style>
+    <div v-show="activePage === 'renderers'"><RenderersExample /></div>
+    <div v-show="activePage === 'search'"><SearchExample /></div>
+    <div v-show="activePage === 'layout'"><AutoColExample /></div>
+  </main>
+</template>

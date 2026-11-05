@@ -8,10 +8,11 @@ import { nextTick, onScopeDispose } from "vue"
 import type { ShallowRef } from "vue"
 
 import { createFieldKey, isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
-import scrollIntoView from "scroll-into-view-if-needed"
 
 import { registerVueScrollToFieldHandler } from "../bridge"
 import { provideFieldScrollRegistry } from "../context"
+
+import { useScrollToFieldHighlight } from "./useScrollToFieldHighlight"
 
 import type { FieldScrollRegistry, GroupScrollController } from "../context"
 import type { SchemxInstance, ScrollToFieldOptions } from "../types"
@@ -30,6 +31,10 @@ interface UseScrollToFieldOptions<TValues extends Values> {
   form: SchemxInstance<TValues>
   /** 提供字段与 Group 路径查找所需的最新 ViewSchema。 */
   viewSchemas: ShallowRef<readonly SchemxViewSchema<TValues>[]>
+  /**
+   * 未找到 DOM 且字段可见时，先展开外层搜索区；拒绝展开时终止定位。
+   */
+  prepareField?: () => Promise<boolean>
 }
 
 /**
@@ -159,6 +164,12 @@ function findFieldGroupPath<TValues extends Values>(
 export function useScrollToField<TValues extends Values>(
   options: UseScrollToFieldOptions<TValues>
 ): void {
+  // 当前组件拥有的滚动与高亮资源。
+  const scrollFeedback = useScrollToFieldHighlight()
+
+  // 新请求或卸载使尚在等待展开的旧请求失效。
+  let revision = 0
+
   const registeredFields = new Map<string, Set<HTMLElement>>()
 
   const registeredGroups = new Map<string, GroupScrollController>()
@@ -182,6 +193,10 @@ export function useScrollToField<TValues extends Values>(
         }
       }
     },
+    /**
+     * 查找当前可见且未被 Search 折叠禁用的字段。
+     * @param key - 规范化后的字段路径。
+     */
     find(key) {
       const elements = registeredFields.get(key)
 
@@ -202,6 +217,7 @@ export function useScrollToField<TValues extends Values>(
           const style = getComputedStyle(ancestor)
 
           if (
+            ancestor.hasAttribute("inert") ||
             style.display === "none" ||
             style.visibility === "hidden" ||
             style.visibility === "collapse"
@@ -241,11 +257,24 @@ export function useScrollToField<TValues extends Values>(
 
   provideFieldScrollRegistry(fieldScrollRegistry)
 
+  /**
+   * 展开字段所在区域并发起滚动，高亮在滚动完成后异步显示。
+   * @param name - 本次定位的字段路径。
+   * @param scrollOptions - 滚动行为、对齐方式和高亮配置。
+   */
   const scrollToField = async (
     name: NamePath<TValues>,
     scrollOptions?: ScrollToFieldOptions
   ): Promise<boolean> => {
+    // 捕获本次请求序号，防止展开期间被新请求或组件卸载取代。
+    const currentRevision = ++revision
+
+    scrollFeedback.clear()
     await nextTick()
+
+    if (currentRevision !== revision) {
+      return false
+    }
 
     const fieldKey = createFieldKey(name)
 
@@ -258,6 +287,19 @@ export function useScrollToField<TValues extends Values>(
         return false
       }
 
+      if (options.prepareField) {
+        if (!(await options.prepareField())) {
+          return false
+        }
+
+        // 外层 Search 展开后，Group 控制器才会完成挂载注册。
+        await nextTick()
+
+        if (currentRevision !== revision) {
+          return false
+        }
+      }
+
       for (let index = 0; index < groupPath.length; index += 1) {
         const currentPath = groupPath.slice(0, index + 1)
 
@@ -268,6 +310,10 @@ export function useScrollToField<TValues extends Values>(
         }
 
         await nextTick()
+
+        if (currentRevision !== revision) {
+          return false
+        }
       }
 
       target = fieldScrollRegistry.find(fieldKey)
@@ -277,15 +323,13 @@ export function useScrollToField<TValues extends Values>(
       return false
     }
 
-    scrollIntoView(target, {
-      behavior: scrollOptions?.behavior ?? "smooth",
-      block: scrollOptions?.block ?? "center",
-      inline: scrollOptions?.inline ?? "nearest",
-      scrollMode: "if-needed",
-    })
+    scrollFeedback.scroll(target, scrollOptions)
 
     return true
   }
 
   onScopeDispose(registerVueScrollToFieldHandler(options.form, scrollToField))
+  onScopeDispose(() => {
+    revision += 1
+  })
 }

@@ -12,6 +12,8 @@ import type {
   SchemxGroupSlotProps,
   SchemxGroupSlots,
   SchemxInstance,
+  ScrollToFieldHighlightOptions,
+  ScrollToFieldOptions,
 } from "../../index"
 
 interface FormValues {
@@ -94,6 +96,28 @@ void invalidActionProps
 declare const formInstance: SchemxInstance<FormValues>
 
 void formInstance.scrollToField("name", { behavior: "smooth", block: "center" })
+
+// 高亮配置由包根公开导出，并可作为滚动选项复用。
+const highlightOptions: ScrollToFieldHighlightOptions = { duration: 2000 }
+
+// 原有选项与高亮配置可以组合。
+const scrollOptions: ScrollToFieldOptions = { highlight: highlightOptions }
+
+void formInstance.scrollToField("name", scrollOptions)
+void formInstance.scrollToField("name", { highlight: true })
+void formInstance.scrollToField("name", { highlight: false })
+void formInstance.scrollToField("name", { highlight: { duration: 0 } })
+
+// @ts-expect-error duration 仅接受毫秒数，持续显示使用 0。
+void formInstance.scrollToField("name", { highlight: { duration: false } })
+
+// @ts-expect-error duration 仅接受毫秒数，不接受 true。
+void formInstance.scrollToField("name", { highlight: { duration: true } })
+
+// @ts-expect-error highlight 只接受开关或配置对象。
+void formInstance.scrollToField("name", { highlight: "flash" })
+// @ts-expect-error 高亮持续时间以毫秒数配置。
+void formInstance.scrollToField("name", { highlight: { duration: "2s" } })
 
 // @ts-expect-error scroll behavior is limited to the supported library options.
 void formInstance.scrollToField("name", { behavior: "instant" })

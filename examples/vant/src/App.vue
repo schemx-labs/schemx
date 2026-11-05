@@ -23,6 +23,7 @@
 <script setup lang="ts">
   import { computed, markRaw, ref } from "vue"
 
+  import AutoColExample from "./AutoColExample.vue"
   import CustomRendererForm from "./custom/CustomRendererForm.vue"
   import ArrayValueUpdateForm from "./form/ArrayValueUpdateForm.vue"
   import FormGroupsForm from "./form/FormGroupsForm.vue"
@@ -35,6 +36,7 @@
    * 减少不必要的性能开销。
    */
   const examples = [
+    { id: "auto-col", name: "自动列布局", component: markRaw(AutoColExample) },
     {
       id: "form-groups",
       name: "基础 / 动态 / 联动 / 动态数组",

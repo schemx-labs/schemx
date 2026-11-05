@@ -7,7 +7,6 @@
  * @module components/Dynamic
  */
 
-/* eslint-disable vue/one-component-per-file */
 import { defineComponent, Fragment } from "vue"
 import type { PropType, VNodeChild } from "vue"
 

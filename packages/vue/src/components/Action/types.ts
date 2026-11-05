@@ -14,3 +14,12 @@ export interface ActionProps<TValues extends Values> extends Pick<
    */
   form: SchemxInstance<TValues>
 }
+
+/**
+ * 不带 Col 的操作按钮主体，供 Form 和 Search 复用。
+ * @typeParam TValues - 当前表单值类型。
+ */
+export type ActionButtonsProps<TValues extends Values> = Omit<
+  ActionProps<TValues>,
+  "actionCol"
+>

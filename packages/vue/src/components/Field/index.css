@@ -6,6 +6,61 @@
   position: relative;
 }
 
+/*
+ * 背景留在字段底层；描边独立覆盖控件表面，避免被不透明的输入框遮挡。
+ */
+.schemx-field-wrapper--highlighted {
+  border-radius: var(--schemx-field-highlight-radius);
+  background-color: var(--schemx-field-highlight-background);
+  animation: schemx-field-highlight var(--schemx-field-highlight-duration, 1500ms)
+    ease-out both;
+}
+
+.schemx-field-wrapper--highlighted::before {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  box-sizing: border-box;
+  content: "";
+  pointer-events: none;
+  border: 1px solid var(--schemx-field-highlight-color);
+  border-radius: var(--schemx-field-highlight-radius);
+  animation: schemx-field-highlight-border var(--schemx-field-highlight-duration, 1500ms)
+    ease-out both;
+}
+
+@keyframes schemx-field-highlight {
+  0%,
+  75% {
+    background-color: var(--schemx-field-highlight-background);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes schemx-field-highlight-border {
+  0%,
+  75% {
+    border-color: var(--schemx-field-highlight-color);
+  }
+  100% {
+    border-color: transparent;
+  }
+}
+
+.schemx-field-wrapper--highlight-persistent,
+.schemx-field-wrapper--highlight-persistent::before {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schemx-field-wrapper--highlighted,
+  .schemx-field-wrapper--highlighted::before {
+    animation: none;
+  }
+}
+
 .schemx-field-wrapper.is-bordered::after {
   position: absolute;
   box-sizing: border-box;

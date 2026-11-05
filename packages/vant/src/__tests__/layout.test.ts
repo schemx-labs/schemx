@@ -3,7 +3,7 @@
 import type { Component } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import SchemxForm, { presetRuleRegistry, rendererRegistry } from "../index"
 import { VantCol } from "../layout/defaultCol"
@@ -32,6 +32,46 @@ function mountVantForm(props: Record<string, unknown> = {}) {
 }
 
 describe("Vant Col layout adapter", () => {
+  it("auto 列保留适配器、控件和 gutter，切换布局不重建输入", async () => {
+    // 表单默认 auto，字段可显式覆盖回栅格。
+    const wrapper = mount(SchemxForm as Component, {
+      props: {
+        col: "auto",
+        actionCol: "auto",
+        row: { gutter: [8, 16] },
+        initialValues: { first: "before", second: "B" },
+        schemas: [
+          {
+            name: "first",
+            label: "自动",
+            componentType: "input",
+            componentProps: { style: { width: "180px" } },
+          },
+          { name: "second", label: "栅格", componentType: "input", col: { span: 12 } },
+        ],
+      },
+    })
+
+    // 切换前的输入节点用于验证字段不会因布局变化而重挂载。
+    const input = wrapper.findAll("input")[0]?.element
+
+    expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(2)
+    expect(wrapper.get(".schemx-col--auto").classes()).toContain("van-col")
+    expect(wrapper.get(".schemx-col--auto").attributes("auto")).toBeUndefined()
+    expect(wrapper.find(".van-col--12").exists()).toBe(true)
+    expect(wrapper.find(".schemx-renderer--auto").exists()).toBe(false)
+    expect(wrapper.find(".schemx-field--auto").exists()).toBe(false)
+    expect(wrapper.get(".schemx-field__content").attributes("style")).not.toContain(
+      "width:"
+    )
+    await wrapper.findAll("input")[0]?.setValue("changed")
+    await wrapper.setProps({ col: { span: 8 } })
+    await vi.waitFor(() => expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(1))
+    expect(wrapper.findAll("input")[0]?.element).toBe(input)
+    expect(wrapper.findAll("input")[0]?.element.value).toBe("changed")
+    wrapper.unmount()
+  })
+
   it("应用移动端默认布局与字段展示配置", () => {
     const wrapper = mountVantForm({
       initialValues: { first: "A" },

@@ -8,7 +8,6 @@
  * @module components/Field/__tests__/Field
  */
 
-/* eslint-disable vue/one-component-per-file, vue/require-default-prop */
 import { defineComponent, h, nextTick, reactive, shallowRef } from "vue"
 import type { Component } from "vue"
 

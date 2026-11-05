@@ -10,6 +10,7 @@ export * from "./renderers"
 export * from "./utils"
 
 export { default, default as SchemxForm, default as schemxForm } from "./form"
+export { default as SchemxSearch, default as schemxSearch } from "./search"
 export { createForm, configureSchemx, getConfig, useForm } from "./schemx"
 export {
   defaultConfig,

@@ -8,7 +8,6 @@
  * @module components/Field
  */
 
-/* eslint-disable vue/one-component-per-file */
 import {
   callWithAsyncErrorHandling,
   computed,

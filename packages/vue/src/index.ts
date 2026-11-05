@@ -14,7 +14,9 @@ import "./types"
 export { default, default as schemxForm } from "./form"
 
 export type { SchemxFormPlugin, SchemxInstallOptions } from "./form"
-export { createFormComponent } from "./adapter"
+export { createFormComponent, createSearchComponent } from "./adapter"
+export { default as SchemxSearch, default as schemxSearch } from "./search"
+export type { SchemxSearchPlugin } from "./adapter"
 
 /**
  * 全局兼容 Registry 与布局工具。

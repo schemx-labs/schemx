@@ -23,7 +23,19 @@ import type {
 } from "@schemx/core"
 
 /**
- * 配置 `scrollToField` 的滚动行为与对齐方式。
+ * 字段定位完成后的高亮配置。
+ */
+export interface ScrollToFieldHighlightOptions {
+  /**
+   * 高亮持续时间，单位毫秒；默认 1500。
+   * 0 持续显示，直到操作目标区域、发起新定位或目标失效。
+   * 非有限数或负数使用默认值。
+   */
+  duration?: number
+}
+
+/**
+ * 配置 `scrollToField` 的滚动行为、对齐方式与定位高亮。
  */
 export interface ScrollToFieldOptions {
   /**
@@ -38,6 +50,10 @@ export interface ScrollToFieldOptions {
    * 字段在滚动容器中的水平对齐方式。
    */
   inline?: "start" | "center" | "end" | "nearest"
+  /**
+   * 滚动完成后高亮目标字段；默认 true。点击或编辑目标区域可提前关闭提示。
+   */
+  highlight?: boolean | ScrollToFieldHighlightOptions
 }
 
 /**

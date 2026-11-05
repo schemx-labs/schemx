@@ -30,7 +30,7 @@ declare module "@schemx/core" {
   /**
    * Vue Field 的展示与事件扩展。
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   interface SchemxFieldDefinition<TValues extends Values = Values> {
     /**
      * 字段自身的静态 Col 配置。
@@ -186,7 +186,7 @@ declare module "@schemx/core" {
    *
    * @typeParam TValues - 当前表单值类型。
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   interface SchemxConfigDefinition<TValues extends Values = Values> {
     /**
      * 当前 App、Provider 或 Form 使用的 Col 实现。
@@ -300,6 +300,10 @@ declare module "@schemx/core" {
    * Vue Renderer 的公共 Props 扩展。
    */
   interface SchemxComponentPropsDefinition<TValues extends Values = Values> {
+    /**
+     * 控件的显式内联样式，由当前 Renderer 消费。
+     */
+    style?: StyleValue
     /**
      * Renderer 内容对齐方式。
      *

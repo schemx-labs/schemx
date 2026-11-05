@@ -1,4 +1,3 @@
-/* eslint-disable vue/one-component-per-file, vue/require-default-prop */
 import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 
 import { createFieldKey, createForm, createRendererRegistry } from "@schemx/core"
@@ -89,15 +88,19 @@ describe("Schemx scrollToField", () => {
 
     expect(await form.scrollToField("name")).toBe(true)
     expect(scrollIntoViewMock).toHaveBeenLastCalledWith(target, {
-      behavior: "smooth",
+      behavior: expect.any(Function),
       block: "center",
       inline: "nearest",
       scrollMode: "if-needed",
     })
 
-    expect(await form.scrollToField("name", { behavior: "auto", block: "end" })).toBe(
-      true
-    )
+    expect(
+      await form.scrollToField("name", {
+        behavior: "auto",
+        block: "end",
+        highlight: false,
+      })
+    ).toBe(true)
     expect(scrollIntoViewMock).toHaveBeenLastCalledWith(target, {
       behavior: "auto",
       block: "end",

@@ -1021,3 +1021,10 @@ const schemas: SchemxField<AccountValues>[] = [
 - [可运行的 Vant 示例](../../examples/vant/README.md)
 
 本包导出各 Renderer、对应的 Props / Value / Option 类型、`DEFAULT_RENDERER_TYPES` 和 [工具函数](#工具函数)。Core 状态适配 API 同样由根入口透传。
+
+
+### 自动列宽
+
+字段可配置 `col: "auto"`，解除列的栅格宽度约束并自然换行；字段内部布局与控件宽度仍由 Renderer 自身样式和配置决定。也可通过 Form 的 `col="auto"` 设置字段默认值，或通过 `actionCol="auto"` 设置操作列。对象形式仍使用原有栅格规则；Group、Dynamic 外层和旧版 `layout` 仍只接受对象。
+
+Vue Search 在根级存在可见自动字段时展示全部条件并隐藏折叠按钮；Vant 当前没有独立 Search 入口。完整规则见 [Vue 布局说明](../vue/README.md#row--col-布局)。

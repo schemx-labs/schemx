@@ -1,5 +1,77 @@
 @use "./variables.scss" as *;
 
+/*
+ * 栅格列中的输入类 Renderer 随内容盒子缩小，达到默认宽度后不再拉伸。
+ * 颜色、开关、评分、单复选、验证码和上传控件保留自身尺寸。
+ */
+.schemx-input-renderer,
+.schemx-input-number-renderer,
+.schemx-sensitive-input,
+.schemx-autocomplete-renderer,
+.schemx-input-tag-renderer,
+.schemx-mention-renderer,
+.schemx-select-renderer,
+.schemx-virtualized-select-renderer,
+.schemx-tree-select-renderer,
+.schemx-cascader-renderer,
+.schemx-slider-renderer,
+.schemx-date-picker-renderer,
+.schemx-date-time-picker-renderer,
+.schemx-time-picker-renderer,
+.schemx-time-select-renderer {
+  --schemx-renderer-default-width: 220px;
+
+  width: 100%;
+  min-width: 0;
+  max-width: var(--schemx-renderer-width, var(--schemx-renderer-default-width));
+
+  /*
+   * 自动列先由控件的默认宽度参与固有尺寸计算，再按可用内容宽度缩小。
+   * 只匹配当前字段所属的直接 Col，避免外层 auto 影响嵌套栅格字段。
+   */
+  .schemx-col--auto > .schemx-field-wrapper > .schemx-field > .schemx-field__content > & {
+    width: var(--schemx-renderer-width, var(--schemx-renderer-default-width));
+    max-width: 100%;
+  }
+}
+
+/*
+ * 日期类使用更宽的上限，窄容器内仍随盒子缩小。
+ * 同时覆盖 datePicker 直接指定 datetime 的用法。
+ */
+:is(.schemx-date-picker-renderer, .schemx-date-time-picker-renderer) {
+  &:has(> .el-date-editor--datetime) {
+    --schemx-renderer-default-width: 260px;
+  }
+
+  &:has(
+    > .el-date-editor--daterange,
+    > .el-date-editor--monthrange,
+    > .el-date-editor--yearrange
+  ) {
+    --schemx-renderer-default-width: 320px;
+  }
+
+  &:has(> .el-date-editor--datetimerange) {
+    --schemx-renderer-default-width: 440px;
+  }
+}
+
+.schemx-time-picker-renderer:has(> .el-date-editor--timerange) {
+  --schemx-renderer-default-width: 280px;
+}
+
+/*
+ * 数字输入框和范围选择器的原生固定宽度跟随 Renderer 宽度。
+ */
+.schemx-input-number-renderer > .el-input-number,
+.schemx-date-picker-renderer > .el-date-editor,
+.schemx-date-time-picker-renderer > .el-date-editor,
+.schemx-time-picker-renderer > .el-date-editor {
+  width: 100%;
+  min-width: 0;
+}
+
 .schemx .schemx-group-wrapper {
   margin-bottom: var(--schemx-padding-md);
 }
@@ -42,4 +114,11 @@
 
 .schemx-element-plus-button {
   flex: 1;
+}
+
+.schemx-actions,
+.schemx-search-actions {
+  .el-button + .el-button {
+    margin-left: 0;
+  }
 }

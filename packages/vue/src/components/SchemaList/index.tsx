@@ -2,16 +2,17 @@
  * SchemaList - 统一递归渲染 ViewSchema 列表。
  *
  * 负责遍历同级 ViewSchema，将节点分发给 Field、Group 和 Dynamic，并为当前列表
- * 建立 Row 包裹；Col 由 Field、Group 和 Dynamic 的布局路径负责。
+ * 建立 Row 包裹；根级行尾可追加操作列，Col 由各节点和调用方负责。
  *
  * @module components/SchemaList
  */
 
 import { defineComponent, h, type PropType } from "vue"
-import type { ClassValue, VNodeChild } from "vue"
+import type { Slots, VNodeChild } from "vue"
 
 import { isViewDynamicSchema, isViewGroupSchema } from "@schemx/core"
 
+import { getSectionPosition } from "../../utils"
 import Dynamic from "../Dynamic"
 import Field from "../Field"
 import Group from "../Group"
@@ -39,15 +40,12 @@ export interface SchemxSchemaListProps<TValues extends Values = Values> {
    */
   rowConfig?: SchemxRowConfig
   /**
-   * 根列表已由 Form 包裹 Row 时关闭自身容器；递归列表默认开启。
+   * 业务字段插槽，与当前列表的行尾扩展插槽分别传递。
    */
-  rowEnabled?: boolean
-  /**
-   * 根级 Field wrapper 的 class 解析器。
-   */
-  fieldClassResolver?: (schema: SchemxViewSchema<TValues>) => ClassValue
+  fieldSlots: Slots
 }
 
+// 统一拥有 Row 与递归分发，字段插槽和行尾插槽使用独立通道。
 const SchemaList = defineComponent({
   name: "SchemxSchemaList",
   inheritAttrs: false,
@@ -66,38 +64,52 @@ const SchemaList = defineComponent({
       required: false,
       default: undefined,
     },
-    rowEnabled: {
-      type: Boolean,
-      default: true,
-    },
-    fieldClassResolver: {
-      type: Function as PropType<(schema: SchemxViewSchema) => ClassValue>,
-      required: false,
-      default: undefined,
+    fieldSlots: {
+      type: Object as PropType<Slots>,
+      required: true,
     },
   },
 
-  setup(props, { slots }) {
+  /**
+   * 渲染当前列表，并将字段插槽递归传递给后代。
+   * @param props - 当前视图列表、行布局和字段插槽。
+   * @param context - 当前列表的行尾扩展插槽；不会传给递归子列表。
+   */
+  setup(props, context) {
     /**
      * 递归创建子级 SchemaList，并复用当前 Form 的布局与字段渲染配置。
      *
      * @param schemas - 当前子级 ViewSchema 列表。
+     * @param rowConfig - 当前子级继承或覆盖的 Row 配置。
      * @returns 子级 SchemaList 的 VNode。
      */
     const renderChildren = (
       schemas: readonly SchemxViewSchema[],
       rowConfig: SchemxRowConfig | undefined = props.rowConfig
     ): VNodeChild => {
-      return h(
-        SchemaList,
-        {
-          schemas,
-          viewSchemas: props.viewSchemas,
-          rowConfig,
-          fieldClassResolver: props.fieldClassResolver,
-        },
-        slots
+      return h(SchemaList, {
+        schemas,
+        viewSchemas: props.viewSchemas,
+        rowConfig,
+        fieldSlots: props.fieldSlots,
+      })
+    }
+
+    /**
+     * 统一计算根列表中的首尾样式，不让布局组件重复组装。
+     * @param schema - 当前渲染的字段节点。
+     */
+    const getFieldClass = (schema: SchemxViewSchema) => {
+      // 子级节点继续沿用根列表语义，与原来的解析回调一致。
+      const { isFirst, isLast } = getSectionPosition(
+        props.viewSchemas as SchemxViewSchema[],
+        schema.key
       )
+
+      return {
+        "schemx-field-wrapper--first": isFirst,
+        "schemx-field-wrapper--last": isLast,
+      }
     }
 
     /**
@@ -120,7 +132,7 @@ const SchemaList = defineComponent({
             schema={schema}
             rowConfig={props.rowConfig}
             renderChildren={renderChildren}
-            v-slots={slots}
+            v-slots={props.fieldSlots}
           />
         )
       } else if (isViewDynamicSchema(schema)) {
@@ -130,7 +142,7 @@ const SchemaList = defineComponent({
             schema={schema}
             rowConfig={props.rowConfig}
             renderChildren={renderChildren}
-            v-slots={slots}
+            v-slots={props.fieldSlots}
           />
         )
       } else {
@@ -138,8 +150,8 @@ const SchemaList = defineComponent({
           <Field
             key={schema.nodeId}
             schema={schema}
-            class={props.fieldClassResolver?.(schema)}
-            v-slots={slots}
+            class={getFieldClass(schema)}
+            v-slots={props.fieldSlots}
           />
         )
       }
@@ -149,8 +161,9 @@ const SchemaList = defineComponent({
 
     return (): VNodeChild => {
       return (
-        <Row row={props.rowConfig} enabled={props.rowEnabled} class="schemx-schema-list">
+        <Row row={props.rowConfig} class="schemx-schema-list">
           {props.schemas.map(renderSchema)}
+          {context.slots.default?.()}
         </Row>
       )
     }

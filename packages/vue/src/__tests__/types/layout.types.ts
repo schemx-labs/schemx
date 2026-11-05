@@ -113,3 +113,28 @@ const typedLayoutConfig: SchemxConfig<{ age: number }> = {
 }
 
 void typedLayoutConfig
+
+// 自动列可用于字段、表单默认配置、Provider 和操作列。
+const autoCol: SchemxColConfig = "auto"
+
+const autoForm: SchemxFormProps = {
+  col: autoCol,
+  actionCol: "auto",
+  schemas: [{ name: "name", label: "姓名", componentType: "input", col: "auto" }],
+}
+
+const autoProvider: ConfigProviderProps = { schemaConfig: { col: "auto" } }
+
+const autoConfig: SchemxConfig = { schemaConfig: { col: "auto" }, actionCol: "auto" }
+
+// @ts-expect-error 列模式仅支持 auto 字符串。
+const invalidAuto: SchemxColConfig = "natural"
+
+// @ts-expect-error 旧布局仅接受对象，不扩展自动列语义。
+const invalidLayout: SchemxColProps = { layout: "auto" }
+
+void autoForm
+void autoProvider
+void autoConfig
+void invalidAuto
+void invalidLayout

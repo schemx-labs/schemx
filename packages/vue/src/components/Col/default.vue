@@ -1,10 +1,16 @@
 <script setup lang="ts">
-  import { computed, useAttrs } from "vue"
+  import { normalizeClass, useAttrs } from "vue"
   import type { CSSProperties } from "vue"
 
   // 包装层已经将 block 和缺省栅格配置归一化。
   interface Props {
+    /**
+     * 普通列占用的栅格数。
+     */
     span?: number
+    /**
+     * 普通列的左侧栅格偏移。
+     */
     offset?: number
   }
 
@@ -15,8 +21,16 @@
 
   const attrs = useAttrs()
 
-  // 栅格宽度和偏移只应用于内置列。
-  const colStyle = computed<CSSProperties>(() => {
+  /**
+   * 普通列生成栅格样式；自动列交由公共类名控制，不产生内联宽度。
+   * attrs 不支持 computed 订阅，在每次渲染时读取以响应类名切换。
+   */
+  const getColStyle = (): CSSProperties => {
+    if (normalizeClass(attrs.class).split(/\s+/).includes("schemx-col--auto")) {
+      return {}
+    }
+
+    // 普通列继续按照 24 栅格计算百分比。
     const width = `${(props.span / 24) * 100}%`
 
     return {
@@ -24,11 +38,11 @@
       maxWidth: width,
       marginLeft: `${(props.offset / 24) * 100}%`,
     }
-  })
+  }
 </script>
 
 <template>
-  <div v-bind="attrs" :style="[attrs.style, colStyle]">
+  <div v-bind="attrs" :style="[attrs.style, getColStyle()]">
     <slot />
   </div>
 </template>

@@ -53,9 +53,12 @@ export interface SchemxRowDefinition<TValues extends Values = Values> {
   align?: "top" | "middle" | "bottom"
 }
 
-/** Vue Field 使用的 Col 配置。 */
+/**
+ * Vue Field 使用的列配置；auto 按控件自身宽度排列，不使用栅格宽度。
+ * @typeParam TValues - 对象布局配置中回调关联的表单值类型。
+ */
 export type SchemxColConfig<TValues extends Values = Values> =
-  SchemxColDefinition<TValues>
+  "auto" | SchemxColDefinition<TValues>
 
 /** Vue Form、Group 和 Dynamic 使用的 Row 配置。 */
 export type SchemxRowConfig<TValues extends Values = Values> =
@@ -66,14 +69,14 @@ export type SchemxRowConfig<TValues extends Values = Values> =
  *
  * @deprecated 请改用 {@link SchemxColConfig} 与 Schema 的 `col` 字段。
  */
-export type SchemxLayout<TValues extends Values = Values> = SchemxColConfig<TValues>
+export type SchemxLayout<TValues extends Values = Values> = SchemxColDefinition<TValues>
 
 /**
  * Vue 层旧版 Col 配置类型。
  *
  * @deprecated 请改用 {@link SchemxColConfig}。
  */
-export type SchemxVueLayout = SchemxColConfig
+export type SchemxVueLayout = SchemxColDefinition
 
 /**
  * Vue 层旧版配置类型。

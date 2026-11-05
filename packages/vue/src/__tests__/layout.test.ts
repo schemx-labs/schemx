@@ -180,6 +180,7 @@ describe("Vue SchemaList layout", () => {
   it("为 SchemaList 的列表输出增加包裹层", () => {
     const wrapper = mount(SchemaList, {
       props: {
+        fieldSlots: {},
         schemas: [],
         viewSchemas: [],
       },
