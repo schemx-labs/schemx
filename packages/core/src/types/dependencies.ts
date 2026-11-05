@@ -163,16 +163,6 @@ export interface SchemxFieldDependencies<
   required?: SchemxConditionFn<TValues, RequiredConfig<DefinedFieldValue<TValues, TName>>>
 
   /**
-   * 是否显示必填视觉标记。
-   *
-   * 条件函数返回 `boolean`，只覆盖渲染层的必填标记，不改变动态或静态
-   * `required` 校验。未配置静态标记时，标记默认跟随当前有效 `required`。
-   *
-   * @deprecated 展示动态属性由 UI 适配层提供；请通过 {@link SchemxFieldDependenciesDefinition} 声明扩展，兼容期间仍保留。
-   */
-  showRequiredMark?: SchemxConditionFn<TValues, boolean>
-
-  /**
    * 占位提示文本 - 只读状态
    *
    * 条件函数返回 `string` 类型，用于动态计算输入框的占位文本。

@@ -34,7 +34,6 @@ export const FIELD_DEPENDENCY_OVERRIDE_KEYS = [
   "componentProps",
   "placeholder",
   "required",
-  "showRequiredMark",
   "readonly",
   "readonlyPlaceholder",
   "disabled",

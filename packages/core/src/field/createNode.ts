@@ -133,10 +133,15 @@ export function createFieldNode<TValues extends Values>(
     const placeholder =
       dependencyOverridesValue.placeholder ?? compiledSchemaValue.placeholder ?? ""
 
+    // 必填标记是框架扩展元数据；未提供布尔值时跟随有效必填状态。
+    const requiredMarkOverride =
+      Reflect.get(dependencyOverridesValue, "showRequiredMark") ??
+      Reflect.get(compiledSchemaValue, "showRequiredMark")
+
     const showRequiredMark =
-      dependencyOverridesValue.showRequiredMark ??
-      compiledSchemaValue.showRequiredMark ??
-      Boolean(validationStateValue.required)
+      typeof requiredMarkOverride === "boolean"
+        ? requiredMarkOverride
+        : Boolean(validationStateValue.required)
 
     return {
       key,

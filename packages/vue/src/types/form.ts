@@ -10,6 +10,7 @@ import type {
   SchemxColComponent,
   SchemxColConfig,
   SchemxIconComponent,
+  SchemxIconValue,
   SchemxLayout,
   SchemxRowComponent,
   SchemxRowConfig,
@@ -96,6 +97,34 @@ export interface SchemxFormProps<TValues extends Values = Values>
   extends
     Omit<CreateFormOptions<TValues>, "schemaConfig" | "submitter" | "resetter">,
     Omit<SchemxSchemaConfig<TValues>, "class"> {
+  /**
+   * 标签图标；显式声明以供 SFC 编译器生成运行时 Props。
+   */
+  labelIcon?: SchemxIconValue
+  /**
+   * 标签文本对齐。
+   */
+  labelAlign?: "left" | "center" | "right"
+  /**
+   * 标签位置。
+   */
+  labelPosition?: "left" | "top" | "right"
+  /**
+   * 标签宽度。
+   */
+  labelWidth?: string | number
+  /**
+   * 内容区域对齐。
+   */
+  contentAlign?: "left" | "center" | "right"
+  /**
+   * 是否显示标签冒号；省略时继承框架默认值。
+   */
+  colon?: boolean
+  /**
+   * 是否显示必填视觉标记；省略时跟随有效 required。
+   */
+  showRequiredMark?: boolean
   /**
    * 当前 Form 使用的 Col 组件实现。
    */

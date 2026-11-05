@@ -10,9 +10,7 @@ import { DEFAULT_RENDERER_TYPES } from "../renderers"
 describe("@schemx/element-plus 根入口", () => {
   test("透传 Vue API，并保留本包默认配置与 Registry", () => {
     expect(elementPlusPackage.createSchemx).toBe(vuePackage.createSchemx)
-    expect(elementPlusPackage.getGlobalSchemxConfig).toBe(
-      vuePackage.getGlobalSchemxConfig
-    )
+    expect(elementPlusPackage).not.toHaveProperty("getGlobalSchemxConfig")
     expect("mergeSchemxConfig" in elementPlusPackage).toBe(false)
 
     expect(elementPlusPackage.createFormContext).toEqual(expect.any(Function))

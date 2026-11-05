@@ -126,7 +126,6 @@ export type FieldDependencyOverrideKey =
   | "placeholder"
   | "readonlyPlaceholder"
   | "required"
-  | "showRequiredMark"
   | "readonly"
   | "disabled"
   | "visible"
@@ -135,11 +134,14 @@ export type FieldDependencyOverrideKey =
 /**
  * 字段 dependencies 解析出的动态覆盖集合。
  *
+ * Core 属性保留具体类型；框架扩展属性在运行时按键透传，读取时由消费层收窄。
+ *
  * @typeParam TValues - 表单值类型。
  */
 export type FieldDependencyOverrides<TValues extends Values = Values> = Partial<
   Pick<SchemxBaseField<TValues>, FieldDependencyOverrideKey>
->
+> &
+  Record<string, unknown>
 
 /**
  * 字段动态配置更新的诊断信息。

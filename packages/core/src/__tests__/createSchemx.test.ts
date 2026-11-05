@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
-  configureSchemx as configureCore,
   createForm,
   createFormStateAdapter,
   createSchemx,
   getFormCreationConfig,
 } from "../index"
+import * as core from "../index"
 
 import type { SchemxField, ValidationRuleResult } from "../index"
 
@@ -22,11 +22,34 @@ const options = { schemas, initialValues: { name: "A" } }
 const Renderer = {}
 
 afterEach(() => {
-  configureCore()
   vi.restoreAllMocks()
 })
 
 describe("Core createSchemx", () => {
+  it("公共入口移除全局配置，独立创建不继承其他工厂状态", () => {
+    expect(core).not.toHaveProperty("configureSchemx")
+    expect(core).not.toHaveProperty("getGlobalSchemxConfig")
+    expect(Object.keys(core.defaultSchemxConfig).sort()).toEqual([
+      "class",
+      "disabled",
+      "readonly",
+      "required",
+      "validationTrigger",
+      "visible",
+    ])
+
+    const api = createSchemx({ schemaConfig: { readonly: true } })
+
+    const shared = api.createForm(options)
+
+    const standalone = createForm(options)
+
+    expect(shared.getViewSchemas()[0]).toMatchObject({ readonly: true })
+    expect(standalone.getViewSchemas()[0]).toMatchObject({ readonly: false })
+    shared.destroy()
+    standalone.destroy()
+  })
+
   it("仅返回五项配置与创建 API，独立实例不继承配置", () => {
     const api = createSchemx({ schemaConfig: { disabled: true } })
 
@@ -183,8 +206,10 @@ describe("Core createSchemx", () => {
     }
   })
 
-  it("不读取 Core 全局，覆盖层替换、重置仅影响新表单", () => {
-    configureCore({ schemaConfig: { disabled: true, readonly: true } })
+  it("工厂之间隔离，覆盖层替换、重置仅影响新表单", () => {
+    const other = createSchemx({ schemaConfig: { disabled: true, readonly: true } })
+
+    expect(other.getConfig().schemaConfig?.disabled).toBe(true)
     const api = createSchemx({ schemaConfig: { labelWidth: 140 } })
 
     const original = api.createForm(options)

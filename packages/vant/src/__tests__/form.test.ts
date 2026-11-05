@@ -12,9 +12,8 @@ import {
 } from "vue"
 import type { App, Component } from "vue"
 
+import { createSchemx as createCoreSchemx } from "@schemx/core"
 import VueForm, {
-  configureSchemx as configureCore,
-  getGlobalSchemxConfig as getCoreConfig,
   rendererRegistry as vueRegistry,
   presetRuleRegistry as vueRules,
 } from "@schemx/vue"
@@ -45,7 +44,6 @@ const schemas: SchemxField<FormValues>[] = [
 
 afterEach(() => {
   configureSchemx()
-  configureCore()
 })
 
 describe("Vant form entry", () => {
@@ -417,11 +415,12 @@ describe("Vant form entry", () => {
     wrapper.unmount()
   })
 
-  it("同时导入另一 UI 包不会修改 Core/Vue 全局或本包 Registry", async () => {
+  it("同时导入另一 UI 包不会修改 Core 工厂配置或已有 Registry", async () => {
     const coreConfig = { schemaConfig: { readonly: true } }
 
-    configureCore(coreConfig)
-    const before = getCoreConfig()
+    const core = createCoreSchemx(coreConfig)
+
+    const before = core.getConfig()
 
     const vueKeys = vueRegistry.keys()
 
@@ -442,7 +441,7 @@ describe("Vant form entry", () => {
       | "configureSchemx"
     > = await import(otherEntry)
 
-    expect(getCoreConfig()).toBe(before)
+    expect(core.getConfig()).toBe(before)
     expect(vueRegistry.keys()).toEqual(vueKeys)
     expect(vueRules.keys()).toEqual(vueRuleKeys)
     expect(rendererRegistry.keys()).toEqual(keys)
@@ -455,7 +454,7 @@ describe("Vant form entry", () => {
 
     expect(ownForm.getViewSchemas()[0]).toMatchObject({ readonly: true })
     expect(peerForm.getViewSchemas()[0]).toMatchObject({ readonly: false })
-    expect(getCoreConfig()).toBe(before)
+    expect(core.getConfig()).toBe(before)
     ownForm.destroy()
     peerForm.destroy()
     configureSchemx()

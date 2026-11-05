@@ -9,7 +9,7 @@
 import { setFormCreationConfig } from "./adapter"
 import { setFormStateAdapterContext } from "./adapter/formStateAdapter/context"
 import { createSchemaCompiler } from "./compiler"
-import { createFormConfig, getGlobalSchemxConfig } from "./config"
+import { createFormConfig } from "./config"
 import { createSchemas, isSchemxSchemas } from "./createSchemas"
 import { createFormObserver } from "./form/observer"
 import { createFormRenderer } from "./form/renderer"
@@ -41,7 +41,7 @@ export type {
  * 创建 Schemx 表单实例。
  *
  * @typeParam TValues - 表单值对象类型。
- * @param options - 表单配置与实例选项；已合并配置也通过该参数传入，再由 Core 处理全局和内置默认值。
+ * @param options - 表单配置与实例选项；已合并配置也通过该参数传入，再由 Core 补齐内置默认值。
  * @returns 可用于读取、更新、校验和销毁表单的稳定实例。
  *
  * @remarks
@@ -54,12 +54,8 @@ export type {
 export function createForm<TValues extends Values>(
   options: CreateFormOptions<TValues> = {}
 ): SchemxInstance<TValues> {
-  // 独立创建继承全局配置；工厂创建传入固定快照。
-  return createFormWithSnapshot(
-    options,
-    getGlobalSchemxConfig() as SchemxConfig<TValues>,
-    "global"
-  )
+  // 独立创建仅使用本次配置；工厂创建另行传入固定快照。
+  return createFormWithSnapshot(options)
 }
 
 /**
@@ -67,14 +63,12 @@ export function createForm<TValues extends Values>(
  * @internal
  * @typeParam TValues - 表单值类型。
  * @param options - 本次表单的完整创建选项。
- * @param config - 显式继承配置。
- * @param source - 全局路径省略继承记录；工厂快照保留原引用。
+ * @param config - 工厂创建时的继承快照；省略时只使用本次选项和内置默认值。
  * @example const form = createFormWithSnapshot(options, factoryDefaults)
  */
 export function createFormWithSnapshot<TValues extends Values>(
   options: CreateFormOptions<TValues>,
-  config: SchemxConfig<TValues>,
-  source: "global" | "snapshot" = "snapshot"
+  config?: SchemxConfig<TValues>
 ): SchemxInstance<TValues> {
   // 所有表单资源只登记到此清单，销毁及初始化失败均按逆序清理。
   const scope = createScope()
@@ -84,7 +78,7 @@ export function createFormWithSnapshot<TValues extends Values>(
   try {
     // 配置是第一个业务模块，负责全部合并、默认值解析和创建选项固化。
     const configuration = createFormConfig<TValues>({
-      defaults: config,
+      ...(config === undefined ? {} : { defaults: config }),
       config: options,
     })
 
@@ -308,7 +302,7 @@ export function createFormWithSnapshot<TValues extends Values>(
 
     setFormCreationConfig<TValues>(instance, {
       config: effectiveConfig,
-      ...(source === "global" ? {} : { defaults: config }),
+      ...(config === undefined ? {} : { defaults: config }),
     })
 
     return instance

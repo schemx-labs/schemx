@@ -17,7 +17,6 @@ import type {
   SchemxComponentProps,
   SchemxFieldDependencies,
   SchemxInstance,
-  SchemxLayout,
   SchemxRendererDefinition,
   SchemxRendererKey,
   ValidationTrigger,
@@ -47,22 +46,6 @@ import type {
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface SchemxFieldDefinition<TValues extends Values = Values> {}
-
-/** 读取字段适配层扩展属性；未声明扩展时保留 Core 的兼容默认类型。 */
-type SchemxFieldDefinitionValue<
-  TValues extends Values,
-  TKey extends PropertyKey,
-  TDefault,
-> = TKey extends keyof SchemxFieldDefinition<TValues>
-  ? SchemxFieldDefinition<TValues>[Extract<TKey, keyof SchemxFieldDefinition<TValues>>]
-  : TDefault
-
-/** 使用适配层声明的标签图标类型；Core-only 消费者继续得到旧字符串契约。 */
-type SchemxFieldIconValue<TValues extends Values> = SchemxFieldDefinitionValue<
-  TValues,
-  "labelIcon",
-  string
->
 
 /**
  * 基础字段配置
@@ -113,13 +96,6 @@ export interface SchemxBase<
   componentType: TKey
 
   /**
-   * 字段在旧版 24 栅格布局中的静态配置。
-   *
-   * @deprecated 请改用 {@link import("@schemx/vue").SchemxColConfig} 与 Schema 的 `col` 字段。
-   */
-  layout?: SchemxLayout
-
-  /**
    * 结构化依赖配置对象
    *
    * 声明 {@link SchemxFieldDependencies.triggerFields | triggerFields} 和各属性的条件函数，
@@ -151,16 +127,6 @@ export interface SchemxBase<
    * `required` 值。
    */
   required?: RequiredConfig<DefinedFieldValue<TValues, TName>>
-
-  /**
-   * 是否显示必填视觉标记。
-   *
-   * 该属性只控制渲染层的必填标记，不启用、禁用或改变 `required` 校验。
-   * 未配置时，最终值跟随当前有效 `required`；静态或动态显式值优先。
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  showRequiredMark?: boolean
 
   /**
    * 是否只读（静态默认值）
@@ -209,56 +175,6 @@ export interface SchemxBase<
    * ```
    */
   rules?: FieldRules<TValues, TName>
-
-  /**
-   * 标签图标标识。
-   *
-   * @deprecated 标签图标由适配层定义；请通过 {@link SchemxFieldDefinition} 提供适配层支持的类型，兼容期间仍保留。
-   */
-  labelIcon?: SchemxFieldIconValue<TValues>
-
-  /**
-   * 标签对齐方式
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelAlign` 配置。
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  labelAlign?: "left" | "center" | "right"
-
-  /**
-   * 标签位置
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelPosition` 配置。
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  labelPosition?: "left" | "top" | "right"
-
-  /**
-   * 标签宽度
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.labelWidth` 配置。
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  labelWidth?: string | number
-
-  /**
-   * 内容区域对齐方式
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  contentAlign?: "left" | "center" | "right"
-
-  /**
-   * 是否在标签后显示冒号
-   *
-   * 未设置时继承当前 Form 的 `schemaConfig.colon` 配置。
-   *
-   * @deprecated 展示配置由 UI 适配层提供；请改用 {@link SchemxFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  colon?: boolean
 
   /**
    * 校验触发时机

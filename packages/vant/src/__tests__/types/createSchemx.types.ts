@@ -13,7 +13,7 @@ export type HiddenIntegration = typeof UiApi.provideSchemxFormRuntime
 // 工厂配置类型经 Vue 根入口透传。
 export type FactoryOptions = UiApi.CreateSchemxOptions
 
-// 旧 getter 与 Vue 根入口保持一致，推荐使用本包 getConfig。
+// @ts-expect-error Core 已移除模块级 getter，上层包不再透传；请使用本包 getConfig。
 export type DeprecatedGlobalGetter = typeof UiApi.getGlobalSchemxConfig
 // @ts-expect-error Core 已移除旧合并别名，上层包不再透传。
 export type DeprecatedMergeAlias = typeof UiApi.mergeSchemxConfig

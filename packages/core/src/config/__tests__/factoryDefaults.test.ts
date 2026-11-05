@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { configureSchemx, getGlobalSchemxConfig } from ".."
-import { createForm } from "../../createForm"
+import { createForm as createStandaloneForm } from "../../createForm"
+import { createSchemx } from "../../createSchemx"
 import { createRendererRegistry } from "../../registry"
 
 import type { SchemxRendererPropsMap, Values } from "../../types"
@@ -30,7 +30,12 @@ function createTestAdapter<TInput>(
   }
 }
 
-afterEach(() => configureSchemx())
+// 每个测试使用独立工厂，避免共享模块级配置。
+let { createForm, configureSchemx, getConfig } = createSchemx()
+
+beforeEach(() => {
+  ;({ createForm, configureSchemx, getConfig } = createSchemx())
+})
 
 function findField<TValues extends Values>(
   form: { getViewSchemas: () => readonly SchemxViewSchema<TValues>[] },
@@ -41,21 +46,21 @@ function findField<TValues extends Values>(
     .find((s): s is SchemxViewFieldSchema<TValues> => "name" in s && s.name === name)
 }
 
-describe("configureSchemx", () => {
-  it("无参数调用会重置模块级全局配置", () => {
+describe("工厂默认配置", () => {
+  it("无参数调用会重置工厂配置", () => {
     configureSchemx({ schemaConfig: { readonly: true } })
 
     configureSchemx()
 
-    expect(getGlobalSchemxConfig().schemaConfig).toMatchObject({})
+    expect(getConfig().schemaConfig).toMatchObject({})
   })
 
-  it("仅影响之后创建的 Form，并由 Form adapter 覆盖同 id 全局 adapter", async () => {
+  it("仅影响之后创建的 Form，并由 Form adapter 覆盖同 id 工厂 adapter", async () => {
     const globalAdapter = createTestAdapter("test", () => [
       {
         validate: () => ({
           valid: false as const,
-          issues: [{ type: "validation", message: "全局" }],
+          issues: [{ type: "validation", message: "工厂" }],
         }),
       },
     ])
@@ -96,7 +101,7 @@ describe("configureSchemx", () => {
     configureSchemx({ validatorAdapters: [] })
 
     await expect(globalForm.validateField("email")).resolves.toMatchObject({
-      errors: [{ issues: [{ message: "全局" }] }],
+      errors: [{ issues: [{ message: "工厂" }] }],
     })
     await expect(form.validateField("email")).resolves.toMatchObject({
       errors: [{ issues: [{ message: "表单" }] }],
@@ -122,7 +127,7 @@ describe("configureSchemx", () => {
     ).not.toThrow()
   })
 
-  it("全局 schemaConfig 作为后续 Form 的字段默认值", async () => {
+  it("工厂 schemaConfig 作为后续 Form 的字段默认值", async () => {
     configureSchemx({ schemaConfig: { readonly: true } })
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
@@ -133,7 +138,7 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.readonly).toBe(true)
   })
 
-  it("Form 显式传入的字段默认值覆盖全局 schemaConfig", async () => {
+  it("Form 显式传入的字段默认值覆盖工厂 schemaConfig", async () => {
     configureSchemx({ schemaConfig: { readonly: true } })
     const form = createForm<{ name: string }>({
       schemaConfig: { readonly: false },
@@ -145,7 +150,7 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.readonly).toBe(false)
   })
 
-  it("按全局、Form、字段优先级合并 Renderer Props，并隔离全局配置快照", () => {
+  it("按工厂、Form、字段优先级合并 Renderer Props，并隔离工厂配置快照", () => {
     const globalOnChange = () => undefined
 
     const formOnBlur = () => undefined
@@ -154,8 +159,8 @@ describe("configureSchemx", () => {
 
     const globalRendererProps = {
       input: {
-        placeholder: "全局占位",
-        readonlyPlaceholder: "全局空值",
+        placeholder: "工厂占位",
+        readonlyPlaceholder: "工厂空值",
         onChange: globalOnChange,
         metadata: nestedRendererValue,
       },
@@ -167,8 +172,8 @@ describe("configureSchemx", () => {
       throw new Error("测试 Renderer Props 缺少 input 配置")
     }
 
-    globalRendererProps.input.readonlyPlaceholder = "已修改的全局空值"
-    globalRendererProps.input = { placeholder: "已替换的全局占位" }
+    globalRendererProps.input.readonlyPlaceholder = "已修改的工厂空值"
+    globalRendererProps.input = { placeholder: "已替换的工厂占位" }
     nestedRendererValue.theme = "dark"
 
     const form = createForm<{ name: string }>({
@@ -192,7 +197,7 @@ describe("configureSchemx", () => {
 
     expect(componentProps).toMatchObject({
       placeholder: "字段占位",
-      readonlyPlaceholder: "全局空值",
+      readonlyPlaceholder: "工厂空值",
       onChange: globalOnChange,
       onBlur: formOnBlur,
     })
@@ -226,7 +231,7 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.readonly).toBe(false)
   })
 
-  it("全局 showRequiredMark 覆盖必填字段的标记显示", async () => {
+  it("工厂 showRequiredMark 覆盖必填字段的标记显示", async () => {
     configureSchemx({ schemaConfig: { showRequiredMark: false } })
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input", required: true }],
@@ -237,7 +242,7 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.showRequiredMark).toBe(false)
   })
 
-  it("未设置全局 showRequiredMark 时必填字段仍显示标记", async () => {
+  it("未设置工厂 showRequiredMark 时必填字段仍显示标记", async () => {
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input", required: true }],
     })
@@ -247,10 +252,10 @@ describe("configureSchemx", () => {
     expect(findField(form, "name")?.showRequiredMark).toBe(true)
   })
 
-  it("全局 rendererRegistry 在多个 Form 间共享", () => {
+  it("工厂 rendererRegistry 在多个 Form 间共享", () => {
     const registry = createRendererRegistry()
 
-    configureSchemx({ rendererRegistry: registry })
+    const { createForm } = createSchemx({ rendererRegistry: registry })
 
     const form1 = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
@@ -264,12 +269,12 @@ describe("configureSchemx", () => {
     expect(form2.hasRenderer("shared")).toBe(true)
   })
 
-  it("未设置全局 rendererRegistry 时各 Form 使用独立私有注册表", () => {
-    const form1 = createForm<{ name: string }>({
+  it("独立 createForm 使用各自的私有注册表", () => {
+    const form1 = createStandaloneForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
-    const form2 = createForm<{ name: string }>({
+    const form2 = createStandaloneForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
@@ -277,15 +282,16 @@ describe("configureSchemx", () => {
     expect(form2.hasRenderer("private")).toBe(false)
   })
 
-  it("全局 defaultRendererType 作为未注入注册表的 fallback 类型", () => {
-    configureSchemx({ defaultRendererType: "text" })
+  it("工厂 defaultRendererType 作为未注入注册表的 fallback 类型", () => {
+    const { createForm } = createSchemx({ defaultRendererType: "text" })
+
     const form = createForm<{ name: string }>({
       schemas: [{ name: "name", label: "姓名", componentType: "input" }],
     })
 
     form.registerRenderer("text", "TEXT_COMP")
 
-    // 未注册的 unknown 类型回退到全局 defaultRendererType "text"
+    // 未注册的 unknown 类型回退到工厂 defaultRendererType "text"
     vi.spyOn(console, "warn").mockImplementation(() => {})
     expect(form.getRenderer("unknown")).toBe("TEXT_COMP")
     vi.mocked(console.warn).mockRestore()

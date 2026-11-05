@@ -7,8 +7,6 @@
  */
 
 import type {
-  FieldValue,
-  NamePath,
   SchemxBase,
   SchemxInstance,
   SchemxRendererDefinition,
@@ -25,8 +23,7 @@ export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
 /**
  * Core 自身使用的轻量 Renderer 公共 Props。
  *
- * UI 适配层可通过 `SchemxComponentPropsDefinition` 增加框架专属属性；兼容旧版的
- * `SchemxBaseComponentProps` 在此基础上保留值、事件和对齐属性。
+ * 框架适配层（Vue、React、...）通过 {@link SchemxComponentPropsDefinition} 增加值和事件等框架专属属性。
  *
  * @typeParam TValues - 表单值类型。
  */
@@ -64,53 +61,14 @@ export interface SchemxCoreBaseComponentProps<TValues extends Values = Values> {
  * 与 {@link SchemxRendererDefinition} 中各组件的专属 Props 交叉后，
  * 作为 `componentProps` 的最终类型。
  *
- * `TName` 和 `TValue` 以及 Vue 相关属性保留用于兼容旧版 Renderer 类型；新适配层
- * 应通过 `SchemxComponentPropsDefinition` 声明合并增加公共 Props。
+ * 框架适配层（Vue、React、...）通过 {@link SchemxComponentPropsDefinition} 声明公共 Props。
  *
  * @typeParam TValues - 表单值类型。
- * @typeParam TName - 兼容旧版的字段路径类型。
- * @typeParam TValue - 兼容旧版的字段值类型。
  */
-export interface SchemxBaseComponentProps<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
-  TValue = FieldValue<TValues, TName>,
-> extends SchemxCoreBaseComponentProps<TValues> {
-  /**
-   * 内容区域对齐方式。
-   *
-   * @deprecated 请使用适配层在 {@link SchemxRendererDefinition} 中声明的 Renderer 专属 Props。
-   */
-  align?: "left" | "center" | "right"
-
-  /**
-   * 当前字段值。
-   *
-   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
-   */
-  value?: TValue
-
-  /**
-   * 字段值更新回调。
-   *
-   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
-   */
-  "onUpdate:value"?: (value: TValue) => void
-
-  /**
-   * 值变化回调。
-   *
-   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
-   */
-  onChange?: (value: TValue) => void
-
-  /**
-   * 失焦回调。
-   *
-   * @deprecated 请使用适配层通过 {@link SchemxComponentPropsDefinition} 扩展的 Renderer Props 类型。
-   */
-  onBlur?: (value: TValue) => void
-}
+export interface SchemxBaseComponentProps<TValues extends Values = Values>
+  extends
+    SchemxCoreBaseComponentProps<TValues>,
+    SchemxComponentPropsDefinition<TValues> {}
 
 /**
  * Renderer 公共 Props 的适配层扩展接口。
@@ -125,12 +83,10 @@ export type SchemxComponentProps<
   TValues extends Values = Values,
   TKey extends string = SchemxRendererKey<TValues>,
 > = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
-  ? SchemxBaseComponentProps<TValues> & SchemxComponentPropsDefinition<TValues>
+  ? SchemxBaseComponentProps<TValues>
   : TKey extends keyof SchemxRendererDefinition<TValues>
-    ? SchemxBaseComponentProps<TValues> &
-        SchemxComponentPropsDefinition<TValues> &
-        SchemxRendererDefinition<TValues>[TKey]
-    : SchemxBaseComponentProps<TValues> & SchemxComponentPropsDefinition<TValues>
+    ? SchemxBaseComponentProps<TValues> & SchemxRendererDefinition<TValues>[TKey]
+    : SchemxBaseComponentProps<TValues>
 
 /**
  * 按 Renderer 类型配置的静态默认 Props。

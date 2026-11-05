@@ -2,7 +2,7 @@
  * 字段级默认配置。
  *
  * 各字段的静态默认值，字段未显式设置时使用。
- * 部分属性可由全局 Schemx 配置或当前 Form 的实例配置覆盖。
+ * 部分属性可由工厂默认配置或当前 Form 的实例配置覆盖。
  */
 export const defaultSchemxConfig = Object.freeze({
   /**
@@ -40,61 +40,12 @@ export const defaultSchemxConfig = Object.freeze({
   visible: true,
 
   /**
-   * 标签图标。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  labelIcon: "",
-
-  /**
-   * 标签对齐方式。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  labelAlign: "left",
-
-  /**
-   * 标签位置。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  labelPosition: "left",
-
-  /**
-   * 标签宽度。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  labelWidth: "auto",
-
-  /**
-   * 内容区域对齐方式。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  contentAlign: "right",
-
-  /**
    * 校验触发时机
    *
    * 支持单个或多个触发时机组合，如 `'change'`、`'blur'`、`['change', 'blur']`。
    * 未设置时继承当前 Form 的 `schemaConfig.validationTrigger` 配置。
    */
   validationTrigger: "blur",
-
-  /**
-   * 是否在标签后显示冒号。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  colon: true,
-
-  /**
-   * 是否显示必填视觉标记。
-   *
-   * @deprecated UI 展示默认值请由适配层通过 {@link import("../types/form").SchemxSchemaConfigDefinition} 声明；该默认值仅为兼容保留。
-   */
-  showRequiredMark: undefined as boolean | undefined,
 } as const satisfies Record<SchemxConfigKey, unknown>)
 
 /**
@@ -102,19 +53,7 @@ export const defaultSchemxConfig = Object.freeze({
  * 显式字面量键供 Vue SFC 解析；默认配置通过 satisfies 校验键集合完整性。
  */
 export type SchemxConfigKey =
-  | "required"
-  | "readonly"
-  | "disabled"
-  | "visible"
-  | "labelIcon"
-  | "labelAlign"
-  | "labelPosition"
-  | "labelWidth"
-  | "contentAlign"
-  | "validationTrigger"
-  | "colon"
-  | "showRequiredMark"
-  | "class"
+  "required" | "readonly" | "disabled" | "visible" | "validationTrigger" | "class"
 
 /**
  * `defaultSchemxConfig` 的所有键数组。

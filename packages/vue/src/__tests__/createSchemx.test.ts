@@ -4,7 +4,6 @@ import { defineComponent, effectScope, h, nextTick, ref } from "vue"
 import type { App, Component, ComputedRef } from "vue"
 
 import {
-  configureSchemx as configureCore,
   createForm as createCoreForm,
   createPresetRuleRegistry,
   createRendererRegistry,
@@ -50,7 +49,6 @@ function scopedForm(api: SchemxApi): Component {
 }
 
 afterEach(() => {
-  configureCore()
   vi.restoreAllMocks()
 })
 

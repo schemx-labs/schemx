@@ -264,7 +264,7 @@ describe("固定库默认值与消费配置", () => {
     form.destroy()
   })
 
-  it("显式 undefined 保留旧的 Core 默认值语义，未提供属性继承固定 UI 默认值", () => {
+  it("显式 undefined 回退 Core 状态默认值，展示属性由框架默认值负责", () => {
     const form = createTestForm()
 
     form.updateSchemaConfig({ disabled: undefined, labelWidth: undefined })
@@ -272,7 +272,7 @@ describe("固定库默认值与消费配置", () => {
       getFormStateAdapterContext(form).configuration.state.value.schemaConfig
     ).toMatchObject({
       disabled: false,
-      labelWidth: "auto",
+      labelWidth: undefined,
     })
     form.setConfig({})
     expect(

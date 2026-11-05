@@ -9,7 +9,7 @@ import { VantRow } from "../layout/defaultRow"
 describe("@schemx/vant 根入口", () => {
   test("透传 Vue API，并保留本包默认配置与 Registry", () => {
     expect(vantPackage.createSchemx).toBe(vuePackage.createSchemx)
-    expect(vantPackage.getGlobalSchemxConfig).toBe(vuePackage.getGlobalSchemxConfig)
+    expect(vantPackage).not.toHaveProperty("getGlobalSchemxConfig")
     expect("mergeSchemxConfig" in vantPackage).toBe(false)
 
     expect(vantPackage.createFormContext).toEqual(expect.any(Function))

@@ -1,53 +1,57 @@
-# Release Notes — 0.0.1
+# Release Notes - 0.1.0
 
 ## 版本信息
 
-- 目标版本：0.0.1
-- 发布包：@schemx/element-plus
-- 生成日期：2026-09-29
-- 基准版本：v0.1.20
-- 比较范围：775dca01e5881121673f028dbb5d3e31e33d3587..61c5b35351d301d48bf8496044a576619f270446
-- 目标提交：61c5b35
-- 当前分支：main
+- 目标版本：0.1.0。
+- 发布包：`@schemx/element-plus`。
+- 说明更新日期：2026-11-05。
+- 发布状态：后续发布，本次不发布。
 
-Element Plus 0.0.1 提供完整的表单 Renderer 适配，并包含上传预览、字段定位和分组过渡能力。
+接入上游 Core 2.0 的兼容 API 移除，不再透传全局配置 getter；本包默认配置方法和 Registry 保持独立。
 
-## Features
+## Important Notices
 
-### @schemx/element-plus
+- 0.1.0 将适配 Core 2.0，涉及公共 API 与 TypeScript 类型变化，升级方式见 [Core 2.0 迁移指南](../core/MIGRATION.md)。
+- 本包继续独立于 Core、Vue、Vant 的 2.0.0 发布批次；以下变更计划随后续 0.1.0 发布。
 
-- <a id="change-72656e64657265722d616461707465722d666f756e646174696f6e"></a>0.0.1 首次提供 Element Plus 控件 Renderer，覆盖输入、选项、日期时间、选择器、上传和只读展示；支持 options、props、dict 适配及 Element Plus 事件与插槽转发。（影响范围：Vue 3 表单可直接使用预注册的 Element Plus Renderer 与适配层默认布局。）
+## Breaking Changes
 
-- <a id="change-75706c6f61642d707265766965772d76616c69646174696f6e"></a>Upload Renderer 支持图片与非图片文件连续预览、自定义预览和下载；读取前按 accept 扩展名与 MIME 规则拒绝不匹配文件。（影响范围：上传文件可统一预览和操作，accept 限制由组件在读取前执行。）
+### 根入口不再透传 getGlobalSchemxConfig
 
-- <a id="change-7363726f6c6c2d746f2d6669656c64"></a>适配包根入口重导出 Vue 表单 API；Form 实例可使用 scrollToField 定位字段，并自动展开折叠的祖先 Group。（影响范围：可通过 Element Plus Form ref 定位表单字段。）
+`@schemx/element-plus` 不再透传上游 Core 的模块级 `getGlobalSchemxConfig()`。
 
-- <a id="change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473"></a>传给动态 Schema 回调的 SchemxFormApi 现在包含 isLoading 和 clearErrors。（影响范围：动态回调可读取提交状态并清除全部表单错误。）
+```ts
+// 旧写法：读取 Core 模块级全局配置。
+import { getGlobalSchemxConfig } from "@schemx/element-plus"
+
+const config = getGlobalSchemxConfig()
+```
+
+```ts
+// 读取当前 UI 包的默认配置。
+import { getConfig } from "@schemx/element-plus"
+
+const config = getConfig()
+```
+
+`getConfig()` 返回本包默认配置，不是某个 App / Form 的当前配置。若需要独立共享配置，请使用 `createSchemx(config)` 工厂，再调用该工厂的 `getConfig()`；不要依赖已移除的 Core 全局状态。
+
+### 透传的 Core Renderer Props 泛型调整
+
+`SchemxBaseComponentProps<TValues, TName, TValue>` 改为 `SchemxBaseComponentProps<TValues>`。特定字段值类型请在 Renderer 自有 Props 中声明；Vue 声明合并继续提供值与事件类型。
 
 ## Improvements
 
-### @schemx/element-plus
-
-- <a id="change-73656e7369746976652d696e7075742d6265686176696f72"></a>非只读状态下敏感输入始终使用输入框，避免隐藏态切换改变交互控件。（影响范围：敏感字段切换显示状态时仍保持可编辑输入交互。）
-
-- <a id="change-63686f6963652d72656e64657265722d73706163696e67"></a>Element Plus Radio 与 Checkbox Renderer 使用更明确的行列间距，并移除控件默认右边距。（影响范围：换行显示的单选和多选选项间距更一致。）
-
-- <a id="change-67726f75702d636f6c6c617073652d7472616e736974696f6e"></a>共享 Vue Group 现在使用 max-height 过渡，并在收起完成后隐藏 Body；Element Plus 主题变量同时提供箭头颜色和尺寸。（影响范围：Element Plus 表单的折叠分组具有高度过渡和适配主题的线条箭头。）
-
-## API Changes
-
-- [提供 Element Plus 表单 Renderer 适配](#change-72656e64657265722d616461707465722d666f756e646174696f6e) (@schemx/element-plus)
-- [通过 Element Plus 表单实例定位字段](#change-7363726f6c6c2d746f2d6669656c64) (@schemx/element-plus)
-- [扩展动态回调的表单操作方法](#change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473) (@schemx/element-plus)
-
-## TypeScript Changes
-
-- [扩展动态回调的表单操作方法](#change-63616c6c6261636b2d666f726d2d6170692d6d6574686f6473) (@schemx/element-plus)
+本包导出的 `configureSchemx()`、`getConfig()`、`createForm()`、`useForm()` 继续绑定本包工厂，Registry 保持独立；被删除的是 Core 全局入口，不是本包默认配置方法。只读字段布局由 Vue Field 接管，保留原有显示效果。Vue 的 `SchemxLayout` 兼容别名仍保留，推荐使用 `SchemxColConfig` / `SchemxRowConfig`。
 
 ## Dependencies and Compatibility
 
-- <a id="change-656c656d656e742d706c75732d706565722d72616e6765"></a>适配包要求 element-plus ^2.14.0。（影响范围：安装 @schemx/element-plus 时需要使用受支持范围内的 Element Plus 版本。）
+本次属于上游 Core / Vue 公共 API 变化的已确认影响，需与兼容 Core 2.0 的框架与 UI 适配版本一起升级；本次未调整依赖版本范围。
 
-## Affected Packages
+## Documentation
 
-- @schemx/element-plus
+更新根入口的兼容说明。全局配置、展示属性及 Renderer 类型的完整迁移方式见 [Core 2.0 迁移指南](../core/MIGRATION.md)。
+
+## Validation
+
+本包 66 项测试通过，相关类型检查与构建通过。

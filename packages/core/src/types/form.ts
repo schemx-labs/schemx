@@ -91,7 +91,7 @@ export type SchemxFieldRulesMap<TValues extends Values = Values> = {
 /**
  * 表单级 Schema 默认值的扩展接口。
  *
- * 扩展属性属于 {@link import("../config/schemxConfig").SchemxConfig} 的 `schemaConfig`，通常声明为可选属性。
+ * 扩展属性属于 {@link import("../config/types").SchemxConfig} 的 `schemaConfig`，通常声明为可选属性。
  * 该接口只描述默认配置；实际 Field、Group、Dynamic Schema 的属性分别由
  * `SchemxFieldDefinition`、`SchemxGroupFieldDefinition`、
  * `SchemxDynamicDefinition` 等接口扩展。需要同时支持局部 Schema 属性与

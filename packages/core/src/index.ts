@@ -58,8 +58,6 @@ export type {
 } from "./scheduler"
 
 export {
-  configureSchemx,
-  getGlobalSchemxConfig,
   mergeConfig,
   resolveSchemxConfig,
   type MergedSchemxConfig,
@@ -121,7 +119,6 @@ export type {
   SchemxSchemaConfigDefinition,
   SchemxRendererKey,
   SchemxRendererDefinition,
-  SchemxLayout,
   SchemxFieldDefinition,
   SchemxGroupFieldDefinition,
   SchemxBaseComponentProps,

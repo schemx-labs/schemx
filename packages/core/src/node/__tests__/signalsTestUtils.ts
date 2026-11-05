@@ -192,10 +192,14 @@ export function createFieldRuntimeSignals<TValues extends Values>(
     const placeholder =
       dependencyOverridesValue.placeholder ?? compiledSchemaValue.placeholder ?? ""
 
+    const requiredMarkOverride =
+      Reflect.get(dependencyOverridesValue, "showRequiredMark") ??
+      Reflect.get(compiledSchemaValue, "showRequiredMark")
+
     const showRequiredMark =
-      dependencyOverridesValue.showRequiredMark ??
-      compiledSchemaValue.showRequiredMark ??
-      Boolean(validationStateValue.required)
+      typeof requiredMarkOverride === "boolean"
+        ? requiredMarkOverride
+        : Boolean(validationStateValue.required)
 
     const resolvedStateProps: RendererStateProps = {
       disabled: validationStateValue.disabled,

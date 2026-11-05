@@ -15,7 +15,6 @@ import type {
   SchemxExactBaseField,
   SchemxFormApi,
   SchemxGroupField,
-  SchemxLayout,
   Values,
 } from "./index"
 
@@ -306,13 +305,6 @@ export interface SchemxDynamicField<
    * 展示名称。
    */
   label?: string
-
-  /**
-   * Dynamic 容器的旧版静态布局配置。
-   *
-   * @deprecated 请改用 UI 适配层的 {@link import("@schemx/vue").SchemxRowConfig}。
-   */
-  layout?: SchemxLayout
 
   /**
    * 每个数组 item 复用的 Schema 模板。

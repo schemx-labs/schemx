@@ -110,11 +110,37 @@ const Field = defineComponent({
 
     // 共享视图有防抖；父层路径已更新时，旧地址的缓存不能覆盖当前 props。
     const schemaRef = computed<SchemxViewFieldSchema<Values>>(() => {
-      return latestSchema.value &&
+      const schema =
+        latestSchema.value &&
         isSchemxViewFieldSchema(latestSchema.value) &&
         latestSchema.value.name === inputSchema.value.name
-        ? latestSchema.value
-        : inputSchema.value
+          ? latestSchema.value
+          : inputSchema.value
+
+      if (!schema.readonly) {
+        return schema
+      }
+
+      // Renderer 的表单项属性沿用同一份只读展示策略。
+      const formItemProps = schema.componentProps?.formItemProps
+
+      // 只读展示策略由 Vue 层负责，不再要求 Core 改写框架属性。
+      return {
+        ...schema,
+        contentAlign: "right",
+        labelPosition: "left",
+        componentProps: {
+          ...schema.componentProps,
+          formItemProps:
+            formItemProps === undefined
+              ? undefined
+              : {
+                  ...formItemProps,
+                  contentAlign: "right",
+                  labelPosition: "left",
+                },
+        },
+      }
     })
 
     const field = createFieldHook(runtime, () => schemaRef.value.name)

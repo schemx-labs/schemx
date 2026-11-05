@@ -41,8 +41,6 @@ export type {
   SchemxRendererPropsMap,
 } from "./componentProps"
 
-export type { SchemxLayout } from "./layout"
-
 export type {
   SchemxFieldDefinition,
   SchemxBase,

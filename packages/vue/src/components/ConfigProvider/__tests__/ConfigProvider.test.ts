@@ -1,13 +1,9 @@
 import { defineComponent, h, markRaw, nextTick, ref } from "vue"
 import type { ComputedRef } from "vue"
 
-import {
-  configureSchemx,
-  createRendererRegistry,
-  type SchemxInstance,
-} from "@schemx/core"
+import { createRendererRegistry, type SchemxInstance } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 
 import ConfigProvider from ".."
 import { useConfigProviderContextRef, useFormConfigContext } from "../../../context"
@@ -97,8 +93,6 @@ function mountProviderForm(
   return { form, wrapper }
 }
 
-afterEach(() => configureSchemx())
-
 describe("ConfigProvider", () => {
   it("父子 Provider 只合并自身来源，Row 整体替换且不注入 Vue 默认值", () => {
     let config: ComputedRef<SchemxConfig> | undefined
@@ -153,11 +147,10 @@ describe("ConfigProvider", () => {
     const rendererRegistry = createRendererRegistry()
 
     rendererRegistry.register("input", markRaw(ProviderRenderer))
-    configureSchemx({ schemaConfig: { readonly: true, disabled: true } })
     const formRef = ref<SchemxInstance>()
 
     const wrapper = mount(ConfigProvider, {
-      props: { rendererRegistry, schemaConfig: { readonly: true } },
+      props: { rendererRegistry, schemaConfig: { readonly: true, disabled: true } },
       slots: {
         default: () =>
           h(SchemxForm, {
@@ -171,13 +164,13 @@ describe("ConfigProvider", () => {
       readonly: true,
       disabled: true,
     })
-    await wrapper.setProps({ schemaConfig: {} })
+    await wrapper.setProps({ schemaConfig: { disabled: true } })
     expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
       readonly: false,
       disabled: true,
     })
-    // 旧入口的清除结果不能在下一次无关更新时重新继承全局 readonly。
-    await wrapper.setProps({ schemaConfig: { labelWidth: 160 } })
+    // 更新展示配置时，显式保留的 disabled 状态不变。
+    await wrapper.setProps({ schemaConfig: { labelWidth: 160, disabled: true } })
     expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
       readonly: false,
       disabled: true,
@@ -211,7 +204,7 @@ describe("ConfigProvider", () => {
     expect(
       Reflect.get(formRef.value?.getViewSchemas()[0] ?? {}, "configMergeTestMeta")
     ).toBe("updated")
-    await wrapper.setProps({ schemaConfig: {} })
+    await wrapper.setProps({ schemaConfig: { disabled: true } })
     expect(
       Reflect.get(formRef.value?.getViewSchemas()[0] ?? {}, "configMergeTestMeta")
     ).toBeUndefined()

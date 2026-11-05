@@ -32,7 +32,30 @@ export type SchemxVueBaseComponentProps<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TValue = FieldValue<TValues, TName>,
-> = SchemxBaseComponentProps<TValues, TName, TValue>
+> = Omit<
+  SchemxBaseComponentProps<TValues>,
+  "value" | "onUpdate:value" | "onChange" | "onBlur"
+> & {
+  /**
+   * Renderer 当前接收的字段值。
+   */
+  value?: TValue
+  /**
+   * Vue v-model 更新事件。
+   * @param value - Renderer 提交的最新字段值。
+   */
+  "onUpdate:value"?: (value: TValue) => void
+  /**
+   * 值变化事件。
+   * @param value - 用户提交的最新字段值。
+   */
+  onChange?: (value: TValue) => void
+  /**
+   * 失焦事件。
+   * @param value - 失焦时的当前字段值。
+   */
+  onBlur?: (value: TValue) => void
+}
 
 /**
  * 消费端提供的字段路径：固定字符串、只读 Ref 或动态 getter。
@@ -285,7 +308,9 @@ export interface SchemxFieldErrorSlotProps<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 > extends SchemxFieldSlotProps<TValues, TName> {
-  /** 当前字段的全部错误信息。 */
+  /**
+   * 当前字段的全部错误信息。
+   */
   errors: readonly string[]
 }
 

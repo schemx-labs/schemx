@@ -60,11 +60,7 @@ Vue 包的样式只定义 Row/Col、Field、Group 和状态类的通用结构；
 </script>
 
 <template>
-  <Schemx
-    v-model="formData"
-    :schemas="schemas"
-    :renderer-registry="rendererRegistry"
-  />
+  <Schemx v-model="formData" :schemas="schemas" :renderer-registry="rendererRegistry" />
 </template>
 ```
 
@@ -126,14 +122,14 @@ Vue 包的样式只定义 Row/Col、Field、Group 和状态类的通用结构；
 
 Search 专属配置为 `collapse`，默认 `true`；设为 `false` 时显示全部可见节点并隐藏触发器，对象形式支持：
 
-| `collapse` 配置项 | 默认值 | 说明 |
-| --- | --- | --- |
-| `collapsed` | 未提供 | 受控折叠状态，通过 `onCollapsedChange` 接受切换请求。 |
-| `defaultCollapsed` | `true` | 非受控初始状态，后续修改不重置状态。 |
-| `expandText` | `"展开"` | 展开按钮文案。 |
-| `collapseText` | `"收起"` | 收起按钮文案。 |
-| `buttonProps` | 未提供 | 折叠按钮属性，沿用当前 UI 按钮类型；点击和原生行为由 Search 管理。 |
-| `onCollapsedChange` | 未提供 | 用户切换或字段定位时接收期望的折叠状态。 |
+| `collapse` 配置项   | 默认值   | 说明                                                               |
+| ------------------- | -------- | ------------------------------------------------------------------ |
+| `collapsed`         | 未提供   | 受控折叠状态，通过 `onCollapsedChange` 接受切换请求。              |
+| `defaultCollapsed`  | `true`   | 非受控初始状态，后续修改不重置状态。                               |
+| `expandText`        | `"展开"` | 展开按钮文案。                                                     |
+| `collapseText`      | `"收起"` | 收起按钮文案。                                                     |
+| `buttonProps`       | 未提供   | 折叠按钮属性，沿用当前 UI 按钮类型；点击和原生行为由 Search 管理。 |
+| `onCollapsedChange` | 未提供   | 用户切换或字段定位时接收期望的折叠状态。                           |
 
 其他 Props 沿用 `SchemxFormProps`，但不支持 `actionCol`，操作区不参与字段栅格。默认查询按钮文案为“查询”，重置为“重置”；使用 `submitter`、`resetter` 以及对应插槽定制，查询回调继续使用 `onFinish` / `onFinishFailed`。没有后续可见节点时不显示展开按钮。受控与非受控切换都会调用 `collapse.onCollapsedChange`；撤销受控配置后沿用最后一次受控值。重置只恢复表单数据，不改变折叠状态。
 
@@ -179,52 +175,52 @@ console.log(Schemx === schemxForm) // true
 
 `Schemx` 的公开 Props 类型为 Vue 层的 `SchemxFormProps<T>`，由 Core 表单选项和 Vue 专属 Props 组合而成。
 
-| Prop                            | 类型                                             | 默认值                    | 说明                                                                                                                            |
-| ------------------------------- | ------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `schemas`                       | `SchemxSchemasInput<T>`                          | `[]`                      | 表单 Schema；可传字段数组或 `createSchemas()` 返回的 Schema source，运行时缺省为空数组                                          |
-| `modelValue`                    | `T`                                              | `{}`                      | `v-model` 的输入端；非空值参与初始快照，后续替换会同步到内部表单，字段变化会通过 `update:modelValue` 输出                       |
-| `initialValues`                 | `T`                                              | `{}`                      | 创建内部表单时的初始值，也是 `reset()` 的还原基准                                                                               |
-| `form`                          | `SchemxInstance<T>`                              | `undefined`               | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件级回调不会写入该实例，`v-model` 仍监听实例变化 |
-| `fieldRules`                    | `SchemxFieldRulesMap<T>`                         | `undefined`               | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先                                                                   |
-| `rendererProps`                 | `SchemxRendererPropsMap<T>`                      | `undefined`               | 按 Renderer 类型设置静态默认 Props；字段 `componentProps` 与 Runtime 注入值优先                                                 |
-| `rendererRegistry`              | `RendererRegistry`                               | `undefined`             | 当前表单使用的 Renderer Registry；省略时由创建器及继承配置决定。                                                                                |
-| `defaultRendererType`           | `SchemxRendererKey`                              | `undefined`               | 未解析到 Renderer Registry 时用于创建默认 Registry；已有 Registry 使用自身的 fallback。            |
-| `presetRuleRegistry`            | `PresetRuleRegistry`                             | `undefined`             | 当前表单使用的预设规则 Registry；省略时由创建器及继承配置决定。                                                                                 |
-| `validatorAdapters`             | `readonly ValidationAdapterOption[]`             | `[]`                      | 当前表单使用的第三方校验 adapter；创建内部 Form 时参与配置合并并传递给 Core                                                     |
-| `required`                      | `RequiredConfig`                                 | `undefined`               | 表单级必填默认值；字段自身配置优先，普通 `rules` 不会推导必填或显示星号                                                         |
-| `readonly`                      | `boolean`                                        | `undefined`               | 表单级只读默认值；字段自身配置优先                                                                                              |
-| `disabled`                      | `boolean`                                        | `undefined`               | 表单级禁用默认值；字段自身配置优先                                                                                              |
-| `visible`                       | `boolean`                                        | `true`                    | 表单级可见性默认值；字段自身配置优先                                                                                            |
-| `labelIcon`                     | `string \| Component`                            | `undefined`               | 表单级标签图标默认值；字符串传给 Icon Adapter，Component 直接渲染                                                               |
-| `iconComponent`                 | `Component`                                      | `undefined`               | 当前 Form 使用的 Icon Adapter；优先级高于 ConfigProvider 和 App 配置。                                                        |
-| `labelAlign`                    | `"left" \| "center" \| "right"`                  | `undefined`               | 表单级标签对齐默认值；字段自身配置优先，均未配置时为 `"right"`                                                                  |
-| `labelPosition`                 | `"left" \| "top" \| "right"`                     | `undefined`               | 表单级标签位置默认值；字段自身配置优先，均未配置时为 `"left"`                                                                   |
-| `labelWidth`                    | `string \| number`                               | `undefined`               | 表单级标签宽度默认值；字段自身配置优先，均未配置时为 `"auto"`                                                                   |
-| `contentAlign`                  | `"left" \| "center" \| "right"`                  | `undefined`               | 表单级内容区域对齐配置；字段自身配置优先，默认为 `"left"`；只读字段自动为 `"right"`                                             |
-| `errorAlign`                    | `"left" \| "center" \| "right"`                  | `undefined`               | 表单级校验错误对齐配置；字段自身配置优先，均未配置时为 `"left"`                                                                 |
-| `validationTrigger`             | `ValidationTrigger \| ValidationTrigger[]`       | `["blur", "change"]`      | 表单级校验触发方式默认值；字段自身配置优先                                                                                      |
-| `colon`                         | `boolean`                                        | `undefined`               | 表单级标签冒号默认值；字段自身配置优先，均未配置时为 `true`                                                                     |
-| `onFinish`                      | `(values: Readonly<T>) => void \| Promise<void>` | `undefined`               | `submit()` 校验通过后的回调 Prop                                                                                                |
-| `onFinishFailed`                | `(failure: ValidationFailure<T>) => void`        | `undefined`               | `submit()` 校验失败后的回调 Prop                                                                                                |
-| `onReset`                       | `() => void`                                     | `undefined`               | 内部表单完整 `reset()` 完成后的回调；不在 `resetFields()` 后触发                                                                |
-| `onLoadingChange`               | `(loading: boolean) => void`                     | `undefined`               | 内部表单提交开始和结束时的回调                                                                                                  |
-| `onValuesChange`                | `(changedValues, latestSnapshot) => void`        | `undefined`               | 字段值变化后的回调 Prop                                                                                                         |
-| `onFieldsChange`                | `(changedFields, allFields) => void`             | `undefined`               | 字段路径变化后的回调 Prop                                                                                                       |
-| `onRuleError`                   | `FormCallbackOptions<T>["onRuleError"]`          | `undefined`               | 内部创建实例时透传的规则解析异常回调；外部 `form` 保留创建时回调。                                                           |
-| `lifecycleHooks`                | `FormLifecycleOptions["lifecycleHooks"]`         | `undefined`               | 内部创建实例时透传的 Core Runtime 生命周期钩子；外部 `form` 的生命周期由创建者管理。                                              |
-| `debug`                         | `boolean`                                        | `false`                   | 创建时启用 Runtime diagnostics 和 View debug DTO；省略时继承共享默认值。                                                        |
-| `schedulerOptions`              | `SchedulerOptions`                               | `undefined`               | Scheduler 时间片与 idle 队列配置                                                                                                |
-| `validationConcurrency`         | `number`                                         | `8`                       | 整表校验时同时运行的字段数                                                                                                      |
-| `loading`                       | `boolean`                                        | `undefined`               | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
-| `submitter` / `resetter`        | `boolean \| SchemxFormActionConfig`              | `true`                    | 控制内置提交 / 重置按钮；默认渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                        |
-| `class`                         | `ClassValue`                                     | `""`                      | 添加到根 `.schemx` 元素的类名                                                                                                   |
-| `style`                         | `StyleValue`                                     | `{}`                      | 绑定到根 `.schemx` 元素                                                                                                         |
-| `row`                           | `SchemxRowConfig`                                | `undefined`               | 根级 Row 配置；Group/Dynamic 未显式配置时继承该默认值                                                                           |
-| `actionCol` | `SchemxColConfig` | `undefined` | 操作区列布局；省略时继承 `schemaConfig.actionCol`，仍未配置时占满一行。 |
-| `col`                           | `SchemxColConfig`                                | `{ span: 24 }`            | 字段级默认 Col 配置；字段自身的 `col` 优先                                                                                      |
-| `showRequiredMark`              | `boolean`                                        | `undefined`               | 必填标记的展示默认值；未设置时跟随有效 `required`，不改变校验规则。                                                             |
-| `bordered`                      | `boolean`                                        | `true`                    | 字段底部分隔线；UI 适配包可覆盖默认值。                                                                                         |
-| `rowComponent` / `colComponent` | `SchemxRowComponent` / `SchemxColComponent`      | 当前配置中的布局组件      | 自定义 Row / Col 实现；可通过 Form、ConfigProvider 或 App 安装选项配置。                                                        |
+| Prop                            | 类型                                             | 默认值               | 说明                                                                                                                            |
+| ------------------------------- | ------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas`                       | `SchemxSchemasInput<T>`                          | `[]`                 | 表单 Schema；可传字段数组或 `createSchemas()` 返回的 Schema source，运行时缺省为空数组                                          |
+| `modelValue`                    | `T`                                              | `{}`                 | `v-model` 的输入端；非空值参与初始快照，后续替换会同步到内部表单，字段变化会通过 `update:modelValue` 输出                       |
+| `initialValues`                 | `T`                                              | `{}`                 | 创建内部表单时的初始值，也是 `reset()` 的还原基准                                                                               |
+| `form`                          | `SchemxInstance<T>`                              | `undefined`          | 外部表单实例；传入后组件不再创建实例，但仍会提供 Vue 上下文并同步 `schemas`；组件级回调不会写入该实例，`v-model` 仍监听实例变化 |
+| `fieldRules`                    | `SchemxFieldRulesMap<T>`                         | `undefined`          | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先                                                                   |
+| `rendererProps`                 | `SchemxRendererPropsMap<T>`                      | `undefined`          | 按 Renderer 类型设置静态默认 Props；字段 `componentProps` 与 Runtime 注入值优先                                                 |
+| `rendererRegistry`              | `RendererRegistry`                               | `undefined`          | 当前表单使用的 Renderer Registry；省略时由创建器及继承配置决定。                                                                |
+| `defaultRendererType`           | `SchemxRendererKey`                              | `undefined`          | 未解析到 Renderer Registry 时用于创建默认 Registry；已有 Registry 使用自身的 fallback。                                         |
+| `presetRuleRegistry`            | `PresetRuleRegistry`                             | `undefined`          | 当前表单使用的预设规则 Registry；省略时由创建器及继承配置决定。                                                                 |
+| `validatorAdapters`             | `readonly ValidationAdapterOption[]`             | `[]`                 | 当前表单使用的第三方校验 adapter；创建内部 Form 时参与配置合并并传递给 Core                                                     |
+| `required`                      | `RequiredConfig`                                 | `undefined`          | 表单级必填默认值；字段自身配置优先，普通 `rules` 不会推导必填或显示星号                                                         |
+| `readonly`                      | `boolean`                                        | `undefined`          | 表单级只读默认值；字段自身配置优先                                                                                              |
+| `disabled`                      | `boolean`                                        | `undefined`          | 表单级禁用默认值；字段自身配置优先                                                                                              |
+| `visible`                       | `boolean`                                        | `true`               | 表单级可见性默认值；字段自身配置优先                                                                                            |
+| `labelIcon`                     | `string \| Component`                            | `undefined`          | 表单级标签图标默认值；字符串传给 Icon Adapter，Component 直接渲染                                                               |
+| `iconComponent`                 | `Component`                                      | `undefined`          | 当前 Form 使用的 Icon Adapter；优先级高于 ConfigProvider 和 App 配置。                                                          |
+| `labelAlign`                    | `"left" \| "center" \| "right"`                  | `undefined`          | 表单级标签对齐默认值；字段自身配置优先，均未配置时为 `"right"`                                                                  |
+| `labelPosition`                 | `"left" \| "top" \| "right"`                     | `undefined`          | 表单级标签位置默认值；字段自身配置优先，均未配置时为 `"left"`                                                                   |
+| `labelWidth`                    | `string \| number`                               | `undefined`          | 表单级标签宽度默认值；字段自身配置优先，均未配置时为 `"auto"`                                                                   |
+| `contentAlign`                  | `"left" \| "center" \| "right"`                  | `undefined`          | 表单级内容区域对齐配置；字段自身配置优先，默认为 `"left"`；只读字段自动为 `"right"`                                             |
+| `errorAlign`                    | `"left" \| "center" \| "right"`                  | `undefined`          | 表单级校验错误对齐配置；字段自身配置优先，均未配置时为 `"left"`                                                                 |
+| `validationTrigger`             | `ValidationTrigger \| ValidationTrigger[]`       | `["blur", "change"]` | 表单级校验触发方式默认值；字段自身配置优先                                                                                      |
+| `colon`                         | `boolean`                                        | `undefined`          | 表单级标签冒号默认值；字段自身配置优先，均未配置时为 `true`                                                                     |
+| `onFinish`                      | `(values: Readonly<T>) => void \| Promise<void>` | `undefined`          | `submit()` 校验通过后的回调 Prop                                                                                                |
+| `onFinishFailed`                | `(failure: ValidationFailure<T>) => void`        | `undefined`          | `submit()` 校验失败后的回调 Prop                                                                                                |
+| `onReset`                       | `() => void`                                     | `undefined`          | 内部表单完整 `reset()` 完成后的回调；不在 `resetFields()` 后触发                                                                |
+| `onLoadingChange`               | `(loading: boolean) => void`                     | `undefined`          | 内部表单提交开始和结束时的回调                                                                                                  |
+| `onValuesChange`                | `(changedValues, latestSnapshot) => void`        | `undefined`          | 字段值变化后的回调 Prop                                                                                                         |
+| `onFieldsChange`                | `(changedFields, allFields) => void`             | `undefined`          | 字段路径变化后的回调 Prop                                                                                                       |
+| `onRuleError`                   | `FormCallbackOptions<T>["onRuleError"]`          | `undefined`          | 内部创建实例时透传的规则解析异常回调；外部 `form` 保留创建时回调。                                                              |
+| `lifecycleHooks`                | `FormLifecycleOptions["lifecycleHooks"]`         | `undefined`          | 内部创建实例时透传的 Core Runtime 生命周期钩子；外部 `form` 的生命周期由创建者管理。                                            |
+| `debug`                         | `boolean`                                        | `false`              | 创建时启用 Runtime diagnostics 和 View debug DTO；省略时继承共享默认值。                                                        |
+| `schedulerOptions`              | `SchedulerOptions`                               | `undefined`          | Scheduler 时间片与 idle 队列配置                                                                                                |
+| `validationConcurrency`         | `number`                                         | `8`                  | 整表校验时同时运行的字段数                                                                                                      |
+| `loading`                       | `boolean`                                        | `undefined`          | 覆盖内置操作区显示的提交状态，不改变 Core 的真实提交状态                                                                        |
+| `submitter` / `resetter`        | `boolean \| SchemxFormActionConfig`              | `true`               | 控制内置提交 / 重置按钮；默认渲染，设为 `false` 隐藏，配置可设置 `text` 和 `buttonProps`                                        |
+| `class`                         | `ClassValue`                                     | `""`                 | 添加到根 `.schemx` 元素的类名                                                                                                   |
+| `style`                         | `StyleValue`                                     | `{}`                 | 绑定到根 `.schemx` 元素                                                                                                         |
+| `row`                           | `SchemxRowConfig`                                | `undefined`          | 根级 Row 配置；Group/Dynamic 未显式配置时继承该默认值                                                                           |
+| `actionCol`                     | `SchemxColConfig`                                | `undefined`          | 操作区列布局；省略时继承 `schemaConfig.actionCol`，仍未配置时占满一行。                                                         |
+| `col`                           | `SchemxColConfig`                                | `{ span: 24 }`       | 字段级默认 Col 配置；字段自身的 `col` 优先                                                                                      |
+| `showRequiredMark`              | `boolean`                                        | `undefined`          | 必填标记的展示默认值；未设置时跟随有效 `required`，不改变校验规则。                                                             |
+| `bordered`                      | `boolean`                                        | `true`               | 字段底部分隔线；UI 适配包可覆盖默认值。                                                                                         |
+| `rowComponent` / `colComponent` | `SchemxRowComponent` / `SchemxColComponent`      | 当前配置中的布局组件 | 自定义 Row / Col 实现；可通过 Form、ConfigProvider 或 App 安装选项配置。                                                        |
 
 上述 Schema 默认配置参与字段规范化：Core 负责字段状态和校验，Vue 负责标签、内容对齐、必填标记及布局。Form 平铺的 `row`、`col` 和 `actionCol` 会合并到 `schemaConfig`，并覆盖继承值；操作区不继承字段的 `col`。Registry、默认 Renderer 和 `validatorAdapters` 优先使用表单显式配置，其次使用当前 Provider/App 配置，再由所用创建器补充默认值。必填只能通过 `required: true` 或 `RequiredOptions` 表达，普通 `rules` 不会显示必填星号。传入外部 `form` 时，实例数据、Registry、业务回调和生命周期保留创建者配置；组件复用该实例，同步 `schemas`、模型和显式声明的 Schema 默认值。
 
@@ -299,8 +295,8 @@ Search 的自动列和栅格列共用实测高度折叠：内容超过第一行�
 
 唯一通过 `defineEmits` 声明的组件事件如下：
 
-| 事件                | 参数         | 触发时机                             |
-| ------------------- | ------------ | ------------------------------------ |
+| 事件                | 参数         | 触发时机                                       |
+| ------------------- | ------------ | ---------------------------------------------- |
 | `update:modelValue` | `(value: T)` | 内部或外部实例的值变化时；外部模型同步不回写。 |
 
 如需程序化更新外部表单，可持有 `ref` 或外部 `form` 并显式调用 `setFieldsValue()`；普通 `v-model` 已负责值的双向同步。
@@ -448,7 +444,7 @@ app.use(Schemx, {
 })
 ```
 
-安装配置属于当前 Vue App；不同 App 可显式提供不同的 Registry、字段默认值和校验 adapter。表单显式选项优先于 Provider/App，后续默认值由创建器决定：Vue 工厂使用其创建基线，未绑定工厂的普通创建路径仍可继承 Core 模块级配置。UI 包的 Form 和 Hook 使用各自默认配置，导入 UI 包不会修改 Core 全局配置或 Vue Registry。`validatorAdapters` 按配置优先级合并，不同层的同 ID adapter 由高优先级配置覆盖，同一层的重复 ID 需通过 `{ adapter, override: true }` 显式覆盖。`app.use()` 不调用 Core 的 `configureSchemx()`。可安装组件挂载静态属性 `Schemx.Field`；`Group` 仅作为根入口命名导出。
+安装配置属于当前 Vue App；不同 App 可显式提供不同的 Registry、字段默认值和校验 adapter。表单显式选项优先于 Provider/App，后续默认值由创建器决定：Vue 工厂使用其创建基线，未绑定工厂的普通创建路径使用显式配置和内置默认值，不再继承 Core 模块级配置。UI 包的 Form 和 Hook 使用各自默认配置，导入 UI 包不会修改 Core 全局配置或 Vue Registry。`validatorAdapters` 按配置优先级合并，不同层的同 ID adapter 由高优先级配置覆盖，同一层的重复 ID 需通过 `{ adapter, override: true }` 显式覆盖。Core 的模块级 `configureSchemx()` / `getGlobalSchemxConfig()` 已移除，也不再由 Vue 根入口透传，详见 [Core 2.0 迁移指南](../core/MIGRATION.md)。可安装组件挂载静态属性 `Schemx.Field`；`Group` 仅作为根入口命名导出。
 
 `SchemxFormProps` 和 Vue 层 `FieldInstance` 也会从 `@schemx/vue` 根入口导出；业务代码通常仍可直接从组件或 Hook 调用处推导类型，不需要依赖深层路径。
 
@@ -1388,10 +1384,10 @@ console.log(viewSchemas.value)
 
 Vue 包提供两个模块级 Registry，默认由 Vue `createSchemx()` 复用。普通 Form 或不带创建器的 `useForm()` 不会自动采用它们，需要显式传入。`app.use(Schemx, options)` 只保存当前 App 配置，不会新建 Registry；需要隔离时，使用 `createRendererRegistry()` 和 `createPresetRuleRegistry()` 创建实例并传入。
 
-| 导出                 | 真实类型             | 初始内容                                                                         | 与 `useForm()` 的关系                                                    |
-| -------------------- | -------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 导出                 | 真实类型             | 初始内容                                                                         | 与 `useForm()` 的关系                           |
+| -------------------- | -------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `rendererRegistry`   | `RendererRegistry`   | 空 Registry，默认 renderer key 预设为 `"input"`；适配包直接挂载时使用 fallback。 | Vue 工厂默认复用；普通 Form / Hook 需显式接入。 |
-| `presetRuleRegistry` | `PresetRuleRegistry` | 模块初始化时包含内置 `required`，并可继续注册业务预设规则。                      | Vue 工厂默认复用；普通 Form / Hook 需显式接入。  |
+| `presetRuleRegistry` | `PresetRuleRegistry` | 模块初始化时包含内置 `required`，并可继续注册业务预设规则。                      | Vue 工厂默认复用；普通 Form / Hook 需显式接入。 |
 
 Renderer Registry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`setFallback`、`getFallback`、`clear` 和 `size`；PresetRuleRegistry 包含 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear` 和 `size`。完整签名见 Core 的 [校验](../core#校验) 与 [Renderer Registry](../core#renderer-registry) 章节。
 
@@ -1439,13 +1435,13 @@ Vue 根入口提供以下常用类型：
 | `FormContextValue<TValues>`                     | Form Context，包含表单实例和展示配置。见 [Composition API](#formcontextvalue-与-formconfigcontextvalue-的边界)。                                |
 | `FormConfigContextValue`                        | 表单展示配置 Context。                                                                                                                          |
 | `SchemxDictionary<TValues, TResponse, TOption>` | 函数式选项源配置；`TResponse` 从 `api` 传递到 `formatter`，`TOption` 是格式化后的选项类型。见 [Dictionary](#dictionary)。                       |
-| `SchemxInstallOptions`                          | 基于共享 `SchemxConfig` 的 App 配置；布局默认值位于 `schemaConfig`，布局组件由顶层 `rowComponent` / `colComponent` 指定。                      |
+| `SchemxInstallOptions`                          | 基于共享 `SchemxConfig` 的 App 配置；布局默认值位于 `schemaConfig`，布局组件由顶层 `rowComponent` / `colComponent` 指定。                       |
 | `SchemxWithDictionary<A, TValues>`              | `A & { dict?: SchemxDictionary<TValues> \| SchemxDictionary<TValues>["api"] }`，只增加可选 `dict`。见 [WithRemoteOptions](#withremoteoptions)。 |
 | `UseDictionaryReturn<TOption>`                  | `{ list, loading, error, loadDict, refresh, mutate }`，`list` 和 `mutate` 使用 `TOption`。见 [`useDictionary`](#usedictionary)。                |
 | `UseDictOptionsReturn<TOption>`                 | `UseDictionaryReturn<TOption>` 的弃用别名。                                                                                                     |
 | `SchemxFormProps<TValues>`                      | `Schemx` 组件 Props 类型，由 Core 表单选项和 Vue 专属 `modelValue`、`form`、`class`、`style` 等属性组合而成。                                   |
 | `ScrollToFieldHighlightOptions`                 | `scrollToField()` 的高亮持续时间配置。                                                                                                          |
-| `ScrollToFieldOptions`                          | `scrollToField()` 的滚动、对齐和高亮选项。                                                                                                        |
+| `ScrollToFieldOptions`                          | `scrollToField()` 的滚动、对齐和高亮选项。                                                                                                      |
 | `VueSchemxInstance<TValues>`                    | `SchemxInstance<TValues>` 的弃用别名。                                                                                                          |
 | `FieldInstance<TValues>`                        | Vue Ref / Computed 桥接后的字段控制器类型，由 `useField()` 返回。                                                                               |
 | `SchemxFieldSlotProps<TValues>`                 | 字段整体、Label、Before、After 插槽的公共参数。                                                                                                 |
@@ -1475,7 +1471,7 @@ Vue 根入口提供以下常用类型：
 | 类别       | 常用导出                                                                                                            | 说明                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | 表单       | `default`、`schemxForm`、`SchemxFormPlugin`、`SchemxInstallOptions`                                                 | 可安装表单组件及插件配置类型；默认导出与 `schemxForm` 指向同一对象。 |
-| 搜索       | `SchemxSearch`、`schemxSearch`、`SchemxSearchProps`、`SchemxSearchPlugin` | 可折叠搜索条件区，操作区独立布局。 |
+| 搜索       | `SchemxSearch`、`schemxSearch`、`SchemxSearchProps`、`SchemxSearchPlugin`                                           | 可折叠搜索条件区，操作区独立布局。                                   |
 | 组件       | `Field`、`Group`、`Row`、`Col`、`Icon`、`Wrapper`、`ConfigProvider`                                                 | 表单结构、布局和状态包装。                                           |
 | 组合式 API | `useForm`、`useField`、`useFormSelector`、`useViewSchemas`                                                          | 表单、字段和视图的 Vue 响应式桥接，见 [组合式 API](#组合式-api)。    |
 | 上下文     | `provideFormContext`、`useFormContextValue`、`createFieldContext`、`useFieldContext`、`useConfigProviderContextRef` | 向后代提供或读取表单、字段上下文，见 [Context API](#context-api)。   |
@@ -1484,7 +1480,7 @@ Vue 根入口提供以下常用类型：
 | Registry   | `rendererRegistry`、`presetRuleRegistry`                                                                            | Vue 模块级回退注册表。                                               |
 | 布局       | `normalizeSchemxGutter`、`SchemxNormalizedGutter`、`SchemxGutter`、`SchemxRowConfig`、`SchemxColConfig`             | Row / Col 间距和布局配置。                                           |
 | 图标       | `SchemxIconComponent`、`SchemxIconValue`、`SchemxIconProps`                                                         | 自定义图标适配器的类型。                                             |
-| 集成 | `createFormComponent`、`createSearchComponent`、`provideSchemxAppConfig` | 创建绑定工厂的 Form / Search，或安装 App 配置。 |
+| 集成       | `createFormComponent`、`createSearchComponent`、`provideSchemxAppConfig`                                            | 创建绑定工厂的 Form / Search，或安装 App 配置。                      |
 | Core API   | `createForm`、`createSchemas`、`createRendererRegistry` 等                                                          | 通过根入口传递导出，完整语义见 [Core README](../core/README.md)。    |
 
 Vue 根入口的表单命名别名为 `schemxForm`；`SchemxForm` 可用作默认导入的本地名称。Core 状态适配 API 同样由根入口透传。

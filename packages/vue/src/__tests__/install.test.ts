@@ -2,16 +2,14 @@ import { defineComponent, effectScope, h, markRaw, nextTick, reactive, ref } fro
 import type { ComputedRef } from "vue"
 
 import {
-  configureSchemx,
   createForm,
   createRendererRegistry,
-  getGlobalSchemxConfig,
   isSchemxViewFieldSchema,
   type SchemxConfig,
   type ValidationAdapter,
 } from "@schemx/core"
 import { mount, type VueWrapper } from "@vue/test-utils"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import ConfigProvider from "../components/ConfigProvider"
 import Schemx from "../form"
@@ -78,10 +76,6 @@ function createTestAdapter(id: string, message: string): ValidationAdapter<strin
   }
 }
 
-afterEach(() => {
-  configureSchemx()
-})
-
 /**
  * 在独立 Vue 组件实例中创建 Form，并返回用于卸载组件的 wrapper。
  *
@@ -144,7 +138,7 @@ describe("Schemx Vue 插件安装", () => {
     coreForm.destroy()
   })
 
-  it("Vue 组件默认值优先于 Core 全局值，缺省 Core 属性仍由 Core 处理", () => {
+  it("Vue 组件使用展示默认值，缺省字段状态由 Core 处理", () => {
     const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
 
     const rendererRegistry = createRendererRegistry()
@@ -156,24 +150,15 @@ describe("Schemx Vue 插件安装", () => {
       () => () => h(Schemx, { ref: formRef, schemas, rendererRegistry })
     )
 
-    configureSchemx({
-      schemaConfig: {
-        visible: false,
-        validationTrigger: "submit",
-        readonly: true,
-        labelAlign: "left",
-      },
-    })
     const wrapper = mount(Host)
 
     expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
       visible: true,
       validationTrigger: ["blur", "change"],
-      readonly: true,
+      readonly: false,
       labelAlign: "right",
     })
     wrapper.unmount()
-    configureSchemx()
     const defaults = mount(Host)
 
     expect(formRef.value?.getViewSchemas()[0]).toMatchObject({
@@ -187,10 +172,6 @@ describe("Schemx Vue 插件安装", () => {
     const coreRegistry = createRendererRegistry()
 
     coreRegistry.register("core-only", markRaw(ConfiguredRenderer))
-    configureSchemx({
-      rendererRegistry: coreRegistry,
-      schemaConfig: { readonly: true, labelAlign: "left", contentAlign: "right" },
-    })
     const { form, wrapper } = mountUseForm(
       {},
       {
@@ -199,7 +180,7 @@ describe("Schemx Vue 插件安装", () => {
     )
 
     expect(form.getViewSchemas()[0]).toMatchObject({
-      readonly: true,
+      readonly: false,
       labelAlign: "right",
       col: { span: 24 },
     })
@@ -207,22 +188,25 @@ describe("Schemx Vue 插件安装", () => {
     wrapper.unmount()
   })
 
-  it("无关 Vue 配置变化不清除 Core 状态，创建后也不重新读取 Core 全局配置", async () => {
+  it("无关 Vue 配置变化保留显式字段状态", async () => {
     const schemas = [{ name: "name", label: "姓名", componentType: "input" }]
 
     const rendererRegistry = createRendererRegistry()
 
     rendererRegistry.register("input", markRaw(ConfiguredRenderer))
-    configureSchemx({ schemaConfig: { readonly: true, disabled: true } })
     const wrapper = mount(Schemx, {
-      props: { schemas, rendererRegistry, labelWidth: 120 },
+      props: {
+        schemas,
+        rendererRegistry,
+        labelWidth: 120,
+        readonly: true,
+        disabled: true,
+      },
     })
 
     const form = wrapper.vm as unknown as SchemxInstance
 
-    configureSchemx({ schemaConfig: { readonly: false, disabled: false } })
     await wrapper.setProps({ labelWidth: 140 })
-
     expect(form.getViewSchemas()[0]).toMatchObject({
       readonly: true,
       disabled: true,
@@ -324,7 +308,7 @@ describe("Schemx Vue 插件安装", () => {
       rendererRegistry,
       schemaConfig: { readonly: true },
     })
-    expect(getGlobalSchemxConfig().rendererRegistry).toBeUndefined()
+    expect(createForm().hasRenderer("configured")).toBe(false)
   })
 
   it("useForm 使用当前 App 的 Renderer Registry 和 schemaConfig", () => {
@@ -546,38 +530,8 @@ describe("Schemx Vue 插件安装", () => {
     scope.stop()
   })
 
-  it("Vue 表单将 Core 模块级 schemaConfig 作为低优先级基线", () => {
-    // Core 模块级配置应在未被 Form 或 App 显式覆盖时生效。
-    configureSchemx({ schemaConfig: { readonly: true } })
-
-    const { form, wrapper } = mountUseForm(
-      {},
-      {
-        schemas: [
-          {
-            name: "name",
-            label: "姓名",
-            componentType: "input",
-          },
-        ],
-      }
-    )
-
-    expect(form.getViewSchemas()[0]).toMatchObject({ readonly: true })
-
-    wrapper.unmount()
-  })
-
-  it("按 Core、App、Form、字段优先级浅合并 rendererProps", () => {
-    configureSchemx({
-      rendererProps: {
-        configured: {
-          coreOnly: "core",
-          shared: "core",
-          nested: { source: "core" },
-        },
-      } as never,
-    })
+  it("Vue 表单通过 App 配置设置字段默认值", () => {
+    // 共享字段状态显式放入当前 App，避免跨 App 共享。
 
     const { form, wrapper } = mountUseForm(
       {
@@ -618,7 +572,6 @@ describe("Schemx Vue 插件安装", () => {
     }
 
     expect(fieldSchema.componentProps).toMatchObject({
-      coreOnly: "core",
       appOnly: "app",
       formOnly: "form",
       fieldOnly: "field",

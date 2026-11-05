@@ -95,13 +95,13 @@ export {
 /**
  * schemx/core 公共 API 与类型导出
  */
-/* eslint-disable import/export -- Vue 的 SchemxLayout 兼容别名需要覆盖同名 Core 类型。 */
+/* eslint-disable import/export -- Vue 的 SchemxInstance 和 createSchemx 需要覆盖同名 Core 导出。 */
 export * from "@schemx/core"
 
 // 显式导出包含 Vue 默认配置的工厂，覆盖 Core 同名导出。
 export { createSchemx } from "./createSchemx"
 
-// 显式导出 Vue 布局兼容别名与实例类型，覆盖 Core 同名类型。
+// 显式导出 Vue 布局兼容别名与扩展后的实例类型。
 export type { SchemxLayout, SchemxInstance } from "./types"
 
 /**

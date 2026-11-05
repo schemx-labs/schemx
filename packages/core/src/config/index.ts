@@ -1,7 +1,7 @@
 /**
  * 配置模块统一入口。
  *
- * 标准化能力先于全局配置导出，供全局配置在模块加载时建立初始快照。
+ * 提供配置合并、默认值解析与实例配置管理。
  */
 
 export { defaultSchemxConfig } from "./defaultSchemxConfig"
@@ -14,8 +14,6 @@ export {
   type MergeConfigOptions,
   type SchemxConfigSnapshot,
 } from "./mergeSchemxConfig"
-
-export { configureSchemx, getGlobalSchemxConfig } from "./schemxConfig"
 
 export type {
   SchemxConfig,

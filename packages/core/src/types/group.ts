@@ -8,7 +8,7 @@
 
 // 有意保留声明合并能力，以支持 Group 专属的扩展接口。
 
-import type { SchemxField, SchemxGroupDependencies, SchemxLayout, Values } from "./index"
+import type { SchemxField, SchemxGroupDependencies, Values } from "./index"
 
 /**
  * 自定义 Group Schema 基础字段扩展接口
@@ -58,13 +58,6 @@ export interface SchemxGroupField<
   children: SchemxField<TValues>[]
 
   /**
-   * Group 的旧版静态布局配置。
-   *
-   * @deprecated 请改用 UI 适配层的 {@link import("@schemx/vue").SchemxRowConfig}。
-   */
-  layout?: SchemxLayout
-
-  /**
    * 是否可见。
    *
    * 不可见时整个后代子树停止校验，但保留字段值。
@@ -82,34 +75,4 @@ export interface SchemxGroupField<
    * 根据表单值动态覆盖 Group 的容器状态。
    */
   dependencies?: SchemxGroupDependencies<TValues>
-  /**
-   * 是否可折叠
-   *
-   * @deprecated Group 交互配置由 UI 适配层提供；请改用 {@link SchemxGroupFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  collapsible?: boolean
-  /**
-   * 默认是否折叠
-   *
-   * @deprecated Group 交互配置由 UI 适配层提供；请改用 {@link SchemxGroupFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  defaultCollapsed?: boolean
-  /**
-   * 受控折叠状态。
-   *
-   * @deprecated Group 交互配置由 UI 适配层提供；请改用 {@link SchemxGroupFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  collapsed?: boolean
-  /**
-   * 用户切换折叠状态后的回调。
-   *
-   * @deprecated Group 交互配置由 UI 适配层提供；请改用 {@link SchemxGroupFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  onCollapsedChange?: (collapsed: boolean) => void
-  /**
-   * 折叠时是否卸载后代 Renderer，默认保持现有行为 `true`。
-   *
-   * @deprecated Group 交互配置由 UI 适配层提供；请改用 {@link SchemxGroupFieldDefinition} 扩展点，兼容期间仍保留。
-   */
-  destroyOnCollapse?: boolean
 }

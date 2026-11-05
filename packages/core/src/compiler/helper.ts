@@ -127,11 +127,6 @@ export function compileFieldSchema<TValues extends Values>(
     validationTrigger: normalizeTrigger(validationTrigger ?? "blur"),
   } as SchemxBaseField<TValues>
 
-  if (mergedReadonly) {
-    normalizedSchema.contentAlign = "right"
-    normalizedSchema.labelPosition = "left"
-  }
-
   normalizedSchema.componentProps = {
     ...mergedComponentProps,
     readonly: mergedReadonly,
