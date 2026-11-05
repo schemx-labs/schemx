@@ -23,7 +23,7 @@
   box-sizing: border-box;
   content: "";
   pointer-events: none;
-  border: 1px solid var(--schemx-field-highlight-color);
+  border: 1px dashed var(--schemx-field-highlight-color);
   border-radius: var(--schemx-field-highlight-radius);
   animation: schemx-field-highlight-border var(--schemx-field-highlight-duration, 1500ms)
     ease-out both;
@@ -80,7 +80,6 @@
 .schemx-field {
   display: flex;
   justify-content: space-between;
-  line-height: var(--schemx-component-size);
   gap: var(--schemx-field-gap);
   font-size: var(--schemx-font-size-md);
 }
@@ -113,7 +112,6 @@
 
 .schemx-field--label-top .schemx-field__label {
   margin-right: 0;
-  margin-bottom: var(--schemx-field-label-top-gap);
   width: auto;
 }
 
