@@ -92,11 +92,14 @@ export const resolveSlot = (
 ): ((...args: any[]) => any) | undefined => {
   if (slots[name]) return slots[name]
 
-  const alt = isCamelCase(name)
-    ? camelToKebab(name)
-    : isKebabCase(name)
-      ? kebabToCamel(name)
-      : undefined
+  // 原始名称未命中时，尝试对应的另一种命名格式。
+  let alt: string | undefined
+
+  if (isCamelCase(name)) {
+    alt = camelToKebab(name)
+  } else if (isKebabCase(name)) {
+    alt = kebabToCamel(name)
+  }
 
   if (alt && slots[alt]) return slots[alt]
 

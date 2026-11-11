@@ -109,7 +109,8 @@
       <div>
         <h2>自动列与栅格</h2>
         <p class="panel-description">
-          字段配置 col: 'auto'；备注使用 col: { span: 12 }。
+          字段配置 col: "auto"，与备注的 col: { span: 12 }
+          混排；切换容器宽度观察自然换行。
         </p>
       </div>
     </header>

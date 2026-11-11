@@ -76,7 +76,7 @@ const Row = defineComponent({
           justify,
           align,
           class: rowClassValue,
-          style: attrsStyle,
+          style: { width: "100%", ...(attrsStyle as any) },
         },
         slots
       )

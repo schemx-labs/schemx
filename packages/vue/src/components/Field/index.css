@@ -54,12 +54,12 @@
   animation: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* @media (prefers-reduced-motion: reduce) {
   .schemx-field-wrapper--highlighted,
   .schemx-field-wrapper--highlighted::before {
     animation: none;
   }
-}
+} */
 
 .schemx-field-wrapper.is-bordered::after {
   position: absolute;

@@ -60,6 +60,16 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
 
       const { dependencies: _dependencies, ...viewBaseSchema } = compiledSchema
 
+      // 依赖诊断仅在存在记录时附加，保留未执行依赖时的字段形状。
+      const dependencyDiagnostics =
+        debug && diagnostics
+          ? {
+              lastUpdatedBy: diagnostics.lastUpdatedBy,
+              overriddenKeys: diagnostics.overriddenKeys,
+              error: diagnostics.error?.message ?? null,
+            }
+          : {}
+
       // 展开联合类型会丢失 componentType/Props 关联；投影只补充同一 Form 实例。
       return [
         {
@@ -77,13 +87,7 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
                   runtimeNodeType: "field",
                   hasRuntimeState: true,
                   hasDependencyEffect: compiledSchema.dependencies != null,
-                  ...(diagnostics
-                    ? {
-                        lastUpdatedBy: diagnostics.lastUpdatedBy,
-                        overriddenKeys: diagnostics.overriddenKeys,
-                        error: diagnostics.error?.message ?? null,
-                      }
-                    : {}),
+                  ...dependencyDiagnostics,
                 },
               }
             : {}),

@@ -76,13 +76,17 @@ const Col = defineComponent({
         ...extensionProps
       } = auto ? {} : col
 
-      // 仅普通列生成栅格参数，自动列切换时撤销旧的 span 与 offset。
-      const grid = auto
-        ? undefined
-        : {
-            span: block ? 24 : (configuredSpan ?? 24),
-            offset: block ? 0 : (configuredOffset ?? 0),
-          }
+      // 自动列用 null 撤销栅格参数，避免 UI 组件将 undefined 恢复为默认跨度。
+      let grid: { span: number | null; offset: number | null }
+
+      if (auto) {
+        grid = { span: null, offset: null }
+      } else {
+        grid = {
+          span: block ? 24 : (configuredSpan ?? 24),
+          offset: block ? 0 : (configuredOffset ?? 0),
+        }
+      }
 
       const { class: attrsClass, style: attrsStyle, ...restAttrs } = attrs
 
@@ -93,8 +97,8 @@ const Col = defineComponent({
           ...restAttrs,
           class: ["schemx-col", { "schemx-col--auto": auto }, attrsClass as ClassValue],
           style: attrsStyle,
-          span: grid?.span,
-          offset: grid?.offset,
+          span: grid.span,
+          offset: grid.offset,
         },
         slots
       )

@@ -57,6 +57,11 @@ describe("Element Plus Col layout adapter", () => {
 
     expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(2)
     expect(wrapper.get(".schemx-col--auto").classes()).toContain("el-col")
+    // 自动字段和操作列都不应携带 Element Plus 的默认跨度类。
+    for (const column of wrapper.findAll(".schemx-col--auto")) {
+      expect(column.classes()).not.toContain("el-col-24")
+    }
+
     expect(wrapper.get(".schemx-col--auto").attributes("auto")).toBeUndefined()
     expect(wrapper.find(".el-col-12").exists()).toBe(true)
     expect(wrapper.find(".schemx-renderer--auto").exists()).toBe(false)
@@ -69,6 +74,15 @@ describe("Element Plus Col layout adapter", () => {
     await vi.waitFor(() => expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(1))
     expect(wrapper.findAll("input")[0]?.element).toBe(input)
     expect(wrapper.findAll("input")[0]?.element.value).toBe("changed")
+    expect(wrapper.find(".el-col-8").exists()).toBe(true)
+    await wrapper.setProps({ col: "auto" })
+    await vi.waitFor(() => expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(2))
+    // 从栅格切回自动列时，也应移除之前的跨度类并保留输入节点。
+    for (const column of wrapper.findAll(".schemx-col--auto")) {
+      expect(column.classes().some((name) => /^el-col-\d+$/.test(name))).toBe(false)
+    }
+
+    expect(wrapper.findAll("input")[0]?.element).toBe(input)
     wrapper.unmount()
   })
 

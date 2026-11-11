@@ -33,6 +33,8 @@
   --schemx-border-radius-sm: var(--van-radius-md, 4px);
   --schemx-border-radius-md: var(--van-radius-lg, 8px);
   --schemx-border-radius-lg: var(--van-radius-lg, 8px);
-  --schemx-field-label-color: var(--van-text-color-2, #646566);
-  --schemx-component-size: var(--van-cell-line-height, 24px);
+  --schemx-field-label-color: var(--van-text-color, #646566);
+  --schemx-component-size: 30px;
+
+  --van-cell-line-height: var(--schemx-component-size, 28px);
 }

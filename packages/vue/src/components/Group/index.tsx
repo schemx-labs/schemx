@@ -200,6 +200,13 @@ const Group = defineComponent({
 
       const transitioningBody = withDirectives(body, [[vShow, !isCollapsed]])
 
+      // 只有可折叠标题参与键盘导航，禁用时退出 Tab 顺序。
+      let headerTabIndex: number | undefined
+
+      if (collapsible) {
+        headerTabIndex = schema.disabled ? -1 : 0
+      }
+
       const groupWrapper = (
         <div
           {...attrs}
@@ -224,7 +231,7 @@ const Group = defineComponent({
               <div
                 id={headerId}
                 role={collapsible ? "button" : undefined}
-                tabindex={collapsible ? (schema.disabled ? -1 : 0) : undefined}
+                tabindex={headerTabIndex}
                 aria-expanded={collapsible ? !isCollapsed : undefined}
                 aria-controls={collapsible ? bodyId : undefined}
                 aria-disabled={collapsible ? schema.disabled || undefined : undefined}

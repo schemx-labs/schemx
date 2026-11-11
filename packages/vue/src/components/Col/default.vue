@@ -5,13 +5,13 @@
   // 包装层已经将 block 和缺省栅格配置归一化。
   interface Props {
     /**
-     * 普通列占用的栅格数。
+     * 普通列占用的栅格数；null 表示自动列撤销跨度。
      */
-    span?: number
+    span?: number | null
     /**
-     * 普通列的左侧栅格偏移。
+     * 普通列的左侧栅格偏移；null 表示自动列撤销偏移。
      */
-    offset?: number
+    offset?: number | null
   }
 
   defineOptions({ name: "SchemxDefaultCol", inheritAttrs: false })
@@ -31,12 +31,12 @@
     }
 
     // 普通列继续按照 24 栅格计算百分比。
-    const width = `${(props.span / 24) * 100}%`
+    const width = `${((props.span ?? 24) / 24) * 100}%`
 
     return {
       flex: `0 0 ${width}`,
       maxWidth: width,
-      marginLeft: `${(props.offset / 24) * 100}%`,
+      marginLeft: `${((props.offset ?? 0) / 24) * 100}%`,
     }
   }
 </script>

@@ -47,7 +47,7 @@ describe("Col", () => {
   it("auto 继续调用自定义 Col 实现，透传类名并撤销栅格参数", () => {
     // 自定义列只需将 class、style 透传给实际布局节点。
     const CustomCol = defineComponent({
-      props: { span: Number, offset: Number },
+      props: { span: { type: Number, default: 24 }, offset: Number },
       // _props 是包装层归一化后的栅格参数，context 提供属性与子内容。
       setup(_props, context) {
         return () => h("section", context.attrs, context.slots.default?.())
@@ -61,8 +61,8 @@ describe("Col", () => {
 
     expect(wrapper.get("section").classes()).toContain("schemx-col--auto")
     expect(wrapper.get("section").attributes("auto")).toBeUndefined()
-    expect(wrapper.getComponent(CustomCol).props("span")).toBeUndefined()
-    expect(wrapper.getComponent(CustomCol).props("offset")).toBeUndefined()
+    expect(wrapper.getComponent(CustomCol).props("span")).toBeNull()
+    expect(wrapper.getComponent(CustomCol).props("offset")).toBeNull()
     wrapper.unmount()
   })
 

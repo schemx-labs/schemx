@@ -121,9 +121,11 @@ export function mockSearchGeometry(): MockSearchGeometry {
       used += columnWidth
     }
 
-    return this === content || this === content.firstElementChild
-      ? new DOMRect(0, 0, width, columns.length ? (row + 1) * 40 : 0)
-      : result
+    if (this === content || this === content.firstElementChild) {
+      return new DOMRect(0, 0, width, columns.length ? (row + 1) * 40 : 0)
+    }
+
+    return result
   })
 
   /**

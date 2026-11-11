@@ -49,6 +49,8 @@
       componentType: "text",
       required: true,
       componentProps: { placeholder: "请输入用户名" },
+      readonly: true,
+      contentAlign: "center",
     },
     {
       name: "test2",
@@ -480,7 +482,10 @@
 
   /** 展开基础信息分组，并定位到年龄字段。 */
   const handleScrollToBasicAge = async (): Promise<void> => {
-    await formRef.value?.scrollToField("basic.age", { block: "center" })
+    await formRef.value?.scrollToField("basic.age", {
+      block: "center",
+      highlight: { duration: 0 },
+    })
   }
 </script>
 

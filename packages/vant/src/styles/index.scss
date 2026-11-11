@@ -17,10 +17,6 @@
 @use "../renderers/TextRenderer/index.scss" as *;
 @use "../renderers/UploadRenderer/index.scss" as *;
 
-.schemx {
-  padding-bottom: var(--schemx-form-padding-bottom);
-}
-
 .schemx .schemx-schemas {
   padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);
   border-radius: var(--schemx-border-radius-lg);
@@ -35,7 +31,6 @@
 .schemx .schemx-field-wrapper {
   padding-inline: var(--schemx-padding-md);
   padding-block: var(--schemx-padding-sm);
-  background-color: var(--schemx-background-color);
 
   .schemx-renderer {
     .van-cell {
@@ -46,6 +41,13 @@
       text-align: inherit;
     }
   }
+}
+
+/*
+ * 普通背景只应用于未高亮字段，避免覆盖公共层的持续高亮背景。
+ */
+.schemx .schemx-field-wrapper:not(.schemx-field-wrapper--highlighted) {
+  background-color: var(--schemx-background-color);
 }
 
 .schemx .schemx-field-wrapper.is-bordered::after {
@@ -88,8 +90,11 @@
   margin-bottom: 0;
 }
 
-.schemx .schemx-group-wrapper {
+.schemx .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
   margin-block: 0 var(--schemx-padding-sm);
+}
+
+.schemx .schemx-group-wrapper {
   padding-inline: var(--schemx-padding-md);
   border-radius: var(--schemx-border-radius-md);
   background-color: var(--schemx-background-color);

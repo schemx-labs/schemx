@@ -54,7 +54,7 @@
   const searchRef = ref<SchemxInstance<SearchValues>>()
 
   // 自动列由浏览器自然换行，Search 按实际第一行高度折叠。
-  const autoColumns = ref(false)
+  const autoColumns = ref(true)
 
   // 双向控制收起状态，同时展示当前状态。
   const collapsed = ref(true)
@@ -83,7 +83,7 @@
   // 只有查询或重置后才更新的条件快照。
   const appliedValues = ref<SearchValues>({ ...initialValues })
 
-  // 每行三个字段，第二行包含可通过定位按钮自动展开的负责人。
+  // 默认按自动列自然换行，也可切换为每行三个字段的栅格布局。
   const schemas: SchemxField<SearchValues>[] = [
     {
       name: "keyword",
@@ -224,7 +224,7 @@
   }
 
   /**
-   * 自动展开第二行并滚动到负责人字段。
+   * 展开搜索区并滚动到负责人字段。
    */
   const scrollToOwner = async (): Promise<void> => {
     await searchRef.value?.scrollToField("owner", {
@@ -242,11 +242,11 @@
   v-model="values"
   :schemas="schemas"
   :collapse="true"
-  :col="{ span: 8 }"
+  col="auto"
   :on-finish="handleSearch"
 />
 
-// 自动列：col="auto"
+// 切换栅格：:col="{ span: 8 }"
 await searchRef.value?.scrollToField("owner")`
 </script>
 
@@ -256,7 +256,7 @@ await searchRef.value?.scrollToField("owner")`
       <div>
         <h2>搜索与折叠</h2>
         <p class="panel-description">
-          通过 collapse 配置折叠，onFinish 接收完整查询条件。
+          默认使用 col: "auto" 自然换行，通过 collapse 折叠，onFinish 接收完整查询条件。
         </p>
       </div>
     </header>

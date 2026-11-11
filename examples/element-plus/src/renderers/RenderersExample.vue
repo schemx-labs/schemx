@@ -141,6 +141,9 @@
   // 禁用状态独立于只读状态，便于对照两种行为。
   const disabled = ref(false)
 
+  // 默认展示自动列，可切换栅格对比各类 Renderer 的宽度与换行。
+  const autoColumns = ref(true)
+
   // 在工具栏播报校验或提交的实际结果。
   const feedback = ref("可直接编辑控件，或切换只读与禁用状态。")
 
@@ -543,7 +546,8 @@
 
   // 最小调用片段直接对应页面中的表单实例与操作按钮。
   const usageCode = `const formRef = ref<SchemxInstance>()
-// <SchemxForm ref="formRef" :schemas="schemas" />
+// 表单级自动列，分组内的 Renderer 同样继承此配置。
+// <SchemxForm ref="formRef" :schemas="schemas" col="auto" />
 
 await formRef.value?.validate()
 const result = await formRef.value?.submit()
@@ -616,7 +620,7 @@ await formRef.value?.scrollToField("basic.age")`
       <div>
         <h2>表单与 Renderer</h2>
         <p class="panel-description">
-          切换控件分类，体验 readonly、disabled 与表单实例方法。
+          默认使用 col: "auto"，切换控件分类观察自然宽度与换行，也可对比栅格布局。
         </p>
       </div>
       <div class="state-switches">
@@ -628,6 +632,17 @@ await formRef.value?.scrollToField("basic.age")`
         /></label>
       </div>
     </header>
+
+    <div class="demo-toolbar">
+      <div class="demo-segmented" role="group" aria-label="列布局">
+        <button type="button" :aria-pressed="autoColumns" @click="autoColumns = true">
+          col: 'auto'
+        </button>
+        <button type="button" :aria-pressed="!autoColumns" @click="autoColumns = false">
+          col: { span: 12 }
+        </button>
+      </div>
+    </div>
 
     <nav class="renderer-index demo-segmented" aria-label="Renderer 分类">
       <button
@@ -655,7 +670,7 @@ await formRef.value?.scrollToField("basic.age")`
         :schemas="schemas"
         :readonly="readonly"
         :disabled="disabled"
-        :col="{ span: 12, xs: 24 }"
+        :col="autoColumns ? 'auto' : { span: 12, xs: 24 }"
         :row="{ gutter: [14, 24] }"
         label-position="top"
         :submitter="false"

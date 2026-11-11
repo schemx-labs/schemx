@@ -82,7 +82,13 @@
 <style>
   .schemx-wrapper {
     box-sizing: border-box;
+    display: flex;
     width: 100%;
+    height: var(--schemx-component-size);
+    align-items: center;
+    justify-content: inherit;
+    /* line-height: var(--schemx-component-size); */
+    /* text-align: inherit; */
   }
 
   .schemx-wrapper--readonly {

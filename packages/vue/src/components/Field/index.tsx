@@ -125,20 +125,12 @@ const Field = defineComponent({
       const formItemProps = schema.componentProps?.formItemProps
 
       // 只读展示策略由 Vue 层负责，不再要求 Core 改写框架属性。
+
       return {
         ...schema,
-        contentAlign: "right",
-        labelPosition: "left",
         componentProps: {
           ...schema.componentProps,
-          formItemProps:
-            formItemProps === undefined
-              ? undefined
-              : {
-                  ...formItemProps,
-                  contentAlign: "right",
-                  labelPosition: "left",
-                },
+          formItemProps,
         },
       }
     })

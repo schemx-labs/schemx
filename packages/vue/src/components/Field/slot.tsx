@@ -156,6 +156,36 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
       !schemaRef.value.disabled &&
       !schemaRef.value.readonly
 
+    /**
+     * 渲染默认标签内容；自定义标签插槽存在时不创建默认节点。
+     */
+    const renderLabelContent = (): VNodeChild => {
+      if (labelSlot) {
+        return labelSlot(createSlotProps())
+      }
+
+      return (
+        <>
+          {schemaRef.value.labelIcon && (
+            <span class="schemx-field__label-icon">
+              <Icon
+                icon={schemaRef.value.labelIcon}
+                component={formContext.iconComponent}
+              />
+            </span>
+          )}
+          <span
+            class={classnames("schemx-field__label-text", {
+              "is-required": showRequiredMark,
+            })}
+          >
+            {schemaRef.value.label}
+            {colon ? ":" : ""}
+          </span>
+        </>
+      )
+    }
+
     return (
       <label
         class="schemx-field__label"
@@ -165,28 +195,7 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
           marginLeft: labelAlign.value === "right" ? "auto" : "",
         }}
       >
-        {labelSlot ? (
-          labelSlot(createSlotProps())
-        ) : (
-          <>
-            {schemaRef.value.labelIcon && (
-              <span class="schemx-field__label-icon">
-                <Icon
-                  icon={schemaRef.value.labelIcon}
-                  component={formContext.iconComponent}
-                />
-              </span>
-            )}
-            <span
-              class={classnames("schemx-field__label-text", {
-                "is-required": showRequiredMark,
-              })}
-            >
-              {schemaRef.value.label}
-              {colon ? ":" : ""}
-            </span>
-          </>
-        )}
+        {renderLabelContent()}
       </label>
     )
   }
@@ -232,7 +241,7 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     return (
       <div
         class="schemx-field__content"
-        style={{ textAlign: schemaRef.value.contentAlign }}
+        style={{ justifyContent: schemaRef.value.contentAlign }}
       >
         {contentSlot
           ? contentSlot(

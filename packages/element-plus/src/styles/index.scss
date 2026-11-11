@@ -1,7 +1,9 @@
 @use "./variables.scss" as *;
 
 /*
- * 栅格列中的输入类 Renderer 随内容盒子缩小，达到默认宽度后不再拉伸。
+ * 栅格列中的输入类 Renderer 默认填满内容盒子，仅显式宽度限制其上限。
+ * --schemx-renderer-default-width 只在自动列中作为控件的默认宽度。
+ * 输入类字段的自动列分配剩余空间，未配置宽度的控件填满字段。
  * 颜色、开关、评分、单复选、验证码和上传控件保留自身尺寸。
  */
 .schemx-input-renderer,
@@ -19,46 +21,58 @@
 .schemx-date-time-picker-renderer,
 .schemx-time-picker-renderer,
 .schemx-time-select-renderer {
-  --schemx-renderer-default-width: 220px;
-
   width: 100%;
   min-width: 0;
-  max-width: var(--schemx-renderer-width, var(--schemx-renderer-default-width));
+  max-width: var(--schemx-renderer-width, 100%);
 
   /*
-   * 自动列先由控件的默认宽度参与固有尺寸计算，再按可用内容宽度缩小。
+   * 只扩展直接包含输入类 Renderer 的字段列，保留操作列和固有尺寸控件的布局。
+   */
+  .schemx-col.schemx-col--auto:has(
+      > .schemx-field-wrapper > .schemx-field > .schemx-field__content > &
+    ) {
+    flex-grow: 1;
+  }
+
+  /*
+   * 自动列中的控件默认填满字段，配置宽度后按指定尺寸展示。
    * 只匹配当前字段所属的直接 Col，避免外层 auto 影响嵌套栅格字段。
    */
   .schemx-col--auto > .schemx-field-wrapper > .schemx-field > .schemx-field__content > & {
-    width: var(--schemx-renderer-width, var(--schemx-renderer-default-width));
+    width: var(--schemx-renderer-width, var(--schemx-renderer-default-width, 100%));
     max-width: 100%;
   }
 }
 
 /*
- * 日期类使用更宽的上限，窄容器内仍随盒子缩小。
+ * Search 为自动列提供默认宽度；其他表单由消费端配置该变量。
+ * 日期类按输入控件类型加宽，窄容器内仍随盒子缩小。
  * 同时覆盖 datePicker 直接指定 datetime 的用法。
  */
-:is(.schemx-date-picker-renderer, .schemx-date-time-picker-renderer) {
-  &:has(> .el-date-editor--datetime) {
-    --schemx-renderer-default-width: 260px;
+.schemx-search {
+  --schemx-renderer-default-width: 220px;
+
+  :is(.schemx-date-picker-renderer, .schemx-date-time-picker-renderer) {
+    &:has(> .el-date-editor--datetime) {
+      --schemx-renderer-default-width: 260px;
+    }
+
+    &:has(
+      > .el-date-editor--daterange,
+      > .el-date-editor--monthrange,
+      > .el-date-editor--yearrange
+    ) {
+      --schemx-renderer-default-width: 320px;
+    }
+
+    &:has(> .el-date-editor--datetimerange) {
+      --schemx-renderer-default-width: 440px;
+    }
   }
 
-  &:has(
-    > .el-date-editor--daterange,
-    > .el-date-editor--monthrange,
-    > .el-date-editor--yearrange
-  ) {
-    --schemx-renderer-default-width: 320px;
+  .schemx-time-picker-renderer:has(> .el-date-editor--timerange) {
+    --schemx-renderer-default-width: 280px;
   }
-
-  &:has(> .el-date-editor--datetimerange) {
-    --schemx-renderer-default-width: 440px;
-  }
-}
-
-.schemx-time-picker-renderer:has(> .el-date-editor--timerange) {
-  --schemx-renderer-default-width: 280px;
 }
 
 /*
@@ -72,7 +86,7 @@
   min-width: 0;
 }
 
-.schemx .schemx-group-wrapper {
+.schemx .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
   margin-bottom: var(--schemx-padding-md);
 }
 

@@ -24,21 +24,25 @@
   const rowStyle = computed<CSSProperties>(() => {
     const [top, right, bottom, left] = normalizeSchemxGutter(props.gutter)
 
-    const justifyContent =
-      props.justify === "start"
-        ? "flex-start"
-        : props.justify === "end"
-          ? "flex-end"
-          : props.justify
+    // 将公共主轴对齐值转换为 Flex 对齐值，其他 CSS 值直接透传。
+    let justifyContent: CSSProperties["justifyContent"] = props.justify
 
-    const alignItems =
-      props.align === "top"
-        ? "flex-start"
-        : props.align === "middle"
-          ? "center"
-          : props.align === "bottom"
-            ? "flex-end"
-            : undefined
+    if (props.justify === "start") {
+      justifyContent = "flex-start"
+    } else if (props.justify === "end") {
+      justifyContent = "flex-end"
+    }
+
+    // 未配置交叉轴对齐时保留浏览器默认行为。
+    let alignItems: CSSProperties["alignItems"]
+
+    if (props.align === "top") {
+      alignItems = "flex-start"
+    } else if (props.align === "middle") {
+      alignItems = "center"
+    } else if (props.align === "bottom") {
+      alignItems = "flex-end"
+    }
 
     return {
       "--schemx-gutter-top": `${top / 2}px`,
