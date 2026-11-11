@@ -371,12 +371,18 @@ Search 的自动列和栅格列共用实测高度折叠：内容超过第一行�
 ```ts
 await form.scrollToField("profile.nickname", { highlight: true })
 await form.scrollToField("profile.nickname", { highlight: { duration: 2000 } })
+await form.scrollToField("profile.nickname", { highlight: { type: "warning" } })
+await form.scrollToField("profile.nickname", {
+  highlight: { type: "error", duration: 0 },
+})
 await form.scrollToField("profile.nickname", { highlight: { duration: 0 } })
 ```
 
 `highlight` 默认 `true`，设为 `false` 关闭提示；默认高亮持续 `1500ms`，对象形式通过 `duration` 指定毫秒数。`duration: 0` 关闭自动结束计时，持续显示直到点击或编辑目标区域、发起新定位或目标失效；负数或非有限数使用默认值。字段无需滚动时立即提示。返回 `true` 表示已发起定位，不等待滚动结束或高亮消失；字段不可用或展开期间被新请求取代时返回 `false`。同一表单的新请求会清除旧提示。等待滚动期间，滚轮、触摸滚动和页面滚动按键会取消本次等待；普通输入不取消。高亮显示后，点击或编辑目标区域会提前关闭；区域外点击、按键及滚动不影响提示。目标隐藏、移除或滚动等待超过 3 秒时取消提示。减少动态效果偏好开启时，高亮定位直接到位并使用静态提示。
 
-高亮外观可通过 `--schemx-field-highlight-background`、`--schemx-field-highlight-color` 和 `--schemx-field-highlight-radius` 自定义，默认沿用主题色和小圆角。
+`highlight.type` 支持 `default`、`warning` 和 `error`，未配置或运行时传入无效类型时使用 `default`。类型只改变定位提示外观，不修改字段校验状态。
+
+高亮外观可通过 `--schemx-field-highlight-background`、`--schemx-field-highlight-color` 和 `--schemx-field-highlight-radius` 自定义，默认沿用主题色和小圆角。警告与错误分别通过 `--schemx-field-highlight-warning-background` / `--schemx-field-highlight-warning-color` 和 `--schemx-field-highlight-error-background` / `--schemx-field-highlight-error-color` 自定义。
 
 ```vue
 <script setup lang="ts">
@@ -1440,7 +1446,7 @@ Vue 根入口提供以下常用类型：
 | `UseDictionaryReturn<TOption>`                  | `{ list, loading, error, loadDict, refresh, mutate }`，`list` 和 `mutate` 使用 `TOption`。见 [`useDictionary`](#usedictionary)。                |
 | `UseDictOptionsReturn<TOption>`                 | `UseDictionaryReturn<TOption>` 的弃用别名。                                                                                                     |
 | `SchemxFormProps<TValues>`                      | `Schemx` 组件 Props 类型，由 Core 表单选项和 Vue 专属 `modelValue`、`form`、`class`、`style` 等属性组合而成。                                   |
-| `ScrollToFieldHighlightOptions`                 | `scrollToField()` 的高亮持续时间配置。                                                                                                          |
+| `ScrollToFieldHighlightOptions`                 | `scrollToField()` 的高亮类型与持续时间配置。                                                                                                    |
 | `ScrollToFieldOptions`                          | `scrollToField()` 的滚动、对齐和高亮选项。                                                                                                      |
 | `VueSchemxInstance<TValues>`                    | `SchemxInstance<TValues>` 的弃用别名。                                                                                                          |
 | `FieldInstance<TValues>`                        | Vue Ref / Computed 桥接后的字段控制器类型，由 `useField()` 返回。                                                                               |

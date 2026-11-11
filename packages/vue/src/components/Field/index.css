@@ -29,6 +29,19 @@
     ease-out both;
 }
 
+/*
+ * 类型只调整定位提示配色，复用相同的动画与持续显示规则。
+ */
+.schemx-field-wrapper--highlight-warning {
+  --schemx-field-highlight-background: var(--schemx-field-highlight-warning-background);
+  --schemx-field-highlight-color: var(--schemx-field-highlight-warning-color);
+}
+
+.schemx-field-wrapper--highlight-error {
+  --schemx-field-highlight-background: var(--schemx-field-highlight-error-background);
+  --schemx-field-highlight-color: var(--schemx-field-highlight-error-color);
+}
+
 @keyframes schemx-field-highlight {
   0%,
   75% {
@@ -142,8 +155,12 @@
  * 内容区域
  */
 .schemx-field__content {
+  display: flex;
   flex: 1;
   min-width: 0;
+  text-align: var(--schemx-content-align);
+  justify-content: var(--schemx-content-align);
+  align-items: center;
 }
 
 .schemx-field__content .schemx-renderer {

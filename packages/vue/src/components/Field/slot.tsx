@@ -241,7 +241,10 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
     return (
       <div
         class="schemx-field__content"
-        style={{ justifyContent: schemaRef.value.contentAlign }}
+        // style={{
+        //   justifyContent: schemaRef.value.contentAlign,
+        //   textAlign: labelAlign.value,
+        // }}
       >
         {contentSlot
           ? contentSlot(

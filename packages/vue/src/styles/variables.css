@@ -88,8 +88,12 @@
   --schemx-field-content-padding-inline: 6px;
   --schemx-field-required-gap: 2px;
   --schemx-field-error-gap: 6px;
-  --schemx-field-highlight-background: var(--schemx-primary-color-light);
+  --schemx-field-highlight-background: #f0f6ff;
   --schemx-field-highlight-color: var(--schemx-primary-color);
+  --schemx-field-highlight-warning-background: #fff7e6;
+  --schemx-field-highlight-warning-color: var(--schemx-warning-color);
+  --schemx-field-highlight-error-background: #fff1f0;
+  --schemx-field-highlight-error-color: var(--schemx-danger-color);
   --schemx-field-highlight-radius: var(--schemx-border-radius-sm);
   --schemx-component-size: 28px;
 

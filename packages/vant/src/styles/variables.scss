@@ -8,6 +8,8 @@
 .schemx-select-picker-popup-renderer {
   --schemx-primary-color: var(--van-primary-color, #1989fa);
   --schemx-primary-color-light: var(--van-blue-1, #ecf9ff);
+  --schemx-field-highlight-warning-background: var(--van-orange-light, #fffbe8);
+  --schemx-field-highlight-error-background: var(--van-red-light, #ffebed);
   --schemx-text-color: var(--van-text-color, #323233);
   --schemx-text-color-secondary: var(--van-text-color-2, #646566);
   --schemx-text-color-placeholder: var(--van-text-color-3, #969799);

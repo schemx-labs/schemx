@@ -114,6 +114,12 @@ void formInstance.scrollToField("name", { highlight: { duration: false } })
 // @ts-expect-error duration 仅接受毫秒数，不接受 true。
 void formInstance.scrollToField("name", { highlight: { duration: true } })
 
+void formInstance.scrollToField("name", { highlight: { type: "default" } })
+void formInstance.scrollToField("name", { highlight: { type: "warning" } })
+void formInstance.scrollToField("name", { highlight: { type: "error", duration: 0 } })
+// @ts-expect-error 高亮类型只接受内置的三种视觉类型。
+void formInstance.scrollToField("name", { highlight: { type: "success" } })
+
 // @ts-expect-error highlight 只接受开关或配置对象。
 void formInstance.scrollToField("name", { highlight: "flash" })
 // @ts-expect-error 高亮持续时间以毫秒数配置。

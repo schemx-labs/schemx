@@ -8,7 +8,7 @@ import Search from "../search.vue"
 
 import { mockSearchGeometry } from "./helpers/searchGeometry"
 
-import type { SchemxInstance } from "../types"
+import type { SchemxInstance, ScrollToFieldHighlightOptions } from "../types"
 import type { CustomBehaviorOptions } from "scroll-into-view-if-needed"
 
 /**
@@ -145,6 +145,57 @@ describe("scrollToField highlight", () => {
       expect.anything()
     )
     expect(window.requestAnimationFrame).not.toHaveBeenCalled()
+  })
+
+  // type 为本次提示的视觉类型，覆盖省略、合法值与 JavaScript 无效输入。
+  it.each([undefined, "default", "warning", "error", "invalid"])(
+    "高亮类型 %s 使用对应样式并在结束时清理",
+    async (type) => {
+      // 使用真实字段验证提示状态，不改变校验错误。
+      const { wrapper, form } = mountForm()
+
+      // 本次定位对应的字段外层 DOM。
+      const target = wrapper.get<HTMLElement>(".schemx-field-wrapper").element
+
+      // 模拟 JavaScript 调用方绕过静态类型检查。
+      const highlight = { type } as ScrollToFieldHighlightOptions
+
+      // 未配置和无效类型均回退默认样式。
+      const expectedType = type === "warning" || type === "error" ? type : "default"
+
+      await form.scrollToField("name", { highlight })
+      expect(
+        target.classList.contains(`schemx-field-wrapper--highlight-${expectedType}`)
+      ).toBe(true)
+      expect(target.classList.contains("is-error")).toBe(false)
+      vi.advanceTimersByTime(1500)
+      expect(target.className).not.toContain("schemx-field-wrapper--highlight")
+    }
+  )
+
+  it("连续切换类型、关闭提示及卸载时清除类型类名", async () => {
+    // 持续高亮与定时高亮切换时不应保留旧类型。
+    const { wrapper, form } = mountForm()
+
+    // 卸载后仍保留引用，以验证清理实际作用于原节点。
+    const target = wrapper.get<HTMLElement>(".schemx-field-wrapper").element
+
+    await form.scrollToField("name", { highlight: { type: "warning", duration: 0 } })
+    await form.scrollToField("name", { highlight: { type: "error" } })
+    expect(target.classList.contains("schemx-field-wrapper--highlight-warning")).toBe(
+      false
+    )
+    expect(target.classList.contains("schemx-field-wrapper--highlight-error")).toBe(true)
+    await form.scrollToField("name")
+    expect(target.classList.contains("schemx-field-wrapper--highlight-error")).toBe(false)
+    expect(target.classList.contains("schemx-field-wrapper--highlight-default")).toBe(
+      true
+    )
+    await form.scrollToField("name", { highlight: false })
+    expect(target.className).not.toContain("schemx-field-wrapper--highlight")
+    await form.scrollToField("name", { highlight: { type: "error", duration: 0 } })
+    wrapper.unmount()
+    expect(target.className).not.toContain("schemx-field-wrapper--highlight")
   })
 
   it("无需滚动时立即提示，默认 1500ms 后恢复原有内联变量", async () => {

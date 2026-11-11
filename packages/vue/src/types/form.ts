@@ -28,6 +28,11 @@ import type {
  */
 export interface ScrollToFieldHighlightOptions {
   /**
+   * 定位提示的视觉类型，默认 default；不改变字段校验状态。
+   */
+  type?: "default" | "warning" | "error"
+
+  /**
    * 高亮持续时间，单位毫秒；默认 1500。
    * 0 持续显示，直到操作目标区域、发起新定位或目标失效。
    * 非有限数或负数使用默认值。

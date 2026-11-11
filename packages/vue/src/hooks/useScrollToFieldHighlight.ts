@@ -75,6 +75,20 @@ export function useScrollToFieldHighlight(): UseScrollToFieldHighlightReturn {
       return
     }
 
+    // 仅接受内置视觉类型，兼容未配置及 JavaScript 调用方传入的无效值。
+    const requestedType =
+      typeof highlightOptions === "object" ? highlightOptions.type : undefined
+
+    // 默认提示沿用原有样式，警告和错误通过独立修饰类切换主题变量。
+    let highlightType = "default"
+
+    if (requestedType === "warning" || requestedType === "error") {
+      highlightType = requestedType
+    }
+
+    // 清理时只移除本次定位使用的类型类名。
+    const highlightTypeClass = `schemx-field-wrapper--highlight-${highlightType}`
+
     // 0 保留持续提示；非法数值回退到默认时长。
     const requestedDuration =
       typeof highlightOptions === "object" ? highlightOptions.duration : undefined
@@ -186,7 +200,8 @@ export function useScrollToFieldHighlight(): UseScrollToFieldHighlightReturn {
       if (isHighlighted) {
         target.classList.remove(
           "schemx-field-wrapper--highlighted",
-          "schemx-field-wrapper--highlight-persistent"
+          "schemx-field-wrapper--highlight-persistent",
+          highlightTypeClass
         )
         if (duration === 0) {
           return
@@ -346,7 +361,7 @@ export function useScrollToFieldHighlight(): UseScrollToFieldHighlightReturn {
 
       // 连续定位同一字段时也重新启动 CSS 动画。
       void target.offsetWidth
-      target.classList.add("schemx-field-wrapper--highlighted")
+      target.classList.add("schemx-field-wrapper--highlighted", highlightTypeClass)
       mutationObserver = new MutationObserver(checkAvailability)
       resizeObserver =
         typeof ResizeObserver === "undefined"

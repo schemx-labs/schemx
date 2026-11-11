@@ -49,7 +49,6 @@
       componentType: "text",
       required: true,
       componentProps: { placeholder: "请输入用户名" },
-      readonly: true,
       contentAlign: "center",
     },
     {
@@ -484,7 +483,7 @@
   const handleScrollToBasicAge = async (): Promise<void> => {
     await formRef.value?.scrollToField("basic.age", {
       block: "center",
-      highlight: { duration: 0 },
+      highlight: { duration: 0, type: "error" },
     })
   }
 </script>
