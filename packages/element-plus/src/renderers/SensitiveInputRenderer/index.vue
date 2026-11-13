@@ -272,7 +272,7 @@
     gap: 4px;
     border: 0;
     padding: 0;
-    color: var(--schemx-sensitive-input-action-color, var(--el-color-primary));
+    color: var(--schemx-color-primary-text);
     font: inherit;
     line-height: inherit;
     background: transparent;

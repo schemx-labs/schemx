@@ -8,7 +8,12 @@
       {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
     </template>
 
-    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+    <Cell
+      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
+      :clickable="!props.disabled"
+      is-link
+      @click="handleClick"
+    >
       <template #value>
         <span :style="`text-align: ${align}`">
           {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
@@ -51,7 +56,11 @@
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import {
+    getFieldProps,
+    getReadonlyDisplayValue,
+    isEmptyDisplayValue,
+  } from "../../utils"
 
   import type { DateRendererProps, DateValue } from "./types"
 

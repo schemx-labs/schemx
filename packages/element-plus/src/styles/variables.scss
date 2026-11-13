@@ -1,26 +1,76 @@
-/** Element Plus 适配层的 Schemx CSS 变量。 */
+/**
+ * Element Plus 主题映射。
+ * 表单通过 data-schemx-ui="element-plus" 使用本组变量，避免与其他适配包串色。
+ */
+:where(.schemx[data-schemx-ui="element-plus"]) {
+  /*
+   * 品牌与交互。
+   */
+  --schemx-color-primary: var(--el-color-primary, #409eff);
+  --schemx-color-primary-hover: var(--el-color-primary-light-3, #79bbff);
+  --schemx-color-primary-active: var(--el-color-primary-dark-2, #337ecc);
+  --schemx-color-primary-text: var(--el-color-primary, #409eff);
+  --schemx-color-primary-bg: var(--el-color-primary-light-9, #ecf5ff);
+  --schemx-color-primary-border: var(--el-color-primary, #409eff);
+  --schemx-color-on-primary: var(--el-color-white, #ffffff);
 
-.schemx {
-  --schemx-primary-color: var(--el-color-primary, #409eff);
-  --schemx-primary-color-light: var(--el-color-primary-light-9, #ecf5ff);
-  --schemx-field-highlight-color: var(--el-color-primary-light-3, #79bbff);
-  --schemx-field-highlight-warning-background: var(--el-color-warning-light-9, #fdf6ec);
-  --schemx-field-highlight-error-background: var(--el-color-danger-light-9, #fef0f0);
-  --schemx-text-color: var(--el-text-color-primary, #303133);
-  --schemx-text-color-secondary: var(--el-text-color-regular, #606266);
-  --schemx-text-color-tertiary: var(--el-text-color-placeholder, #a8abb2);
-  --schemx-text-color-placeholder: var(--el-text-color-placeholder, #a8abb2);
-  --schemx-readonly-color: var(--el-text-color-secondary, #909399);
-  --schemx-disabled-color: var(--el-text-color-placeholder, #a8abb2);
-  --schemx-disabled-opacity: 0.6;
-  --schemx-background-color: var(--el-bg-color, #ffffff);
-  --schemx-background-color-light: var(--el-fill-color-light, #f5f7fa);
-  --schemx-border-color: var(--el-border-color, #dcdfe6);
-  --schemx-danger-color: var(--el-color-danger, #f56c6c);
-  --schemx-success-color: var(--el-color-success, #67c23a);
-  --schemx-warning-color: var(--el-color-warning, #e6a23c);
-  --schemx-field-label-color: var(--el-text-color-regular, #606266);
-  --schemx-component-size: var(--el-component-size, 32px);
+  /*
+   * 文字与容器。
+   */
+  --schemx-color-text-primary: var(--el-text-color-primary, #303133);
+  --schemx-color-text-secondary: var(--el-text-color-regular, #606266);
+  --schemx-color-text-placeholder: var(--el-text-color-placeholder, #a8abb2);
+  --schemx-color-text-disabled: var(--el-disabled-text-color, #a8abb2);
+  --schemx-color-text-readonly: var(--schemx-color-text-primary);
+  --schemx-color-bg-surface: var(--el-bg-color, #ffffff);
+  --schemx-color-bg-elevated: var(--el-bg-color-overlay, #ffffff);
+  --schemx-color-bg-muted: var(--el-fill-color-light, #f5f7fa);
+  --schemx-color-bg-disabled: var(--el-disabled-bg-color, #f5f7fa);
 
+  /*
+   * 边框、焦点与状态。
+   */
+  --schemx-color-border-default: var(--el-border-color, #dcdfe6);
+  --schemx-color-border-subtle: var(--el-border-color-lighter, #ebeef5);
+  --schemx-color-focus-ring: var(--schemx-color-primary-border);
+  --schemx-color-error-text: var(--el-color-danger, #f56c6c);
+  --schemx-color-error-bg: var(--el-color-danger-light-9, #fef0f0);
+  --schemx-color-error-border: var(--el-color-danger, #f56c6c);
+  --schemx-color-warning-text: var(--el-color-warning, #e6a23c);
+  --schemx-color-warning-bg: var(--el-color-warning-light-9, #fdf6ec);
+  --schemx-color-warning-border: var(--el-color-warning, #e6a23c);
+
+  /*
+   * 排版与尺寸。字号尺度在当前适配作用域内根据基准重新派生。
+   */
+  --schemx-font-family: var(--el-font-family, sans-serif);
+  --schemx-font-size-base: var(--el-font-size-base, 14px);
+  --schemx-font-size-sm: max(12px, calc(var(--schemx-font-size-base) - 2px));
+  --schemx-font-size-lg: calc(var(--schemx-font-size-base) + 2px);
+  --schemx-radius-xs: var(--el-border-radius-small, 2px);
+  --schemx-radius-sm: var(--el-border-radius-base, 4px);
+  --schemx-radius-md: calc(var(--schemx-radius-sm) * 2);
+  --schemx-radius-lg: calc(var(--schemx-radius-sm) * 4);
+  --schemx-control-height: var(--el-component-size, 32px);
+
+  /*
+   * 组件别名在适配作用域内重新绑定，使用本组主题值。
+   */
+  --schemx-field-gap: var(--schemx-space-xs);
+  --schemx-field-label-color: var(--schemx-color-text-secondary);
+  --schemx-field-label-font-size: var(--schemx-font-size-base);
+  --schemx-field-label-font-weight: var(--schemx-font-weight-regular);
+  --schemx-field-label-line-height: var(--schemx-line-height-base);
+  --schemx-field-required-color: var(--schemx-color-error-text);
+  --schemx-field-error-color: var(--schemx-color-error-text);
+  --schemx-field-error-font-size: var(--schemx-font-size-sm);
+  --schemx-field-error-line-height: var(--schemx-line-height-sm);
+  --schemx-field-highlight-bg: var(--schemx-color-primary-bg);
+  --schemx-field-highlight-border-color: var(--schemx-color-primary-border);
+  --schemx-field-highlight-radius: var(--schemx-radius-sm);
+  --schemx-group-title-color: var(--schemx-color-text-primary);
+  --schemx-group-title-font-size: var(--schemx-font-size-lg);
+  --schemx-group-title-font-weight: var(--schemx-font-weight-medium);
+  --schemx-group-title-line-height: var(--schemx-line-height-lg);
   --schemx-group-arrow-size: 7px;
 }

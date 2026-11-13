@@ -17,20 +17,20 @@
 @use "../renderers/TextRenderer/index.scss" as *;
 @use "../renderers/UploadRenderer/index.scss" as *;
 
-.schemx .schemx-schemas {
-  padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);
-  border-radius: var(--schemx-border-radius-lg);
-  background-color: var(--schemx-background-color);
+.schemx[data-schemx-ui="vant"] .schemx-schemas {
+  padding: var(--schemx-space-md) var(--schemx-schemas-padding-inline);
+  border-radius: var(--schemx-radius-lg);
+  background-color: var(--schemx-color-bg-surface);
 }
 
-.schemx .schemx-schemas-title {
-  padding-bottom: var(--schemx-padding-xs);
-  padding-left: var(--schemx-padding-md);
+.schemx[data-schemx-ui="vant"] .schemx-schemas-title {
+  padding-bottom: var(--schemx-space-xs);
+  padding-left: var(--schemx-space-md);
 }
 
-.schemx .schemx-field-wrapper {
-  padding-inline: var(--schemx-padding-md);
-  padding-block: var(--schemx-padding-sm);
+.schemx[data-schemx-ui="vant"] .schemx-field-wrapper {
+  padding-inline: var(--schemx-space-md);
+  padding-block: var(--schemx-space-sm);
 
   .schemx-renderer {
     .van-cell {
@@ -46,31 +46,32 @@
 /*
  * 普通背景只应用于未高亮字段，避免覆盖公共层的持续高亮背景。
  */
-.schemx .schemx-field-wrapper:not(.schemx-field-wrapper--highlighted) {
-  background-color: var(--schemx-background-color);
+.schemx[data-schemx-ui="vant"]
+  .schemx-field-wrapper:not(.schemx-field-wrapper--highlighted) {
+  background-color: var(--schemx-color-bg-surface);
 }
 
-.schemx .schemx-field-wrapper.is-bordered::after {
-  right: var(--schemx-padding-sm);
-  left: var(--schemx-padding-sm);
+.schemx[data-schemx-ui="vant"] .schemx-field-wrapper.is-bordered::after {
+  right: var(--schemx-space-sm);
+  left: var(--schemx-space-sm);
 }
 
-.schemx .schemx-field-wrapper--first {
-  border-top-left-radius: var(--schemx-border-radius-md);
-  border-top-right-radius: var(--schemx-border-radius-md);
+.schemx[data-schemx-ui="vant"] .schemx-field-wrapper--first {
+  border-top-left-radius: var(--schemx-radius-md);
+  border-top-right-radius: var(--schemx-radius-md);
 }
 
-.schemx .schemx-field-wrapper--last {
-  border-bottom-left-radius: var(--schemx-border-radius-md);
-  border-bottom-right-radius: var(--schemx-border-radius-md);
-  margin-bottom: var(--schemx-padding-sm);
+.schemx[data-schemx-ui="vant"] .schemx-field-wrapper--last {
+  border-bottom-left-radius: var(--schemx-radius-md);
+  border-bottom-right-radius: var(--schemx-radius-md);
+  margin-bottom: var(--schemx-space-sm);
 }
 
-.schemx .schemx-field--label-left > .schemx-field__content {
+.schemx[data-schemx-ui="vant"] .schemx-field--label-left > .schemx-field__content {
   max-width: 80%;
 }
 
-.schemx .schemx-row > .schemx-col {
+.schemx[data-schemx-ui="vant"] .schemx-row > .schemx-col {
   &:last-child {
     .is-bordered::after {
       display: none;
@@ -78,36 +79,60 @@
   }
 }
 
-.schemx
+.schemx[data-schemx-ui="vant"]
   > .schemx-row:has(+ .schemx-actions)
   > .schemx-col:last-child
   > .schemx-field-wrapper--last,
-.schemx
+.schemx[data-schemx-ui="vant"]
   > .schemx-row:has(+ .schemx-actions)
   > .schemx-col:last-child
   > .schemx-group-wrapper,
-.schemx > .schemx-row:has(+ .schemx-actions) > .schemx-group-wrapper:last-child {
+.schemx[data-schemx-ui="vant"]
+  > .schemx-row:has(+ .schemx-actions)
+  > .schemx-group-wrapper:last-child {
   margin-bottom: 0;
 }
 
-.schemx .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
-  margin-block: 0 var(--schemx-padding-sm);
+.schemx[data-schemx-ui="vant"]
+  .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
+  margin-block: 0 var(--schemx-space-sm);
 }
 
-.schemx .schemx-group-wrapper {
-  padding-inline: var(--schemx-padding-md);
-  border-radius: var(--schemx-border-radius-md);
-  background-color: var(--schemx-background-color);
+.schemx[data-schemx-ui="vant"] .schemx-group-wrapper {
+  padding-inline: var(--schemx-space-md);
+  border-radius: var(--schemx-radius-md);
+  background-color: var(--schemx-color-bg-surface);
 }
 
-.schemx .schemx-group-wrapper .schemx-group-wrapper {
-  padding-inline: var(--schemx-padding-sm);
+.schemx[data-schemx-ui="vant"] .schemx-group-wrapper .schemx-group-wrapper {
+  padding-inline: var(--schemx-space-sm);
 }
 
-.schemx .schemx-group__header {
-  padding-block: var(--schemx-padding-md);
+.schemx[data-schemx-ui="vant"] .schemx-group__header {
+  padding-block: var(--schemx-space-md);
 }
 
 .schemx-vant-button {
   flex: 1;
+}
+
+.schemx[data-schemx-ui="vant"] {
+  /*
+   * Cell 自己声明内容颜色，需按内部 Wrapper 的状态映射，不能只依赖祖先颜色继承。
+   */
+  .van-cell {
+    --van-cell-value-color: var(--schemx-color-text-primary);
+  }
+
+  .van-cell.schemx-cell--placeholder {
+    --van-cell-value-color: var(--schemx-color-text-placeholder);
+  }
+
+  .schemx-wrapper--readonly .van-cell {
+    --van-cell-value-color: var(--schemx-color-text-readonly);
+  }
+
+  .schemx-wrapper--disabled .van-cell {
+    --van-cell-value-color: var(--schemx-color-text-disabled);
+  }
 }

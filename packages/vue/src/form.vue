@@ -2,7 +2,7 @@
   import { computed, getCurrentInstance, useSlots } from "vue"
   import type { Slots } from "vue"
 
-  import { getFormCreator } from "./adapter/formCreators"
+  import { getFormCreator, getFormUi } from "./adapter/formCreators"
   import Action from "./components/Action"
   import SchemaList from "./components/SchemaList"
   import { formComponentDefaults } from "./config/formComponentDefaults"
@@ -32,6 +32,9 @@
 
   // 绑定当前组件定义的实例创建器。
   const creator = owner === null ? undefined : getFormCreator(owner.type)
+
+  // 入口自己的适配标识，与创建器一起绑定，不借用祖先表单的 UI。
+  const ui = owner === null ? undefined : getFormUi(owner.type)
 
   // 当前入口持有唯一实例、配置及同步生命周期。
   const { form, config } = useFormComponent<TValues>(
@@ -68,7 +71,12 @@
 </script>
 
 <template>
-  <div v-bind="$attrs" :class="['schemx', props.class]" :style="props.style">
+  <div
+    v-bind="$attrs"
+    :class="['schemx', props.class]"
+    :style="props.style"
+    :data-schemx-ui="ui"
+  >
     <SchemaList
       :schemas="viewSchemas as readonly SchemxViewSchema[]"
       :view-schemas="viewSchemas as readonly SchemxViewSchema[]"

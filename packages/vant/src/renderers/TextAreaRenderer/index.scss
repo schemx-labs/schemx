@@ -7,7 +7,7 @@
     }
 
     .van-field__word-limit {
-      --van-field-word-limit-color: #999999;
+      --van-field-word-limit-color: var(--schemx-color-text-secondary);
     }
   }
 }

@@ -8,7 +8,12 @@
       {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
     </template>
 
-    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+    <Cell
+      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
+      :clickable="!props.disabled"
+      is-link
+      @click="handleClick"
+    >
       <template #value>
         <span :style="`text-align: ${props.contentAlign}`">
           {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
@@ -93,7 +98,7 @@
   import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { getReadonlyDisplayValue } from "../../utils"
+  import { getReadonlyDisplayValue, isEmptyDisplayValue } from "../../utils"
 
   import type {
     SelectPickerConfirmEventParams,

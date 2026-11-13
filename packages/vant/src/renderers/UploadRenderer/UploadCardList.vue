@@ -211,8 +211,8 @@
         height: 100%;
         padding: var(--van-padding-base);
         color: var(--van-uploader-text-color);
-        font-size: var(--van-font-size-md);
-        font-weight: var(--van-font-bold);
+        font-size: var(--schemx-font-size-base);
+        font-weight: var(--schemx-font-weight-strong);
         background: var(--van-uploader-file-background);
         word-break: break-all;
       }

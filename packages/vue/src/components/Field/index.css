@@ -11,7 +11,7 @@
  */
 .schemx-field-wrapper--highlighted {
   border-radius: var(--schemx-field-highlight-radius);
-  background-color: var(--schemx-field-highlight-background);
+  background-color: var(--schemx-field-highlight-bg);
   animation: schemx-field-highlight var(--schemx-field-highlight-duration, 1500ms)
     ease-out both;
 }
@@ -23,7 +23,7 @@
   box-sizing: border-box;
   content: "";
   pointer-events: none;
-  border: 1px dashed var(--schemx-field-highlight-color);
+  border: 1px dashed var(--schemx-field-highlight-border-color);
   border-radius: var(--schemx-field-highlight-radius);
   animation: schemx-field-highlight-border var(--schemx-field-highlight-duration, 1500ms)
     ease-out both;
@@ -33,19 +33,19 @@
  * 类型只调整定位提示配色，复用相同的动画与持续显示规则。
  */
 .schemx-field-wrapper--highlight-warning {
-  --schemx-field-highlight-background: var(--schemx-field-highlight-warning-background);
-  --schemx-field-highlight-color: var(--schemx-field-highlight-warning-color);
+  --schemx-field-highlight-bg: var(--schemx-color-warning-bg);
+  --schemx-field-highlight-border-color: var(--schemx-color-warning-border);
 }
 
 .schemx-field-wrapper--highlight-error {
-  --schemx-field-highlight-background: var(--schemx-field-highlight-error-background);
-  --schemx-field-highlight-color: var(--schemx-field-highlight-error-color);
+  --schemx-field-highlight-bg: var(--schemx-color-error-bg);
+  --schemx-field-highlight-border-color: var(--schemx-color-error-border);
 }
 
 @keyframes schemx-field-highlight {
   0%,
   75% {
-    background-color: var(--schemx-field-highlight-background);
+    background-color: var(--schemx-field-highlight-bg);
   }
   100% {
     background-color: transparent;
@@ -55,7 +55,7 @@
 @keyframes schemx-field-highlight-border {
   0%,
   75% {
-    border-color: var(--schemx-field-highlight-color);
+    border-color: var(--schemx-field-highlight-border-color);
   }
   100% {
     border-color: transparent;
@@ -67,12 +67,12 @@
   animation: none;
 }
 
-/* @media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   .schemx-field-wrapper--highlighted,
   .schemx-field-wrapper--highlighted::before {
     animation: none;
   }
-} */
+}
 
 .schemx-field-wrapper.is-bordered::after {
   position: absolute;
@@ -82,7 +82,7 @@
   right: 0;
   bottom: 0;
   left: 0;
-  border-bottom: 1px solid var(--schemx-border-color);
+  border-bottom: 1px solid var(--schemx-color-border-subtle);
   transform: scaleY(0.5);
 }
 
@@ -94,7 +94,7 @@
   display: flex;
   justify-content: space-between;
   gap: var(--schemx-field-gap);
-  font-size: var(--schemx-font-size-md);
+  font-size: var(--schemx-font-size-base);
 }
 
 /**
@@ -113,7 +113,7 @@
 
 .schemx-field--label-right .schemx-field__label {
   margin-right: 0;
-  margin-left: var(--schemx-padding-xs);
+  margin-left: var(--schemx-space-xs);
 }
 
 /**
@@ -129,26 +129,40 @@
 }
 
 /**
- * Label 样式
+ * 标签按控件高度居中，文字行高独立配置，换行时不再沿用控件高度。
  */
 .schemx-field__label {
   position: relative;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
-  min-height: var(--schemx-component-size);
+  min-height: var(--schemx-control-height);
   color: var(--schemx-field-label-color);
-  line-height: var(--schemx-component-size);
+  font-size: var(--schemx-field-label-font-size);
+  font-weight: var(--schemx-field-label-font-weight);
+  line-height: var(--schemx-field-label-line-height);
+}
+
+.schemx-field.is-disabled > .schemx-field__label {
+  color: var(--schemx-color-text-disabled);
 }
 
 .schemx-field__label-text.is-required::before {
   content: "*";
-  color: var(--schemx-danger-color);
+  color: var(--schemx-field-required-color);
   margin-right: var(--schemx-field-required-gap);
 }
 
 .schemx-field__label-icon {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  margin-right: var(--schemx-padding-xs);
+  margin-right: var(--schemx-space-xs);
+}
+
+.schemx-field__label-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /**
@@ -168,8 +182,8 @@
 }
 
 .schemx-field__error {
-  color: var(--schemx-danger-color);
-  font-size: var(--schemx-font-size-sm);
+  color: var(--schemx-field-error-color);
+  font-size: var(--schemx-field-error-font-size);
   text-align: var(--schemx-error-align, left);
   line-height: var(--schemx-field-error-line-height);
 }

@@ -192,6 +192,7 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
         style={{
           width: labelWidth.value,
           textAlign: labelAlign.value,
+          justifyContent: labelAlign.value,
           marginLeft: labelAlign.value === "right" ? "auto" : "",
         }}
       >

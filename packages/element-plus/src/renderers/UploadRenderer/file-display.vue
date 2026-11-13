@@ -292,7 +292,7 @@
         }
 
         &--error {
-          color: var(--el-color-danger);
+          color: var(--schemx-color-error-text);
         }
       }
 
@@ -310,12 +310,12 @@
       .file-display__text-icon {
         flex-shrink: 0;
         margin-right: 8px;
-        color: var(--el-text-color-secondary);
+        color: var(--schemx-color-text-secondary);
       }
 
       .file-display__text-name {
         overflow: hidden;
-        color: var(--el-text-color-regular);
+        color: var(--schemx-color-text-primary);
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -323,8 +323,8 @@
       .file-display__text-status {
         flex-shrink: 0;
         margin-left: 8px;
-        color: var(--el-text-color-secondary);
-        font-size: 12px;
+        color: var(--schemx-color-text-secondary);
+        font-size: var(--schemx-font-size-sm);
       }
     }
 
@@ -337,7 +337,7 @@
         transition: background-color 0.2s;
 
         &--error {
-          color: var(--el-color-danger);
+          color: var(--schemx-color-error-text);
         }
       }
 
@@ -365,7 +365,7 @@
       }
 
       .file-display__picture-file-icon {
-        color: var(--el-text-color-secondary);
+        color: var(--schemx-color-text-secondary);
         font-size: 24px;
       }
 
@@ -382,7 +382,7 @@
 
       .file-display__picture-name {
         overflow: hidden;
-        color: var(--el-text-color-regular);
+        color: var(--schemx-color-text-primary);
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -390,8 +390,8 @@
       .file-display__picture-status {
         flex-shrink: 0;
         margin-left: 8px;
-        color: var(--el-text-color-secondary);
-        font-size: 12px;
+        color: var(--schemx-color-text-secondary);
+        font-size: var(--schemx-font-size-sm);
       }
     }
 
@@ -403,10 +403,10 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: var(--el-bg-color);
+        background: var(--schemx-color-bg-surface);
 
         &--error {
-          color: var(--el-color-danger);
+          color: var(--schemx-color-error-text);
         }
 
         &-body {
@@ -431,7 +431,7 @@
         }
 
         &-file-icon {
-          color: var(--el-text-color-secondary);
+          color: var(--schemx-color-text-secondary);
           font-size: 36px;
         }
 
@@ -443,7 +443,7 @@
           border-radius: 3px;
           background: rgb(0 0 0 / 55%);
           color: #fff;
-          font-size: 12px;
+          font-size: var(--schemx-font-size-sm);
         }
 
         &-footer {
@@ -459,7 +459,7 @@
           flex: 1;
           min-width: 0;
           overflow: hidden;
-          color: var(--el-text-color-regular);
+          color: var(--schemx-color-text-primary);
           text-overflow: ellipsis;
           white-space: nowrap;
         }

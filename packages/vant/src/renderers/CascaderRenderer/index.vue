@@ -8,7 +8,12 @@
       {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
     </template>
 
-    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+    <Cell
+      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
+      :clickable="!props.disabled"
+      is-link
+      @click="handleClick"
+    >
       <template #value>
         <span :style="`text-align: ${props.contentAlign}`">
           {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
@@ -51,7 +56,7 @@
   import classNames from "classnames"
   import { omitBy } from "es-toolkit"
 
-  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
+  import { findTreeItem, getReadonlyDisplayValue, isEmptyDisplayValue } from "../../utils"
 
   import type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"
 

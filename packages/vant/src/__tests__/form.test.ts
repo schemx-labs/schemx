@@ -130,6 +130,7 @@ describe("Vant form entry", () => {
       props: { schemas, initialValues: { name: "A" }, submitter: false, resetter: false },
     })
 
+    expect(wrapper.attributes("data-schemx-ui")).toBe("vant")
     expect(wrapper.find(".van-field").exists()).toBe(true)
     expect(wrapper.find(".van-row").exists()).toBe(true)
     expect(wrapper.find(".van-col--24").exists()).toBe(true)

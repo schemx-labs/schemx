@@ -79,14 +79,18 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--schemx-padding-xs);
+    gap: var(--schemx-space-xs);
     min-width: 72px;
-    height: 34px;
-    padding: var(--schemx-padding-base) var(--schemx-padding-md);
-    border: 1px solid var(--schemx-border-color);
-    border-radius: var(--schemx-border-radius-sm);
-    background: var(--schemx-background-color);
-    color: var(--schemx-text-color);
+    min-height: 34px;
+    padding: var(--schemx-space-base) var(--schemx-space-md);
+    border: 1px solid var(--schemx-color-border-default);
+    border-radius: var(--schemx-radius-sm);
+    background: var(--schemx-color-bg-surface);
+    color: var(--schemx-color-text-primary);
+    font-family: var(--schemx-font-family);
+    font-size: var(--schemx-font-size-base);
+    font-weight: var(--schemx-font-weight-regular);
+    line-height: var(--schemx-line-height-base);
     cursor: pointer;
     transition:
       border-color 0.15s ease,
@@ -96,25 +100,32 @@
   }
 
   .schemx-button:not(:disabled):hover {
-    opacity: 0.8;
+    background: var(--schemx-color-bg-muted);
   }
 
   .schemx-button:not(:disabled):active {
     transform: scale(0.98);
   }
 
+  .schemx-button:focus-visible {
+    outline: 2px solid var(--schemx-color-focus-ring);
+    outline-offset: 2px;
+  }
+
   .schemx-button--small {
     min-width: 56px;
-    height: 24px;
-    padding: var(--schemx-padding-base) var(--schemx-padding-sm);
+    min-height: 24px;
+    padding: var(--schemx-space-base) var(--schemx-space-sm);
     font-size: var(--schemx-font-size-sm);
+    line-height: var(--schemx-line-height-sm);
   }
 
   .schemx-button--large {
     min-width: 88px;
-    height: 40px;
-    padding: var(--schemx-padding-sm) var(--schemx-padding-lg);
+    min-height: 40px;
+    padding: var(--schemx-space-sm) var(--schemx-space-lg);
     font-size: var(--schemx-font-size-lg);
+    line-height: var(--schemx-line-height-lg);
   }
 
   .schemx-button__loading {
@@ -126,20 +137,29 @@
 
   .schemx-button--primary,
   .schemx-actions-button--submit:not(.schemx-button--default) {
-    border-color: var(--schemx-primary-color);
-    background: var(--schemx-primary-color);
-    color: #ffffff;
+    border-color: var(--schemx-color-primary);
+    background: var(--schemx-color-primary);
+    color: var(--schemx-color-on-primary);
   }
 
   .schemx-button--primary:not(:disabled):hover,
   .schemx-actions-button--submit:not(.schemx-button--default):not(:disabled):hover {
-    filter: brightness(0.92);
-    color: #ffffff;
+    background: var(--schemx-color-primary-hover);
+    border-color: var(--schemx-color-primary-hover);
+    color: var(--schemx-color-on-primary);
+  }
+
+  .schemx-button--primary:not(:disabled):active,
+  .schemx-actions-button--submit:not(.schemx-button--default):not(:disabled):active {
+    background: var(--schemx-color-primary-active);
+    border-color: var(--schemx-color-primary-active);
   }
 
   .schemx-button:disabled {
     cursor: not-allowed;
-    opacity: var(--schemx-disabled-opacity);
+    color: var(--schemx-color-text-disabled);
+    background: var(--schemx-color-bg-disabled);
+    border-color: var(--schemx-color-border-default);
   }
 
   @keyframes schemx-button-loading {

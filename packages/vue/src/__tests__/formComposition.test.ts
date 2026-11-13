@@ -17,6 +17,35 @@ const variants = [
 
 // create 是当前公开入口的组件创建器。
 describe.each(variants)("$name 的共享表单接入", ({ create }) => {
+  it("适配标识绑定当前入口，复制后保留且不传播到其他入口", () => {
+    // 三个入口共用创建器，UI 标识仍按组件定义分别保存。
+    const api = createSchemx()
+
+    // 带有桌面适配标识的入口。
+    const ElementForm = create(api.createForm, "ElementForm", "element-plus")
+
+    // 带有移动端适配标识的入口。
+    const VantForm = create(api.createForm, "VantForm", "vant")
+
+    // 未绑定 UI 的公共入口。
+    const PlainForm = create(api.createForm, "PlainForm")
+
+    // 复制组件选项仍应保留可枚举的入口元数据。
+    const copied = Object.assign({}, ElementForm)
+
+    // 同时挂载三个入口以核对各自的根节点属性。
+    const wrappers = [copied, VantForm, PlainForm].map(
+      // component 是本次需要验证独立主题标识的入口。
+      (component) => mount(component, { props: { submitter: false, resetter: false } })
+    )
+
+    expect(wrappers[0]?.attributes("data-schemx-ui")).toBe("element-plus")
+    expect(wrappers[1]?.attributes("data-schemx-ui")).toBe("vant")
+    expect(wrappers[2]?.attributes("data-schemx-ui")).toBeUndefined()
+    // wrapper 是当前测试挂载的表单，逐个卸载释放其独立实例。
+    wrappers.forEach((wrapper) => wrapper.unmount())
+  })
+
   it("父级 mounted 时 ref 已可用，模型同步、提交和实例销毁各执行一次", async () => {
     // 各入口使用独立 Registry，避免修改默认注册表。
     const rendererRegistry = createRendererRegistry()

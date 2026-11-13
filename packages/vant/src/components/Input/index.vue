@@ -355,7 +355,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    font-size: var(--van-field-font-size, var(--van-font-size-md, 14px));
+    font-size: var(--schemx-font-size-base);
 
     .van-field {
       padding: 0px;

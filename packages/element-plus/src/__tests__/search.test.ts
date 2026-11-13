@@ -35,6 +35,7 @@ describe("Element Plus Search 入口", () => {
     })
 
     await flushPromises()
+    expect(wrapper.attributes("data-schemx-ui")).toBe("element-plus")
     expect(wrapper.findAll(".el-input")).toHaveLength(3)
     expect(wrapper.findAll(".schemx-col[inert]")).toHaveLength(1)
     expect(wrapper.findAll(".el-col-12")).toHaveLength(3)

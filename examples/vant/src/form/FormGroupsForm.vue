@@ -483,7 +483,7 @@
   const handleScrollToBasicAge = async (): Promise<void> => {
     await formRef.value?.scrollToField("basic.age", {
       block: "center",
-      highlight: { duration: 0, type: "error" },
+      highlight: { duration: 0, type: "warning" },
     })
   }
 </script>

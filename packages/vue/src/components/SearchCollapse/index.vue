@@ -175,7 +175,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: var(--schemx-padding-md);
+    gap: var(--schemx-space-md);
   }
 
   .schemx-search-fields {
@@ -210,13 +210,13 @@
   .schemx-search-actions {
     display: flex;
     align-items: center;
-    gap: var(--schemx-padding-sm);
+    gap: var(--schemx-space-sm);
     flex: 0 0 auto;
     flex-wrap: wrap;
     max-width: 100%;
     margin-left: auto;
     padding: 0;
-    min-height: var(--schemx-component-size);
+    min-height: var(--schemx-control-height);
   }
   /*
    * 仅提供操作插槽但所有操作均关闭时，不保留空的操作区。

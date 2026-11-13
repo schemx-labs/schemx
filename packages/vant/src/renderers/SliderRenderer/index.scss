@@ -5,8 +5,8 @@
     min-height: 24px;
 
     &-value {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: var(--schemx-font-size-base);
+      font-weight: var(--schemx-font-weight-medium);
     }
   }
 
@@ -16,11 +16,11 @@
   }
 
   .van-slider__bar {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--schemx-color-primary);
   }
 
   .van-slider__button {
-    border: 2px solid #fff;
+    border: 2px solid var(--schemx-color-bg-surface);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 }

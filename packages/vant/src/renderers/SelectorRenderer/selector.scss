@@ -1,28 +1,34 @@
 .selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  color: var(--schemx-text-color);
+  gap: var(--schemx-space-xs) var(--schemx-space-sm);
+  color: var(--schemx-color-text-primary);
 
   .option {
     position: relative;
     min-width: 65px;
-    padding: 4px 12px;
-    border-radius: 4px;
-    background: var(--schemx-background-color-light);
+    padding: var(--schemx-space-base) var(--schemx-space-sm);
+    border-radius: var(--schemx-radius-sm);
+    background: var(--schemx-color-bg-muted);
     color: inherit;
-    font-size: 14px;
+    font-size: var(--schemx-font-size-base);
     text-align: center;
-    line-height: 20px;
+    line-height: var(--schemx-line-height-base);
     box-sizing: border-box;
     cursor: pointer;
   }
   .active {
-    background: var(--schemx-primary-color-light);
-    color: var(--schemx-primary-color);
+    background: var(--schemx-color-primary-bg);
+    color: var(--schemx-color-primary-text);
+  }
+
+  .disabled {
+    background: var(--schemx-color-bg-disabled);
+    color: var(--schemx-color-text-disabled);
+    cursor: not-allowed;
   }
 }
 
 .selector-disabled {
-  color: var(--schemx-disabled-color);
+  color: var(--schemx-color-text-disabled);
 }

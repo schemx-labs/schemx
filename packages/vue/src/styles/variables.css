@@ -1,105 +1,129 @@
 /**
- * schemx CSS 变量定义
- *
- * 用于主题定制，支持通过 CSS 自定义属性覆盖默认值。
+ * Schemx 公共样式变量。
+ * 按语义颜色、排版尺度、布局尺度和组件部位组织，统一在此管理默认值。
  */
-
 :root {
   /*
-   * 主色调
+   * 品牌与交互：实色、文字、浅背景和描边分别配置。
    */
-  --schemx-primary-color: #2f6bff;
-  --schemx-primary-color-light: #eaf2ff;
+  --schemx-color-primary: #2f6bff;
+  --schemx-color-primary-hover: #2454cc;
+  --schemx-color-primary-active: #1d43a3;
+  --schemx-color-primary-text: #2454cc;
+  --schemx-color-primary-bg: #eaf2ff;
+  --schemx-color-primary-border: #2f6bff;
+  --schemx-color-on-primary: #ffffff;
 
   /*
-   * 文本颜色
+   * 文字：只读内容默认保持正文颜色，占位与禁用分别配置。
    */
-  --schemx-text-color: rgba(0, 0, 0, 0.88);
-  --schemx-text-color-secondary: rgba(0, 0, 0, 0.65);
-  --schemx-text-color-tertiary: rgba(0, 0, 0, 0.45);
-  --schemx-text-color-quaternary: rgba(0, 0, 0, 0.25);
-
-  --schemx-text-color-placeholder: rgba(0, 0, 0, 0.25);
-
-  /*
-   * 只读 / 禁用
-   */
-  --schemx-readonly-color: #969799;
-  --schemx-disabled-color: #c8c9cc;
-  --schemx-disabled-opacity: 0.6;
+  --schemx-color-text-primary: #1f2329;
+  --schemx-color-text-secondary: #595959;
+  --schemx-color-text-placeholder: #767676;
+  --schemx-color-text-disabled: #a8abb2;
+  --schemx-color-text-readonly: var(--schemx-color-text-primary);
 
   /*
-   * 背景颜色
+   * 背景：普通容器、浮层、弱填充和禁用填充。
    */
-  --schemx-background-color: #ffffff;
-  --schemx-background-color-light: #f3f4f6;
+  --schemx-color-bg-surface: #ffffff;
+  --schemx-color-bg-elevated: #ffffff;
+  --schemx-color-bg-muted: #f3f4f6;
+  --schemx-color-bg-disabled: #f5f5f5;
 
   /*
-   * 边框颜色
+   * 边框与焦点：控件描边与分隔线使用独立入口。
    */
-  --schemx-border-color: #ebedf0;
+  --schemx-color-border-default: #d0d5dd;
+  --schemx-color-border-subtle: #ebedf0;
+  --schemx-color-focus-ring: var(--schemx-color-primary-border);
 
   /*
-   * 状态颜色
+   * 状态：文字、背景和描边配套定义，避免用填充色直接显示小字号文字。
    */
-  --schemx-danger-color: #ee0a24;
-  --schemx-success-color: #07c160;
-  --schemx-warning-color: #ff976a;
+  --schemx-color-error-text: #ff4d4f;
+  --schemx-color-error-bg: #fff2f0;
+  --schemx-color-error-border: #ffccc7;
+
+  --schemx-color-warning-text: #faad14;
+  --schemx-color-warning-bg: #fffbe6;
+  --schemx-color-warning-border: #ffe58f;
 
   /*
-   * 间距
+   * 字体与字号：全局调整基准字号时，默认的小号、大号随之派生。
    */
-  --schemx-padding-base: 4px;
-  --schemx-padding-xs: 8px;
-  --schemx-padding-sm: 12px;
-  --schemx-padding-md: 16px;
-  --schemx-padding-lg: 24px;
+  --schemx-font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", Arial, sans-serif;
+  --schemx-font-size-base: 14px;
+  --schemx-font-size-sm: max(12px, calc(var(--schemx-font-size-base) - 2px));
+  --schemx-font-size-lg: calc(var(--schemx-font-size-base) + 2px);
+  --schemx-font-weight-regular: 400;
+  --schemx-font-weight-medium: 500;
+  --schemx-font-weight-strong: 600;
 
   /*
-   * 字体大小
+   * 无单位行高独立于控件高度，随使用部位的字号计算。
    */
-  --schemx-font-size-xs: 10px;
-  --schemx-font-size-sm: 12px;
-  --schemx-font-size-md: 14px;
-  --schemx-font-size-lg: 16px;
+  --schemx-line-height-base: 1.5714;
+  --schemx-line-height-sm: 1.5;
+  --schemx-line-height-lg: 1.5;
 
   /*
-   * 圆角
+   * 间距尺度。
    */
-  --schemx-border-radius-xs: 2px;
-  --schemx-border-radius-sm: 4px;
-  --schemx-border-radius-md: 8px;
-  --schemx-border-radius-lg: 16px;
-  --schemx-border-radius-circle: 100%;
+  --schemx-space-base: 4px;
+  --schemx-space-xs: 8px;
+  --schemx-space-sm: 12px;
+  --schemx-space-md: 16px;
+  --schemx-space-lg: 24px;
 
   /*
-   * 表单容器
+   * 圆角尺度。
    */
-  --schemx-form-padding-bottom: 15px;
+  --schemx-radius-xs: 2px;
+  --schemx-radius-sm: 4px;
+  --schemx-radius-md: 8px;
+  --schemx-radius-lg: 16px;
+  --schemx-radius-full: 999px;
+
+  /*
+   * 控件与表单布局。
+   */
+  --schemx-control-height: 28px;
   --schemx-schemas-padding-inline: 6px;
 
   /*
-   * 表单项
+   * 字段：组件部位引用通用语义，保留单独调整入口。
    */
-  --schemx-field-gap: 8px;
-  --schemx-field-error-line-height: 1.5714285714285714;
-  --schemx-field-label-color: #666666;
-  --schemx-field-label-top-gap: 4px;
-  --schemx-field-content-padding-inline: 6px;
+  --schemx-field-gap: var(--schemx-space-xs);
+  --schemx-field-label-color: var(--schemx-color-text-secondary);
+  --schemx-field-label-font-size: var(--schemx-font-size-base);
+  --schemx-field-label-font-weight: var(--schemx-font-weight-regular);
+  --schemx-field-label-line-height: var(--schemx-line-height-base);
+  --schemx-field-required-color: var(--schemx-color-error-text);
   --schemx-field-required-gap: 2px;
+  --schemx-field-error-color: var(--schemx-color-error-text);
+  --schemx-field-error-font-size: var(--schemx-font-size-sm);
+  --schemx-field-error-line-height: var(--schemx-line-height-sm);
   --schemx-field-error-gap: 6px;
-  --schemx-field-highlight-background: #f0f6ff;
-  --schemx-field-highlight-color: var(--schemx-primary-color);
-  --schemx-field-highlight-warning-background: #fff7e6;
-  --schemx-field-highlight-warning-color: var(--schemx-warning-color);
-  --schemx-field-highlight-error-background: #fff1f0;
-  --schemx-field-highlight-error-color: var(--schemx-danger-color);
-  --schemx-field-highlight-radius: var(--schemx-border-radius-sm);
-  --schemx-component-size: 28px;
 
   /*
-   * 分组
+   * 字段定位提示：这里只定义普通提示，警告与错误使用对应的语义颜色。
    */
+  --schemx-field-highlight-bg: var(--schemx-color-primary-bg);
+  --schemx-field-highlight-border-color: var(--schemx-color-primary-border);
+  --schemx-field-highlight-radius: var(--schemx-radius-sm);
+  --schemx-field-highlight-duration: 1500ms;
+
+  /*
+   * 分组标题与折叠指示。
+   */
+  --schemx-group-title-color: var(--schemx-color-text-primary);
+  --schemx-group-title-font-size: var(--schemx-font-size-lg);
+  --schemx-group-title-font-weight: var(--schemx-font-weight-medium);
+  --schemx-group-title-line-height: var(--schemx-line-height-lg);
   --schemx-group-arrow-size: 6px;
-  --schemx-group-arrow-duration: 0.25s;
+  --schemx-group-arrow-duration: 250ms;
+
 }

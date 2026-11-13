@@ -15,6 +15,6 @@
 .schemx-picker-empty {
   padding: 40px 0;
   text-align: center;
-  color: var(--van-text-color-3, #c8c9cc);
-  font-size: 14px;
+  color: var(--schemx-color-text-placeholder);
+  font-size: var(--schemx-font-size-base);
 }

@@ -121,6 +121,7 @@ describe("Element Plus form entry", () => {
       props: { schemas, initialValues: { name: "A" }, submitter: false, resetter: false },
     })
 
+    expect(wrapper.attributes("data-schemx-ui")).toBe("element-plus")
     expect(wrapper.find(".el-input").exists()).toBe(true)
     expect(wrapper.find(".el-row").exists()).toBe(true)
     expect(wrapper.find(".el-col-12").exists()).toBe(true)

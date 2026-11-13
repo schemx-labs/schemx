@@ -46,17 +46,18 @@
 }
 
 .schemx-group__title {
-  font-size: var(--schemx-font-size-lg);
-  font-weight: 500;
-  color: var(--schemx-text-color);
+  font-size: var(--schemx-group-title-font-size);
+  font-weight: var(--schemx-group-title-font-weight);
+  line-height: var(--schemx-group-title-line-height);
+  color: var(--schemx-group-title-color);
 }
 
 .schemx-group__arrow {
   display: inline-block;
   width: var(--schemx-group-arrow-size);
   height: var(--schemx-group-arrow-size);
-  border-top: 1px solid var(--schemx-text-color-tertiary);
-  border-right: 1px solid var(--schemx-text-color-tertiary);
+  border-top: 1px solid var(--schemx-color-text-secondary);
+  border-right: 1px solid var(--schemx-color-text-secondary);
   transform-origin: 66.667% 33.333%;
   transform: rotate(135deg);
   transition: transform var(--schemx-group-arrow-duration) cubic-bezier(0.4, 0, 0.2, 1);

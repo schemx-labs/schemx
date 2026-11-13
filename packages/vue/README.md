@@ -24,6 +24,25 @@ Vue 包的样式只定义 Row/Col、Field、Group 和状态类的通用结构；
 
 不要从 `src/styles` 或 `dist` 的内部路径导入样式；包的 `exports` 只公开根入口和 `./style.css`。
 
+## 样式变量
+
+公共变量在 `:root` 定义，Element Plus 的 Form/Search 和 Vant 的 Form 会自动挂载 `data-schemx-ui` 标识，启用各自的主题映射。组件直接使用语义变量，不需要配置私有解析变量。
+
+通用文字、背景和品牌色使用 `--schemx-color-*`；字号使用 `--schemx-font-size-base`、`--schemx-font-size-sm`、`--schemx-font-size-lg`；间距、圆角分别使用 `--schemx-space-*`、`--schemx-radius-*`。标签、错误和分组标题提供独立的部位入口，例如：
+
+```css
+.custom-form {
+  --schemx-field-label-color: #334155;
+  --schemx-field-label-font-size: 16px;
+  --schemx-field-error-font-size: 14px;
+  --schemx-group-title-font-weight: 600;
+}
+```
+
+将 `custom-form` 配到 Form 的 `class`，或将对应变量配到字段 `style`，即可调整相应部位。适配层的选择器使用低优先级 `:where()`，同一节点上的业务类和内联样式可以覆盖映射。祖先节点上的配置仍遵循 CSS 继承规则，不会优先于表单节点的直接声明。
+
+组件别名在主题边界解析；局部调整某个部位时直接覆盖该部位变量。Schemx 自绘标签、错误、只读内容、默认按钮和自定义选择项使用公共变量；第三方原生控件内部和未接入的自定义 Renderer 继续使用自己的主题配置。弹层沿用 UI 库的原生主题、挂载策略和样式透传；不增加变量复制、主题监听、浮层 Hook 或 Wrapper 主题注入，也不提供 Popup/Selector 专用变量。
+
 ## 快速开始
 
 `@schemx/vue` 默认不提供具体输入控件。先将 [自定义 Renderer 示例](#自定义-renderer) 保存为 `components/InputRenderer.vue`，再注册并渲染表单：
@@ -382,7 +401,7 @@ await form.scrollToField("profile.nickname", { highlight: { duration: 0 } })
 
 `highlight.type` 支持 `default`、`warning` 和 `error`，未配置或运行时传入无效类型时使用 `default`。类型只改变定位提示外观，不修改字段校验状态。
 
-高亮外观可通过 `--schemx-field-highlight-background`、`--schemx-field-highlight-color` 和 `--schemx-field-highlight-radius` 自定义，默认沿用主题色和小圆角。警告与错误分别通过 `--schemx-field-highlight-warning-background` / `--schemx-field-highlight-warning-color` 和 `--schemx-field-highlight-error-background` / `--schemx-field-highlight-error-color` 自定义。
+高亮外观可通过 `--schemx-field-highlight-bg`、`--schemx-field-highlight-border-color` 和 `--schemx-field-highlight-radius` 自定义，默认沿用主题色和小圆角。警告与错误分别通过 `--schemx-color-warning-bg` / `--schemx-color-warning-border` 和 `--schemx-color-error-bg` / `--schemx-color-error-border` 自定义。
 
 ```vue
 <script setup lang="ts">
@@ -1129,7 +1148,9 @@ const Form = createFormComponent(schemx.createForm, "MySchemxForm")
 provideSchemxAppConfig(app, { schemaConfig: { readonly: true } })
 ```
 
-`createFormComponent(creator, name?)` 默认名称为 `SchemxForm`，保留基础 Form 的泛型 Props、事件、插槽和公开实例，并统一挂载 `install` 与 `Field`；`app.use(Form, options)` 注册该组件并应用 App 配置。`provideSchemxAppConfig(app, config?)` 将共享默认配置安装到指定 App，省略配置时使用空配置。普通组件或业务调用优先使用 `app.use(SchemxForm, options)` 与 `ConfigProvider`。
+`createFormComponent(creator, name?, ui?)` 默认名称为 `SchemxForm`，保留基础 Form 的泛型 Props、事件、插槽和公开实例，并统一挂载 `install` 与 `Field`；`app.use(Form, options)` 注册该组件并应用 App 配置。`provideSchemxAppConfig(app, config?)` 将共享默认配置安装到指定 App，省略配置时使用空配置。普通组件或业务调用优先使用 `app.use(SchemxForm, options)` 与 `ConfigProvider`。
+
+`createFormComponent` 和 `createSearchComponent` 的可选 `ui` 参数绑定根节点的 `data-schemx-ui`，供自定义适配包使用；内置 UI 包已自动配置，业务表单无需手动传入。
 
 ### Context API
 

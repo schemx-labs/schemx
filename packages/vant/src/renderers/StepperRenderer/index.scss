@@ -5,8 +5,8 @@
     min-height: 28px;
 
     &-value {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: var(--schemx-font-size-base);
+      font-weight: var(--schemx-font-weight-medium);
     }
   }
 
@@ -24,6 +24,6 @@
   .van-stepper__input {
     // 自定义输入框样式
     text-align: center;
-    font-weight: 500;
+    font-weight: var(--schemx-font-weight-medium);
   }
 }

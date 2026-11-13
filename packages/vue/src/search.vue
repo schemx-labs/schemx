@@ -2,7 +2,7 @@
   import { computed, getCurrentInstance, ref, useSlots } from "vue"
   import type { Slot, Slots } from "vue"
 
-  import { getFormCreator } from "./adapter/formCreators"
+  import { getFormCreator, getFormUi } from "./adapter/formCreators"
   import ActionButtons from "./components/Action/buttons.vue"
   import SchemaList from "./components/SchemaList"
   import SearchCollapse from "./components/SearchCollapse/index.vue"
@@ -60,6 +60,9 @@
 
   // 绑定当前组件定义的实例创建器。
   const creator = ownerInstance === null ? undefined : getFormCreator(ownerInstance.type)
+
+  // 搜索入口使用自身的 UI 作用域，避免同页其他适配包覆盖变量。
+  const ui = ownerInstance === null ? undefined : getFormUi(ownerInstance.type)
 
   // 共享接入逻辑返回当前实例和合并后的展示配置。
   const { form, config } = useFormComponent<TValues>(
@@ -137,6 +140,7 @@
     ref="collapseRef"
     :class="['schemx', props.class]"
     :style="props.style"
+    :data-schemx-ui="ui"
     :collapse="props.collapse"
   >
     <SchemaList
@@ -172,6 +176,6 @@
     flex-wrap: wrap;
     max-width: 100%;
     padding: 0;
-    min-height: var(--schemx-component-size);
+    min-height: var(--schemx-control-height);
   }
 </style>

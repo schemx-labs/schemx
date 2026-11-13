@@ -233,7 +233,7 @@
     gap: 4px;
     border: 0;
     padding: 0;
-    color: var(--schemx-sensitive-input-action-color, #1989fa);
+    color: var(--schemx-color-primary-text);
     font: inherit;
     line-height: inherit;
     background: transparent;
@@ -242,7 +242,7 @@
 
   .schemx-sensitive-input__toggle:focus-visible {
     border-radius: 4px;
-    outline: 2px solid var(--schemx-sensitive-input-focus-color, #1989fa);
+    outline: 2px solid var(--schemx-color-focus-ring);
     outline-offset: 2px;
   }
 </style>

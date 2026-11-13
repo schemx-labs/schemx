@@ -69,6 +69,7 @@ dist/
 build/
 out/
 docs/*
+!docs/design-tokens.md
 !docs/core-major-refactor-plan.md
 !docs/group-state-extension-design.md
 !docs/release-version-selection-design.md

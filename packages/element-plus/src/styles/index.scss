@@ -86,15 +86,16 @@
   min-width: 0;
 }
 
-.schemx .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
-  margin-bottom: var(--schemx-padding-md);
+.schemx[data-schemx-ui="element-plus"]
+  .schemx-group-wrapper:not(.schemx-group-wrapper:last-child) {
+  margin-bottom: var(--schemx-space-md);
 }
 
-.schemx .schemx-group__header {
-  padding-block: var(--schemx-padding-sm);
+.schemx[data-schemx-ui="element-plus"] .schemx-group__header {
+  padding-block: var(--schemx-space-sm);
 }
 
-.schemx-field-wrapper.is-error {
+.schemx[data-schemx-ui="element-plus"] .schemx-field-wrapper.is-error {
   .el-input__wrapper,
   .el-textarea__inner,
   .el-select__wrapper,
@@ -104,7 +105,7 @@
     &:hover,
     &:focus,
     &.is-focus {
-      box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+      box-shadow: 0 0 0 1px var(--schemx-color-error-border) inset;
     }
   }
 
@@ -112,7 +113,7 @@
     &,
     &:hover,
     &:focus {
-      border-color: var(--el-color-danger);
+      border-color: var(--schemx-color-error-border);
     }
   }
 
@@ -120,7 +121,7 @@
   .el-input-number__increase {
     &:hover ~ .el-input:not(.is-disabled) {
       .el-input__wrapper {
-        box-shadow: 0 0 0 1px var(--el-color-danger) inset;
+        box-shadow: 0 0 0 1px var(--schemx-color-error-border) inset;
       }
     }
   }

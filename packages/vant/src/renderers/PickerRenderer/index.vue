@@ -8,7 +8,12 @@
       {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
     </template>
 
-    <Cell :clickable="!props.disabled" is-link @click="handleClick">
+    <Cell
+      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
+      :clickable="!props.disabled"
+      is-link
+      @click="handleClick"
+    >
       <template #value>
         <span :style="`text-align: ${props.contentAlign}`">
           {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
@@ -56,7 +61,7 @@
   import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { findTreeItem, getReadonlyDisplayValue } from "../../utils"
+  import { findTreeItem, getReadonlyDisplayValue, isEmptyDisplayValue } from "../../utils"
 
   import type { PickerFieldNames, PickerRendererProps, PickerValue } from "./types"
 

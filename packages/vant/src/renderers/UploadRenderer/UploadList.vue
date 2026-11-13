@@ -111,9 +111,9 @@
         width: 100%;
         min-height: 40px;
         padding: 0 var(--van-padding-sm);
-        color: var(--van-text-color);
+        color: var(--schemx-color-text-primary);
         text-align: left;
-        background: var(--van-background-2);
+        background: var(--schemx-color-bg-surface);
         border: var(--van-border-width) solid var(--van-border-color);
         border-radius: var(--van-radius-md);
 
@@ -125,11 +125,11 @@
           cursor: pointer;
 
           &:active {
-            background: var(--van-active-color);
+            background: var(--schemx-color-bg-muted);
           }
 
           &:focus-visible {
-            outline: 2px solid var(--van-primary-color);
+            outline: 2px solid var(--schemx-color-primary-text);
             outline-offset: -2px;
           }
         }
@@ -138,8 +138,8 @@
       &__name {
         flex: 1;
         min-width: 0;
-        font-size: var(--van-font-size-md);
-        line-height: var(--van-line-height-md);
+        font-size: var(--schemx-font-size-base);
+        line-height: var(--schemx-line-height-base);
         text-align: left;
       }
 
@@ -147,11 +147,11 @@
         flex: none;
         min-width: 32px;
         padding: 3px 6px;
-        color: var(--van-text-color-2);
-        font-size: var(--van-font-size-xs);
-        line-height: var(--van-line-height-xs);
+        color: var(--schemx-color-text-secondary);
+        font-size: var(--schemx-font-size-sm);
+        line-height: var(--schemx-line-height-sm);
         text-align: center;
-        background: var(--van-background);
+        background: var(--schemx-color-bg-muted);
         border-radius: var(--van-radius-sm);
       }
 
@@ -160,14 +160,14 @@
         flex: none;
         gap: var(--van-padding-base);
         align-items: center;
-        color: var(--van-danger-color);
-        font-size: var(--van-font-size-xs);
+        color: var(--schemx-color-error-text);
+        font-size: var(--schemx-font-size-sm);
       }
 
       &__loading {
         width: 14px;
         height: 14px;
-        color: var(--van-primary-color);
+        color: var(--schemx-color-primary-text);
       }
 
       &__status-icon {
@@ -187,14 +187,14 @@
         align-items: center;
         justify-content: center;
         padding: 0;
-        color: var(--van-text-color-2);
+        color: var(--schemx-color-text-secondary);
         font-size: 16px;
         background: transparent;
         border: 0;
         cursor: pointer;
 
         &:focus-visible {
-          outline: 2px solid var(--van-primary-color);
+          outline: 2px solid var(--schemx-color-primary-text);
           outline-offset: 2px;
         }
       }
