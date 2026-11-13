@@ -248,12 +248,21 @@ async function collectArtifactSpecifiers(
  *
  * @param root - 仓库根目录。
  * @returns 检查结果。
+ * @param directories - 可选的目标包目录；省略时检查全部。
  * @example await checkBundleBoundaries(root)
  */
-export async function checkBundleBoundaries(root: string): Promise<BoundaryCheckResult> {
+export async function checkBundleBoundaries(
+  root: string,
+  directories?: readonly string[]
+): Promise<BoundaryCheckResult> {
   const failures: string[] = []
 
   for (const rule of BUNDLE_RULES) {
+    if (
+      directories &&
+      !directories.some((directory) => rule.file.startsWith(directory + "/"))
+    )
+      continue
     const specifiers = await collectArtifactSpecifiers(root, rule.file, failures)
 
     if (specifiers === undefined) {
@@ -274,6 +283,11 @@ export async function checkBundleBoundaries(root: string): Promise<BoundaryCheck
   }
 
   for (const rule of [...DECLARATION_RULES, ...ASSET_RULES]) {
+    if (
+      directories &&
+      !directories.some((directory) => rule.file.startsWith(directory + "/"))
+    )
+      continue
     const source = await readArtifact(root, rule.file, failures)
 
     if (source === undefined) {

@@ -27,9 +27,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "type-check": "tsc -p tsconfig.test.json --noEmit",
-    "test": "pnpm run build && vp test run",
+    "test": "pnpm run build && pnpm run test:only",
     "lint": "eslint src test bin",
     "format:check": "prettier --check src test bin",
-    "check": "pnpm run lint && pnpm run format:check && pnpm run type-check"
+    "check": "node ../../scripts/workflow.ts check plugins/vite-plugin-workspace-source",
+    "test:only": "vp test run"
   }
 }

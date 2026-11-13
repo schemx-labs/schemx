@@ -254,7 +254,12 @@ describe("Vite source resolution", () => {
       logLevel: "silent",
       plugins: [workspaceSource({ projectRoot })],
       optimizeDeps: { noDiscovery: true, include: [] },
-      server: { middlewareMode: true, fs: { allow: [root] } },
+      // 临时目录的原生文件事件在沙箱中可能不可达；轮询仍验证真实文件变化和 Vite 重启。
+      server: {
+        middlewareMode: true,
+        fs: { allow: [root] },
+        watch: { usePolling: true, interval: 50 },
+      },
     })
     for (const [specifier, target] of [
       ["@fixture/core", "core/src/index.ts"],

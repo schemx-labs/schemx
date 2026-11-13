@@ -30,8 +30,6 @@
   // 操作区可独立关闭，触发器插槽沿用 Search 的公开契约。
   const slots = useSlots()
 
-  console.log(" > ~ slots:", slots)
-
   /**
    * 默认插槽放置根级 SchemaList，actions 放置查询和重置操作。
    */

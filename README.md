@@ -177,26 +177,26 @@ pnpm --filter element-plus-demo dev
 
 Source mappings are maintained in `workspace-source.config.ts`. Set `VITE_USE_SOURCE=true` in a project's environment or startup command to use workspace dependency source during development, tests, and type checks. Run `pnpm source:sync` after changing the flag to update the generated `tsconfig.workspace-source.json`; installation and dev scripts also synchronize it. Library builds always consume dependency artifacts and build their workspace dependencies first.
 
-| Command                   | Description                                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target. |
-| `pnpm build`              | Interactively select targets to build; non-interactive environments build all targets by default.                                        |
-| `pnpm build:analyze`      | Run the same type checks as a regular build and generate a bundle analysis report.                                                       |
-| `pnpm test`               | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                             |
-| `pnpm type-check`         | Check types for selected targets, then project scripts.                                                                                  |
-| `pnpm type-check:tests`   | Check types in selected targets' test code.                                                                                              |
-| `pnpm type-check:scripts` | Check types in project scripts.                                                                                                          |
-| `pnpm test:scripts`       | Run project script tests.                                                                                                                |
-| `pnpm lint`               | Interactively select targets and run ESLint.                                                                                             |
-| `pnpm lint:fix`           | Interactively select targets and run ESLint fixes.                                                                                       |
-| `pnpm format`             | Interactively select and run Prettier formatting.                                                                                        |
-| `pnpm format:check`       | Interactively select and run Prettier format checks.                                                                                     |
-| `pnpm check`              | Run static checks for selected targets: ESLint, Prettier formatting, and types.                                                          |
-| `pnpm fix`                | Select targets and run lint fixes followed by formatting.                                                                                |
-| `pnpm pack-local`         | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                      |
-| `pnpm check:packages`     | Check workspace package configuration and build output external boundaries.                                                              |
-| `pnpm preview`            | Start Vite Preview.                                                                                                                      |
-| `pnpm workflow <command>` | Run a workflow command with its arguments.                                                                                               |
+| Command                   | Description                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target.  |
+| `pnpm build`              | Interactively select targets to build; non-interactive environments build all targets by default.                                         |
+| `pnpm build:analyze`      | Run the same type checks as a regular build and generate a bundle analysis report.                                                        |
+| `pnpm test`               | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                              |
+| `pnpm type-check`         | Check types for selected targets, then project scripts.                                                                                   |
+| `pnpm type-check:tests`   | Check types in selected targets' test code.                                                                                               |
+| `pnpm type-check:scripts` | Check types in project scripts.                                                                                                           |
+| `pnpm test:scripts`       | Run project script tests.                                                                                                                 |
+| `pnpm lint`               | Interactively select targets and run ESLint.                                                                                              |
+| `pnpm lint:fix`           | Interactively select targets and run ESLint fixes.                                                                                        |
+| `pnpm format`             | Interactively select and run Prettier formatting.                                                                                         |
+| `pnpm format:check`       | Interactively select and run Prettier format checks.                                                                                      |
+| `pnpm check`              | Check the whole repository: lint, formatting, types, tests, builds, and package artifacts; explicit targets include downstream consumers. |
+| `pnpm fix`                | Select targets and run lint fixes followed by formatting.                                                                                 |
+| `pnpm pack-local`         | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                       |
+| `pnpm check:packages`     | Check workspace package configuration and build output external boundaries.                                                               |
+| `pnpm preview`            | Start Vite Preview.                                                                                                                       |
+| `pnpm workflow <command>` | Run a workflow command with its arguments.                                                                                                |
 
 ## Project Workflow
 
@@ -212,7 +212,7 @@ pnpm check
 pnpm check:packages
 ```
 
-Run `pnpm check all` manually before committing to check all targets.
+Run `pnpm check` (equivalent to `pnpm check all`) for complete local quality verification before committing. It checks all source directories, types, tests, dependency-ordered builds, examples, package exports, and packed files. `pnpm check vue` also checks downstream packages and examples. Release verification reuses this pipeline and separately validates credentials, versions, Git state, and remote availability.
 
 Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
 

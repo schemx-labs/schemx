@@ -152,9 +152,13 @@ describe("Vue SchemaList layout", () => {
       ).toBe(false)
     }
 
-    expect(wrapper.get(".schemx-row").attributes("style")).toBe(
-      "margin: 6px; display: grid;"
-    )
+    // 外部 Row 接收包装器的默认宽度和调用方样式，不携带默认实现的 gutter 变量。
+    const externalRowStyle = (wrapper.get(".schemx-row").element as HTMLElement).style
+
+    expect(externalRowStyle.width).toBe("100%")
+    expect(externalRowStyle.margin).toBe("6px")
+    expect(externalRowStyle.display).toBe("grid")
+    expect(externalRowStyle.getPropertyValue("--schemx-gutter-top")).toBe("")
     expect(wrapper.get(".schemx-col").attributes("style")).toBe(
       "padding: 3px; width: 75%;"
     )

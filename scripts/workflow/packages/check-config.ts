@@ -128,9 +128,19 @@ function checkViteScripts(
  *
  * @param root - 仓库根目录。
  * @param failures - 失败累加器。
+ * @param directories - 可选的包目录筛选。
  */
-async function checkRequiredText(root: string, failures: string[]): Promise<void> {
+async function checkRequiredText(
+  root: string,
+  failures: string[],
+  directories?: readonly string[]
+): Promise<void> {
   for (const [relativePath, needles] of REQUIRED_TEXT) {
+    if (
+      directories &&
+      !directories.some((directory) => relativePath.startsWith(directory + "/"))
+    )
+      continue
     const text = await readTextSafe(path.join(root, relativePath))
 
     if (text === undefined) {
@@ -151,9 +161,19 @@ async function checkRequiredText(root: string, failures: string[]): Promise<void
  *
  * @param root - 仓库根目录。
  * @param failures - 失败累加器。
+ * @param directories - 可选的包目录筛选。
  */
-async function checkForbiddenText(root: string, failures: string[]): Promise<void> {
+async function checkForbiddenText(
+  root: string,
+  failures: string[],
+  directories?: readonly string[]
+): Promise<void> {
   for (const [relativePath, needles] of FORBIDDEN_TEXT) {
+    if (
+      directories &&
+      !directories.some((directory) => relativePath.startsWith(directory + "/"))
+    )
+      continue
     const text = await readTextSafe(path.join(root, relativePath))
 
     if (text === undefined) {
@@ -174,14 +194,23 @@ async function checkForbiddenText(root: string, failures: string[]): Promise<voi
  *
  * @param root - 仓库根目录。
  * @returns 检查结果。
+ * @param directories - 可选的目标包目录；省略时检查全部。
  * @example await checkPackageConfig(root)
  */
-export async function checkPackageConfig(root: string): Promise<ConfigCheckResult> {
+export async function checkPackageConfig(
+  root: string,
+  directories?: readonly string[]
+): Promise<ConfigCheckResult> {
   const failures: string[] = []
 
   const manifests = new Map<string, PackageManifest>()
 
   for (const relativePath of REQUIRED_MANIFESTS) {
+    if (
+      directories &&
+      !directories.some((directory) => relativePath.startsWith(directory + "/"))
+    )
+      continue
     const manifest = readManifestSafe(path.join(root, relativePath))
 
     if (!manifest) {
@@ -208,8 +237,8 @@ export async function checkPackageConfig(root: string): Promise<ConfigCheckResul
     }
   }
 
-  await checkRequiredText(root, failures)
-  await checkForbiddenText(root, failures)
+  await checkRequiredText(root, failures, directories)
+  await checkForbiddenText(root, failures, directories)
 
   return { ok: failures.length === 0, failures }
 }

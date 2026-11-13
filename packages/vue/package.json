@@ -57,7 +57,7 @@
     "scroll-into-view-if-needed": "^3.1.0"
   },
   "scripts": {
-    "build": "pnpm run type-check:build && vp build",
+    "build": "pnpm run build:deps && pnpm run build:only",
     "build:analyze": "pnpm run build --mode analyze",
     "test": "vp test run",
     "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
@@ -66,11 +66,12 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "type-check:tests": "workspace-source sync --project . && vue-tsc -p tsconfig.type-tests.json --noEmit",
     "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit && pnpm run type-check:tests",
-    "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
+    "check": "node ../../scripts/workflow.ts check packages/vue",
     "prepublishOnly": "pnpm run build",
     "pack-local": "node ../../scripts/workflow.ts pack-local packages/vue",
-    "type-check:build": "pnpm run build:deps && vue-tsc -p tsconfig.build.json --noEmit",
-    "build:deps": "pnpm --filter \"@schemx/vue^...\" run build"
+    "type-check:build": "vue-tsc -p tsconfig.build.json --noEmit",
+    "build:deps": "pnpm --filter \"@schemx/vue^...\" run build:only",
+    "build:only": "pnpm run type-check:build && vp build"
   },
   "license": "MIT",
   "devDependencies": {

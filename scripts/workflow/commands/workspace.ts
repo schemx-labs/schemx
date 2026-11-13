@@ -5,11 +5,8 @@
  * （`commands/build.sh` 与 `commands/workspace.sh` 的执行规则完全一致，只有 usage
  * 文案不同），这里合并为一个入口，任务名即分支。
  */
-import path from "node:path"
-
 import { runBatchFlow } from "../batch.ts"
 import { type Context } from "../core/context.ts"
-import { hasScript, readManifestSafe } from "../core/package-json.ts"
 import {
   formatWorkflowText,
   runWorkflowCommand,
@@ -24,6 +21,8 @@ import {
   type TaskTarget,
 } from "../target-selection.ts"
 
+import { runCheck } from "./check.ts"
+
 import type { ParentId, Terminal } from "../ui/index.ts"
 
 /** 批处理任务的用法说明。 */
@@ -35,7 +34,7 @@ export function workspaceUsage(): string {
     "task：build、build:analyze、check、lint、lint:fix、format、format:check、type-check、type-check:tests、test",
     "target：all、自动发现的目录（如 scripts、packages/core）、根目录 .，或以英文逗号分隔的多个目标",
     "lint、format 和 check 按实际文件发现目录；其他任务按 workspace script 发现目标。",
-    "check 执行静态检查；type-check 与 test 完成后还会检查项目脚本。",
+    "check 默认全仓完整检查，显式目标包含下游；type-check 与 test 完成后还会检查项目脚本。",
   ].join("\n")
 }
 
@@ -60,7 +59,7 @@ async function runTarget(
 
     const linted = item.files.filter((file) => LINT_FILE_PATTERN.test(file))
 
-    if (linted.length > 0 && ["lint", "lint:fix", "check"].includes(item.script)) {
+    if (linted.length > 0 && ["lint", "lint:fix"].includes(item.script)) {
       const fix = item.script === "lint:fix" ? ["--fix"] : []
 
       const eslintFiles = linted.filter((file) => !ESLINT_IGNORED_FILE_PATTERN.test(file))
@@ -70,7 +69,7 @@ async function runTarget(
       }
     }
 
-    if (["format", "format:check", "check"].includes(item.script)) {
+    if (["format", "format:check"].includes(item.script)) {
       commands.push([
         "exec",
         "prettier",
@@ -78,18 +77,6 @@ async function runTarget(
         "--",
         ...item.files,
       ])
-    }
-
-    // check 保留目录已有的类型检查，不再重复执行包内 lint 和格式检查。
-    const manifest = readManifestSafe(path.join(root, item.relativeDir, "package.json"))
-
-    if (
-      item.script === "check" &&
-      item.relativeDir !== "." &&
-      manifest &&
-      hasScript(manifest, "type-check")
-    ) {
-      commands.push(["--dir", item.relativeDir, "run", "type-check"])
     }
 
     for (const args of commands) {
@@ -135,6 +122,10 @@ export async function runWorkspaceTask(
   task: string,
   args: readonly string[]
 ): Promise<number> {
+  if (task === "check") {
+    return await runCheck(context, args)
+  }
+
   const { terminal, catalog, root } = context
 
   const label = taskLabel(task)

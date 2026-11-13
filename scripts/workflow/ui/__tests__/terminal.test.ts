@@ -242,7 +242,7 @@ describe("输出组合与显式生命周期", () => {
     await terminal.runTask({ title: "a", parentId, execute: async () => {} })
     await terminal.runTask({ title: "b", parentId, execute: async () => {} })
     expect(output.raw).toContain("│    说明\n│\n│\n│  ◆")
-    expect(output.raw).toMatch(/✔ 完成 · a · \d+ms\n│\n│ {2}▶ 开始 · b/)
+    expect(output.raw).toMatch(/✔ 完成 · a · \d+ms\n│\n│ {2}➤ 开始 · b/)
     expect(output.raw).not.toContain("\n│\n│\n│\n")
     expect(
       output.raw
@@ -303,9 +303,9 @@ describe("输出组合与显式生命周期", () => {
     })
     terminal.skipTask({ title: "跳过", reason: "无脚本" })
     terminal.pendingTask({ target: "core", reason: "未执行" })
-    expect(output.raw).toContain("│  ✖ 实际错误")
-    expect(output.raw).toContain("✖ 失败 · 失败")
-    expect(output.raw).toContain("■ 已取消 · 取消")
+    expect(output.raw).toContain("│  ✗ 实际错误")
+    expect(output.raw).toContain("✗ 失败 · 失败")
+    expect(output.raw).toContain("↶ 已取消 · 取消")
     expect(output.raw).toContain("跳过 · 无脚本")
     expect(output.raw).toContain("core · 未执行")
   })
@@ -364,7 +364,7 @@ describe("输出组合与显式生命周期", () => {
       })
     ).rejects.toBe(failure)
     expect(output.raw.match(/失败原因/g)).toHaveLength(1)
-    expect(output.raw).toContain("✖ 失败 · 失败操作")
+    expect(output.raw).toContain("✗ 失败 · 失败操作")
     // 只检查任务返回值推导，不执行这段类型探针。
     const generic = () =>
       terminal.runTask({ title: "类型", execute: async () => ({ answer: 42 }) })
@@ -440,8 +440,8 @@ describe("命令执行和输出模式", () => {
 
     expect(result.exitCode).toBe(3)
     expect(result.stdout).toBe("captured")
-    expect(output.raw).toContain("▶ 开始 · core · build")
-    expect(output.raw).toContain("✖ 失败 · core · build")
+    expect(output.raw).toContain("➤ 开始 · core · build")
+    expect(output.raw).toContain("✗ 失败 · core · build")
     expect(output.raw).toContain("exit 3")
     expect(output.raw).not.toContain("captured")
   })
@@ -452,7 +452,7 @@ describe("命令执行和输出模式", () => {
     await expect(
       terminal.runCommand({ title: "不存在", command: "/__terminal_missing_command__" })
     ).rejects.toMatchObject({ code: "ENOENT" })
-    expect(output.raw).toContain("✖ 失败 · 不存在")
+    expect(output.raw).toContain("✗ 失败 · 不存在")
   })
   it("销毁时中止自有命令，保留 AbortError 且不在销毁后追加反馈", async () => {
     // 本场景使用独立终端及其捕获或输入资源。
@@ -519,7 +519,7 @@ process.stdout.write("\\nRESULT="+JSON.stringify(result));terminal.dispose();`
       })
 
       expect(result.stdout.startsWith(native)).toBe(true)
-      expect(result.stderr).toContain(`${diagnostic}\n│  ✖ 失败 · build`)
+      expect(result.stderr).toContain(`${diagnostic}\n│  ✗ 失败 · build`)
       expect(result.stderr.match(/error: original/g)).toHaveLength(1)
       // 从独立结果标记后解析采集数据，不将展示日志当作结果。
       const machine = JSON.parse(
@@ -621,7 +621,7 @@ input.emit("keypress","\\u0003",{name:"c",ctrl:true});await operation;`
     expect(result.stderr).toContain("prompt cleanup complete")
     expect(result.stderr).not.toContain("AbortError")
     expect(result.stderr.indexOf("prompt cleanup complete")).toBeLessThan(
-      result.stderr.indexOf("╰─ ■ 已取消")
+      result.stderr.indexOf("╰─ ↶ 已取消")
     )
   })
 
@@ -666,12 +666,12 @@ terminal.endFlow({flowId,outcome:"success",message:"unexpected success"});termin
       child.kill("SIGINT")
       expect((await finished)[0]).toBe(130)
       expect(stderr.indexOf("native cleanup complete")).toBeLessThan(
-        stderr.indexOf("■ 已取消")
+        stderr.indexOf("↶ 已取消")
       )
       expect(stderr).toContain("服务已取消")
       expect(stderr).not.toContain("AbortError")
       expect(stderr).not.toContain("unexpected success")
-      expect(stderr.match(/■ 已取消/g)).toHaveLength(1)
+      expect(stderr.match(/↶ 已取消/g)).toHaveLength(1)
     } finally {
       if (child.exitCode === null) {
         child.kill("SIGKILL")
@@ -725,8 +725,8 @@ await terminal.runTask({title:"dev",execute:async()=>{process.stdout.write("read
       expect((await finished)[0]).toBe(130)
       expect(stderr).toContain("cleanup failed")
       expect(stderr).not.toContain("should not run")
-      expect(stderr.indexOf("last cleanup")).toBeLessThan(stderr.indexOf("■ 已取消"))
-      expect(stderr.match(/■ 已取消/g)).toHaveLength(1)
+      expect(stderr.indexOf("last cleanup")).toBeLessThan(stderr.indexOf("↶ 已取消"))
+      expect(stderr.match(/↶ 已取消/g)).toHaveLength(1)
       expect(stderr).not.toContain("✔ 完成")
     } finally {
       if (child.exitCode === null) {
@@ -882,7 +882,7 @@ describe("等待状态动画", () => {
 
     await vi.advanceTimersByTimeAsync(300)
     await rejected
-    expect(output.raw).toContain("✖ 失败 · 失败查询")
+    expect(output.raw).toContain("✗ 失败 · 失败查询")
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -1116,7 +1116,7 @@ await terminal.runTask({title:"等待操作",execute:async()=>{process.stdout.wr
       expect(stderr.indexOf("cleanup-done")).toBeGreaterThan(
         stderr.indexOf("正在取消，等待清理")
       )
-      expect(stderr.indexOf("■ 已取消")).toBeGreaterThan(stderr.indexOf("cleanup-done"))
+      expect(stderr.indexOf("↶ 已取消")).toBeGreaterThan(stderr.indexOf("cleanup-done"))
       expect(stderr.split("\u001B[?25l").length).toBe(stderr.split("\u001B[?25h").length)
     } finally {
       if (child.exitCode === null) {

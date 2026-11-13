@@ -4,15 +4,17 @@
 import path from "node:path"
 
 import { type Context } from "../core/context.ts"
-import { hasScript, workspaceDependencyNames } from "../core/package-json.ts"
+import { workspaceDependencyNames } from "../core/package-json.ts"
 import {
   formatWorkflowText,
   runWorkflowCommand,
   runWorkflowTask,
 } from "../presentation.ts"
 import { requireWorkflowSuccess, workflowRunner } from "../presentation.ts"
+import { createQualityPlan } from "../quality/plan.ts"
+import { runQualityPlan } from "../quality/run.ts"
+import { resolveQualityScope } from "../quality/scope.ts"
 
-import { assertPackageArtifacts } from "./adapters/artifacts.ts"
 import * as git from "./adapters/git.ts"
 import * as github from "./adapters/github.ts"
 import { publishPackage, writePackageVersion } from "./adapters/npm.ts"
@@ -22,9 +24,6 @@ import * as preflight from "./preflight.ts"
 import { hasStep, markStep } from "./state.ts"
 
 import type { Terminal } from "../ui/index.ts"
-
-/** 逐包执行的质量任务。 */
-const QUALITY_TASKS = ["lint", "format:check", "type-check", "test", "build"] as const
 
 /**
  * 在任务中执行一次前置校验，并把失败原因作为错误输出。
@@ -56,97 +55,6 @@ async function runCheck(
       }
     },
   })
-}
-
-/**
- * 对一个发布包执行质量脚本与发布产物检查。
- *
- * @param context - 执行上下文。
- * @param target - 逻辑包名。
- * @param packageName - npm 包名。
- * @param keepGoing - 单包内是否继续执行剩余任务。
- * @returns 退出码。
- */
-async function verifyPackageQuality(
-  context: Context,
-  target: string,
-  packageName: string,
-  keepGoing: boolean
-): Promise<number> {
-  const { terminal, catalog, root } = context
-
-  const item = catalog.find(target, catalog.publishable())
-
-  if (!item) {
-    terminal.status({
-      tone: "error",
-      message: `无法解析发布包：${target}`,
-      parentId: context.parentId,
-    })
-
-    return 2
-  }
-
-  let firstFailure = 0
-
-  for (const task of QUALITY_TASKS) {
-    if (!hasScript(item.manifest, task)) {
-      terminal.skipTask({
-        title: task,
-        reason: "package.json 未定义对应 script。",
-        parentId: context.parentId,
-      })
-      continue
-    }
-
-    const exitCode = await runWorkflowCommand({
-      terminal: terminal,
-      title: task,
-      target: packageName,
-      command: "pnpm",
-      args: ["--dir", item.relativeDir, "run", task],
-      cwd: root,
-      parentId: context.parentId,
-    })
-
-    if (exitCode === 0) {
-      continue
-    }
-
-    if (exitCode === 130) {
-      return 130
-    }
-
-    firstFailure ||= exitCode
-    if (!keepGoing) {
-      return exitCode
-    }
-  }
-
-  const artifactCode = await runWorkflowTask({
-    terminal: terminal,
-    title: "检查发布产物",
-    target: packageName,
-    execute: async () => {
-      requireWorkflowSuccess({
-        result: await assertPackageArtifacts(packageName, workflowRunner({ terminal })),
-        message: "产物检查失败。",
-      })
-    },
-    parentId: context.parentId,
-  })
-
-  if (artifactCode === 0) {
-    return firstFailure
-  }
-
-  if (artifactCode === 130) {
-    return 130
-  }
-
-  firstFailure ||= artifactCode
-
-  return firstFailure
 }
 
 /**
@@ -331,103 +239,15 @@ export async function verifyPlan(
     return 0
   }
 
-  const groupId2 = terminal.startGroup({
-    title: "质量与产物",
-    description: formatWorkflowText({
-      terminal,
-      content: "逐包执行质量任务；产物检查使用 pnpm 的实际发布文件规则。",
-    }),
-    parentId: context.parentId,
-  })
+  const scope = await resolveQualityScope(
+    catalog,
+    context.root,
+    pendingPackages.map((item) => item.name).join(",")
+  )
 
-  const failed: string[] = []
+  const result = await runQualityPlan(context, createQualityPlan(scope), { keepGoing })
 
-  let firstFailure = 0
-
-  for (const [index, item] of pendingPackages.entries()) {
-    const groupId3 = terminal.startGroup({
-      title: `[${index + 1}/${pendingPackages.length}] ${item.name}`,
-      parentId: groupId2,
-    })
-
-    const exitCode = await verifyPackageQuality(
-      { ...context, parentId: groupId3 },
-      item.package,
-      item.name,
-      keepGoing
-    )
-
-    if (exitCode === 0) {
-      terminal.endGroup({
-        groupId: groupId3,
-        outcome: "success",
-        message: `${item.name} 检查完成。`,
-      })
-      continue
-    }
-
-    if (exitCode === 130) {
-      terminal.endGroup({
-        groupId: groupId3,
-        outcome: "cancelled",
-        message: `${item.name} 检查已取消。`,
-      })
-      terminal.endGroup({
-        groupId: groupId3,
-        outcome: "cancelled",
-        message: "质量与产物检查已取消。",
-      })
-
-      return 130
-    }
-
-    terminal.endGroup({
-      groupId: groupId3,
-      outcome: "failed",
-      message: `${item.name} 检查失败。`,
-    })
-    failed.push(`${item.name}（exit ${exitCode}）`)
-    firstFailure ||= exitCode
-
-    if (!keepGoing) {
-      terminal.endGroup({
-        groupId: groupId3,
-        outcome: "failed",
-        message: "质量与产物检查失败。",
-      })
-
-      return exitCode
-    }
-  }
-
-  if (firstFailure !== 0) {
-    terminal.summary({
-      title: "质量检查失败项",
-      tone: "error",
-      content: formatWorkflowText({ terminal: terminal, content: failed.join("\n") }),
-      parentId: groupId2,
-    })
-    terminal.endGroup({
-      groupId: groupId2,
-      outcome: "failed",
-      message: `质量与产物检查失败：${failed.length} 个包未通过。`,
-    })
-
-    return firstFailure
-  }
-
-  terminal.endGroup({
-    groupId: groupId2,
-    outcome: "success",
-    message: `质量与产物检查完成：${pendingPackages.length} 个包全部通过。`,
-  })
-  terminal.status({
-    tone: "success",
-    message: "发布前检查完成：尚未执行 npm 发布、版本写入、Git Tag 或 GitHub Release。",
-    parentId: context.parentId,
-  })
-
-  return 0
+  return result.code
 }
 
 /**

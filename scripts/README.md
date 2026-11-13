@@ -3,11 +3,11 @@
 根目录 `package.json` 的开发、构建、质量、测试和发布命令统一由 `scripts/workflow.ts` 分派。
 使用 Node 原生类型剥离直接运行 `.ts`，没有构建步骤。
 
-`pnpm workflow <command>` 是通用入口。`check` 执行包的静态检查，
+`pnpm workflow <command>` 是通用入口。`check` 默认全仓执行完整质量检查，
 `test:scripts` 执行项目脚本测试，`type-check:tests` 检查测试代码类型。
 
 `lint` 与 `lint:fix` 使用根 ESLint 配置，格式化与格式检查使用 Prettier。
-根命令按自动发现的文件直接调用工具，发布检查复用包脚本。
+静态检查按实际源码文件直接调用工具；完整检查和发布检查共用同一任务图执行器。
 `build:analyze` 执行与 `build` 相同的类型检查，并用 `--mode analyze` 生成分析报告；普通构建不开启分析。
 
 ```text
@@ -179,3 +179,13 @@ pnpm type-check:scripts  # tsc -p scripts/tsconfig.json
 ```
 
 `WORKFLOW_REMEDIATION.md` 记录了本次 TypeScript 重构之前的历史整改项。
+
+## 完整质量检查
+
+`pnpm check` 与 `pnpm check all` 等价，默认检查全仓，无需交互选择。检查覆盖实际源码目录的 ESLint/Prettier、源码和测试类型、单元测试、工作流脚本自检、按依赖顺序的构建、示例生产构建，以及发布包的 exports、声明、样式、依赖边界和实际打包文件。
+
+`pnpm check vue` 或 `pnpm check vue,vant` 自动覆盖递归下游及相关示例；只为准备构建加入的上游不会扩展完整检查范围。简称优先匹配 `packages` 下的包，示例可使用 `examples/vant` 等完整路径。`pnpm check scripts` 检查工作流本身。包目录内的 `pnpm check` 同样接入共享流程。
+
+默认失败即停止；`--keep-going` 继续独立任务，失败构建的消费者标记为前置失败，不使用旧产物判定通过。任务在单次调用内去重，不缓存跨命令成功结果。`lint`、`format:check`、`type-check`、`test` 保留为快速入口。完整检查会生成构建产物和缓存，耗时高于原静态检查。`build:only` 仅供已准备依赖的编排使用；独立构建继续使用 `build`。
+
+发布前检查复用同一质量流程，并额外检查工作区、分支、发布凭据、目标版本、依赖和远端标记。`check` 不需要发布凭据，不修改版本或发布；通过只表示当前范围通过本地质量门槛，发布时仍需验证可能变化的远端条件。

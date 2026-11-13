@@ -61,9 +61,9 @@ describe("Vant Col layout adapter", () => {
     expect(wrapper.find(".van-col--12").exists()).toBe(true)
     expect(wrapper.find(".schemx-renderer--auto").exists()).toBe(false)
     expect(wrapper.find(".schemx-field--auto").exists()).toBe(false)
-    expect(wrapper.get(".schemx-field__content").attributes("style")).not.toContain(
-      "width:"
-    )
+    expect(
+      (wrapper.get(".schemx-field__content").element as HTMLElement).style.width
+    ).toBe("")
     await wrapper.findAll("input")[0]?.setValue("changed")
     await wrapper.setProps({ col: { span: 8 } })
     await vi.waitFor(() => expect(wrapper.findAll(".schemx-col--auto")).toHaveLength(1))
@@ -89,35 +89,42 @@ describe("Vant Col layout adapter", () => {
     expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
       "text-align: right"
     )
-    expect(wrapper.get(".schemx-field__content").attributes("style")).toContain(
-      "text-align: left"
+    expect(wrapper.get(".schemx-field-wrapper").attributes("style")).toContain(
+      "--schemx-content-align: left"
     )
 
     wrapper.unmount()
   })
 
-  it("只读字段将内容对齐到右侧", () => {
-    const wrapper = mountVantForm({
-      initialValues: { first: "A" },
-      schemas: [
-        {
-          name: "first",
-          label: "第一项",
-          componentType: "input",
-          readonly: true,
-        },
-      ],
-    })
+  // contentAlign 是当前表单配置的对齐方式，只读状态不应覆盖它。
+  it.each(["left", "center", "right"] as const)(
+    "只读字段保留配置的内容对齐：%s",
+    (contentAlign) => {
+      const wrapper = mountVantForm({
+        contentAlign,
+        initialValues: { first: "A" },
+        schemas: [
+          {
+            name: "first",
+            label: "第一项",
+            componentType: "input",
+            readonly: true,
+          },
+        ],
+      })
 
-    expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
-      "text-align: right"
-    )
-    expect(wrapper.get(".schemx-field__content").attributes("style")).toContain(
-      "text-align: right"
-    )
+      expect(wrapper.get(".schemx-field__label").attributes("style")).toContain(
+        "text-align: right"
+      )
+      expect(wrapper.get(".schemx-field-wrapper").attributes("style")).toContain(
+        `--schemx-content-align: ${contentAlign}`
+      )
 
-    wrapper.unmount()
-  })
+      expect(wrapper.find(".schemx-wrapper--readonly").exists()).toBe(true)
+
+      wrapper.unmount()
+    }
+  )
 
   it("允许 Form 显式配置覆盖移动端默认值", () => {
     const wrapper = mountVantForm({
@@ -136,8 +143,8 @@ describe("Vant Col layout adapter", () => {
 
     expect(wrapper.find(".van-col--12").exists()).toBe(true)
     expect(wrapper.get(".schemx-field-wrapper").classes()).not.toContain("is-bordered")
-    expect(wrapper.get(".schemx-field__content").attributes("style")).toContain(
-      "text-align: left"
+    expect(wrapper.get(".schemx-field-wrapper").attributes("style")).toContain(
+      "--schemx-content-align: left"
     )
 
     wrapper.unmount()

@@ -16,7 +16,7 @@ export const WORKFLOW_TASK_LABEL: Readonly<Record<string, string>> = {
   dev: "启动开发服务",
   build: "构建",
   "build:analyze": "构建分析",
-  check: "静态检查",
+  check: "完整质量检查",
   lint: "代码规范检查",
   "lint:fix": "修复代码规范",
   format: "格式化",

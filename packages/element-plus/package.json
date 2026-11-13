@@ -57,19 +57,20 @@
     "dayjs": "^1.11.19"
   },
   "scripts": {
-    "build": "pnpm run type-check:build && vp build",
+    "build": "pnpm run build:deps && pnpm run build:only",
     "build:analyze": "pnpm run build --mode analyze",
-    "build:deps": "pnpm --filter \"@schemx/element-plus^...\" run build",
+    "build:deps": "pnpm --filter \"@schemx/element-plus^...\" run build:only",
     "test": "vp test run --passWithNoTests",
     "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
     "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit",
-    "check": "pnpm run lint && pnpm run format:check && pnpm run type-check",
+    "check": "node ../../scripts/workflow.ts check packages/element-plus",
     "prepublishOnly": "pnpm run build",
     "pack-local": "node ../../scripts/workflow.ts pack-local packages/element-plus",
-    "type-check:build": "pnpm run build:deps && vue-tsc -p tsconfig.build.json --noEmit"
+    "type-check:build": "vue-tsc -p tsconfig.build.json --noEmit",
+    "build:only": "pnpm run type-check:build && vp build"
   },
   "license": "MIT",
   "devDependencies": {

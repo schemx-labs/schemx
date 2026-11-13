@@ -4,6 +4,7 @@
  * @remarks 统一分派日常 workspace 任务、工具命令与发布流程。所有视觉输出走 stderr，
  * `release plan` 的计划路径等机器可读结果走 stdout。
  */
+import { runCheck } from "./workflow/commands/check.ts"
 import { runDev } from "./workflow/commands/dev.ts"
 import { fixUsage, runFix } from "./workflow/commands/fix.ts"
 import { releaseUsage, runRelease } from "./workflow/commands/release.ts"
@@ -100,6 +101,10 @@ export async function dispatch(
 
   if (command === "dev") {
     return await runDev(context, rest)
+  }
+
+  if (command === "check") {
+    return await runCheck(context, rest)
   }
 
   if (command === "fix") {

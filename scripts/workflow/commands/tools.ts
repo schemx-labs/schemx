@@ -15,6 +15,7 @@ import {
   runWorkflowCommand,
   runWorkflowTask,
 } from "../presentation.ts"
+import { checkQualityArtifacts, previewQualityPackage } from "../quality/artifacts.ts"
 import { selectTargetIdentifiers } from "../target-selection.ts"
 
 /** 工具命令的用法说明。 */
@@ -62,6 +63,27 @@ export async function checkPackages(context: Context): Promise<number> {
       return code
     }
 
+    firstFailure ||= code
+  }
+
+  if (firstFailure !== 0) return firstFailure
+
+  // 同一套 exports 与打包清单规则也供 check 和发布流程使用。
+  for (const item of context.catalog.publishable()) {
+    const code = await runWorkflowTask({
+      terminal,
+      title: "检查实际发布文件",
+      target: item.name,
+      parentId: context.parentId,
+      execute: async () =>
+        await checkQualityArtifacts(
+          context,
+          item.relativeDir,
+          async (directory) => await previewQualityPackage(context, directory)
+        ),
+    })
+
+    if (code === 130) return code
     firstFailure ||= code
   }
 

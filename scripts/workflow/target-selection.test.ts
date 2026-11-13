@@ -153,7 +153,7 @@ describe("taskLabel", () => {
     expect(taskLabel("dev")).toBe("启动开发服务")
     expect(taskLabel("build")).toBe("构建")
     expect(taskLabel("build:analyze")).toBe("构建分析")
-    expect(taskLabel("check")).toBe("静态检查")
+    expect(taskLabel("check")).toBe("完整质量检查")
     expect(taskLabel("type-check")).toBe("类型检查")
     expect(taskLabel("type-check:tests")).toBe("测试代码类型检查")
   })
@@ -579,6 +579,7 @@ describe("workspace 检查链", () => {
         lint: "eslint src",
         "lint:fix": "eslint src --fix",
         check: "pnpm lint && pnpm type-check",
+        "format:check": "prettier --check src",
         "type-check": "tsc --noEmit",
         "type-check:tests": "tsc -p tsconfig.test.json --noEmit",
         test: "vitest run",
@@ -586,7 +587,7 @@ describe("workspace 检查链", () => {
     })
   })
 
-  it.each(["lint", "lint:fix", "check"])(
+  it.each(["lint", "lint:fix"])(
     "%s 对自动发现的文件执行工具，check 保留包的类型检查",
     async (task) => {
       const code = await runWorkspaceTask({ root, catalog, terminal, env: {} }, task, [
@@ -746,16 +747,16 @@ describe("workspace 检查链", () => {
     )
   })
 
-  it("包检查 warning 保留 0 退出码", async () => {
+  it("lint warning 保留 0 退出码", async () => {
     exec.mockResolvedValueOnce({
       ...success,
       stdout: "src/store.ts:888:29: warning @typescript-eslint/no-unused-vars: value",
       output: "src/store.ts:888:29: warning @typescript-eslint/no-unused-vars: value",
     })
     await expect(
-      runWorkspaceTask({ root, catalog, terminal, env: {} }, "check", ["core"])
+      runWorkspaceTask({ root, catalog, terminal, env: {} }, "lint", ["core"])
     ).resolves.toBe(0)
-    expect(exec).toHaveBeenCalledTimes(3)
+    expect(exec).toHaveBeenCalledTimes(1)
   })
 
   it("包检查失败保留退出码", async () => {

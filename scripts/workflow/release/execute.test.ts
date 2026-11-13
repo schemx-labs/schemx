@@ -18,20 +18,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { runRelease } from "../commands/release.ts"
 import { createContext } from "../core/context.ts"
+import { runQualityPlan } from "../quality/run.ts"
+import { resolveQualityScope } from "../quality/scope.ts"
 import { createTerminal } from "../ui/index.ts"
 
-import { assertPackageArtifacts } from "./adapters/artifacts.ts"
 import * as git from "./adapters/git.ts"
 import { createRelease } from "./adapters/github.ts"
 import { publishPackage, writePackageVersion } from "./adapters/npm.ts"
-import { verifyPlan } from "./operations.ts"
-import { readPlan } from "./plan.ts"
-import { createPlan } from "./planning.ts"
 import * as preflight from "./preflight.ts"
 import { readState, statePath } from "./state.ts"
 
 import type { Context } from "../core/context.ts"
 import type { RunResult } from "../core/exec.ts"
+
+vi.mock("../quality/run.ts", () => ({ runQualityPlan: vi.fn() }))
+vi.mock("../quality/scope.ts", () => ({
+  resolveQualityScope: vi.fn().mockResolvedValue({
+    sources: [],
+    checked: [],
+    builds: [],
+    dependencies: new Map(),
+    scripts: false,
+  }),
+}))
 
 vi.mock("./inputs.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./inputs.ts")>()),
@@ -53,13 +62,6 @@ vi.mock("./adapters/npm.ts", () => ({
   publishPackage: vi.fn(),
   writePackageVersion: vi.fn(),
   nextPrereleaseSequence: vi.fn().mockResolvedValue(0),
-}))
-
-vi.mock("./adapters/artifacts.ts", () => ({
-  assertPackageArtifacts: vi
-    .fn()
-    .mockResolvedValue({ code: 0, stdout: "", stderr: "", output: "" }),
-  packPackage: vi.fn(),
 }))
 
 vi.mock("./adapters/git.ts", () => ({
@@ -127,6 +129,7 @@ function retainedPlan(): string {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(runQualityPlan).mockReset().mockResolvedValue({ code: 0, tasks: [] })
   root = mkdtempSync(path.join(tmpdir(), "schemx-release-feedback-"))
   output = ""
   writePackage("core", "1.0.0")
@@ -339,7 +342,7 @@ describe("发布结果反馈", () => {
     expect(preflight.assertVersionAvailable).not.toHaveBeenCalled()
     expect(preflight.assertPrereleaseBaselineAvailable).not.toHaveBeenCalled()
     expect(preflight.assertDependencyAvailable).not.toHaveBeenCalled()
-    expect(assertPackageArtifacts).not.toHaveBeenCalled()
+    expect(runQualityPlan).not.toHaveBeenCalled()
     expect(publishPackage).not.toHaveBeenCalled()
     expect(writePackageVersion).not.toHaveBeenCalled()
     expect(git.createReleaseTag).not.toHaveBeenCalled()
@@ -355,9 +358,11 @@ describe("发布结果反馈", () => {
     vi.clearAllMocks()
 
     expect(await runRelease(context, ["execute", planFile])).toBe(0)
-    expect(assertPackageArtifacts).toHaveBeenCalledExactlyOnceWith(
-      "@schemx/element-plus",
-      expect.any(Function)
+    expect(runQualityPlan).toHaveBeenCalledOnce()
+    expect(resolveQualityScope).toHaveBeenLastCalledWith(
+      context.catalog,
+      root,
+      "@schemx/element-plus"
     )
     expect(publishPackage).toHaveBeenCalledOnce()
     expect(writePackageVersion).toHaveBeenCalledExactlyOnceWith(
@@ -367,34 +372,26 @@ describe("发布结果反馈", () => {
     )
   })
 
-  it("keep-going 保留质量失败，即使后续产物检查通过", async () => {
-    writeFileSync(
-      path.join(root, "packages", "element-plus", "package.json"),
-      JSON.stringify({
-        name: "@schemx/element-plus",
-        version: "0.0.1",
-        scripts: { lint: "lint", "type-check": "types", test: "tests", build: "build" },
-      })
+  it("发布凭据检查失败时不运行质量任务或发布写操作", async () => {
+    vi.mocked(preflight.assertNpmAuth).mockResolvedValueOnce("发布凭据失效")
+    expect(
+      await runRelease(context, ["publish", "beta", "element-plus", "0.0.1"])
+    ).not.toBe(0)
+    expect(runQualityPlan).not.toHaveBeenCalled()
+    expect(writePackageVersion).not.toHaveBeenCalled()
+    expect(publishPackage).not.toHaveBeenCalled()
+    expect(git.createReleaseTag).not.toHaveBeenCalled()
+    expect(createRelease).not.toHaveBeenCalled()
+  })
+  it.each([1, 130])("共享质量检查失败或取消时不写入版本和发布：%s", async (code) => {
+    vi.mocked(runQualityPlan).mockResolvedValueOnce({ code, tasks: [] })
+    expect(await runRelease(context, ["publish", "beta", "element-plus", "0.0.1"])).toBe(
+      code
     )
-
-    const planFile = path.join(root, "quality-plan.json")
-
-    await createPlan(context, "beta", "element-plus", "0.0.1", planFile)
-    vi.spyOn(context.terminal, "runCommand").mockImplementation(async ({ args }) => {
-      const result = args?.at(-1) === "lint" ? DENIED : SUCCESS
-
-      return {
-        exitCode: result.code,
-        signal: null,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        output: result.output,
-      }
-    })
-
-    expect(await verifyPlan(context, readPlan(planFile), planFile, true)).toBe(1)
-    expect(assertPackageArtifacts).toHaveBeenCalledOnce()
-    expect(output).toContain("质量与产物检查失败")
+    expect(writePackageVersion).not.toHaveBeenCalled()
+    expect(publishPackage).not.toHaveBeenCalled()
+    expect(git.createReleaseTag).not.toHaveBeenCalled()
+    expect(createRelease).not.toHaveBeenCalled()
   })
 
   it("全部步骤成功后才显示发布完成", async () => {

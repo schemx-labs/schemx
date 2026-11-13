@@ -187,11 +187,11 @@ pnpm --filter element-plus-demo dev
 | `pnpm type-check:tests`   | 检查所选目标中测试代码的类型。                                                        |
 | `pnpm type-check:scripts` | 检查项目脚本类型。                                                                    |
 | `pnpm test:scripts`       | 运行项目脚本测试。                                                                    |
-| `pnpm lint`               | 交互选择并执行 ESLint 检查。                                               |
-| `pnpm lint:fix`           | 交互选择并执行 ESLint 自动修复。                                           |
-| `pnpm format`             | 交互选择并执行 Prettier 格式化。                                                |
-| `pnpm format:check`       | 交互选择并执行 Prettier 格式检查。                                              |
-| `pnpm check`              | 执行所选目标的静态检查：ESLint、Prettier 格式和类型检查。                                 |
+| `pnpm lint`               | 交互选择并执行 ESLint 检查。                                                          |
+| `pnpm lint:fix`           | 交互选择并执行 ESLint 自动修复。                                                      |
+| `pnpm format`             | 交互选择并执行 Prettier 格式化。                                                      |
+| `pnpm format:check`       | 交互选择并执行 Prettier 格式检查。                                                    |
+| `pnpm check`              | 默认全仓检查 lint、格式、类型、测试、构建与产物；显式目标包含下游。                   |
 | `pnpm fix`                | 选择目标后依次执行 lint 自动修复与格式化；提交钩子使用 `--staged` 模式。              |
 | `pnpm pack-local`         | 交互选择可打包的 `packages` / `plugins` 目标并生成 tarball。                          |
 | `pnpm check:packages`     | 检查 workspace 包配置与构建产物 external 边界。                                       |
@@ -357,3 +357,13 @@ Skill 内部包含确定性脚本、发布策略、数据 Schema 与 Markdown �
 | `beta`   | 外部测试，功能基本完整        |
 | `rc`     | release candidate，候选正式版 |
 | `next`   | 下一版本预览                  |
+
+## 完整质量检查
+
+`pnpm check` 与 `pnpm check all` 等价，默认检查全仓，无需交互选择。检查覆盖实际源码目录的 ESLint/Prettier、源码和测试类型、单元测试、工作流脚本自检、按依赖顺序的构建、示例生产构建，以及发布包的 exports、声明、样式、依赖边界和实际打包文件。
+
+`pnpm check vue` 或 `pnpm check vue,vant` 自动覆盖递归下游及相关示例；只为准备构建加入的上游不会扩展完整检查范围。简称优先匹配 `packages` 下的包，示例可使用 `examples/vant` 等完整路径。`pnpm check scripts` 检查工作流本身。包目录内的 `pnpm check` 同样接入共享流程。
+
+默认失败即停止；`--keep-going` 继续独立任务，失败构建的消费者标记为前置失败，不使用旧产物判定通过。任务在单次调用内去重，不缓存跨命令成功结果。`lint`、`format:check`、`type-check`、`test` 保留为快速入口。完整检查会生成构建产物和缓存，耗时高于原静态检查。`build:only` 仅供已准备依赖的编排使用；独立构建继续使用 `build`。
+
+发布前检查复用同一质量流程，并额外检查工作区、分支、发布凭据、目标版本、依赖和远端标记。`check` 不需要发布凭据，不修改版本或发布；通过只表示当前范围通过本地质量门槛，发布时仍需验证可能变化的远端条件。
