@@ -174,9 +174,10 @@ export function createDependencyRendererEffect<TValues extends Values = Values>(
     },
     run: async (signal) => {
       // 每次任务读取节点上的最新 renderer，避免使用过期配置。
+      // values 使用同一轮共享的无依赖快照，renderer 不得修改该对象。
       return await Promise.resolve(
         node.compiledSchema.value.renderer(
-          formApi.getFieldsValue(),
+          formApi.getFieldsSnapshot(),
           createGuardedFormApi(formApi, signal),
           {
             abortSignal: signal,

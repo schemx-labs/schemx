@@ -184,7 +184,10 @@ export function createDependencySchedulerEffect<TValues extends Values, TResult>
 
     // 仅订阅明确声明的触发字段。
     const disposeSubscription = createSignalEffect(() => {
-      void formApi.getFieldsValue([...options.triggerFields])
+      // 逐路径读取只建立依赖；不构造部分值对象，避免按依赖数克隆触发值。
+      for (const field of options.triggerFields) {
+        void formApi.getFieldValue(field)
+      }
 
       if (!initialized) {
         initialized = true

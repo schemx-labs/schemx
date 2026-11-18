@@ -49,7 +49,9 @@ export async function resolveDependencyOverrides<
   schemaLabel: string
 ): Promise<TProps> {
   // 当前解析批次使用的完整表单值快照。
-  const values = formApi.getFieldsValue() as TValues
+  // 使用无依赖快照而非独立副本：同一轮值版本内所有依赖求值共享同一份深拷贝，
+  // 避免按依赖节点数重复克隆整棵值树；条件函数不得修改传入的 values。
+  const values = formApi.getFieldsSnapshot() as TValues
 
   // 将可扩展的依赖对象转换为按属性键读取的记录。
   const dependencyRecord = dependencies as DependencyResolverConfig<TValues> &

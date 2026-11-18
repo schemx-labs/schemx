@@ -38,6 +38,38 @@ type RuntimePath = string | number | readonly (string | number)[]
 export type FieldKey = string & { readonly __fieldKey: unique symbol }
 
 /**
+ * 字符串路径解析结果的最大缓存条目数。
+ *
+ * 达到上限后整体清空，避免长时间运行下按动态路径无限增长。
+ */
+const MAX_PATH_CACHE_ENTRIES = 4096
+
+// 字符串路径到规范化路径段的缓存；数组路径保留调用方，不进入缓存。
+const segmentCache = new Map<string, readonly string[]>()
+
+// 字符串路径到字段身份 key 的缓存，直接复用已解析的路径段。
+const fieldKeyCache = new Map<string, FieldKey>()
+
+/**
+ * 写入有界缓存，超出上限时先清空再写入。
+ *
+ * @param cache - 目标缓存。
+ * @param key - 缓存键。
+ * @param value - 缓存值。
+ */
+function writeCache<TCacheKey, TValue>(
+  cache: Map<TCacheKey, TValue>,
+  key: TCacheKey,
+  value: TValue
+): void {
+  if (cache.size >= MAX_PATH_CACHE_ENTRIES) {
+    cache.clear()
+  }
+
+  cache.set(key, value)
+}
+
+/**
  * 判断两组字段路径是否按顺序完全一致。
  *
  * @param previous - 上一组字段路径。
@@ -247,9 +279,24 @@ export function normalizeNamePath<
 export function toNamePathSegments<TValues extends Values = Values>(
   path: NamePath<TValues>
 ): readonly string[] {
-  const segments = Array.isArray(path) ? path : toPath(String(path))
+  if (Array.isArray(path)) {
+    return path.map((part) => String(part))
+  }
 
-  return segments.map((part) => String(part))
+  const source = String(path)
+
+  const cached = segmentCache.get(source)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
+  // 字符串路径解析是最频繁的字符串处理；结果只读，可安全共享。
+  const segments = Object.freeze(toPath(source).map((part) => String(part)))
+
+  writeCache(segmentCache, source, segments)
+
+  return segments
 }
 
 /**
@@ -534,7 +581,23 @@ export function areOverlappingFieldPaths<TValues extends Values>(
 export function createFieldKey<TValues extends Values = Values>(
   path: NamePath<TValues>
 ): FieldKey {
-  return JSON.stringify(toNamePathSegments(path)) as FieldKey
+  if (Array.isArray(path)) {
+    return JSON.stringify(toNamePathSegments(path)) as FieldKey
+  }
+
+  const source = String(path)
+
+  const cached = fieldKeyCache.get(source)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const fieldKey = JSON.stringify(toNamePathSegments(source)) as FieldKey
+
+  writeCache(fieldKeyCache, source, fieldKey)
+
+  return fieldKey
 }
 
 /**

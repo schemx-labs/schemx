@@ -17,11 +17,9 @@ import {
 } from "../reactivity"
 import {
   areNamePathListsEqual,
-  areSameOrOverlappingFieldPaths,
   createFieldKey,
   deleteInWithStructuralSharing,
   getByPath,
-  isDescendantFieldPath,
   isFieldArrayDescendantAffected,
   isFieldArrayDescendantOutOfRange,
   setInWithStructuralSharing,
@@ -57,6 +55,8 @@ export interface FieldSignalMapOptions<TValues extends Values> {
 interface FieldSignals<TValues extends Values> {
   // 首次创建状态时使用的路径写法。
   readonly path: NamePath<TValues>
+  // 路径段只在创建时解析一次，供批量通知的前缀比较复用。
+  readonly segments: readonly string[]
   // 当前值变更版本。
   readonly valueRevision: Signal<number>
   // 只读状态附着在现有记录上，按首次访问创建。
@@ -297,6 +297,51 @@ function areMessagesEqual(previous: readonly string[], next: readonly string[]):
   )
 }
 
+/**
+ * 判断一组路径段是否等于另一组路径段的前缀。
+ *
+ * @param prefix - 候选前缀路径段。
+ * @param segments - 被比较的完整路径段。
+ * @returns 前缀完全一致时返回 `true`。
+ */
+function isSegmentPrefix(
+  prefix: readonly string[],
+  segments: readonly string[]
+): boolean {
+  if (prefix.length > segments.length) return false
+
+  for (let index = 0; index < prefix.length; index += 1) {
+    if (prefix[index] !== segments[index]) return false
+  }
+
+  return true
+}
+
+/**
+ * 判断两组路径是否相同或存在父子关系。
+ *
+ * 语义与 `areSameOrOverlappingFieldPaths` 一致，但复用已缓存的路径段，
+ * 避免每次通知重复解析字符串路径。
+ *
+ * @param segments - 第一组路径段。
+ * @param other - 第二组路径段。
+ * @returns 相同或互为父子路径时返回 `true`。
+ */
+function sharesPath(segments: readonly string[], other: readonly string[]): boolean {
+  return isSegmentPrefix(segments, other) || isSegmentPrefix(other, segments)
+}
+
+/**
+ * 判断两组路径段是否完全一致。
+ *
+ * @param segments - 第一组路径段。
+ * @param other - 第二组路径段。
+ * @returns 段数与每段内容都一致时返回 `true`。
+ */
+function sameSegments(segments: readonly string[], other: readonly string[]): boolean {
+  return segments.length === other.length && isSegmentPrefix(segments, other)
+}
+
 // Store 专用字段路径和值状态容器实现。
 class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValues> {
   // 当前表单值的值。
@@ -500,6 +545,8 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     arrayPath: NamePath<TValues>,
     change: FieldArrayChange
   ): void {
+    const arraySegments = toNamePathSegments(arrayPath)
+
     batchUpdates(() => {
       for (const state of this.states.values()) {
         const errors = state.errors
@@ -510,7 +557,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
         let next = current
 
-        if (createFieldKey(state.path) === createFieldKey(arrayPath)) {
+        if (sameSegments(state.segments, arraySegments)) {
           next =
             change.ranges.length > 0 || change.resetKeys === true
               ? current.filter((error) => error.type === "configuration")
@@ -624,11 +671,10 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
   // 清理指定路径及后代的临时交互状态。
   clearFieldTransientState(path: NamePath<TValues>): void {
+    const targetSegments = toNamePathSegments(path)
+
     for (const state of this.states.values()) {
-      if (
-        createFieldKey(state.path) === createFieldKey(path) ||
-        isDescendantFieldPath(state.path, path)
-      ) {
+      if (isSegmentPrefix(targetSegments, state.segments)) {
         this.clearState(state)
       }
     }
@@ -707,6 +753,7 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
 
     const state: FieldSignals<TValues> = {
       path,
+      segments: toNamePathSegments(path),
       valueRevision,
       initialRevision: createSignal(0),
       touched: createSignal(false),
@@ -772,8 +819,10 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    * @param path - 已发生当前值变化的路径。
    */
   private notifyValueChanged(path: NamePath<TValues>): void {
+    const changedSegments = toNamePathSegments(path)
+
     for (const state of this.states.values()) {
-      if (areSameOrOverlappingFieldPaths(state.path, path)) {
+      if (sharesPath(state.segments, changedSegments)) {
         state.valueRevision.value += 1
       }
     }
@@ -785,8 +834,10 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
    * @param path - 已发生初始值变化的路径。
    */
   private notifyInitialChanged(path: NamePath<TValues>): void {
+    const changedSegments = toNamePathSegments(path)
+
     for (const state of this.states.values()) {
-      if (areSameOrOverlappingFieldPaths(state.path, path)) {
+      if (sharesPath(state.segments, changedSegments)) {
         state.initialRevision.value += 1
       }
     }
@@ -805,27 +856,24 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     const arraySegments = toNamePathSegments(arrayPath)
 
     for (const state of this.states.values()) {
-      if (
-        createFieldKey(state.path) === createFieldKey(arrayPath) ||
-        isDescendantFieldPath(arrayPath, state.path)
-      ) {
+      const fieldSegments = state.segments
+
+      // 数组根自身及其祖先读取到的引用都会变化。
+      if (isSegmentPrefix(fieldSegments, arraySegments)) {
         state.valueRevision.value += 1
         continue
       }
 
-      const fieldSegments = toNamePathSegments(state.path)
-
       if (fieldSegments.length <= arraySegments.length) continue
 
-      const isDescendant = arraySegments.every(
-        (segment, index) => fieldSegments[index] === segment
-      )
+      if (!isSegmentPrefix(arraySegments, fieldSegments)) continue
 
-      if (!isDescendant || !/^\d+$/.test(fieldSegments[arraySegments.length])) {
-        continue
-      }
+      const indexSegment = fieldSegments[arraySegments.length]
 
-      const index = Number(fieldSegments[arraySegments.length])
+      // 只有紧邻数组根的索引段才对应行位置。
+      if (indexSegment === undefined || !/^\d+$/.test(indexSegment)) continue
+
+      const index = Number(indexSegment)
 
       const affected = change.ranges.some(
         (range) => index >= range.start && index <= range.end
@@ -850,24 +898,20 @@ class FieldSignalMapImpl<TValues extends Values> implements FieldSignalMap<TValu
     const shouldClearRoot = change.ranges.length > 0 || change.resetKeys === true
 
     for (const state of this.states.values()) {
-      const fieldSegments = toNamePathSegments(state.path)
+      const fieldSegments = state.segments
 
-      if (createFieldKey(state.path) === createFieldKey(arrayPath)) {
+      if (sameSegments(fieldSegments, arraySegments)) {
         if (shouldClearRoot) this.clearState(state)
         continue
       }
 
       if (fieldSegments.length <= arraySegments.length) continue
 
-      const isDescendant = arraySegments.every(
-        (segment, index) => fieldSegments[index] === segment
-      )
-
-      if (!isDescendant) continue
+      if (!isSegmentPrefix(arraySegments, fieldSegments)) continue
 
       const indexSegment = fieldSegments[arraySegments.length]
 
-      if (!/^\d+$/.test(indexSegment)) continue
+      if (indexSegment === undefined || !/^\d+$/.test(indexSegment)) continue
 
       const index = Number(indexSegment)
 
