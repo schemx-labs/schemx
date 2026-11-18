@@ -8,7 +8,6 @@
 
 import type {
   SchemxBase,
-  SchemxInstance,
   SchemxRendererDefinition,
   SchemxRendererKey,
   Values,
@@ -48,10 +47,6 @@ export interface SchemxCoreBaseComponentProps<TValues extends Values = Values> {
    * Field 组件的展示 Props；schema 属性名保留 `formItemProps`。
    */
   formItemProps?: SchemxFormItemProps<TValues>
-  /**
-   * Form 表单实例方法
-   */
-  formInstance?: SchemxInstance<TValues>
 }
 
 /**
@@ -91,13 +86,13 @@ export type SchemxComponentProps<
 /**
  * 按 Renderer 类型配置的静态默认 Props。
  *
- * 渲染阶段注入的 value、事件、formInstance 和 formItemProps 不属于默认 Props。
+ * 渲染阶段注入的 value、事件和 formItemProps 不属于默认 Props。
  */
 export type SchemxRendererPropsMap<TValues extends Values = Values> = Partial<{
   [TKey in SchemxRendererKey<TValues>]: Partial<
     Omit<
       SchemxComponentProps<TValues, TKey>,
-      "value" | "onUpdate:value" | "formInstance" | "formItemProps"
+      "value" | "onUpdate:value" | "formItemProps"
     >
   >
 }>

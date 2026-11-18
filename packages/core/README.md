@@ -103,7 +103,7 @@ const form = createForm({
 
 调度器只保留 `normal`、`post` 两阶段。移除 `idleTimeout`，`schedulerOptions` 只接受 `timeSliceMs` 和 `collectDiagnostics`。内部等待统一为 `whenIdle(timeout?)`，不再导出 `SchedulerIdleOptions`、`SchedulerTrackOptions` 或支持 `includeIdle`；`waitForDependencies(timeout?)` 继续等待所有队列和被跟踪的异步工作。
 
-ViewSchema 在节点投影阶段一次生成最终 Props，包括稳定的 `componentProps.formInstance`。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。Compiler 的配置编译保持与 Form 实例独立。
+ViewSchema 在节点投影阶段一次生成最终 Props，只包含纯数据，不携带表单实例。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。需要调用表单 API 时，由框架层通过自身上下文提供实例（Vue 见 `useFormContextValue()`）。Compiler 的配置编译保持与 Form 实例独立。
 
 ## 框架适配：直接消费 Core 原生状态
 
@@ -296,12 +296,14 @@ const accountFields: SchemxField<AccountValues> = {
 
 动态依赖字段专有参数：
 
-| 参数                                | 说明                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `to`                                | 要监听的字段路径数组；这些字段变化时会重新执行 `renderer`。                   |
-| `renderer`                          | 接收 `(values, form, context)` 并返回 Schema 数组的函数；支持返回 `Promise`。 |
-| `visible` / `readonly` / `disabled` | 动态子树的容器状态；隐藏不停止 `renderer` 对 `to` 的响应。                    |
-| `dependencies`                      | 基于表单值动态覆盖动态子树的容器状态。                                        |
+| 参数                                | 说明                                                                                                                       |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `to`                                | 要监听的字段路径数组；这些字段变化时会重新执行 `renderer`。                                                                |
+| `renderer`                          | 接收 `(values, form, context)` 并返回 Schema 数组的函数；支持返回 `Promise`。`values` 是当前轮次共享的只读快照，请勿修改。 |
+| `visible` / `readonly` / `disabled` | 动态子树的容器状态；隐藏不停止 `renderer` 对 `to` 的响应。                                                                 |
+| `dependencies`                      | 基于表单值动态覆盖动态子树的容器状态。                                                                                     |
+
+`renderer` 与 `dependencies` 条件函数拿到的 `values` 是同一值版本内共享的只读快照：Core 只在该轮值实际变化时复制一次整棵值树，并在同一轮的所有依赖求值中复用，因此不要在回调内修改 `values`。需要携带修改时通过第二个参数中的 Form 方法写入。
 
 ### 动态数组字段
 

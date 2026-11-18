@@ -61,7 +61,6 @@ describe("CheckboxRenderer", () => {
         readonlyPlaceholder: "-",
         onChange: vi.fn(),
         formItemProps: { name: "hobbies" } as any,
-        formInstance: {} as any,
       },
     })
 
@@ -70,7 +69,6 @@ describe("CheckboxRenderer", () => {
     expect(checkboxGroupAttrs).not.toHaveProperty("readonlyPlaceholder")
     expect(checkboxGroupAttrs).not.toHaveProperty("onChange")
     expect(checkboxGroupAttrs).not.toHaveProperty("formItemProps")
-    expect(checkboxGroupAttrs).not.toHaveProperty("formInstance")
 
     wrapper.unmount()
   })

@@ -167,7 +167,6 @@
       contentAlign: _contentAlign,
       popupProps: popupPropsConfig,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ..._rest
     } = props
 

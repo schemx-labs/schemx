@@ -50,7 +50,6 @@ describe("SwitchRenderer", () => {
         activeColor: "#07c160",
         readonlyPlaceholder: "-",
         formItemProps: { name: "enabled" } as any,
-        formInstance: {} as any,
       },
     })
 

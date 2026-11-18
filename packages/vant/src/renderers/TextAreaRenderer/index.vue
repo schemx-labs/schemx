@@ -99,7 +99,7 @@
   })
 
   const inputProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -112,7 +112,6 @@
       autoSize: _autoSize,
       showWordLimit: _showWordLimit,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 

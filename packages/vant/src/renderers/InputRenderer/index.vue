@@ -91,13 +91,12 @@
   ) as any
 
   const inputProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
       className: _className,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 

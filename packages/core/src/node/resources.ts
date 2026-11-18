@@ -77,7 +77,7 @@ export function mountNodeResources<TValues extends Values>(
   }
 
   mountDomainResources(node, context, childReconciler)
-  attachNodeViewSchemas(node, context.getInstance, context.debug)
+  attachNodeViewSchemas(node, context.debug)
 }
 
 /**

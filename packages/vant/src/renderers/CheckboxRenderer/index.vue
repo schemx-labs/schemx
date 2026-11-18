@@ -93,7 +93,7 @@
   })
 
   const checkProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -105,7 +105,6 @@
       readonlyPlaceholder: _readonlyPlaceholder,
       placeholder: _placeholder,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -117,7 +116,6 @@
       readonlyPlaceholder: _attrsReadonlyPlaceholder,
       placeholder: _attrsPlaceholder,
       formItemProps: _attrsFormItemProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

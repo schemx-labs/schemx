@@ -1276,11 +1276,9 @@ describe("渲染器注册中心下沉 单元测试", () => {
     try {
       expect(form.getViewSchemas()).toBe(schemas)
       expect(onViewChange.mock.calls.at(-1)?.[0]).toBe(schemas)
-      expect(schemas).toMatchObject([
-        { componentProps: { formInstance: form } },
-        { children: [{ componentProps: { formInstance: form } }] },
-        { items: [{ children: [{ componentProps: { formInstance: form } }] }] },
-      ])
+      // 投影保持纯数据：可安全序列化，且任何层级都不携带表单实例。
+      expect(() => JSON.stringify(schemas)).not.toThrow()
+      expect(JSON.stringify(schemas)).not.toContain("formInstance")
 
       form.updateSchemaConfig({ disabled: true })
       expect(form.getViewSchemas()).not.toBe(schemas)

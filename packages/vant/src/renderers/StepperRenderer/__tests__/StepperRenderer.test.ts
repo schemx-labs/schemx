@@ -58,7 +58,6 @@ describe("StepperRenderer", () => {
         readonlyPlaceholder: "-",
         onChange: vi.fn(),
         formItemProps: { name: "count" } as any,
-        formInstance: {} as any,
       },
     })
 
@@ -68,7 +67,6 @@ describe("StepperRenderer", () => {
     expect(stepperAttrs).not.toHaveProperty("readonlyPlaceholder")
     expect(stepperAttrs).not.toHaveProperty("onChange")
     expect(stepperAttrs).not.toHaveProperty("formItemProps")
-    expect(stepperAttrs).not.toHaveProperty("formInstance")
 
     wrapper.unmount()
   })

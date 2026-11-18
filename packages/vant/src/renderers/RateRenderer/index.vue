@@ -76,7 +76,7 @@
   })
 
   const rateProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -85,7 +85,6 @@
       readonlyPlaceholder: _readonlyPlaceholder,
       placeholder: _placeholder,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -97,7 +96,6 @@
       placeholder: _attrsPlaceholder,
       align: _attrsAlign,
       formItemProps: _attrsFormItemProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

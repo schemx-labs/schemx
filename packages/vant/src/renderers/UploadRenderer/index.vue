@@ -362,7 +362,6 @@
       previewFullImage: _previewFullImage,
       previewOptions: _previewOptions,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -389,7 +388,6 @@
       onClosePreview: _attrsOnClosePreview,
       onDelete: _attrsOnDelete,
       formItemProps: _attrsFormItemProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

@@ -484,7 +484,6 @@ function resolveComponentProps<TValues extends Values>(
   return {
     ...mergedProps,
     ...resolvedStateProps,
-    formInstance: compiledProps?.formInstance,
     formItemProps: {
       ...compiledProps?.formItemProps,
       ...resolvedStateProps,

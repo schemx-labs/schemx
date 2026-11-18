@@ -568,12 +568,9 @@ describe("resolvedSchema 合并逻辑 (US1)", () => {
   })
 
   it("动态覆盖 componentProps 应覆盖静态 componentProps", () => {
-    const formInstance = { id: "form" }
-
     const schema = createTestSchema({
       componentProps: {
         size: "small",
-        formInstance,
         formItemProps: {
           name: "email",
           label: "邮箱",
@@ -597,7 +594,6 @@ describe("resolvedSchema 合并逻辑 (US1)", () => {
       {
         componentProps: {
           size: "large",
-          formInstance: { id: "dynamic" },
           formItemProps: { name: "dynamic" },
         } as any,
       },
@@ -609,7 +605,6 @@ describe("resolvedSchema 合并逻辑 (US1)", () => {
 
     expect(state.resolvedSchema.value.componentProps).toMatchObject({
       size: "large",
-      formInstance,
       disabled: false,
       readonly: false,
       placeholder: "请输入",

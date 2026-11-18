@@ -15,7 +15,7 @@ import { isViewGroupSchema } from "../view"
 import type { Values } from "../types"
 
 describe("Form 的完整装配与资源清理", () => {
-  it("字段 initialValue 同时写入当前值和重置基线，公开视图绑定稳定实例", () => {
+  it("字段 initialValue 同时写入当前值和重置基线，公开视图不携带表单实例", () => {
     // 通过公开创建入口完成装配的表单。
     const form = createForm({
       schemas: [
@@ -26,7 +26,7 @@ describe("Form 的完整装配与资源清理", () => {
     try {
       expect(form.getFieldValue("name")).toBe("Alice")
       expect(form.getInitialValue("name")).toBe("Alice")
-      expect(form.getViewSchemas()[0]).toHaveProperty("componentProps.formInstance", form)
+      expect(form.getViewSchemas()[0]).not.toHaveProperty("componentProps.formInstance")
     } finally {
       form.destroy()
     }
@@ -351,7 +351,7 @@ describe("Form 的完整装配与资源清理", () => {
         throw new Error("Group 视图未创建")
       }
 
-      expect(group.children[1]).toHaveProperty("componentProps.formInstance", form)
+      expect(group.children[1]).not.toHaveProperty("componentProps.formInstance")
       form.setSchemas([
         {
           key: "group",

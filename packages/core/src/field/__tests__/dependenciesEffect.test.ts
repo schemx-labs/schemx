@@ -89,7 +89,7 @@ describe("dependenciesEffect 写入 dependencyOverrides (US2)", () => {
             },
           } as never,
           ["visible"],
-          { getFieldsValue: () => ({}) } as any,
+          { getFieldsSnapshot: () => ({}), getFieldsValue: () => ({}) } as any,
           '字段 "province"'
         )
       ).resolves.toEqual({})
@@ -359,6 +359,9 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
     const node = createDependenciesNode(schema)
 
     const formApi = {
+      getFieldValue: (field: unknown) =>
+        (values.value as Record<string, unknown>)[String(field)],
+      getFieldsSnapshot: () => values.peek(),
       getFieldsValue: vi.fn((paths?: readonly unknown[]) => {
         const current = values.value
 
@@ -441,6 +444,9 @@ describe("createDependenciesEffect 写入 runtimeSignals (US2)", () => {
       .mockReturnValueOnce(slowVisible.promise)
       .mockResolvedValueOnce(true) as any
     const formApi = {
+      getFieldValue: (field: unknown) =>
+        (values.value as Record<string, unknown>)[String(field)],
+      getFieldsSnapshot: () => values.peek(),
       getFieldsValue: vi.fn((paths?: readonly unknown[]) => {
         const current = values.value
 

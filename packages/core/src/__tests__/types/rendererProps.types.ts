@@ -76,13 +76,6 @@ const invalidValueUpdate: SchemxRendererPropsMap = {
   },
 }
 
-const invalidFormInstance: SchemxRendererPropsMap = {
-  custom: {
-    // @ts-expect-error formInstance 由公开视图层注入，不能配置为 Renderer 默认值。
-    formInstance: undefined,
-  },
-}
-
 const invalidFormItemProps: SchemxRendererPropsMap = {
   custom: {
     // @ts-expect-error formItemProps 由 Runtime 注入，不能配置为 Renderer 默认值。
@@ -93,7 +86,6 @@ const invalidFormItemProps: SchemxRendererPropsMap = {
 void config
 void invalidValue
 void invalidValueUpdate
-void invalidFormInstance
 void invalidFormItemProps
 void extendedConfig
 void invalidExtendedConfig

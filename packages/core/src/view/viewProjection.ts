@@ -17,7 +17,7 @@ import type {
   SchemxViewGroupSchema,
   SchemxViewSchema,
 } from "./index"
-import type { SchemxInstance, Values } from "../types"
+import type { Values } from "../types"
 
 /**
  * 为 root 创建并注册 ViewSchema computed。
@@ -39,14 +39,12 @@ export function attachRootViewSchemas<TValues extends Values = Values>(
  * 根据节点类型（field / group / dependency / dynamic）分别构建对应的 view computed。
  *
  * @param node - 待创建视图状态的运行时节点。
- * @param getInstance - 读取已完成装配的稳定公开 Form 实例。
  * @param debug - 是否在 ViewSchema 中附加调试元数据。
  * @throws 当传入不支持的 schema Node 类型时抛出错误。
- * @example attachNodeViewSchemas(node, () => form, false)
+ * @example attachNodeViewSchemas(node, false)
  */
 export function attachNodeViewSchemas<TValues extends Values = Values>(
   node: SchemaNode<TValues>,
-  getInstance: () => SchemxInstance<TValues>,
   debug = false
 ): void {
   if (isFieldNode(node)) {
@@ -70,15 +68,11 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
             }
           : {}
 
-      // 展开联合类型会丢失 componentType/Props 关联；投影只补充同一 Form 实例。
+      // 投影只输出纯数据：表单实例由框架层通过自身上下文提供，不进入 Renderer Props。
       return [
         {
           ...viewBaseSchema,
           ...resolvedSchema,
-          componentProps: {
-            ...resolvedSchema.componentProps,
-            formInstance: getInstance(),
-          },
           nodeId: node.id,
           ...(debug
             ? {

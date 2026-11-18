@@ -12,7 +12,6 @@ const INTERNAL_RENDERER_PROPS = new Set([
   "onBlur",
   "onFocus",
   "onUpdate:value",
-  "formInstance",
   "formItemProps",
   "className",
   "readonlyPlaceholder",

@@ -100,7 +100,7 @@
 
   // 剔除 Schemx 契约字段，避免内部事件和表单元信息透传给 Vant 组件。
   const calendarProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -119,7 +119,6 @@
       formItemProps: _formItemProps,
       minDate = minSelectableDate,
       maxDate = maxSelectableDate,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -138,7 +137,6 @@
       disabled: _attrsDisabled,
       placeholder: _attrsPlaceholder,
       formItemProps: _attrsFormItemProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

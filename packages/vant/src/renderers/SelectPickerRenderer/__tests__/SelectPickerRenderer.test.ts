@@ -171,7 +171,6 @@ describe("SelectPickerRenderer", () => {
           show: false,
         } as any,
         formItemProps: { name: "tags" } as any,
-        formInstance: {} as any,
       },
     })
 
@@ -179,7 +178,6 @@ describe("SelectPickerRenderer", () => {
 
     expect(popupAttrs).not.toHaveProperty("show")
     expect(popupAttrs).not.toHaveProperty("formItemProps")
-    expect(popupAttrs).not.toHaveProperty("formInstance")
     expect(wrapper.findComponent({ name: "Popup" }).props("zIndex")).toBe(3000)
     expect(checkboxAttrs).not.toHaveProperty("label")
     expect(checkboxAttrs).not.toHaveProperty("value")

@@ -101,7 +101,7 @@
   const title = computed(() => props.title ?? placeholder.value)
 
   const cascaderProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -120,7 +120,6 @@
       formItemProps: _formItemProps,
       popupProps: _popupProps,
       title: _title,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -140,7 +139,6 @@
       disabled: _attrsDisabled,
       formItemProps: _attrsFormItemProps,
       popupProps: _attrsPopupProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

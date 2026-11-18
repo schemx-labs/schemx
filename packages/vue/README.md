@@ -855,7 +855,7 @@ Renderer 是从 Registry 取出的普通 Vue 组件。Core 先将状态、占位
 | `placeholder`           | 当前 ViewSchema 的占位文本，覆盖 `componentProps.placeholder`                                                                             |
 | `formItemProps`         | Core 规范化后的字段配置，包含当前状态                                                                                                     |
 
-其他组件专属 Props（例如 `options`）继续透传；`readonlyPlaceholder` 由 Core 合并默认值。Core 提供的 `formInstance` 指向当前表单实例；Vue `Field` 保留该实例和已解析的 `formItemProps`。
+其他组件专属 Props（例如 `options`）继续透传；`readonlyPlaceholder` 由 Core 合并默认值。Core 不再向 Props 注入表单实例；Renderer 需要调用表单 API 时，用 `useFormContextValue().form` 读取当前实例，`formItemProps` 仍由 Vue `Field` 保留。
 
 当前也不会向普通 Renderer 自动注入 `fieldName`、字段校验 `error` / `errors` 或 `loading`。Renderer 如需当前字段路径或响应式状态，可调用 `useFieldContext()`；`WithRemoteOptions` 会自动使用该 Context 的字段路径处理 `resetOnDepsChange`，但不会把内部路径透传给被包装 Renderer。详见下一节。
 
@@ -1514,4 +1514,4 @@ Vue 根入口的表单命名别名为 `schemxForm`；`SchemxForm` 可用作默�
 
 ### Core Runtime 接口迁移
 
-`lifecycleHooks` 透传 Core 的只读 `NodeSnapshot`：字段路径从 `snapshot.name` 读取，配置从 `snapshot.compiledSchema` 读取，不再提供 Signal、Scope 或内部节点。`updated` 接收新旧两个快照。`schedulerOptions` 移除 `idleTimeout`，保留 `timeSliceMs` 和 `collectDiagnostics`；等待依赖会覆盖全部 normal/post 队列与异步工作。ViewSchema 已包含最终的 `componentProps.formInstance`，框架桥接继续消费同一投影。
+`lifecycleHooks` 透传 Core 的只读 `NodeSnapshot`：字段路径从 `snapshot.name` 读取，配置从 `snapshot.compiledSchema` 读取，不再提供 Signal、Scope 或内部节点。`updated` 接收新旧两个快照。`schedulerOptions` 移除 `idleTimeout`，保留 `timeSliceMs` 和 `collectDiagnostics`；等待依赖会覆盖全部 normal/post 队列与异步工作。ViewSchema 只包含纯数据，不再携带表单实例，框架桥接继续消费同一投影。

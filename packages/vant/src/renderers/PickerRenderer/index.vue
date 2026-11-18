@@ -100,7 +100,7 @@
   const title = computed(() => props.title || placeholder.value)
 
   const pickerProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -124,7 +124,6 @@
       formItemProps: _formItemProps,
       popupProps: _popupProps,
       title: _title,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 
@@ -149,7 +148,6 @@
       contentAlign: _attrsContentAlign,
       formItemProps: _attrsFormItemProps,
       popupProps: _attrsPopupProps,
-      formInstance: _attrsFormInstance,
       ...attrsRest
     } = attrs
 

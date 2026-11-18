@@ -58,7 +58,6 @@ describe("SliderRenderer", () => {
         readonlyPlaceholder: "-",
         onChange: vi.fn(),
         formItemProps: { name: "volume" } as any,
-        formInstance: {} as any,
       },
     })
 
@@ -68,7 +67,6 @@ describe("SliderRenderer", () => {
     expect(sliderAttrs).not.toHaveProperty("readonlyPlaceholder")
     expect(sliderAttrs).not.toHaveProperty("onChange")
     expect(sliderAttrs).not.toHaveProperty("formItemProps")
-    expect(sliderAttrs).not.toHaveProperty("formInstance")
 
     wrapper.unmount()
   })

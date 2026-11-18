@@ -58,7 +58,6 @@ describe("RadioRenderer", () => {
         readonlyPlaceholder: "-",
         onChange: vi.fn(),
         formItemProps: { name: "gender" } as any,
-        formInstance: {} as any,
       },
     })
 
@@ -67,7 +66,6 @@ describe("RadioRenderer", () => {
     expect(radioGroupAttrs).not.toHaveProperty("readonlyPlaceholder")
     expect(radioGroupAttrs).not.toHaveProperty("onChange")
     expect(radioGroupAttrs).not.toHaveProperty("formItemProps")
-    expect(radioGroupAttrs).not.toHaveProperty("formInstance")
 
     wrapper.unmount()
   })

@@ -57,7 +57,6 @@ describe("RateRenderer", () => {
         color: "#ee0a24",
         readonlyPlaceholder: "-",
         formItemProps: { name: "score" } as any,
-        formInstance: {} as any,
       },
     })
 

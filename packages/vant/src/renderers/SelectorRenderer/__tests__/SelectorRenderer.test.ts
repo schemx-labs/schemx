@@ -29,7 +29,6 @@ describe("SelectorRenderer", () => {
         fieldNames: { label: "label", value: "value" },
         readonlyPlaceholder: "-",
         formItemProps: { name: "education" } as any,
-        formInstance: {} as any,
       },
     })
 

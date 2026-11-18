@@ -76,7 +76,7 @@
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
 
   const numberProps = computed(() => {
-    const rendererProps = props as typeof props & { formInstance?: unknown }
+    const rendererProps = props
 
     const {
       value: _value,
@@ -85,7 +85,6 @@
       onFocus: _onFocus,
       className: _className,
       formItemProps: _formItemProps,
-      formInstance: _formInstance,
       ...rest
     } = rendererProps
 

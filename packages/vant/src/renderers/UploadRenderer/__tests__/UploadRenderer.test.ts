@@ -104,7 +104,6 @@ describe("UploadRenderer", () => {
         maxCount: 3,
         readonlyPlaceholder: "-",
         formItemProps: { name: "files" } as any,
-        formInstance: {} as any,
       },
     })
 
