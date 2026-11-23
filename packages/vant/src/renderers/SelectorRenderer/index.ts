@@ -3,11 +3,9 @@
  *
  * @module renderers/SelectorRenderer
  */
-import { WithRemoteOptions } from "@schemx/vue"
-
 import SelectorRendererComponent from "./index.vue"
 
-export default WithRemoteOptions(SelectorRendererComponent)
+export default SelectorRendererComponent
 export type {
   SelectorOption,
   SelectorProps,

@@ -1,11 +1,9 @@
 /**
  * @module renderers/SelectPickerRenderer
  */
-import { WithRemoteOptions } from "@schemx/vue"
-
 import SelectPickerRendererComponent from "./index.vue"
 
-export default WithRemoteOptions(SelectPickerRendererComponent)
+export default SelectPickerRendererComponent
 
 export type {
   SelectPickerFieldNames,

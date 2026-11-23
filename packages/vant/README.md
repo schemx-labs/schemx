@@ -200,7 +200,7 @@ Dynamic 容器的 `visible`、`readonly`、`disabled` 和 `dependencies` 会递�
 
 ## Renderer 总览
 
-下表按 `DEFAULT_RENDERER_TYPES` 的顺序列出内置 Renderer。「完整支持」表示可在 Schema 的 `componentProps.dict` 中配置远程选项。
+下表按 `DEFAULT_RENDERER_TYPES` 的顺序列出内置 Renderer。「完整支持」表示可在 Schema 字段顶层的 `dict` 中配置远程选项。
 
 | `componentType`  | 导出组件                 | Value 类型            | Option 类型                           | Dictionary | 主要 Vant 组件                                       |
 | ---------------- | ------------------------ | --------------------- | ------------------------------------- | ---------- | ---------------------------------------------------- |
@@ -227,79 +227,32 @@ Dynamic 容器的 `visible`、`readonly`、`disabled` 和 `dependencies` 会递�
 
 ## Dictionary
 
-### 支持范围与优先级
-
-`radio`、`checkbox`、`picker`、`selectPicker`、`selector`、`cascader` 在类型与运行时都支持 `dict`。`WithRemoteOptions` 在存在 `dict` 时调用 `useDictionary`，把结果注入为 `options`，并注入 `loading`；此时远程结果替代静态 `options`。没有 `dict` 时直接使用传入的静态 `options`。
-
-`cascader` 的根导出通过 `WithRemoteOptions` 包装，静态 `options` 和 Dictionary 产生的远程选项都会传给 Vant `<Cascader>`，也会用于展示标签路径映射。其 Schema 类型同样注入了 `SchemxWithDictionary`，因此可以像其他支持 Dictionary 的选择 Renderer 一样配置 `dict`。
-
-### `SchemxDictionary` 字段
-
-| 字段                | 类型                                             | 默认值   | 说明                                                                                                 |
-| ------------------- | ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------- |
-| `api`               | `(values, form, signal?) => R \| Promise<R>`     | 必填     | 获取原始数据；接收当前表单值、实例和可选的 `AbortSignal`。                                           |
-| `formatter`         | `(res, form) => TOption[] \| Promise<TOption[]>` | —        | 把 API 响应转换为 Renderer 所需的选项数组。                                                          |
-| `dependsOn`         | `NamePath[]`                                     | —        | 依赖字段变化后重新加载。                                                                             |
-| `shouldFetch`       | `(values) => boolean`                            | 始终执行 | 返回 `false` 时跳过请求并清空选项。                                                                  |
-| `immediate`         | `boolean`                                        | `true`   | 是否在挂载后立即加载。                                                                               |
-| `resetOnDepsChange` | `boolean`                                        | `false`  | 依赖变化时清空当前字段；Vant 内建 Dictionary Renderer 会自动从 `Field` 的字段 Context 取得目标路径。 |
-| `retryCount`        | `number`                                         | `0`      | 失败重试次数。                                                                                       |
-| `retryInterval`     | `number`                                         | `1000`   | 重试间隔，单位为毫秒。                                                                               |
-| `onSuccess`         | `(data, form) => void`                           | —        | 格式化并写入选项后触发。                                                                             |
-| `onError`           | `(error, form) => void`                          | —        | 最终失败后触发。                                                                                     |
-| `onDepsChange`      | `(values, form) => void`                         | —        | 依赖变化后、`shouldFetch` 判断前触发。                                                               |
-
-每次 `loadDict()` 都会递增请求计数并中止上一次仍在进行的请求。`api` 声明第三个参数时会收到当前请求的 `AbortSignal`；重试等待也可被中止。过期请求的成功结果、异步 `formatter` 结果和错误都不会写入当前状态；`shouldFetch` 返回 `false` 时会清空选项并结束加载。底层 API 是否真正停止仍取决于它是否使用 `AbortSignal`，不要把请求中止等同于业务服务端已经取消处理。
-
-`resetOnDepsChange` 仍以 `useDictionary(options, fieldName)` 的第二参数作为底层重置目标。支持 Dictionary 的 Vant Renderer 经 `WithRemoteOptions` 包装后，会在 `Field` 内自动从字段 Context 取得当前 Schema 字段路径，因此严格类型的 Schema 只需配置 `dict`，无需声明或传入内部 `fieldName`。自定义 Renderer 若直接调用 `useDictionary()`，或将 HOC 脱离 `Field` 使用，仍可显式传入 `fieldName`。此边界与 `@schemx/vue` README 的 `useDictionary` / `WithRemoteOptions` 说明一致。
-
-### 可复制的依赖联动示例
+在 picker、selectPicker、selector、radio、checkbox 或 cascader 字段顶层配置 `dict`，Core 会加载选项并注入对应的 `options` Props。选项类型来自该 Renderer 已声明的数组属性。纯静态选项仍写在 `componentProps.options`。
 
 ```ts
 import type { SchemxField } from "@schemx/vant"
 
-type AddressValues = {
-  province: string
-  city: string
-}
+type AddressValues = { province: string; city: string }
 
-type CityResponse = {
-  id: string
-  name: string
-}[]
-
-export const addressSchemas: SchemxField<AddressValues>[] = [
-  {
-    name: "province",
-    label: "省份",
-    componentType: "picker",
-    componentProps: {
-      options: [
-        { text: "浙江", value: "zhejiang" },
-        { text: "江苏", value: "jiangsu" },
-      ],
-    },
-  },
+const schemas: SchemxField<AddressValues>[] = [
   {
     name: "city",
     label: "城市",
     componentType: "selectPicker",
-    componentProps: {
-      type: "radio",
-      dict: {
-        api: async (values: AddressValues): Promise<CityResponse> => {
-          const response = await fetch(`/api/cities?province=${values.province}`)
-          return response.json()
-        },
-        formatter: (rows: CityResponse) =>
-          rows.map((row) => ({ label: row.name, value: row.id })),
-        dependsOn: ["province"],
-        shouldFetch: (values: AddressValues) => Boolean(values.province),
+    dict: {
+      api: async (values) => {
+        const rows = await fetchCities(values.province)
+        return rows.map((row) => ({ label: row.name, value: row.id }))
       },
+      dependsOn: ["province"],
+      resetOnDepsChange: true,
     },
+    componentProps: { type: "radio" },
   },
 ]
 ```
+
+完整配置和主动操作方式见 [Core 字段字典 API](../core/README.md#字段字典-api)。
 
 ## Schema
 
@@ -824,7 +777,7 @@ const uploadField: SchemxField<{ photos: { url?: string }[] }>[] = [
 
 - **值与选项：** `CascaderValue = Array<NonNullable<CascaderProps["modelValue"]>>`，始终以数组承载路径或末级值；选项使用 Vant Cascader options。
 - **Props：** 同时继承 Schemx 基础契约与 `Partial<Omit<CascaderProps, "modelValue" | "onUpdate:modelValue">>`。
-- **Dictionary：** HOC 可以加载并注入选项；Schema `componentProps` 类型也支持 `dict`，远程选项会传给 Vant Cascader。
+- **Dictionary：** 字段顶层的 `dict` 提供远程选项，Core 将加载结果传给 Vant Cascader。
 - **行为：** `options` 可把已有值映射为展示标签路径，也会作为级联弹窗数据源。事件处理代码会在收到 finish 时按 `emitPath` 生成路径、调用 `onConfirm` / `onChange`，关闭触发 `onBlur`；无内置清空；只读 / 禁用不挂载 Popup。
 
 | 包内重写 / 新增字段                             | 类型 / 说明                                                  |

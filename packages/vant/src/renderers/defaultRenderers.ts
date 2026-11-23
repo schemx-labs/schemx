@@ -1,8 +1,8 @@
 /**
  * Vant 默认渲染器注册。
  *
- * `config/defaultConfig` 将该映射注册到 `@schemx/vue` 的模块级 Registry，
- * 因此两个包共用同一个 Renderer Registry。
+ * `config/defaultConfig` 将这份描述注册到适配包自己的 Registry，
+ * 字段字典由 Core 根据 Schema 配置管理。
  *
  * @module renderers/defaultRenderers
  */
@@ -28,7 +28,9 @@ import {
   UploadRenderer,
 } from "../renderers"
 
-/** 按 Schemx Renderer key 映射到 Vant 组件的默认集合。 */
+/**
+ * 按 Schemx Renderer key 映射到组件的默认集合。
+ */
 export const defaultRenderers = {
   input: InputRenderer,
   text: TextRenderer,

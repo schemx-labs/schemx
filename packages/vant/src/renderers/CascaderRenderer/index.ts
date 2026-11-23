@@ -4,10 +4,8 @@
  * @module renderers/CascaderRenderer
  */
 
-import { WithRemoteOptions } from "@schemx/vue"
-
 import CascaderRendererComponent from "./index.vue"
 
-export default WithRemoteOptions(CascaderRendererComponent)
+export default CascaderRendererComponent
 
 export type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"

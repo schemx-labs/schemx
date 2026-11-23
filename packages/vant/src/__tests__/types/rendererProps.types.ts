@@ -37,39 +37,36 @@ const invalidInputPropType: SchemxRendererPropsMap<FormValues> = {
   },
 }
 
+// 字典从已声明的组件选项属性与表单值推导。
 const createFormOptions: CreateFormOptions<FormValues> = {
-  rendererProps: {
-    picker: {
+  schemas: [
+    {
+      name: "province",
+      label: "城市",
+      componentType: "picker",
       dict: {
         api(values) {
-          const province: string = values.province
+          // @ts-expect-error 字典回调保留 FormValues。
+          void values.unknownField
 
-          // @ts-expect-error CreateFormOptions 应保留 FormValues，不存在 unknownField。
-          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-          values.unknownField
-
-          return [province]
+          return [{ text: values.province, value: values.province }]
         },
+        dependsOn: ["province"],
       },
     },
-  },
+  ],
 }
 
 const formProps: SchemxFormProps<FormValues> = {
-  rendererProps: {
-    picker: {
-      dict: {
-        api(values) {
-          const name: string = values.name
-
-          // @ts-expect-error SchemxFormProps 应保留 FormValues，不存在 unknownField。
-          void values.unknownField
-
-          return [name]
-        },
-      },
+  schemas: [
+    {
+      name: "province",
+      label: "城市",
+      componentType: "picker",
+      // values 来自本次表单。
+      dict: (values) => [{ text: values.name, value: values.name }],
     },
-  },
+  ],
 }
 
 void rendererProps

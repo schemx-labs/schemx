@@ -27,28 +27,28 @@ import type {
   UploadRendererProps,
 } from "../renderers"
 import type { Values } from "@schemx/core"
-import type { SchemxWithDictionary } from "@schemx/vue"
 
 declare module "@schemx/core" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SchemxRendererDefinition<TValues extends Values> {
     input: InputRendererProps
     text: TextRendererProps
     textarea: TextAreaRendererProps
     number: NumberRendererProps
     switch: SwitchRendererProps
-    radio: SchemxWithDictionary<RadioRendererProps, TValues>
-    checkbox: SchemxWithDictionary<CheckboxRendererProps, TValues>
+    radio: RadioRendererProps
+    checkbox: CheckboxRendererProps
     date: DateRendererProps
     calendar: CalendarRendererProps
-    picker: SchemxWithDictionary<PickerRendererProps, TValues>
-    selectPicker: SchemxWithDictionary<SelectPickerRendererProps, TValues>
-    selector: SchemxWithDictionary<SelectorRendererProps, TValues>
+    picker: PickerRendererProps
+    selectPicker: SelectPickerRendererProps
+    selector: SelectorRendererProps
     sensitiveInput: SensitiveInputRendererProps
     rate: RateRendererProps
     slider: SliderRendererProps
     stepper: StepperRendererProps
     upload: UploadRendererProps
-    cascader: SchemxWithDictionary<CascaderRendererProps>
+    cascader: CascaderRendererProps
   }
 }
 
