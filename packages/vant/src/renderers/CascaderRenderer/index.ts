@@ -4,8 +4,5 @@
  * @module renderers/CascaderRenderer
  */
 
-import CascaderRendererComponent from "./index.vue"
-
-export default CascaderRendererComponent
-
+export { default } from "./index.vue"
 export type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"

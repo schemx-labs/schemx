@@ -21,76 +21,11 @@
  * ```
  */
 
-import { get, set, toPath } from "es-toolkit/compat"
+import { get, set } from "es-toolkit/compat"
 
-import type { FieldArrayChange, FieldValue, NamePath, Values } from "../types"
+import type { FieldValue, NamePath, Values } from "../types"
 
-/**
- * es-toolkit 路径函数接受的运行时路径形态。
- */
 type RuntimePath = string | number | readonly (string | number)[]
-
-/**
- * 可用于 Map、Scheduler 等身份比较场景的稳定字段路径 key。
- *
- * 该类型只在编译期区分普通字符串；运行时值是以 JSON 编码的路径段数组。
- */
-export type FieldKey = string & { readonly __fieldKey: unique symbol }
-
-/**
- * 字符串路径解析结果的最大缓存条目数。
- *
- * 达到上限后整体清空，避免长时间运行下按动态路径无限增长。
- */
-const MAX_PATH_CACHE_ENTRIES = 4096
-
-// 字符串路径到规范化路径段的缓存；数组路径保留调用方，不进入缓存。
-const segmentCache = new Map<string, readonly string[]>()
-
-// 字符串路径到字段身份 key 的缓存，直接复用已解析的路径段。
-const fieldKeyCache = new Map<string, FieldKey>()
-
-/**
- * 写入有界缓存，超出上限时先清空再写入。
- *
- * @param cache - 目标缓存。
- * @param key - 缓存键。
- * @param value - 缓存值。
- */
-function writeCache<TCacheKey, TValue>(
-  cache: Map<TCacheKey, TValue>,
-  key: TCacheKey,
-  value: TValue
-): void {
-  if (cache.size >= MAX_PATH_CACHE_ENTRIES) {
-    cache.clear()
-  }
-
-  cache.set(key, value)
-}
-
-/**
- * 判断两组字段路径是否按顺序完全一致。
- *
- * @param previous - 上一组字段路径。
- * @param next - 下一组字段路径。
- * @returns 路径数量、顺序和每段内容都一致时返回 true。
- *
- * @example
- * ```ts
- * areNamePathListsEqual(["user.name"], ["user.name"]) // => true
- * ```
- */
-export function areNamePathListsEqual<TValues extends Values>(
-  previous: readonly NamePath<TValues>[],
-  next: readonly NamePath<TValues>[]
-): boolean {
-  if (previous.length !== next.length) {
-    return false
-  }
-
-  return previous.every((path, index) => isNamePathEqual(path, next[index]))
-}
 
 /**
  * 从对象中根据路径获取嵌套值
@@ -202,30 +137,18 @@ export function collectObjectPathsByLeaf<
 
   for (const key of Object.keys(obj)) {
     const path = prefix ? `${prefix}.${key}` : key
-
     const value = obj[key]
 
     if (Array.isArray(value)) {
-      if (value.length === 0) {
-        paths.push(path as TName)
-        continue
-      }
-
       value.forEach((item: unknown, index: number) => {
         const itemPath = `${path}[${index}]` as TName
-
-        if (isPlainObject(item) && Object.keys(item).length > 0) {
+        if (item !== null && typeof item === "object") {
           paths.push(...(collectObjectPathsByLeaf(item, itemPath as string) as TName[]))
         } else {
           paths.push(itemPath)
         }
       })
-    } else if (isPlainObject(value)) {
-      if (Object.keys(value).length === 0) {
-        paths.push(path as TName)
-        continue
-      }
-
+    } else if (value !== null && typeof value === "object") {
       paths.push(...(collectObjectPathsByLeaf(value, path) as TName[]))
     } else {
       paths.push(path as TName)
@@ -233,14 +156,6 @@ export function collectObjectPathsByLeaf<
   }
 
   return paths
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== "object") return false
-
-  const prototype = Object.getPrototypeOf(value)
-
-  return prototype === Object.prototype || prototype === null
 }
 
 /**
@@ -258,377 +173,20 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 export function normalizeNamePath<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
->(path: TName): string {
-  return toNamePathSegments(path).join(".")
-}
-
-/**
- * 将任意 NamePath 解析为用于身份比较的字符串路径段。
- *
- * 字符串路径使用与 `getByPath` 相同的 compat parser；数组路径保留调用方给出的
- * 段边界，因此 `["user.name"]` 不会与 `"user.name"` 错误合并。
- *
- * @param path - 要解析的字段路径。
- * @returns 只读的规范化路径段数组。
- *
- * @example
- * ```ts
- * toNamePathSegments("user[0].name") // => ["user", "0", "name"]
- * ```
- */
-export function toNamePathSegments<TValues extends Values = Values>(
-  path: NamePath<TValues>
-): readonly string[] {
+>(path: TName[]): string {
   if (Array.isArray(path)) {
-    return path.map((part) => String(part))
+    return path.map((part) => String(part)).join(".")
   }
 
-  const source = String(path)
-
-  const cached = segmentCache.get(source)
-
-  if (cached !== undefined) {
-    return cached
-  }
-
-  // 字符串路径解析是最频繁的字符串处理；结果只读，可安全共享。
-  const segments = Object.freeze(toPath(source).map((part) => String(part)))
-
-  writeCache(segmentCache, source, segments)
-
-  return segments
+  return String(path)
+    .replace(/\[(.*?)\]/g, ".$1")
+    .replace(/^\./, "")
 }
 
-/**
- * 判断两个字段路径是否相同或互为父子路径。
- *
- * @param first - 第一个字段路径。
- * @param second - 第二个字段路径。
- * @returns 两个路径相同或存在父子关系时返回 `true`。
- *
- * @example
- * ```ts
- * areSameOrOverlappingFieldPaths("user", "user.name") // => true
- * ```
- */
-export function areSameOrOverlappingFieldPaths<TValues extends Values>(
-  first: NamePath<TValues>,
-  second: NamePath<TValues>
-): boolean {
-  return (
-    createFieldKey(first) === createFieldKey(second) ||
-    areOverlappingFieldPaths(first, second)
-  )
-}
-
-/**
- * 将字段路径转换为结构共享写入使用的路径段。
- *
- * @param path - 待转换的字段路径。
- * @returns 结构共享写入使用的路径段。
- *
- * @example
- * ```ts
- * toStructuralPathSegments("users[0].name") // => ["users", "0", "name"]
- * ```
- */
-export function toStructuralPathSegments<TValues extends Values>(
-  path: NamePath<TValues>
-): readonly string[] {
-  if (typeof path === "string" && path !== "") {
-    const hasDot = path.includes(".")
-
-    const hasArrayIndex = /\[\d+\]/.test(path)
-
-    if (!hasDot && !hasArrayIndex) return [path]
-  }
-
-  const segments = toNamePathSegments(path)
-
-  if (typeof path === "string" && path !== "" && segments.length === 0) {
-    return [path]
-  }
-
-  return segments
-}
-
-/**
- * 使用结构共享更新字段路径，未经过的对象和数组保留原引用。
- *
- * @param source - 当前路径所在的值树或子树。
- * @param segments - 已规范化的路径段。
- * @param value - 要写入的值。
- * @param index - 当前递归处理的路径段索引。
- * @returns 写入后的值树或子树。
- *
- * @example
- * ```ts
- * setInWithStructuralSharing({ user: { name: "Ada" } }, ["user", "name"], "Lin")
- * // => { user: { name: "Lin" } }
- * ```
- */
-export function setInWithStructuralSharing(
-  source: unknown,
-  segments: readonly string[],
-  value: unknown,
-  index = 0
-): unknown {
-  if (index === segments.length) return value
-
-  const segment = segments[index]
-
-  const isArrayIndex = /^\d+$/.test(segment)
-
-  const sourceObject = source !== null && typeof source === "object" ? source : undefined
-
-  const base = sourceObject ?? (isArrayIndex ? [] : {})
-
-  const previousChild = (base as Record<string, unknown>)[segment]
-
-  const nextChild = setInWithStructuralSharing(previousChild, segments, value, index + 1)
-
-  if (Object.is(previousChild, nextChild) && sourceObject !== undefined) return base
-
-  const copy = Array.isArray(base) ? [...base] : { ...base }
-
-  ;(copy as Record<string, unknown>)[segment] = nextChild
-
-  return copy
-}
-
-/**
- * 使用结构共享删除字段路径，数组索引删除后保留空位。
- *
- * @param source - 当前路径所在的值树或子树。
- * @param segments - 已规范化的路径段。
- * @param index - 当前递归处理的路径段索引。
- * @returns 删除后的值树；路径不存在时复用原引用。
- *
- * @example
- * ```ts
- * deleteInWithStructuralSharing({ user: { name: "Ada" } }, ["user", "name"])
- * // => { user: {} }
- * ```
- */
-export function deleteInWithStructuralSharing(
-  source: unknown,
-  segments: readonly string[],
-  index = 0
-): unknown {
-  if (index === segments.length) {
-    return undefined
-  }
-
-  if (source === null || typeof source !== "object") {
-    return source
-  }
-
-  const segment = segments[index]
-
-  if (!Object.hasOwn(source, segment)) {
-    return source
-  }
-
-  const copy = Array.isArray(source) ? [...source] : { ...source }
-
-  if (index === segments.length - 1) {
-    delete (copy as Record<string, unknown>)[segment]
-
-    return copy
-  }
-
-  const previousChild = (source as Record<string, unknown>)[segment]
-
-  const nextChild = deleteInWithStructuralSharing(previousChild, segments, index + 1)
-
-  if (Object.is(previousChild, nextChild)) {
-    return source
-  }
-
-  ;(copy as Record<string, unknown>)[segment] = nextChild
-
-  return copy
-}
-
-/**
- * 判断 candidate 是否位于 ancestor 的严格后代路径。
- *
- * @param candidate - 待判断的字段路径。
- * @param ancestor - 作为祖先路径的字段路径。
- * @returns candidate 是否是 ancestor 的严格后代。
- *
- * @example
- * ```ts
- * isDescendantFieldPath("user.name", "user") // => true
- * ```
- */
-export function isDescendantFieldPath<TValues extends Values>(
-  candidate: NamePath<TValues>,
-  ancestor: NamePath<TValues>
-): boolean {
-  const candidateSegments = toNamePathSegments(candidate)
-
-  const ancestorSegments = toNamePathSegments(ancestor)
-
-  return (
-    candidateSegments.length > ancestorSegments.length &&
-    ancestorSegments.every((segment, index) => segment === candidateSegments[index])
-  )
-}
-
-/**
- * 判断数组项后代路径是否落在结构变更影响的索引范围内。
- */
-/**
- * 判断数组字段的后代路径是否落在本次数组结构变更的影响范围内。
- *
- * @typeParam TValues - 表单值类型。
- * @param fieldPath - 要检查的字段路径。
- * @param arrayPath - 发生结构变化的数组根路径。
- * @param change - 数组结构变更及受影响的行范围。
- * @returns 字段路径对应的数组索引受本次变更影响时返回 `true`。
- *
- * @example
- * ```ts
- * isFieldArrayDescendantAffected("users.1.name", "users", {
- *   previousLength: 2,
- *   nextLength: 1,
- *   ranges: [{ start: 1, end: 1 }],
- * }) // => true
- * ```
- */
-export function isFieldArrayDescendantAffected<TValues extends Values>(
-  fieldPath: NamePath<TValues>,
-  arrayPath: NamePath<TValues>,
-  change: FieldArrayChange
-): boolean {
-  if (!isDescendantFieldPath(fieldPath, arrayPath)) return false
-
-  const fieldSegments = toNamePathSegments(fieldPath)
-
-  const arrayLength = toNamePathSegments(arrayPath).length
-
-  const index = Number(fieldSegments[arrayLength])
-
-  if (!Number.isInteger(index)) return false
-
-  return change.ranges.some((range) => index >= range.start && index <= range.end)
-}
-
-/**
- * 判断数组项后代路径是否已经超出新的数组长度。
- */
-/**
- * 判断数组字段的后代路径是否超出新的数组长度。
- *
- * @typeParam TValues - 表单值类型。
- * @param fieldPath - 要检查的字段路径。
- * @param arrayPath - 数组根路径。
- * @param nextLength - 结构变更后的数组长度。
- * @returns 字段路径对应的数组索引超出新长度时返回 `true`。
- *
- * @example
- * ```ts
- * isFieldArrayDescendantOutOfRange("users.2.name", "users", 2) // => true
- * ```
- */
-export function isFieldArrayDescendantOutOfRange<TValues extends Values>(
-  fieldPath: NamePath<TValues>,
-  arrayPath: NamePath<TValues>,
-  nextLength: number
-): boolean {
-  if (!isDescendantFieldPath(fieldPath, arrayPath)) return false
-
-  const fieldSegments = toNamePathSegments(fieldPath)
-
-  const arrayLength = toNamePathSegments(arrayPath).length
-
-  const index = Number(fieldSegments[arrayLength])
-
-  return Number.isInteger(index) && index >= nextLength
-}
-
-/**
- * 判断两个字段路径是否存在父子关系。
- *
- * @param first - 第一个字段路径。
- * @param second - 第二个字段路径。
- * @returns 两个路径是否互为父路径和严格后代路径。
- *
- * @example
- * ```ts
- * areOverlappingFieldPaths("users", "users.0.name") // => true
- * ```
- */
-export function areOverlappingFieldPaths<TValues extends Values>(
-  first: NamePath<TValues>,
-  second: NamePath<TValues>
-): boolean {
-  return isDescendantFieldPath(first, second) || isDescendantFieldPath(second, first)
-}
-
-/**
- * 创建碰撞安全的字段身份 key。
- *
- * @param path - 要标识的字段路径。
- * @returns 可安全用于 Map key、Set key 和 Scheduler task id 的稳定 key。
- *
- * @example
- * ```ts
- * createFieldKey(["users", 0, "name"]) // => '["users","0","name"]'
- * ```
- */
-export function createFieldKey<TValues extends Values = Values>(
-  path: NamePath<TValues>
-): FieldKey {
-  if (Array.isArray(path)) {
-    return JSON.stringify(toNamePathSegments(path)) as FieldKey
-  }
-
-  const source = String(path)
-
-  const cached = fieldKeyCache.get(source)
-
-  if (cached !== undefined) {
-    return cached
-  }
-
-  const fieldKey = JSON.stringify(toNamePathSegments(source)) as FieldKey
-
-  writeCache(fieldKeyCache, source, fieldKey)
-
-  return fieldKey
-}
-
-/**
- * 将类型安全的 NamePath 转换为路径库可消费的运行时路径。
- *
- * @param path - 要转换的字段路径。
- * @returns 路径库可消费的字符串、数字或路径数组。
- */
 const normalizeRuntimePath = (path: NamePath): RuntimePath => {
   if (Array.isArray(path)) {
     return path.map((part) => (typeof part === "number" ? part : String(part)))
   }
 
   return path as string | number
-}
-
-/**
- * 比较两个字段路径的段数、顺序和每一段内容。
- *
- * @typeParam TValues - 表单值类型。
- * @param previous - 上一字段路径。
- * @param next - 下一字段路径。
- * @returns 两个路径表示同一字段时返回 `true`。
- */
-function isNamePathEqual<TValues extends Values>(
-  previous: NamePath<TValues>,
-  next: NamePath<TValues> | undefined
-): boolean {
-  if (next === undefined) {
-    return false
-  }
-
-  return createFieldKey(previous) === createFieldKey(next)
 }

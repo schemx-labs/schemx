@@ -1,16 +1,27 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-number-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(numberValue ?? props.value, props.readonlyPlaceholder) }}
-    </template>
+  <div :class="['schemx-renderer', 'schemx-number-renderer', props.className]">
+    <SchemxCell
+      v-if="props.readonly"
+      :value="numberValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
     <SchemxInput
+      v-else
       ref="inputRef"
       v-model:value="numberValue"
-      v-bind="numberProps"
+      :type="props.type"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :align="props.align"
+      :min="props.min"
+      :max="props.max"
+      :maxlength="props.maxlength"
+      :clearable="props.clearable"
       @change="handleChange"
       @blur="props.onBlur"
       @focus="props.onFocus"
@@ -28,7 +39,7 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,10 +52,8 @@
    */
   import { computed, ref, useSlots } from "vue"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import SchemxInput from "../../components/Input"
-  import { getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import SchemxInput from "@/components/Input"
 
   import type { NumberRendererProps, NumberValue } from "./types"
 
@@ -75,21 +84,7 @@
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
 
-  const numberProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      onChange: _onChange,
-      onBlur: _onBlur,
-      onFocus: _onFocus,
-      className: _className,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    return rest
-  })
+  const placeholder = computed(() => props.placeholder || "请选择")
 
   /**
    * 处理值变化

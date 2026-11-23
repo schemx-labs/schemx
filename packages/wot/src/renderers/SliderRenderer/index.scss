@@ -1,0 +1,23 @@
+.schemx-slider-renderer {
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &--readonly {
+    .schemx-slider-renderer__readonly {
+      padding: 8px 0;
+    }
+  }
+
+  &__readonly {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+
+    &-value {
+      font-size: 14px;
+      color: #323233;
+      font-weight: 500;
+    }
+  }
+}

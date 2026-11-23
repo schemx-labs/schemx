@@ -16,7 +16,6 @@ export type SliderValue = SliderProps["modelValue"]
  * 定义滑块组件的所有可配置属性。
  */
 export interface SliderRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
@@ -41,4 +40,6 @@ export interface SliderRendererProps
   readonlyPlaceholder?: string
   /** 是否禁用 */
   disabled?: SliderProps["disabled"]
+  /** 是否显示按钮 */
+  button?: boolean
 }

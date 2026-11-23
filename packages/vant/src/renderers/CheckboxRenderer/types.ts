@@ -16,9 +16,10 @@ export type CheckboxValue = CheckboxOptionValue[] | string
  *
  * 描述单个复选项的配置信息。
  */
-export interface CheckboxOption extends Partial<
-  Omit<CheckboxProps, "modelValue" | "onUpdate:modelValue" | "onChange" | "name">
-> {
+export interface CheckboxOption
+  extends Partial<
+    Omit<CheckboxProps, "modelValue" | "onUpdate:modelValue" | "onChange" | "name">
+  > {
   /** 选项标签 */
   label?: string
   /** 选项值 */
@@ -33,14 +34,13 @@ export interface CheckboxOption extends Partial<
  * 定义复选框组件的所有可配置属性。
  */
 export interface CheckboxRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<
       Omit<CheckboxProps, "modelValue" | "onUpdate:modelValue" | "onChange" | "name">
     > {
-  /** 当前值，支持选项值数组或逗号分隔的兼容字符串 */
+  /** 当前值（数组形式） */
   value?: CheckboxValue
   /** 值变化回调 */
   onChange?: (value: CheckboxValue) => void
@@ -59,6 +59,8 @@ export interface CheckboxRendererProps
   className?: string
   /** 是否只读 */
   readonly?: boolean
+  /** 是否详情展示 */
+  view?: boolean
   /** 只读时的占位文本 */
   readonlyPlaceholder?: string
   /** 是否禁用 */

@@ -3,7 +3,9 @@
  *
  * @module renderers/PickerRenderer
  */
+import { WithRemoteOptions } from "@schemx/vue"
+
 import PickerRendererComponent from "./index.vue"
 
-export default PickerRendererComponent
+export default WithRemoteOptions(PickerRendererComponent)
 export type { PickerRendererProps, PickerFieldNames, PickerValue } from "./types"

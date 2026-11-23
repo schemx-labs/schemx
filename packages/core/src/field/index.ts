@@ -1,27 +1,40 @@
 /**
  * Field 模块统一导出。
  *
- * 提供字段运行态、字段索引、动态依赖、dependency effect 和校验 effect。
+ * 提供字段模型、字段索引、动态依赖和 dependency slot。
  *
  * @module core/field
  */
 
 export {
-  FIELD_DEPENDENCY_OVERRIDE_KEYS,
-  createFieldDependenciesEffect,
-  type CreateFieldDependenciesEffectOptions,
+  FIELD_DEPENDENCIES_PROP_KEYS,
+  createDependenciesEffect,
+  type CreateDependenciesEffectOptions,
 } from "./dependenciesEffect"
 
 export {
-  mountFieldResources,
-  unmountFieldResources,
-  updateFieldResources,
-} from "./resources"
+  getDependencySlot,
+  hasDependencySlot,
+  createDependencyEffect,
+  type CreateDependencyEffectOptions,
+  type DependencyEffectSlot,
+} from "./dependencyEffect"
+
+export {
+  createFieldModel,
+  updateFieldModel,
+  type FieldModel,
+  type FieldModelSnapshot,
+} from "./model"
+
+export {
+  createFieldRegistry,
+  type FieldRegistry,
+  type FieldRegistryEntry,
+} from "./registry"
 
 export {
   createValidationEffect,
   type CreateValidationEffectOptions,
-  type ValidationEffect,
+  type ValidationModel,
 } from "./validationEffect"
-
-export { createFieldNode } from "./createNode"

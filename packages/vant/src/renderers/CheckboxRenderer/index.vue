@@ -1,15 +1,23 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-checkbox-renderer', className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
+  <div
+    :class="[
+      'schemx-renderer',
+      'schemx-checkbox-renderer',
+      className,
+      { 'schemx-renderer-readonly': props.readonly },
+    ]"
   >
-    <template #readonly>
-      <span :style="`text-align: ${contentAlign}`">
-        {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-      </span>
-    </template>
+    <SchemxCell
+      v-if="props.readonly"
+      :value="fieldValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
+
     <CheckboxGroup
+      v-else
       v-bind="checkProps"
       :disabled="disabled"
       :model-value="modelValue"
@@ -25,7 +33,7 @@
         {{ option[labelName] }}
       </Checkbox>
     </CheckboxGroup>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -40,9 +48,8 @@
 
   import { Checkbox, CheckboxGroup } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { getFieldProps } from "@/utils"
 
   import type { CheckboxRendererProps, CheckboxValue } from "./types"
 
@@ -59,6 +66,7 @@
     options: () => [],
     fieldNames: () => ({}),
     className: "",
+    view: false,
     readonly: false,
     readonlyPlaceholder: "-",
     disabled: false,
@@ -69,16 +77,12 @@
   const checkboxValue = defineModel<CheckboxValue>("value")
 
   const labelName = computed(() => props.fieldNames?.label || "label")
-
   const valueName = computed(() => props.fieldNames?.value || "value")
-
   const disabledName = computed(() => props.fieldNames?.disabled || "disabled")
 
-  const contentAlign = computed(
-    () =>
-      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
-      getFieldProps(attrs as Record<string, any>, "align", "right")
-  )
+  const placeholder = computed(() => props.placeholder || "请选择")
+
+  const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
 
   const modelValue = computed(() => {
     const value = checkboxValue.value ?? props.value
@@ -93,41 +97,17 @@
   })
 
   const checkProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      onChange: _onChange,
-      options: _options,
-      fieldNames: _fieldNames,
-      className: _className,
-      readonly: _readonly,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      placeholder: _placeholder,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    const {
-      style: attrsStyle,
-      options: _attrsOptions,
-      fieldNames: _attrsFieldNames,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      placeholder: _attrsPlaceholder,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
+    const { value, className, formItemProps, ...rest } = props
 
     const style = {
       display: "flex",
       flexWrap: "wrap",
       gap: "8px 12px",
       justifyContent: contentAlign.value,
-      ...attrsStyle,
+      ...(attrs?.style || {}),
     }
 
-    return { ...attrsRest, ...rest, style }
+    return { ...attrs, ...rest, style }
   })
 
   const handleChange = (value: CheckboxValue): void => {

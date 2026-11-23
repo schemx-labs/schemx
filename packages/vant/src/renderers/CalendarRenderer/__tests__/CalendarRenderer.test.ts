@@ -4,7 +4,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => ({
   Calendar: defineComponent({
@@ -17,15 +17,11 @@ vi.mock("vant", () => ({
   }),
   Cell: defineComponent({
     name: "Cell",
-    props: ["value", "placeholder", "isLink", "clickable", "valueClass"],
+    props: ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
     emits: ["click"],
-    setup(props, { emit, slots }) {
+    setup(props, { emit }) {
       return () =>
-        h(
-          "div",
-          { onClick: (event: MouseEvent) => emit("click", event) },
-          slots.value?.() ?? slots.default?.() ?? props.value
-        )
+        h("div", { onClick: (event: MouseEvent) => emit("click", event) }, props.value)
     },
   }),
 }))
@@ -33,23 +29,23 @@ vi.mock("vant", () => ({
 import CalendarRenderer from "../index.vue"
 
 describe("CalendarRenderer", () => {
-  it("未知 view 属性不切换为只读展示", async () => {
+  it("view 状态展示格式化日期且不渲染 Calendar", async () => {
     const wrapper = mount(CalendarRenderer, {
       props: {
         view: true,
         value: "2026-06-12",
         format: "YYYY/MM/DD",
-      } as any,
+      },
     })
 
-    const cell = wrapper.findComponent({ name: "Cell" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
-    expect(cell.text()).toContain("2026/06/12")
-    expect(wrapper.findComponent({ name: "Calendar" }).exists()).toBe(true)
+    expect(cell.get(".schemx-cell__value").text()).toBe("2026/06/12")
+    expect(wrapper.findComponent({ name: "Calendar" }).exists()).toBe(false)
 
     await cell.vm.$emit("click")
 
-    expect(wrapper.findComponent({ name: "Calendar" }).props("show")).toBe(true)
+    expect(wrapper.findComponent({ name: "Calendar" }).exists()).toBe(false)
 
     wrapper.unmount()
   })
@@ -57,7 +53,7 @@ describe("CalendarRenderer", () => {
   it("默认启用底部弹层安全区并挂载到 body", async () => {
     const wrapper = mount(CalendarRenderer)
 
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
 
     const calendar = wrapper.findComponent({ name: "Calendar" })
 

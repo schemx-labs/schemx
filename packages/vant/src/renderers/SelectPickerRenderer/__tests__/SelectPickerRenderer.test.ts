@@ -3,29 +3,16 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
-
-let checkboxAttrs: Record<string, unknown> = {}
-
-let popupAttrs: Record<string, unknown> = {}
-
-let radioAttrs: Record<string, unknown> = {}
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => {
   const component = (name: string, props: string[], emits: string[] = []) =>
     defineComponent({
       name,
-      inheritAttrs: false,
       props,
       emits,
-      setup(_props, { attrs, slots }) {
-        return () => {
-          if (name === "Checkbox") checkboxAttrs = attrs
-          if (name === "Popup") popupAttrs = attrs
-          if (name === "Radio") radioAttrs = attrs
-
-          return h("div", attrs, slots.value?.() || slots.default?.())
-        }
+      setup(_props, { slots }) {
+        return () => h("div", slots.default?.())
       },
     })
 
@@ -33,12 +20,12 @@ vi.mock("vant", () => {
     Button: component("Button", ["type", "size"], ["click"]),
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "valueClass"],
+      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
       ["click"]
     ),
     Checkbox: component("Checkbox", ["name", "disabled"]),
     CheckboxGroup: component("CheckboxGroup", ["modelValue"], ["update:modelValue"]),
-    Popup: component("Popup", ["show", "zIndex"], ["update:show"]),
+    Popup: component("Popup", ["show"], ["update:show"]),
     Radio: component("Radio", ["name", "disabled"]),
     RadioGroup: component("RadioGroup", ["modelValue"], ["update:modelValue"]),
   }
@@ -47,15 +34,10 @@ vi.mock("vant", () => {
 import SelectPickerRenderer from "../index.vue"
 
 describe("SelectPickerRenderer", () => {
-  it("默认使用多选模式并将 contentAlign 应用到 Vant Cell 值区域", () => {
-    const wrapper = mount(SelectPickerRenderer, {
-      props: { contentAlign: "center" },
-    })
+  it("默认使用多选模式并展示 Cell", () => {
+    const wrapper = mount(SelectPickerRenderer)
 
-    const cell = wrapper.findComponent({ name: "Cell" })
-
-    expect(cell.exists()).toBe(true)
-    expect(cell.get("span").attributes("style")).toContain("text-align: center")
+    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
     expect(wrapper.findComponent({ name: "CheckboxGroup" }).exists()).toBe(false)
 
     wrapper.unmount()
@@ -68,7 +50,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
 
     expect(wrapper.findComponent({ name: "Popup" }).props("show")).toBe(true)
     expect(wrapper.findComponent({ name: "CheckboxGroup" }).exists()).toBe(true)
@@ -83,10 +65,9 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
 
     const options = wrapper.get(".schemx-select-picker-options")
-
     const footer = options.element.nextElementSibling
 
     expect(footer?.classList.contains("schemx-select-picker-footer")).toBe(true)
@@ -102,9 +83,7 @@ describe("SelectPickerRenderer", () => {
 
   it("确认选择后桥接 Schemx 的 value 更新契约", async () => {
     const onChange = vi.fn()
-
     const onConfirm = vi.fn()
-
     const wrapper = mount(SelectPickerRenderer, {
       props: {
         value: [],
@@ -114,7 +93,7 @@ describe("SelectPickerRenderer", () => {
       },
     })
 
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
+    await wrapper.findComponent({ name: "SchemxCell" }).vm.$emit("click")
     await wrapper
       .findComponent({ name: "CheckboxGroup" })
       .vm.$emit("update:modelValue", ["a"])
@@ -133,82 +112,23 @@ describe("SelectPickerRenderer", () => {
     wrapper.unmount()
   })
 
-  it("未知 view 属性不切换为只读展示", async () => {
+  it("view 状态展示选项文本且不渲染弹窗", async () => {
     const wrapper = mount(SelectPickerRenderer, {
       props: {
         view: true,
         value: ["a"],
         options: [{ label: "选项 A", value: "a" }],
-      } as any,
+      },
     })
 
-    const cell = wrapper.findComponent({ name: "Cell" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
-    expect(cell.text()).toContain("选项 A")
-    expect(wrapper.findComponent({ name: "Popup" }).props("show")).toBe(false)
+    expect(cell.get(".schemx-cell__value").text()).toBe("选项 A")
+    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     await cell.vm.$emit("click")
 
-    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(true)
-
-    wrapper.unmount()
-  })
-
-  it("过滤 Popup 和 Checkbox 子组件无关属性", async () => {
-    const wrapper = mount(SelectPickerRenderer, {
-      props: {
-        value: [],
-        options: [
-          {
-            label: "选项 A",
-            value: "a",
-            disabled: false,
-            iconSize: "18px",
-          },
-        ],
-        popupProps: {
-          zIndex: 3000,
-          show: false,
-        } as any,
-        formItemProps: { name: "tags" } as any,
-      },
-    })
-
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
-
-    expect(popupAttrs).not.toHaveProperty("show")
-    expect(popupAttrs).not.toHaveProperty("formItemProps")
-    expect(wrapper.findComponent({ name: "Popup" }).props("zIndex")).toBe(3000)
-    expect(checkboxAttrs).not.toHaveProperty("label")
-    expect(checkboxAttrs).not.toHaveProperty("value")
-    expect(checkboxAttrs).not.toHaveProperty("disabled")
-    expect(checkboxAttrs).toHaveProperty("iconSize", "18px")
-
-    wrapper.unmount()
-  })
-
-  it("过滤 Radio 选项数据字段", async () => {
-    const wrapper = mount(SelectPickerRenderer, {
-      props: {
-        type: "radio",
-        value: "a",
-        options: [
-          {
-            label: "选项 A",
-            value: "a",
-            disabled: false,
-            iconSize: "18px",
-          },
-        ],
-      },
-    })
-
-    await wrapper.findComponent({ name: "Cell" }).vm.$emit("click")
-
-    expect(radioAttrs).not.toHaveProperty("label")
-    expect(radioAttrs).not.toHaveProperty("value")
-    expect(radioAttrs).not.toHaveProperty("disabled")
-    expect(radioAttrs).toHaveProperty("iconSize", "18px")
+    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()
   })

@@ -1,25 +1,13 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-picker-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-    </template>
-
-    <Cell
-      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
-      :clickable="!props.disabled"
-      is-link
+  <div :class="['schemx-renderer', 'schemx-picker-renderer', props.className]">
+    <SchemxCell
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :value="fieldValue"
       @click="handleClick"
-    >
-      <template #value>
-        <span :style="`text-align: ${props.contentAlign}`">
-          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
-        </span>
-      </template>
-    </Cell>
+    />
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -27,7 +15,6 @@
       :class="classNames('schemx-picker-popup-renderer', props.popupClassName)"
       v-bind="popupProps"
       safe-area-inset-bottom
-      @close="handleClose"
     >
       <Picker
         :model-value="modelValue"
@@ -42,7 +29,7 @@
         </template>
       </Picker>
     </Popup>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -55,13 +42,13 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Cell, Picker, Popup } from "vant"
-  import type { PickerConfirmEventParams, PickerOption } from "vant"
+  import { Picker, Popup } from "vant"
+  import type { PickerConfirmEventParams } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import { findTreeItem, getReadonlyDisplayValue, isEmptyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { findTreeItem } from "@/utils"
 
   import type { PickerFieldNames, PickerRendererProps, PickerValue } from "./types"
 
@@ -100,12 +87,9 @@
   const title = computed(() => props.title || placeholder.value)
 
   const pickerProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
-      onBlur: _onBlur,
       onConfirm: _onConfirm,
       className: _className,
       popupClassName: _popupClassName,
@@ -118,40 +102,13 @@
       columnsFieldNames: _columnsFieldNames,
       fieldNames: _fieldNames,
       contentAlign: _contentAlign,
-      readonly: _readonly,
-      disabled: _disabled,
-      placeholder: _placeholder,
       formItemProps: _formItemProps,
       popupProps: _popupProps,
       title: _title,
       ...rest
-    } = rendererProps
+    } = props
 
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      onBlur: _attrsOnBlur,
-      onConfirm: _attrsOnConfirm,
-      className: _attrsClassName,
-      popupClassName: _attrsPopupClassName,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      disabled: _attrsDisabled,
-      placeholder: _attrsPlaceholder,
-      separator: _attrsSeparator,
-      showAllLevels: _attrsShowAllLevels,
-      emitPath: _attrsEmitPath,
-      options: _attrsOptions,
-      columns: _attrsColumns,
-      columnsFieldNames: _attrsColumnsFieldNames,
-      fieldNames: _attrsFieldNames,
-      contentAlign: _attrsContentAlign,
-      formItemProps: _attrsFormItemProps,
-      popupProps: _attrsPopupProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest, title: title.value }
+    return { ...attrs, ...rest, title: title.value }
   })
 
   const popupProps = computed(() => ({
@@ -163,7 +120,7 @@
   }))
 
   /** 数据源 */
-  const columns = computed<PickerOption[]>(() => {
+  const columns = computed(() => {
     if (Array.isArray(props.options) && props.options?.length > 0) {
       return props.options
     }
@@ -225,10 +182,5 @@
   const handleClick = (): void => {
     if (props.readonly || props.disabled) return
     showPicker.value = true
-  }
-
-  /** 弹窗关闭（确认/取消/遮罩）统一出口，触发 blur 校验 */
-  const handleClose = (): void => {
-    props.onBlur?.(modelValue.value)
   }
 </script>

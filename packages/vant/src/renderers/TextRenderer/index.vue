@@ -1,16 +1,43 @@
 <template>
-  <Wrapper
-    :class="classNames('schemx-renderer', 'schemx-text-renderer', props.className)"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
+  <div
+    :class="
+      classNames('schemx-renderer', 'schemx-text-renderer', props.className, {
+        'schemx-renderer-readonly': readonly,
+        'schemx-renderer-disabled': disabled,
+      })
+    "
   >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(textValue, props.readonlyPlaceholder) }}
-    </template>
+    <SchemxCell
+      v-if="props.readonly"
+      :value="textValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
     <SchemxInput
+      v-else
       ref="inputRef"
       v-model:value="textValue"
-      v-bind="inputProps"
+      :type="inputType"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :align="props.align"
+      :maxlength="props.maxlength"
+      :min="props.min"
+      :max="props.max"
+      :formatter="props.formatter"
+      :format-trigger="props.formatTrigger"
+      :autocomplete="props.autocomplete"
+      :autofocus="props.autofocus"
+      :clearable="props.clearable"
+      :clear-icon="props.clearIcon"
+      :clear-trigger="props.clearTrigger"
+      :left-icon="props.leftIcon"
+      :right-icon="isPasswordMode || props.readonly ? '' : props.rightIcon"
+      :show-word-limit="props.showWordLimit && !props.readonly && !props.disabled"
       @change="props.onChange"
       @blur="props.onBlur"
       @focus="props.onFocus"
@@ -36,7 +63,7 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -51,11 +78,10 @@
 
   import { Icon } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
 
-  import SchemxInput from "../../components/Input"
-  import { getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import SchemxInput from "@/components/Input"
 
   import type { TextRendererProps } from "./types"
 
@@ -87,7 +113,6 @@
   const slots = useSlots()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
-
   const passwordVisible = ref(false)
 
   /** 判断是否为密码模式 */
@@ -105,30 +130,6 @@
   /** 密码可见性图标 */
   const passwordIcon = computed(() => {
     return passwordVisible.value ? "eye-o" : "closed-eye"
-  })
-
-  const inputProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      onChange: _onChange,
-      onBlur: _onBlur,
-      onFocus: _onFocus,
-      className: _className,
-      type: _type,
-      rightIcon: _rightIcon,
-      showWordLimit: _showWordLimit,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    return {
-      ...rest,
-      type: inputType.value,
-      rightIcon: isPasswordMode.value || props.readonly ? "" : props.rightIcon,
-      showWordLimit: props.showWordLimit && !props.readonly && !props.disabled,
-    }
   })
 
   /** 切换密码可见性 */

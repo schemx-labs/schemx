@@ -1,85 +1,66 @@
 /**
  * Field dependencies - 字段级动态呈现态派生。
  *
- * 根据 compiledSchema 中的依赖配置监听 triggerFields，并把解析结果写入
- * FieldNode.dependencyOverrides。
- * 该模块不修改 descriptor/schema。
+ * 根据 descriptor.dependencies 监听 triggerFields，并把解析结果写入
+ * FieldModel snapshot signal。该模块不修改 descriptor/schema。
  *
- * @module core/field/dependenciesEffect
+ * @module core/field/dependencies
  */
 
-import {
-  createDependencySchedulerEffect,
-  createGuardedFormApi,
-  resolveDependencyOverrides,
-} from "../dependencies"
-import { updateFieldDiagnostics } from "../node"
+import { createSignalEffect } from "../reactivity"
 
+import { type FieldModel, updateFieldModel } from "./model"
+
+import type { SchemxFormContext } from "../createForm"
+import type { FieldDescriptor } from "../descriptor"
+import type { Scope } from "../node"
 import type {
-  FieldDependencyOverrideKey,
-  FieldDependencyOverrides,
-  FieldNode,
-  Scope,
-} from "../node"
-import type { FormRuntimeContext } from "../runtimeContext"
-import type { Values } from "../types"
+  SchemxConditionFn,
+  SchemxDependencies,
+  SchemxFormApi,
+  SchemxResolvedBaseField,
+  Values,
+} from "../types"
 
 /**
- * 可通过 dependencies 动态配置的字段属性 key 列表。
- *
- * 这些属性可以在运行时根据 trigger 字段值动态计算，
- * 覆盖静态 schema 中对应的值。
+ * 支持动态配置的字段呈现态键列表。
  */
-export const FIELD_DEPENDENCY_OVERRIDE_KEYS = [
+export const FIELD_DEPENDENCIES_PROP_KEYS = [
   "componentProps",
-  "dict",
   "placeholder",
   "required",
   "readonly",
-  "readonlyPlaceholder",
   "disabled",
   "visible",
   "rules",
 ] as const
 
-/**
- * 获取当前 dependencies 中需要解析的属性键。
- *
- * Core 内置属性保留固定类型；由适配层通过 Definition 声明合并增加的动态属性
- * 通过运行时键自动纳入解析，不需要 Core 认识具体字段名。
- */
-function getFieldDependencyOverrideKeys(dependencies: object): readonly string[] {
-  const keys = new Set<string>(FIELD_DEPENDENCY_OVERRIDE_KEYS)
+type DependenciesPropKey = (typeof FIELD_DEPENDENCIES_PROP_KEYS)[number]
 
-  for (const key of Object.keys(dependencies)) {
-    if (key !== "triggerFields" && key !== "trigger") {
-      keys.add(key)
-    }
+export type DependenciesResolvedProps<TValues extends Values> = Partial<
+  Pick<SchemxResolvedBaseField<TValues>, Exclude<DependenciesPropKey, "rules">> & {
+    rules?: SchemxResolvedBaseField<TValues>["rules"]
   }
-
-  return [...keys]
-}
+>
 
 /**
  * 创建字段 dependencies effect 的运行时依赖。
  *
  * @typeParam TValues - 表单值类型。
  */
-export interface CreateFieldDependenciesEffectOptions<TValues extends Values = Values> {
+export interface CreateDependenciesEffectOptions<TValues extends Values = Values> {
   /**
-   * 当前 form 实例运行时上下文。
+   * 字段 descriptor，提供静态 schema、validation 和 dependencies 配置。
    */
-  context: FormRuntimeContext<TValues>
-
+  descriptor: Readonly<FieldDescriptor<TValues>>
   /**
-   * Scheduler 队列中标识当前字段动态属性任务的唯一 ID。
+   * 被 dependencies 动态写入的字段呈现态模型。
    */
-  taskId: string
-
+  fieldModel: FieldModel<TValues>
   /**
-   * 字段 Node，提供静态 schema 和动态覆盖 Signal。
+   * form 内部运行时上下文。
    */
-  node: FieldNode<TValues>
+  context: SchemxFormContext<TValues>
   /**
    * 当前 effect 所属的资源作用域。
    */
@@ -89,77 +70,186 @@ export interface CreateFieldDependenciesEffectOptions<TValues extends Values = V
 /**
  * 创建字段级 dependencies effect。
  *
- * @param options - dependencies effect 所需的 Node 和运行时上下文。
- *
- * @example
- * ```ts
- * createFieldDependenciesEffect({ context, taskId, node, scope })
- * ```
+ * @param options - dependencies effect 所需的字段模型、descriptor 和运行时上下文。
  */
-export function createFieldDependenciesEffect<TValues extends Values = Values>(
-  options: CreateFieldDependenciesEffectOptions<TValues>
+export function createDependenciesEffect<TValues extends Values = Values>(
+  options: CreateDependenciesEffectOptions<TValues>
 ): void {
-  // 字段 dependencies effect 使用的运行时资源。
-  const { context, taskId, node, scope } = options
+  const { descriptor, fieldModel, context, scope } = options
+  const base = descriptor.schema
+  const dependencies = descriptor.dependencies
 
-  // 字段 dependencies 配置。
-  const dependencies = node.compiledSchema.value.dependencies
-
-  // 当前动态属性 effect 明确订阅的字段列表。
-  const triggerFields = dependencies?.triggerFields
-
-  if (dependencies == null || triggerFields == null || triggerFields.length === 0) {
+  if (
+    dependencies == null ||
+    dependencies.triggerFields == null ||
+    dependencies.triggerFields.length === 0
+  ) {
     return
   }
 
-  // 只有动态计算字典的字段需要推迟启动请求。
-  const hasDynamicDictionary = dependencies.dict != null
+  let version = 0
 
-  if (hasDynamicDictionary) {
-    scope.add(() => {
-      node.dictionaryConfigPending.value = false
-    })
+  const dispose = createSignalEffect(() => {
+    const currentVersion = ++version
+
+    // 读取 trigger 字段值以建立响应式依赖；字段值变化时 effect 会重新执行。
+    void context.formApi.getValues(dependencies.triggerFields)
+
+    void context.scheduler.track(
+      resolveDependencies(dependencies, base, context.formApi).then((resolvedProps) => {
+        if (scope.disposed || currentVersion !== version) {
+          return
+        }
+
+        updateFieldModel(fieldModel, descriptor, resolvedProps)
+      })
+    )
+  })
+
+  scope.add(() => {
+    version += 1
+    dispose()
+  })
+}
+
+/**
+ * 解析单个字段的 dependencies 配置。
+ */
+async function resolveDependencies<TValues extends Values>(
+  dependencies: SchemxDependencies<TValues>,
+  base: Readonly<SchemxResolvedBaseField<TValues>>,
+  formApi: SchemxFormApi<TValues>
+): Promise<DependenciesResolvedProps<TValues>> {
+  const values = formApi.getValues() as TValues
+
+  const [resolvedProps] = await Promise.all([
+    resolveDependenciesProps(dependencies, base, values, formApi),
+    runDependenciesTrigger(dependencies, values, formApi),
+  ])
+
+  return resolvedProps
+}
+
+/**
+ * 执行 dependencies.trigger 副作用。
+ */
+async function runDependenciesTrigger<TValues extends Values>(
+  dependencies: SchemxDependencies<TValues>,
+  values: TValues,
+  formApi: SchemxFormApi<TValues>
+): Promise<void> {
+  if (!dependencies.trigger) {
+    return
   }
 
-  createDependencySchedulerEffect<
-    TValues,
-    FieldDependencyOverrides<TValues> & Record<string, unknown>
-  >({
-    context,
-    triggerFields,
-    taskId,
-    scope,
-    run: (signal) =>
-      resolveDependencyOverrides<TValues, FieldDependencyOverrides<TValues>>(
-        dependencies,
-        getFieldDependencyOverrideKeys(dependencies),
-        createGuardedFormApi(context.formApi, signal),
-        `字段 "${String(node.name.value)}"`
-      ),
-    onStart: hasDynamicDictionary
-      ? () => {
-          node.dictionaryConfigPending.value = true
-        }
-      : undefined,
-    onSettled: hasDynamicDictionary
-      ? () => {
-          node.dictionaryConfigPending.value = false
-        }
-      : undefined,
-    onSuccess: (dependencyOverrides) => {
-      node.dependencyOverrides.value = dependencyOverrides
-      updateFieldDiagnostics(node, {
-        lastUpdatedBy: "dependencies",
-        triggerFields,
-        overriddenKeys: Object.keys(dependencyOverrides) as FieldDependencyOverrideKey[],
-        error: null,
-      })
-    },
-    onError: (error) => {
-      console.error(
-        `[schemx] 字段 "${String(node.name.value)}" dependencies 执行错误`,
-        error
-      )
-    },
-  })
+  try {
+    await dependencies.trigger(values, formApi)
+  } catch (error) {
+    console.error("[schemx] trigger 执行错误:", error)
+  }
+}
+
+/**
+ * 解析 dependencies 中显式配置的动态属性。
+ */
+async function resolveDependenciesProps<TValues extends Values>(
+  dependencies: SchemxDependencies<TValues>,
+  base: Readonly<SchemxResolvedBaseField<TValues>>,
+  values: TValues,
+  formApi: SchemxFormApi<TValues>
+): Promise<DependenciesResolvedProps<TValues>> {
+  const [componentProps, placeholder, required, readonly, disabled, visible, rules] =
+    await Promise.all([
+      resolveDependenciesProp({
+        condition: dependencies.componentProps,
+        values,
+        formApi,
+        defaultValue: base.componentProps,
+      }),
+      resolveDependenciesProp({
+        condition: dependencies.placeholder,
+        values,
+        formApi,
+        defaultValue: base.placeholder,
+      }),
+      resolveDependenciesProp({
+        condition: dependencies.required,
+        values,
+        formApi,
+        defaultValue: base.required,
+      }),
+
+      resolveDependenciesProp({
+        condition: dependencies.readonly,
+        values,
+        formApi,
+        defaultValue: base.readonly,
+      }),
+      resolveDependenciesProp({
+        condition: dependencies.disabled,
+        values,
+        formApi,
+        defaultValue: base.disabled,
+      }),
+      resolveDependenciesProp({
+        condition: dependencies.visible,
+        values,
+        formApi,
+        defaultValue: base.visible,
+      }),
+      resolveDependenciesProp({
+        condition: dependencies.rules,
+        values,
+        formApi,
+        defaultValue: base.rules,
+      }),
+    ])
+
+  return {
+    componentProps,
+    placeholder,
+    required,
+    readonly,
+    disabled,
+    visible,
+    rules,
+  }
+}
+
+/**
+ * 解析单个动态属性；未配置时返回静态默认值。
+ */
+async function resolveDependenciesProp<TValues extends Values, TValue>(options: {
+  condition?: SchemxConditionFn<TValues, TValue>
+  values: TValues
+  formApi: SchemxFormApi<TValues>
+  defaultValue: TValue | undefined
+}): Promise<TValue | undefined> {
+  const { condition, values, formApi, defaultValue } = options
+
+  if (condition == null) {
+    return defaultValue
+  }
+
+  return resolveCondition(formApi, condition, values, defaultValue)
+}
+
+/**
+ * 执行单个动态属性条件函数。
+ */
+async function resolveCondition<TValues extends Values, TValue>(
+  formApi: SchemxFormApi<TValues>,
+  condition: SchemxConditionFn<TValues, TValue>,
+  formValues: TValues,
+  defaultValue: TValue | undefined
+): Promise<TValue | undefined> {
+  try {
+    const result = await condition(formValues, formApi)
+
+    return result ?? defaultValue
+  } catch (error) {
+    console.error("[schemx] 解析动态属性时发生错误:", error)
+
+    return defaultValue
+  }
 }

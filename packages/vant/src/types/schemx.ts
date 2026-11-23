@@ -4,8 +4,6 @@
  * 将 Vant 渲染器的 componentType 和 componentProps 注册到 schemx 类型系统，
  * 使 schemas 配置获得完整的类型提示。
  */
-import type { ButtonProps } from "vant"
-
 import type {
   CalendarRendererProps,
   CascaderRendererProps,
@@ -17,8 +15,8 @@ import type {
   RadioRendererProps,
   RateRendererProps,
   SelectorRendererProps,
-  SelectPickerRendererProps,
   SensitiveInputRendererProps,
+  SelectPickerRendererProps,
   SliderRendererProps,
   StepperRendererProps,
   SwitchRendererProps,
@@ -26,43 +24,27 @@ import type {
   TextRendererProps,
   UploadRendererProps,
 } from "../renderers"
-import type { Values } from "@schemx/core"
+import type { SchemxWithDictionary, Values } from "@schemx/core"
 
 declare module "@schemx/core" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface SchemxRendererDefinition<TValues extends Values> {
+  interface SchemxRendererDefinition<T extends Values> {
     input: InputRendererProps
     text: TextRendererProps
     textarea: TextAreaRendererProps
     number: NumberRendererProps
     switch: SwitchRendererProps
-    radio: RadioRendererProps
-    checkbox: CheckboxRendererProps
+    radio: SchemxWithDictionary<RadioRendererProps, T>
+    checkbox: SchemxWithDictionary<CheckboxRendererProps, T>
     date: DateRendererProps
     calendar: CalendarRendererProps
-    picker: PickerRendererProps
-    selectPicker: SelectPickerRendererProps
-    selector: SelectorRendererProps
+    picker: SchemxWithDictionary<PickerRendererProps, T>
+    selectPicker: SchemxWithDictionary<SelectPickerRendererProps, T>
+    selector: SchemxWithDictionary<SelectorRendererProps, T>
     sensitiveInput: SensitiveInputRendererProps
     rate: RateRendererProps
     slider: SliderRendererProps
     stepper: StepperRendererProps
     upload: UploadRendererProps
     cascader: CascaderRendererProps
-  }
-}
-
-declare module "@schemx/vue" {
-  interface SchemxButtonDefinition extends Partial<ButtonProps> {}
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface SchemxColDefinition<TValues extends Values = Values> {
-    tag?: keyof HTMLElementTagNameMap
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface SchemxRowDefinition<TValues extends Values = Values> {
-    tag?: keyof HTMLElementTagNameMap
-    wrap?: boolean
   }
 }

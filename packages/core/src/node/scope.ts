@@ -11,45 +11,86 @@
  * @module core/node/scope
  */
 
-import type { Cleanup, CleanupHandle, CleanupRecord, Scope } from "./index"
+/**
+ * Scope 执行的清理函数。
+ */
+export type ScopeCleanup = () => void
+
+interface ScopeCleanupRecord {
+  cleanup: ScopeCleanup
+  disposed: boolean
+}
 
 /**
- * 创建一个资源生命周期作用域。
- *
- * 已释放的 scope 再调用 `add()` 时会立即执行 cleanup，这让调用方无需为异步
- * mount 流程额外判断资源是否已经过期。
- *
- * @returns 新创建的 `Scope`。
+ * cleanup 注册后的释放句柄。
  *
  * @remarks
- * 内部维护 cleanupRecords 集合和 childScopes 集合。dispose 时先释放子 scope，
- * 再按 LIFO 顺序执行当前 scope 的 cleanup。cleanup 抛错会被捕获并上报，
- * 不影响后续 cleanup 执行。
- *
- * @example
- * ```ts
- * const scope = createScope()
- * scope.add(() => console.log("released"))
- * scope.dispose()
- * ```
+ * 调用 `dispose()` 会立即执行对应 cleanup，并阻止它在 scope dispose 时再次执行。
  */
-export function createScope(): Scope {
-  let disposed = false
+export interface ScopeCleanupHandle {
+  /** cleanup 是否已经执行或取消。 */
+  readonly disposed: boolean
 
-  const cleanupRecords = new Set<CleanupRecord>()
+  /** 执行并移除当前 cleanup。 */
+  dispose(): void
+}
 
-  const childScopes = new Set<Scope>()
+/**
+ * 资源生命周期作用域。
+ *
+ * @remarks
+ * Scope 支持嵌套生命周期：父 scope dispose 时会先 dispose 子 scope，再按注册逆序
+ * 执行自身 cleanup。cleanup 抛错会被捕获并上报，不会阻断后续清理。
+ */
+export interface Scope {
+  /** 当前 scope 是否已经释放。 */
+  readonly disposed: boolean
 
   /**
    * 注册释放函数。
    *
-   * 每次 add 都创建独立记录；同一个 cleanup 函数重复注册也应独立释放。
-   * 返回的 handle 可提前释放该 cleanup 而不影响 scope 整体生命周期。
+   * 如果 scope 已 disposed，立即执行 cleanup 并返回已释放 handle。
    *
-   * @param cleanup - 释放函数。
-   * @returns 释放句柄，可提前执行该 cleanup。
+   * @param cleanup - 释放函数
+   * @returns 可取消的释放句柄
    */
-  const add = (cleanup: Cleanup): CleanupHandle => {
+  add(cleanup: ScopeCleanup): ScopeCleanupHandle
+
+  /**
+   * 创建子 scope。
+   *
+   * 子 scope 的 dispose 会在父 scope dispose 前执行。
+   *
+   * @returns 子 scope 实例
+   */
+  child(): Scope
+
+  /**
+   * 释放当前 scope 及所有子 scope。
+   *
+   * 幂等操作，重复调用不执行任何操作。
+   */
+  dispose(): void
+}
+
+/**
+ * 创建一个资源生命周期作用域。
+ *
+ * @returns 新创建的 `Scope`。
+ *
+ * @remarks
+ * 已释放的 scope 再调用 `add()` 时会立即执行 cleanup，这让调用方无需为异步
+ * mount 流程额外判断资源是否已经过期。
+ */
+export function createScope(): Scope {
+  let disposed = false
+  const cleanupRecords: ScopeCleanupRecord[] = []
+  const childScopes: Scope[] = []
+
+  /**
+   * 注册释放函数。
+   */
+  const add = (cleanup: ScopeCleanup): ScopeCleanupHandle => {
     if (disposed) {
       // 已释放的 scope 不再持有新资源，直接执行 cleanup 保持调用方语义稳定。
       runCleanup(cleanup)
@@ -58,12 +99,11 @@ export function createScope(): Scope {
     }
 
     // 每次 add 都创建独立记录；同一个 cleanup 函数重复注册也应独立释放。
-    const record: CleanupRecord = {
+    const record: ScopeCleanupRecord = {
       cleanup,
       disposed: false,
     }
-
-    cleanupRecords.add(record)
+    cleanupRecords.push(record)
 
     /**
      * 立即释放当前 cleanup 记录并从 scope 中移除。
@@ -74,7 +114,7 @@ export function createScope(): Scope {
       }
 
       record.disposed = true
-      cleanupRecords.delete(record)
+      removeItem(cleanupRecords, record)
       runCleanup(record.cleanup)
     }
 
@@ -88,27 +128,15 @@ export function createScope(): Scope {
 
   /**
    * 创建子 scope。
-   *
-   * 子 scope 会被父 scope 跟踪；父 scope dispose 时自动释放子 scope。
-   * 子 scope 提前释放后自动从父 scope 摘除。
-   *
-   * @returns 子 Scope 实例。
    */
   const child = (): Scope => {
     const childScope = createScope()
-
-    if (disposed) {
-      childScope.dispose()
-
-      return childScope
-    }
-
-    childScopes.add(childScope)
+    childScopes.push(childScope)
 
     // 子 scope 可能被调用方提前释放；提前释放后从父 scope 中摘除，
     // 避免父 scope 后续 dispose 时继续保留无效引用。
     childScope.add(() => {
-      childScopes.delete(childScope)
+      removeItem(childScopes, childScope)
     })
 
     return childScope
@@ -116,9 +144,6 @@ export function createScope(): Scope {
 
   /**
    * 释放当前 scope 及所有子 scope。
-   *
-   * 幂等：首次调用后 disposed 标记为 true，后续调用直接返回。
-   * 释放顺序：先子后父，同层级按 LIFO。
    */
   const disposeScope = (): void => {
     if (disposed) {
@@ -128,21 +153,21 @@ export function createScope(): Scope {
     disposed = true
 
     // 先释放子 scope，确保叶子资源早于父级资源清理。
-    for (const childScope of [...childScopes].reverse()) {
+    for (const childScope of childScopes.slice().reverse()) {
       childScope.dispose()
     }
 
-    childScopes.clear()
+    childScopes.length = 0
 
     // 再按 LIFO 顺序释放当前 scope 自己注册的 cleanup。
-    for (const record of [...cleanupRecords].reverse()) {
+    for (const record of cleanupRecords.slice().reverse()) {
       if (!record.disposed) {
         record.disposed = true
         runCleanup(record.cleanup)
       }
     }
 
-    cleanupRecords.clear()
+    cleanupRecords.length = 0
   }
 
   return {
@@ -156,52 +181,43 @@ export function createScope(): Scope {
 }
 
 /**
- * 创建一个已释放状态的 handle。
- *
- * 当 scope 已释放后调用 `add()` 时返回此 handle，避免调用方额外判空。
- *
- * @returns 已释放状态的 CleanupHandle。
+ * `createScope` 的兼容别名。
  */
-const createDisposedHandle = (): CleanupHandle => {
+export const createRuntimeScope = createScope
+
+const createDisposedHandle = (): ScopeCleanupHandle => {
   return {
     disposed: true,
     dispose: noop,
   }
 }
 
-/**
- * 空操作函数。
- */
 const noop = (): void => {}
 
-/**
- * 执行 cleanup 并捕获错误。
- *
- * cleanup 抛错不阻断后续清理流程，错误通过 reportCleanupError 上报。
- *
- * @param cleanup - 要执行的 cleanup 函数。
- */
-const runCleanup = (cleanup: Cleanup): void => {
+const removeItem = <T>(items: T[], item: T): void => {
+  const index = items.indexOf(item)
+  if (index >= 0) {
+    items.splice(index, 1)
+  }
+}
+
+const runCleanup = (cleanup: ScopeCleanup): void => {
   try {
     cleanup()
   } catch (error) {
-    reportCleanupError(error)
+    reportRuntimeCleanupError(error)
   }
 }
 
 /**
  * 报告 cleanup 错误。
  *
+ * @remarks
  * Scope 会吞掉 cleanup 抛出的错误以保证后续清理继续执行；这个函数是统一的
  * 错误上报出口。
  *
  * @param error - cleanup 抛出的错误。
- *
- * @example
- * ```ts
- * reportCleanupError(error)
- * ```
  */
-export function reportCleanupError(error: unknown): void {
-  console.error("[schemx] Scope cleanup 执行错误", error)
+export function reportRuntimeCleanupError(error: unknown): void {
+  console.error("[Scope] Cleanup error:", error)
 }

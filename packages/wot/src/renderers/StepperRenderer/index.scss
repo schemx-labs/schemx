@@ -1,0 +1,40 @@
+.schemx-stepper-renderer {
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &--readonly {
+    .schemx-stepper-renderer__readonly {
+      padding: 8px 0;
+    }
+  }
+
+  &__readonly {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+
+    &-value {
+      font-size: 14px;
+      color: #323233;
+      font-weight: 500;
+    }
+  }
+
+  // Wot UI InputNumber 组件的自定义样式
+  .wd-input-number {
+    justify-content: var(--schemx-input-align);
+  }
+
+  .wd-input-number__sub,
+  .wd-input-number__add {
+    // 自定义按钮样式
+    border-radius: 4px;
+  }
+
+  .wd-input-number__inner {
+    // 自定义输入框样式
+    text-align: center;
+    font-weight: 500;
+  }
+}

@@ -4,7 +4,7 @@
  * @module renderers/NumberRenderer/types
  */
 
-import type { InputValue, SchemxInputProps } from "../../components/Input/types"
+import type { InputValue, SchemxInputProps } from "@/components/Input"
 
 export type NumberValue = InputValue
 

@@ -1,0 +1,8 @@
+.schemx-select-picker-renderer {
+  cursor: pointer;
+
+  &.schemx-renderer-disabled,
+  &.schemx-renderer-readonly {
+    cursor: default;
+  }
+}

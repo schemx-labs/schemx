@@ -7,7 +7,7 @@
 import { createApp } from "vue"
 
 import "vant/lib/index.css"
-// import "@schemx/vant/style.css"
+import "@schemx/vant/style.css"
 
 import App from "./App.vue"
 

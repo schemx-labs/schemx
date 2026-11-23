@@ -1,0 +1,59 @@
+.schemx-rate-renderer {
+  &__stars {
+    display: flex;
+    align-items: center;
+    justify-content: var(--schemx-input-align);
+    gap: 4px;
+  }
+
+  &__star {
+    font-size: 20px;
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s ease;
+
+    &--active {
+      color: #ffd21e;
+    }
+
+    &--disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--readonly {
+      cursor: default;
+    }
+
+    &:hover:not(&--disabled):not(&--readonly) {
+      color: #ffd21e;
+    }
+  }
+
+  &--disabled {
+    opacity: 0.6;
+  }
+
+  &--readonly {
+    .schemx-rate-renderer__star {
+      cursor: default;
+    }
+  }
+
+  &__readonly {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &-text {
+      margin-left: 8px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    &-placeholder {
+      color: #999;
+      font-size: 14px;
+    }
+  }
+}

@@ -1,27 +1,40 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-selector-renderer', className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
+  <div
+    :class="[
+      'schemx-renderer',
+      'schemx-selector-renderer',
+      className,
+      {
+        'schemx-renderer-readonly': readonly,
+      },
+    ]"
   >
-    <template #readonly>
-      <span :style="`text-align: ${contentAlign}`">
-        {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-      </span>
-    </template>
+    <SchemxCell
+      v-if="props.readonly"
+      :value="fieldValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
+
     <Selector
+      v-else
       v-bind="selectorProps"
       :options="options"
       :field-names="fieldNames"
       :disabled="props.disabled"
       :model-value="selectorValue"
       :style="{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '8px 12px',
         justifyContent: contentAlign,
         ...(attrs?.style || {}),
       }"
       @update:model-value="handleChange"
     />
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -34,9 +47,8 @@
    */
   import { computed, useAttrs } from "vue"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { getFieldProps } from "@/utils"
 
   import Selector from "./Selector.vue"
 
@@ -55,6 +67,7 @@
     options: () => [],
     className: "",
     fieldNames: () => ({}),
+    view: false,
     readonly: false,
     readonlyPlaceholder: "-",
     disabled: false,
@@ -65,50 +78,18 @@
   const selectorValue = defineModel<SelectValue>("value")
 
   const labelName = computed(() => props.fieldNames?.label || "label")
-
   const valueName = computed(() => props.fieldNames?.value || "value")
 
-  const contentAlign = computed(
-    () =>
-      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
-      getFieldProps(attrs, "align", "right")
-  )
+  const contentAlign = computed(() => getFieldProps(attrs, "align", "right"))
 
   const fieldValue = computed(() => {
     return getOption(selectorValue.value ?? props.value, labelName.value)
   })
 
   const selectorProps = computed(() => {
-    const rendererProps = props
+    const { value, className: _className, formItemProps: _formItemProps, ...rest } = props
 
-    const {
-      value: _value,
-      onChange: _onChange,
-      options: _options,
-      fieldNames: _fieldNames,
-      className: _className,
-      readonly: _readonly,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      placeholder: _placeholder,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    const {
-      style: _attrsStyle,
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      options: _attrsOptions,
-      fieldNames: _attrsFieldNames,
-      className: _attrsClassName,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      placeholder: _attrsPlaceholder,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest }
+    return { ...attrs, rest }
   })
 
   const handleChange = (value: SelectValue): void => {

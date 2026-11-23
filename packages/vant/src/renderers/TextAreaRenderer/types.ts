@@ -4,7 +4,7 @@
  * @module renderers/TextAreaRenderer/types
  */
 
-import type { InputValue, SchemxInputProps } from "../../components/Input/types"
+import type { InputValue, SchemxInputProps } from "@/components/Input"
 
 export type TextAreaValue = InputValue
 

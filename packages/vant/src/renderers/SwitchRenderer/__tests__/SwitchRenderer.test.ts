@@ -4,12 +4,12 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => ({
   Switch: defineComponent({
     name: "Switch",
-    props: ["modelValue", "disabled", "loading", "activeColor"],
+    props: ["modelValue", "disabled", "loading"],
     emits: ["update:modelValue"],
     setup(props, { emit }) {
       return () =>
@@ -21,9 +21,8 @@ vi.mock("vant", () => ({
 import SwitchRenderer from "../index.vue"
 
 describe("SwitchRenderer", () => {
-  it("readonly 状态使用 Wrapper 展示开关文本且不渲染 Switch", async () => {
+  it("readonly 状态使用 Cell 展示开关文本且不渲染 Switch", async () => {
     const onChange = vi.fn()
-
     const wrapper = mount(SwitchRenderer, {
       props: {
         readonly: true,
@@ -34,31 +33,11 @@ describe("SwitchRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
     expect(cell.exists()).toBe(true)
     expect(wrapper.findComponent({ name: "Switch" }).exists()).toBe(false)
     expect(onChange).not.toHaveBeenCalled()
-
-    wrapper.unmount()
-  })
-
-  it("把 Switch 原生属性从 props 透传给子组件", () => {
-    const wrapper = mount(SwitchRenderer, {
-      props: {
-        value: true,
-        activeColor: "#07c160",
-        readonlyPlaceholder: "-",
-        formItemProps: { name: "enabled" } as any,
-      },
-    })
-
-    const switchComponent = wrapper.findComponent({ name: "Switch" })
-
-    expect(switchComponent.props("activeColor")).toBe("#07c160")
-    expect(switchComponent.attributes("readonly-placeholder")).toBeUndefined()
-    expect(switchComponent.attributes("form-item-props")).toBeUndefined()
-    expect(switchComponent.attributes("form-instance")).toBeUndefined()
 
     wrapper.unmount()
   })

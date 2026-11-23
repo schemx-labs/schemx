@@ -1,18 +1,14 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-input-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(modelValue, props.readonlyPlaceholder) }}
-    </template>
-    <SchemxInput
-      ref="inputRef"
-      v-bind="inputProps"
-      v-model:value="inputValue"
-      :align="contentAlign"
-    >
+  <div :class="['schemx-renderer', 'schemx-input-renderer', props.className]">
+    <SchemxCell
+      v-if="props.readonly"
+      :value="modelValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
+    <SchemxInput v-else ref="inputRef" v-bind="inputProps" v-model:value="inputValue">
       <template v-if="$slots['left-icon']" #left-icon>
         <slot name="left-icon" />
       </template>
@@ -26,16 +22,14 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
   import { computed, ref } from "vue"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import SchemxInput from "../../components/Input"
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import SchemxInput from "@/components/Input"
 
   import type { InputRendererProps, InputValue } from "./types"
 
@@ -79,26 +73,14 @@
   })
 
   const inputValue = defineModel<InputValue>("value")
-
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
 
   const modelValue = computed(() => String(inputValue.value ?? props.value ?? ""))
 
-  const contentAlign = computed(
-    () =>
-      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
-      getFieldProps(props, "align", "right")
-  ) as any
+  const placeholder = computed(() => props.placeholder || "请选择")
 
   const inputProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      className: _className,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
+    const { value: _value, ...rest } = props
 
     return rest
   })

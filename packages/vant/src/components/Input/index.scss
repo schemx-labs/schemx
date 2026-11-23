@@ -1,0 +1,10 @@
+.schemx-input {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-size: var(--van-field-font-size, var(--van-font-size-md, 14px));
+
+  .van-field {
+    padding: 0px;
+  }
+}

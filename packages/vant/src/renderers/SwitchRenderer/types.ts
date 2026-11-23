@@ -16,7 +16,6 @@ export type SwitchValue = boolean | string | number
  * 定义开关组件的所有可配置属性。
  */
 export interface SwitchRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
@@ -34,12 +33,7 @@ export interface SwitchRendererProps
     > {
   /** 当前值 */
   value?: SwitchValue
-  /**
-   * 值变化回调；支持异步返回新值，返回 `void` 时使用传入值。
-   *
-   * @param value - 用户选择的开关值。
-   * @returns 要写入字段的新值；未返回时保留 `value`。
-   */
+  /** 值变化回调，支持异步返回值以更新表单字段 */
   onChange?: (value: SwitchValue) => void | Promise<SwitchValue | void>
   /** 自定义 CSS 类名 */
   className?: string

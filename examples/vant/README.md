@@ -1,68 +1,50 @@
-# @schemx/vant 示例
+# schemx 示例
 
-本目录是 `@schemx/vant` 的 Vue 3 + Vant 4 示例项目，用于验证内置 Renderer、字段联动、容器状态、校验、插槽和运行时 Schema 更新能力。
+本目录包含 schemx 组件的使用示例。
 
 ## 示例列表
 
-- **auto-col**：自动列与栅格混排、窄容器自然换行及校验提示。
-
-1. **form-groups**：合并表单示例，通过 Group 区分基础表单、动态表单、字段联动和动态数组。
-2. **array-value-update**：数组字段赋值示例，对比 `setFieldsValue` 与 `setFieldValue` 对普通数组和 Dynamic 数组的整体替换行为。
-3. **slots**：插槽示例，覆盖 `FieldItem`、`FieldGroup` 和 renderer slot 的自定义展示。
-4. **custom-renderer**：自定义子渲染器示例，演示注册新的 `componentType`，并在 Renderer 内组合多个 Vant 子控件。
+1. **basic** - 基础表单示例（文本、数字、日期、开关等常用字段）
+2. **validation** - 表单验证示例（必填、正则、自定义验证器、异步验证）
+3. **dynamic** - 动态表单示例（字段联动、条件显示/隐藏、动态属性）
+4. **dependency** - FormDependency 组件示例（复杂字段联动）
+5. **custom-renderer** - 自定义渲染器示例（颜色选择器、星级评分、标签输入）
+6. **hooks** - Hooks API 使用示例（useForm、useField、useWatch）
 
 ## 运行示例
 
 ```bash
-# 在仓库根目录交互选择 examples/vant
-pnpm dev
+# 在 packages/schemx 目录下
+npm run dev
 
-# 或只运行示例包
-VITE_USE_SOURCE=true pnpm --filter vant-demo dev
+# 或者使用 vite 直接运行示例
+npx vite examples
 ```
 
-浏览器访问终端输出的地址，默认是 <http://localhost:5173>。项目 `.env` 已设置 `VITE_USE_SOURCE=true`，开发时引用 workspace 依赖源码并同步 TypeScript 路径；切换为 `false` 后，在仓库根目录运行 `pnpm source:sync`。包 API 统一从 `@schemx/vant` 根入口导入。
-
-“动态表单”中，关闭“显示配送详情”可隐藏整个 Group；选择“自提”可查看只读继承，选择“其他”可查看禁用继承。“字段联动”中，“显示订单配置”和“订单配置权限”会控制 Dependency 动态生成的全部后代字段。
-
-“动态数组”已合并到“form-groups”示例中，`SchemxDynamicField.item` 使用数组项相对路径；通过“末项移到首位”可观察数组索引变化时字段值与行身份仍保持对应。切换“显示团队成员”和“成员编辑权限”可观察 `SchemxDynamicField.dependencies` 对数组容器及行内字段的状态控制。
-
-“定位到基础年龄”按钮演示通过表单实例调用 `scrollToField()`，自动展开两层 Group 并滚动到目标字段。
+然后在浏览器中访问 http://localhost:5173 查看示例。
 
 ## 快速开始
 
 ```vue
 <template>
-  <Schemx v-model="formData" :schemas="schemas" @finish="handleSubmit" />
+  <schemx v-model="formData" :schemas="schemas" :footer="true" @finish="handleSubmit" />
 </template>
 
 <script setup lang="ts">
   import { ref } from "vue"
-
-  import Schemx from "@schemx/vant"
-
-  import type { SchemxField } from "@schemx/vant"
+  import schemx from "@schemx/core"
+  import "@schemx/core/style.css"
 
   const formData = ref({})
 
-  const schemas: SchemxField[] = [
-    {
-      name: "username",
-      label: "用户名",
-      componentType: "input",
-      required: true,
-      placeholder: "请输入用户名",
-    },
-    {
-      name: "email",
-      label: "邮箱",
-      componentType: "input",
-      placeholder: "请输入邮箱",
-    },
+  const schemas = [
+    { name: "username", label: "用户名", componentType: "text", required: true },
+    { name: "email", label: "邮箱", componentType: "text" },
   ]
 
-  function handleSubmit(values: Readonly<Record<string, unknown>>) {
-    console.log("提交数据：", values)
+  const handleSubmit = (values, done: () => void) => {
+    console.log("提交数据:", values)
+    done()
   }
 </script>
 ```

@@ -1,10 +1,18 @@
 # @schemx/core
 
-`@schemx/core` 是框架无关的 Schema 表单运行时，负责表单状态、校验、动态 Schema、动态数组、依赖计算与渲染投影。它不提供 UI；Vue 项目可搭配 [`@schemx/vue`](../vue) 自行注册 Renderer，或使用 [`@schemx/vant`](../vant)、[`@schemx/element-plus`](../element-plus) 的现成适配。
+框架无关的 Schema 驱动表单核心。它只处理表单状态、字段依赖、校验、运行时 schema node 和可渲染 ViewSchemas，不绑定任何 UI 框架。
 
-## 2.0 迁移
+`@schemx/core` 适合用来构建 Vue、React、小程序、低代码表单、动态问卷、配置化后台表单等上层适配器。
 
-本分支已移除 1.x 中标记弃用的 Core API，属于 2.0 破坏性变更。升级前请阅读 [1.x → 2.0 迁移指南](./MIGRATION.md)，包括全局配置、布局、展示属性和 Renderer Props 的替代方式。
+## 为什么使用
+
+- **Headless core**：核心不渲染 DOM，只暴露状态、校验、schema node 和 renderer/rule registry。
+- **Schema driven**：用 `schemas` 描述字段、分组、动态依赖和渲染器类型。
+- **细粒度响应式**：字段级依赖追踪，`effect` / `watch` 只响应实际读取的字段。
+- **Standard Schema 校验**：可直接接入 Zod、Valibot、ArkType 等实现 Standard Schema 的验证库。
+- **动态表单优先**：支持字段动态属性、动态子树、异步 dependency renderer 和依赖完成等待。
+- **TypeScript 优先**：字段路径、schema、renderer props 和表单值类型可逐步收窄。
+- **适配器友好**：通过 `getViewSchemas()` / `subscribeViewSchemas()` 给 UI 层消费稳定的渲染投影。
 
 ## 安装
 
@@ -12,571 +20,493 @@
 pnpm add @schemx/core
 ```
 
+```bash
+npm install @schemx/core
+```
+
+```bash
+yarn add @schemx/core
+```
+
+如果需要使用 Zod、Valibot、ArkType 等校验库，请在业务项目中额外安装对应依赖。
+
 ## 快速开始
 
 ```ts
-import { createForm, type SchemxField } from "@schemx/core"
+import { createForm } from "@schemx/core"
+import { z } from "zod"
 
 type LoginValues = {
   email: string
   password: string
 }
 
-const schemas: SchemxField<LoginValues>[] = [
-  {
-    name: "email",
-    label: "邮箱",
-    componentType: "input",
-    required: true,
-  },
-  {
-    name: "password",
-    label: "密码",
-    componentType: "password",
-    rules: [
-      {
-        validate: (value) =>
-          typeof value === "string" && value.length >= 8
-            ? { valid: true }
-            : { valid: false, issues: [{ message: "密码至少为 8 位" }] },
-      },
-    ],
-  },
-]
-
 const form = createForm<LoginValues>({
-  initialValues: { email: "", password: "" },
-  schemas,
-})
-
-form.setFieldValue("email", "hello@example.com")
-
-const result = await form.submit()
-
-if (result.valid) {
-  console.log(result.values)
-} else {
-  console.log(result.errors)
-}
-
-form.destroy()
-```
-
-## `createForm(options)`
-
-创建稳定的 `SchemxInstance`。常用选项如下；完整类型见 `CreateFormOptions<TValues>`。
-
-| 选项                                                   | 说明                                                                                                                                         |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemas`                                              | 字段数组，或 `createSchemas()` 创建的可更新 Schema source。                                                                                  |
-| `initialValues`                                        | 初始值，也是 `reset()` 的还原基准。                                                                                                          |
-| `schemaConfig`                                         | 框架无关的字段默认值，如 `required`、`readonly`、`disabled`、`visible` 和校验触发方式；UI 适配层可通过 `SchemxSchemaConfigDefinition` 扩展。 |
-| `fieldRules`                                           | 按字段路径配置的字段规则兜底；字段自身 `rules` 或动态规则优先。                                                                              |
-| `rendererProps` / `rendererRegistry`                   | 按 `componentType` 配置默认 Props，或提供 Renderer Registry。Core 仅保存和解析 Renderer，不渲染它。                                          |
-| `defaultRendererType`                                  | Core 未配置 Renderer Registry 时创建内部 Registry 所用的回退类型；使用已有 Registry 时由其自身的 fallback 决定。                             |
-| `presetRuleRegistry` / `validatorAdapters`             | 预设规则注册表和额外的第三方校验 adapter；async-validator 规则由 Core 内置支持。                                                             |
-| `onRuleError`                                          | 规则解析或执行异常时的回调。                                                                                                                 |
-| `onFinish` / `onFinishFailed`                          | `submit()` 成功或失败后的回调。                                                                                                              |
-| `onReset` / `onLoadingChange`                          | 重置完成、提交状态变化后的回调。                                                                                                             |
-| `onValuesChange` / `onFieldsChange`                    | 值或字段状态变化后的回调。                                                                                                                   |
-| `lifecycleHooks`                                       | Runtime 生命周期钩子。                                                                                                                       |
-| `debug` / `schedulerOptions` / `validationConcurrency` | 分别控制 Runtime 诊断、任务调度和整表校验并发数。                                                                                            |
-
-## Runtime 精简后的接口迁移
-
-独立的 `lifecycle` 模块负责钩子通知和异常隔离；Reconciler 决定通知阶段，并仅在配置了对应钩子时捕获快照。生命周期钩子统一接收只读 `NodeSnapshot`。读取字段路径使用 `snapshot.name`，读取配置使用 `snapshot.compiledSchema`，不再访问 `.value`、`peek()`、Scope 或内部 Node。`updated(current, previous)` 的两个参数均为阶段快照；其他钩子只接收一个参数。
-
-```ts
-const form = createForm({
-  schemas: [{ name: "name", label: "姓名", componentType: "input" }],
-  lifecycleHooks: {
-    updated(current, previous) {
-      if (current.type === "field" && previous.type === "field") {
-        console.log(previous.name, current.name)
-      }
-    },
-  },
-})
-```
-
-快照保存 `id`、`key`、`type`、`parentId`、`disposed`、`compiledSchema` 和 `dependencyOverrides`。Field 包含 `name` 及可选诊断；容器包含 `childIds`；Dynamic 还包含 `rows`；Dependency 可包含 `dynamicRow`。创建阶段 `parentId` 为 `null`，挂载后为父节点 ID；卸载通知时节点已从树中移除且 `disposed` 为 `true`。快照及其复制的元数据被冻结，Schema 和业务对象仍按不可变输入契约使用，不会递归冻结用户对象。
-
-调度器只保留 `normal`、`post` 两阶段。移除 `idleTimeout`，`schedulerOptions` 只接受 `timeSliceMs` 和 `collectDiagnostics`。内部等待统一为 `whenIdle(timeout?)`，不再导出 `SchedulerIdleOptions`、`SchedulerTrackOptions` 或支持 `includeIdle`；`waitForDependencies(timeout?)` 继续等待所有队列和被跟踪的异步工作。
-
-ViewSchema 在节点投影阶段一次生成最终 Props，只包含纯数据，不携带表单实例。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。需要调用表单 API 时，由框架层通过自身上下文提供实例（Vue 见 `useFormContextValue()`）。Compiler 的配置编译保持与 Form 实例独立。
-
-## 字段字典 API
-
-在普通字段顶层配置 `dict` 即可加载远程选项。Renderer 照常通过 `registerAll()` 注册。已声明的 Renderer Props 决定可用的数组属性和选项类型，表单值类型决定回调参数和依赖路径。
-
-```ts
-const schemas: SchemxField<{ province: string; city: string }>[] = [
-  {
-    name: "city",
-    label: "城市",
-    componentType: "select",
-    dict: {
-      api: async (values, _form, signal) => {
-        const rows = await fetchCities(values.province, signal)
-        return rows.map((row) => ({ label: row.name, value: row.code }))
-      },
-      dependsOn: ["province"],
-      shouldFetch: (values) => Boolean(values.province),
-      resetOnDepsChange: true,
-    },
-  },
-]
-```
-
-`dict: (values) => options` 是 API 简写。完整配置支持以下行为：
-
-| 配置                                   | 行为                                                                                                                                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `targetKey`                            | 注入选项的数组属性。运行时依次使用字段配置、Renderer 默认目标和 `options`。组件使用 `columns` 等属性时可显式指定。                                                                                       |
-| `api`、`formatter`、`keys`             | API 默认直接返回选项数组。可用 formatter 转换原始响应，或用 keys 映射后端数组的 `labelKey`、`valueKey`、`childrenKey`、`disabledKey`。同时声明时 formatter 优先。内联 formatter 的响应类型为 `unknown`。 |
-| `immediate`                            | 默认在节点挂载后的 post 阶段加载，隐藏字段和 SSR 节点也适用。设为 false 跳过首次请求，依赖变化仍会请求。                                                                                                 |
-| `dependsOn`、`shouldFetch`             | 依赖变化时取消旧请求并刷新。shouldFetch 返回 false 时跳过 API 并清空选项。                                                                                                                               |
-| `resetOnDepsChange`                    | 依赖变化时清空节点当前路径的值，适用于省份与城市联动。                                                                                                                                                   |
-| `retryCount`、`retryInterval`          | 默认不重试，配置额外尝试次数后，默认每次间隔 1000 毫秒。                                                                                                                                                 |
-| `onDepsChange`、`onSuccess`、`onError` | 分别在依赖变化、写入最终选项、请求最终失败时通知。回调收到 Core 表单实例。                                                                                                                               |
-
-`dependencies.dict` 可按 triggerFields 同步或异步返回新配置。返回 false 明确关闭字典，返回 undefined 或 null 回退到静态配置。字典开启时覆盖组件的目标属性和 loading，关闭后恢复基础 Props。依赖和请求配置不会进入渲染视图。
-
-Renderer 可以通过 `registerAll({ select: { component: SelectRenderer, dictionary: true } })` 声明默认目标 `options`，也可以用 `dictionary: { targetKey, keys }` 配置默认目标和字段映射。字典由字段的 `dict` 启用，字段的 `dict.targetKey` 和 `dict.keys` 优先。字段使用 `formatter` 时直接消费转换结果。
-
-TypeScript 从 Renderer Props 推导字段字典。Renderer 只声明 `columns` 时，在有类型约束的 Schema 上显式指定 `dict.targetKey: "columns"`。如果 `options` 和 `columns` 的选项类型不同，字段可以显式选用任一属性，Renderer 的默认目标需要兼容 `options` 的元素类型。
-
-| API                                 | 作用                                                               |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `getFieldDict(name)`                | 读取选项、状态、加载标记、错误和版本。缺省或关闭时返回 undefined。 |
-| `getFieldDictOptions(name)`         | 仅读取当前列表，缺省或关闭时返回稳定的空数组。                     |
-| `loadFieldDict(name)`               | 按需加载，复用成功结果或正在进行的请求。                           |
-| `refreshFieldDict(name)`            | 重新请求并覆盖当前选项，合并在途请求。                             |
-| `cancelFieldDict(name)`             | 取消请求，保留当前选项。                                           |
-| `setFieldDictOptions(name, action)` | 用数组或 updater 修改当前选项。后续刷新会覆盖本地修改。            |
-
-配置替换、关闭、节点卸载和表单销毁会释放旧资源。多个字段可并行加载，活动请求纳入 `waitForDependencies()`。旧写法的替换方式见 [迁移指南](./MIGRATION.md#5-字典配置迁至字段顶层)。
-
-## 框架适配：直接消费 Core 原生状态
-
-`getFormAdapter(form)` 提供稳定的原生只读状态入口。values、touched、pending、config 和字段状态直接返回 Core 已有对象；loading 与 disposed 仅提供现有 Signal 的只读访问；ViewSchema 沿用原有视图读取和防抖订阅。获取入口或读取值不会提前建立订阅，也不创建框架容器、第二份状态或监听器分发层。
-
-```ts
-import { createForm, getFormAdapter } from "@schemx/core"
-
-const form = createForm({ initialValues: { email: "" } })
-const adapter = getFormAdapter(form)
-const state = adapter.field("email").value
-
-console.log(state.peek()) // ""，无依赖读取。
-
-const stop = state.subscribe((value) => {
-  console.log(value)
-}) // 首次同步通知 ""，之后由原生 Signal 通知。
-
-form.setFieldValue("email", "hello@example.com")
-stop()
-form.destroy()
-```
-
-每个状态都遵循已有的 `ReadonlyState<T>`：
-
-| API                         | 行为                                                     |
-| --------------------------- | -------------------------------------------------------- |
-| `state.value`               | 读取当前值，在 Core effect 中建立依赖。                  |
-| `state.peek()`              | 无依赖读取同一个当前值，不复制业务对象。                 |
-| `state.subscribe(listener)` | 首次同步交付当前值，后续由 Core 通知，返回独立取消函数。 |
-
-入口提供 `values`、`loading`、`config`、`disposed`、`touchedFields`、`pendingFields`、`viewSchemas` 和 `field(name)`。字段状态始终绑定传入的固定路径；数组移动或 Schema 改名不会使其跟随原字段。
-
-所有字段 API 都操作本次传入的路径。Core 不提供字段引用或字段控制器；框架层、UI 层或业务层负责在每次调用前提供当前路径，需要跟随业务数据时自行维护业务 key 与路径的对应关系。
-
-```ts
-const state = adapter.field("email")
-
-// 状态观察 email 路径，命令直接通过 Form 执行。
-form.changeField("email", "hello@example.com")
-console.log(state.value.peek())
-```
-
-此处假定 form 仍然存活。原始 Form 与保留 Core 上下文 Symbol 的框架副本共用入口，`adapter.form` 始终指向原始实例。适配器不提供 `dispose()`，消费者取消自己的原生订阅；Form 销毁时原有作用域统一停止通知，已有状态仍可读取，不能再通过 `field()` 获取状态。框架容器缓存及组件生命周期由框架层决定。
-
-### React：直接读取与订阅
-
-React 层可以直接将原生 `subscribe` 和 `peek` 交给 `useSyncExternalStore`，不需要投影驱动。以下是客户端 Hook，SSR 需要另外提供 `getServerSnapshot` 并保证 hydration 初值一致。
-
-```ts
-import { useSyncExternalStore } from "react"
-import type { DeepReadonly, ReadonlyState } from "@schemx/core"
-
-export function useCoreState<TValue>(state: ReadonlyState<TValue>): DeepReadonly<TValue> {
-  return useSyncExternalStore(state.subscribe, state.peek)
-}
-```
-
-例如在 React 组件内使用 `useCoreState(getFormAdapter(form).field("email").value)`。方法引用保持稳定，每个 Hook 的订阅由 React 建立和取消；取消之后可以再次订阅同一个原生状态。
-
-### Vue：连接通知，读取时直接访问 Core
-
-Vue 层通过 `customRef` 接入自己的依赖收集与通知，getter 直接读取 Core 的 `peek()`，不再将快照保存到另一个 `shallowRef`。以下工具应在活动的 Vue scope 中调用：
-
-```ts
-import { customRef, getCurrentScope, onScopeDispose } from "vue"
-import type { Ref } from "vue"
-import type { DeepReadonly, ReadonlyState } from "@schemx/core"
-
-export function useCoreState<TValue>(
-  state: ReadonlyState<TValue>
-): Readonly<Ref<DeepReadonly<TValue>>> {
-  if (!getCurrentScope()) {
-    throw new Error("useCoreState requires an active Vue scope")
-  }
-
-  const target = customRef<DeepReadonly<TValue>>((track, trigger) => {
-    const stop = state.subscribe(() => trigger())
-
-    onScopeDispose(stop)
-
-    const get = (): DeepReadonly<TValue> => {
-      track()
-      return state.peek()
-    }
-
-    const set = (): void => {
-      throw new TypeError("只读状态，请通过 Form 方法修改")
-    }
-
-    return { get, set }
-  })
-
-  return target
-}
-```
-
-在 Vue setup 内使用 `useCoreState(getFormAdapter(form).field("email").value)`，状态变化的路径是 `Core Signal → trigger() → Vue 重新读取 peek()`。字段可写 computed、change/blur 等接口由 Vue 的 `useField()` 组织，Core 不维护框架 Ref、owner 或读取追踪驱动。
-
-旧的 `createFormStateAdapter()` 继续为现有 bridge 提供独立快照协议：它的 `getSnapshot()` 对应原生 `peek()`，订阅跳过首次通知。新的 `getFormAdapter()` 不经过旧适配器。框架 bridge 需使用路径接口，组件的动态路径和生命周期由消费端管理。
-
-## Schema
-
-`SchemxField<TValues>` 有 4 种结构：普通字段、分组字段、动态依赖字段和动态数组字段。
-
-### 普通字段
-
-普通字段必须包含 `name`、`label` 和 `componentType`，用于渲染一个具体控件。
-
-```ts
-const nickname: SchemxField = {
-  name: "nickname",
-  label: "昵称",
-  componentType: "input",
-  placeholder: "请输入昵称",
-  disabled: false,
-}
-```
-
-普通字段专有参数：
-
-| 参数                                                 | 说明                                                                               |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `name`                                               | 字段路径，支持 `profile.city` 或 `["profile", "city"]` 等嵌套路径。                |
-| `label`                                              | 字段标签；传入空字符串可隐藏标签内容。                                             |
-| `componentType`                                      | Renderer key，用于从 `RendererRegistry` 查找控件。                                 |
-| `componentProps`                                     | 透传给目标 Renderer 的专属 Props。                                                 |
-| `placeholder` / `readonlyPlaceholder`                | 普通或只读状态的占位提示。                                                         |
-| `initialValue`                                       | 字段挂载时写入的初始值，也是 `reset()` 的还原值。                                  |
-| `preserve`                                           | Schema 移除或字段改名时是否保留字段值和状态；默认保留，设为 `false` 时清理旧路径。 |
-| `required`                                           | 必填校验配置；视觉标记配置由框架适配层提供。                                       |
-| `rules` / `validationTrigger`                        | 校验规则及其触发时机。                                                             |
-| `onChange` / `onBlur`                                | 值变化或失焦时的字段回调。                                                         |
-| `visible` / `readonly` / `disabled` / `dependencies` | 字段状态及基于其他字段值的动态覆盖规则。                                           |
-
-### 分组字段
-
-分组字段通过 `label` 和 `children` 组织固定子树，可统一控制子字段的 `visible`、`readonly` 和 `disabled` 状态。
-
-```ts
-const profileGroup: SchemxField = {
-  label: "个人资料",
-  children: [
-    {
-      name: "profile.city",
-      label: "城市",
-      componentType: "input",
-    },
-  ],
-}
-```
-
-分组字段专有参数：
-
-| 参数                                | 说明                                                                             |
-| ----------------------------------- | -------------------------------------------------------------------------------- |
-| `label`                             | 分组标题。                                                                       |
-| `children`                          | 固定的子 Schema 数组。                                                           |
-| `visible` / `readonly` / `disabled` | 容器状态；只读和禁用会强制作用于全部后代字段。隐藏时后代停止校验，但保留字段值。 |
-| `dependencies`                      | 基于表单值动态覆盖分组容器状态。                                                 |
-
-分组的折叠交互由框架适配层（Vue、React、...）通过 `SchemxGroupFieldDefinition` 扩展。Vue 的 `collapsible`、`collapsed` 等配置见 [Vue 文档](../vue/README.md)。
-
-### 动态依赖字段
-
-动态依赖字段通过 `to` 监听字段路径，并由 `renderer` 根据最新表单值返回一组 Schema。`renderer` 也可以是异步函数。
-
-```ts
-type AccountValues = {
-  accountType: "personal" | "enterprise"
-  companyName?: string
-}
-
-const accountFields: SchemxField<AccountValues> = {
-  to: ["accountType"],
-  renderer(values) {
-    if (values.accountType !== "enterprise") return []
-
-    return [
-      {
-        name: "companyName",
-        label: "企业名称",
-        componentType: "input",
-        required: true,
-      },
-    ]
-  },
-}
-```
-
-动态依赖字段专有参数：
-
-| 参数                                | 说明                                                                                                                       |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `to`                                | 要监听的字段路径数组；这些字段变化时会重新执行 `renderer`。                                                                |
-| `renderer`                          | 接收 `(values, form, context)` 并返回 Schema 数组的函数；支持返回 `Promise`。`values` 是当前轮次共享的只读快照，请勿修改。 |
-| `visible` / `readonly` / `disabled` | 动态子树的容器状态；隐藏不停止 `renderer` 对 `to` 的响应。                                                                 |
-| `dependencies`                      | 基于表单值动态覆盖动态子树的容器状态。                                                                                     |
-
-`renderer` 与 `dependencies` 条件函数拿到的 `values` 是同一值版本内共享的只读快照：Core 只在该轮值实际变化时复制一次整棵值树，并在同一轮的所有依赖求值中复用，因此不要在回调内修改 `values`。需要携带修改时通过第二个参数中的 Form 方法写入。
-
-### 动态数组字段
-
-动态数组字段使用 `SchemxDynamicField` 描述对象数组的行模板。`key` 是必填的稳定模板标识，`name` 指向表单中的对象数组，`item` 描述每一行的相对字段。Core 负责数组行的增删、移动、索引路径更新和行状态复用，不负责新增、删除按钮或拖拽等 UI 行为。
-
-```ts
-import { createForm, type SchemxDynamicField } from "@schemx/core"
-
-type Member = {
-  name: string
-  role: "developer" | "designer"
-}
-
-type TeamValues = {
-  members: Member[]
-}
-
-const membersSchema: SchemxDynamicField<TeamValues, Member> = {
-  key: "members",
-  name: "members",
-  label: "团队成员",
-  item: [
-    {
-      key: "member",
-      label: "成员信息",
-      children: [
-        {
-          name: "name",
-          label: "姓名",
-          componentType: "input",
-          required: true,
-        },
-        {
-          name: "role",
-          label: "角色",
-          componentType: "text",
-        },
-      ],
-    },
-  ],
-}
-
-const form = createForm<TeamValues>({
   initialValues: {
-    members: [{ name: "张三", role: "developer" }],
+    email: "",
+    password: "",
   },
-  schemas: [membersSchema],
+  onFinish(values) {
+    console.log("submit:", values)
+  },
+  onFinishFailed(error) {
+    console.log("errors:", error.errors)
+  },
 })
 
-form.setFieldValue("members", (members) => [
-  ...(members ?? []),
-  { name: "李四", role: "designer" },
-])
+form.registerRules("email", z.string().email("请输入正确的邮箱"))
+form.registerRules("password", z.string().min(6, "密码至少 6 位"))
+
+form.setFieldValue("email", "hello@example.com")
+form.setFieldValue("password", "123456")
+
+await form.submit()
+
+form.destroy()
 ```
 
-`item` 中的普通字段和 Group 使用当前行的相对路径，例如 `name` 会展开为 `members.0.name`。普通字段和 Group 的 `dependencies.triggerFields` 会随行自动展开；行内 Dependency 的 `to` 按完整表单路径声明，`renderer` 返回的子 Schema 使用当前行相对路径。行内模板可以包含普通字段、Group 和 Dependency，但不能嵌套 Dynamic。Dynamic 容器支持 `visible`、`readonly`、`disabled` 及对应的 `dependencies`，状态会递归传递到每一行的后代字段。
+## Schema 配置
 
-修改数组时建议使用 `setFieldValue(path, updater)`，这样 Core 能识别行结构并保持移动前后的字段值、校验和行身份对应。Dynamic 的 ViewSchema 保留 `items` 行边界，UI 适配层可据此渲染每一行。
-
-## 表单实例 API
-
-`createForm()` 返回的 `SchemxInstance` 按以下类别提供 API。
-
-| 类别             | API                                                                                                                                | 用途                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 值               | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`                                                               | 读取或更新当前字段值；数组同样通过 `setFieldValue` 的 updater 更新。读取会参与响应式追踪。 |
-| 快照与初始值     | `getFieldSnapshot`、`getFieldsSnapshot`、`getInitialValue`、`getInitialValues`、`setInitialValue`、`setInitialValues`              | 获取非追踪快照，或维护重置基准。                                                           |
-| touched          | `isFieldTouched`、`isFieldsTouched`、`setFieldTouched`、`setFieldsTouched`、`getTouchedFields`                                     | 管理字段交互状态。                                                                         |
-| pending          | `isFieldPending`、`isFieldsPending`、`setFieldPending`、`setFieldsPending`、`getPendingFields`                                     | 管理字段异步操作状态与提示。                                                               |
-| 错误             | `getFieldErrors`、`getFieldsErrors`、`setFieldErrors`、`setFieldsErrors`、`clearFieldErrors`、`clearFieldsErrors`、`clearErrors`   | 读取、替换或清除校验错误。                                                                 |
-| 校验与提交       | `validateField`、`validate`、`submit`、`isLoading`                                                                                 | 校验字段/表单或提交表单；结果为 `ValidationResult`。                                       |
-| 重置             | `resetField`、`resetFields`、`reset`                                                                                               | 恢复字段或整个表单的初始状态。                                                             |
-| Schema           | `setSchemas`、`updateSchemas`、`updateSchemaConfig`                                                                                | 替换或增量更新运行中的 Schema 与默认配置。                                                 |
-| 视图投影         | `getViewSchemas`、`subscribeViewSchemas`、`waitForDependencies`                                                                    | 获取可供 UI 渲染的 `SchemxViewSchema`，订阅其变化，或等待依赖计算完成。                    |
-| Renderer         | `getRenderer`、`registerRenderer`、`hasRenderer`                                                                                   | 查询、注册和判断 Renderer。                                                                |
-| 预设规则         | `getPresetRule`、`registerPresetRule`、`hasPresetRule`、`setFieldRules`、`setFieldsRules`、`removeFieldRules`、`removeFieldsRules` | 管理预设规则与字段规则。                                                                   |
-| 响应式与生命周期 | `effect`、`batch`、`destroy`                                                                                                       | 建立响应式副作用、批量更新，或释放整个表单。                                               |
+`schemas` 是 core 与框架适配层之间最重要的协议。core 会把原始 schema 编译为运行时 node，并输出适合 UI 层渲染的 ViewSchemas。
 
 ```ts
-form.batch(() => {
-  form.setFieldValue("email", "new@example.com")
-  form.setFieldTouched("email", true)
-})
+import { createForm, createSchemas } from "@schemx/core"
 
-const stop = form.effect(() => {
-  console.log(form.getFieldValue("email"))
-})
-
-stop()
-```
-
-## 校验
-
-原生 `ValidationRule` 的 `validate` 返回 `{ valid: true }` 或 `{ valid: false, issues }`。`ValidationResult` 使用 `valid` 作为判别字段：成功时包含 `values`，失败时包含字段或表单错误。
-
-异步校验在被更新的校验、规则替换、字段移除或表单销毁中止时，会返回 `valid: false`、`cancelled: true` 和空的 `errors`；这类结果不代表普通校验失败，`submit()` 也不会调用 `onFinishFailed`。
-
-```ts
-import { createPresetRuleRegistry, type ValidationRule } from "@schemx/core"
-
-const emailRule: ValidationRule<string> = {
-  validate(value) {
-    return value?.includes("@")
-      ? { valid: true }
-      : { valid: false, issues: [{ message: "邮箱格式错误" }] }
-  },
+type UserValues = {
+  name: string
+  email: string
 }
 
-const rules = createPresetRuleRegistry()
-rules.register("email", emailRule)
-
-const form = createForm({
-  presetRuleRegistry: rules,
-  schemas: [{ name: "email", label: "邮箱", componentType: "input", rules: ["email"] }],
-})
-```
-
-Core 内置 async-validator descriptor 支持，无需安装额外适配包，也无需在 `validatorAdapters` 中注册。可直接使用 `type`、`required`、`pattern`、`min`、`max`、`len`、`enum`、`fields`、`defaultField`、`validator` 和 `asyncValidator` 等配置：
-
-```ts
-const form = createForm({
-  initialValues: { email: "invalid" },
-  schemas: [
+const form = createForm<UserValues>({
+  initialValues: {
+    name: "",
+    email: "",
+  },
+  schemas: createSchemas<UserValues>([
+    {
+      name: "name",
+      label: "姓名",
+      componentType: "input",
+      rules: "required",
+      placeholder: "请输入姓名",
+    },
     {
       name: "email",
       label: "邮箱",
       componentType: "input",
-      rules: [{ type: "email", message: "邮箱格式错误" }],
+      rules: ["required"],
+      placeholder: "请输入邮箱",
+    },
+  ]),
+})
+
+const viewSchemas = form.getViewSchemas()
+```
+
+### 分组
+
+```ts
+const form = createForm({
+  schemas: [
+    {
+      componentType: "group",
+      label: "基础信息",
+      children: [
+        { name: "name", label: "姓名", componentType: "input" },
+        { name: "phone", label: "手机号", componentType: "input" },
+      ],
     },
   ],
 })
 ```
 
-`validatorAdapters` 仅用于接入其他第三方校验器或业务自定义规则。显式注册的 adapter 会优先于 Core 内置的 async-validator 规则。
+### 动态字段属性
 
-`PresetRuleRegistry` 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear`、`size` 与 `subscribe`，并内置 `required` 规则。规则也可以是接收 `{ name, label, required, placeholder }` 的 `PresetRuleFactory`。
+字段的 `dependencies` 用于动态计算 `visible`、`disabled`、`readonly`、`required`、`rules`、`placeholder` 和 `componentProps`。
 
-实例级 `fieldRules` 用于按字段路径设置规则兜底；字段自身 `rules` 或动态规则存在时优先。规则可以使用预设规则名、原生规则、Standard Schema 或第三方 adapter 描述对象，支持单条规则或规则数组。
+```ts
+const form = createForm({
+  initialValues: {
+    accountType: "personal",
+    companyName: "",
+  },
+  schemas: [
+    {
+      name: "accountType",
+      label: "账号类型",
+      componentType: "select",
+      componentProps: {
+        options: [
+          { label: "个人", value: "personal" },
+          { label: "企业", value: "company" },
+        ],
+      },
+    },
+    {
+      name: "companyName",
+      label: "企业名称",
+      componentType: "input",
+      dependencies: {
+        triggerFields: ["accountType"],
+        visible: (values) => values.accountType === "company",
+        required: (values) => values.accountType === "company",
+        rules: (values) => (values.accountType === "company" ? ["required"] : undefined),
+      },
+    },
+  ],
+})
+```
 
-## Renderer Registry
+### 动态子树
 
-`createRendererRegistry(fallbackType?)` 创建 Renderer 的注册和查询容器。它不依赖 UI 框架，Renderer 的具体类型由接入层决定。
+`componentType: "dependency"` 可以根据字段值返回一段新的 schema。renderer 支持同步或异步，适合条件字段、远程配置和多步骤表单。
 
-以下示例假设已准备好业务组件 `TextInput` 和 `SelectInput`：
+```ts
+import { createForm, createSchemas } from "@schemx/core"
+
+type SurveyValues = {
+  mode: "simple" | "advanced"
+  detail?: string
+}
+
+const form = createForm<SurveyValues>({
+  initialValues: { mode: "simple" },
+  schemas: createSchemas<SurveyValues>([
+    {
+      name: "mode",
+      label: "模式",
+      componentType: "select",
+      componentProps: {
+        options: [
+          { label: "简单模式", value: "simple" },
+          { label: "高级模式", value: "advanced" },
+        ],
+      },
+    },
+    {
+      componentType: "dependency",
+      to: ["mode"],
+      renderer(values) {
+        if (values.mode !== "advanced") return []
+
+        return [
+          {
+            name: "detail",
+            label: "详情",
+            componentType: "input",
+            rules: "required",
+          },
+        ]
+      },
+    },
+  ]),
+})
+
+await form.waitForDependencies()
+
+const viewSchemas = form.getViewSchemas()
+```
+
+异步 renderer 会收到 `AbortSignal`，当同一个 dependency 节点重新执行或被销毁时可取消上一次请求。
+
+```ts
+const form = createForm({
+  schemas: [
+    {
+      componentType: "dependency",
+      to: ["category"],
+      async renderer(values, _form, context) {
+        const response = await fetch(`/api/forms/${values.category}`, {
+          signal: context.abortSignal,
+        })
+
+        return response.json()
+      },
+    },
+  ],
+})
+```
+
+## 校验
+
+core 内置 `required`、`selectRequired`、`uploadRequired` 三个快捷规则，也可以注册任意 Standard Schema。
+
+```ts
+import { createForm } from "@schemx/core"
+import { z } from "zod"
+
+const form = createForm({
+  initialValues: {
+    email: "",
+    age: 18,
+  },
+})
+
+form.registerRules("email", z.string().email("邮箱格式错误"))
+form.registerRules("age", z.number().min(18, "必须年满 18 岁"))
+
+const result = await form.validate()
+
+if (!result.ok) {
+  console.log(result.error.errors)
+}
+```
+
+### 规则注册表
+
+当 schema 中希望复用字符串规则时，可以注入 `ValidatorsRegistryType`。
+
+```ts
+import { createForm, createValidatorsRegistry } from "@schemx/core"
+import { z } from "zod"
+
+const validatorRegistry = createValidatorsRegistry()
+
+validatorRegistry.register("phone", z.string().regex(/^1[3-9]\d{9}$/, "手机号格式错误"))
+
+const form = createForm({
+  validatorRegistry,
+  schemas: [
+    {
+      name: "phone",
+      label: "手机号",
+      componentType: "input",
+      rules: ["required", "phone"],
+    },
+  ],
+})
+```
+
+## 响应式监听
+
+### effect
+
+`effect` 会自动追踪回调中读取过的字段。
+
+```ts
+const dispose = form.effect(() => {
+  console.log("email:", form.getFieldValue("email"))
+})
+
+form.setFieldValue("email", "hello@example.com")
+
+dispose()
+```
+
+### watch
+
+`createWatch` 提供字段级、字段组和全表监听。
+
+```ts
+import { createWatch, createWatchAll } from "@schemx/core"
+
+const stopEmailWatch = createWatch(
+  form,
+  "email",
+  (payload, latestSnapshot) => {
+    console.log(payload.prevValue, "->", payload.value)
+    console.log(latestSnapshot)
+  },
+  { immediate: true }
+)
+
+const stopAllWatch = createWatchAll(
+  form,
+  (payload) => {
+    console.log(payload.changedPaths)
+    console.log(payload.changedValues)
+  },
+  {}
+)
+
+stopEmailWatch()
+stopAllWatch()
+```
+
+### batch
+
+```ts
+form.batch(() => {
+  form.setFieldValue("name", "Jane")
+  form.setFieldValue("email", "jane@example.com")
+})
+```
+
+## 单字段控制器
+
+`createField` 可以把表单实例的方法收窄到单个字段，适合框架适配层或自定义控件封装。
+
+```ts
+import { createField, createForm } from "@schemx/core"
+
+const form = createForm({
+  initialValues: {
+    name: "",
+  },
+})
+
+const nameField = createField(form, "name")
+
+nameField.setValue("Jane")
+nameField.registerRules("required")
+
+const result = await nameField.validate()
+
+if (!result.ok) {
+  console.log(nameField.getError())
+}
+```
+
+## 渲染器注册
+
+core 不关心渲染器对象的具体形态。框架适配层可以注册 Vue 组件、React 组件、原生渲染函数或任意 renderer 描述。
 
 ```ts
 import { createForm, createRendererRegistry } from "@schemx/core"
 
-const renderers = createRendererRegistry("text")
+const rendererRegistry = createRendererRegistry()
 
-renderers.register("text", TextInput)
-renderers.register("select", SelectInput)
+rendererRegistry.register("input", InputRenderer)
+rendererRegistry.register("select", SelectRenderer)
 
 const form = createForm({
-  rendererRegistry: renderers,
-  schemas: [{ name: "name", label: "名称", componentType: "text" }],
+  rendererRegistry,
+  schemas: [
+    { name: "name", label: "姓名", componentType: "input" },
+    { name: "role", label: "角色", componentType: "select" },
+  ],
 })
+
+const inputRenderer = form.getRenderer("input")
 ```
 
-需要关联具体表单值类型时，可传入 `TValues`；带 `transformProps` 的 Renderer 描述对象会按 Renderer key 推导对应的 Props。
-
-Registry 提供 `register`、`registerAll`、`get`、`resolve`、`has`、`unregister`、`keys`、`clear`、`setFallback` 与 `getFallback`。`resolve()` 在找不到目标 Renderer 时尝试回退类型。
-
-## Schema source、字段与监听
-
-| API                       | 用途                                 | 最小用法                                                                             |
-| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
-| `createSchemas(initial?)` | 创建可订阅、可更新的 Schema source。 | `const schemas = createSchemas([{ name: "x", label: "X", componentType: "input" }])` |
-| `isSchemxSchemas(value)`  | 判断值是否为 Schema source。         | `if (isSchemxSchemas(schemas)) {}`                                                   |
-| `createWatchField`        | 监听单一字段。                       | `createWatchField(form, "email", callback, { immediate: true })`                     |
-| `createWatchFields`       | 监听多个字段。                       | `createWatchFields(form, ["firstName", "lastName"], callback, {})`                   |
-| `createWatchAll`          | 监听所有字段变更。                   | `createWatchAll(form, callback, {})`                                                 |
-| `createWatch`             | 根据参数自动选择上述监听模式。       | `createWatch(form, "email", callback)`                                               |
-
-所有 watch API 都返回取消监听函数；回调接收最新表单快照与变更 payload。字段值、错误、规则、touched、pending、重置和校验均使用 Form 上对应的路径 API。
-
-## 独立默认配置工厂
+也可以直接通过表单实例注册：
 
 ```ts
-import { createSchemx } from "@schemx/core"
-
-const schemx = createSchemx({ debug: true, validationConcurrency: 2 })
-const form = schemx.createForm({ initialValues: { name: "" } })
-schemx.configureSchemx({ debug: false })
-schemx.configureSchemx() // 恢复创建基线
-form.destroy()
+form.registerRenderer("date", DateRenderer)
+form.hasRenderer("date")
+form.getRenderer("date")
 ```
 
-工厂返回 `createForm`、`configureSchemx`、`getConfig`、`rendererRegistry` 和 `presetRuleRegistry` 五项；不包含框架 Hook、组件或安装功能。每次创建独立推导业务值类型。所有创建入口均不读取模块级全局配置。工厂创建的配置优先级为表单显式选项、业务覆盖层、创建基线、Core 内置默认值。
+## ViewSchemas
 
-`SchemxConfig` 定义可继承的共享默认配置，包含 `debug`、`schedulerOptions`、`validationConcurrency` 与声明合并扩展。`CreateSchemxOptions` 是它的工厂入参别名；`CreateFormOptions` 在共享配置上增加实例数据、回调和生命周期。共享配置过滤 `schemas`、`initialValues`、`fieldRules`、`lifecycleHooks`、`onRuleError` 和表单业务回调，完整创建选项变量可复用，单次创建选项不受过滤影响。
+UI 适配层通常只需要消费 ViewSchemas。它已经包含 core 解析后的 `visible`、`readonly`、`disabled`、`required`、`placeholder`、`componentProps` 和 `rules`。
 
-`configureSchemx(options)` 每次替换覆盖层，再与基线合并；无参数恢复基线，仅影响新表单。`getConfig()` 返回冻结的共享默认值，不包含内置默认值。`schemaConfig` 浅合并，Renderer Props 按类型和属性合并，adapter 按 ID 合并；Row、Col 等嵌套对象及调度对象整体替换。调度对象复制并冻结，显式 `debug: false` 保留。Registry 默认跨工厂独立，显式传入时共享；覆盖层不允许替换 Registry，失败抛出 `TypeError` 且配置不变，单个表单仍可覆盖。
+```ts
+const form = createForm({ schemas })
 
-`mergeConfig` 统一过滤实例字段、合并共享配置并返回冻结快照；单个配置也可直接调用。缺省字段保持缺省，不补齐内置默认值，调度对象整体替换。受管层级复制和冻结不修改输入，也不深冻结 Registry、组件及扩展对象。创建表单时将实例数据和行为保留在原始选项中，例如 `createForm({ ...options, ...mergeConfig(options, defaults) })`。原 `/adapter` 的 `normalizeCreateSchemxOptions` 已移除，改用 Core 根入口的 `mergeConfig`。
+await form.waitForDependencies()
 
-框架或 UI 默认配置可作为创建基线，例如 `createSchemx(defaultConfig)`。布局组件等扩展值由 Core 保留，具体渲染由框架负责。
+render(form.getViewSchemas())
 
-## 配置与响应式工具
+const unsubscribe = form.subscribeViewSchemas((nextSchemas) => {
+  render(nextSchemas)
+})
 
-| API                                               | 说明                                 |
-| ------------------------------------------------- | ------------------------------------ |
-| `mergeConfig`、`resolveSchemxConfig`              | 供适配层合并、解析配置。             |
-| `defaultSchemxConfig`                             | Core 内置默认配置。                  |
-| `createSignalEffect(fn)`                          | 创建底层响应式副作用，返回清理函数。 |
-| `runSignalUntracked(fn)`                          | 在不收集依赖的上下文执行函数。       |
-| `createSignalWatch`、`createDebouncedSignalWatch` | 监听底层 Signal；后者提供防抖控制。  |
+unsubscribe()
+```
 
-通常优先使用 `form.effect()`、`form.batch()` 与 `createWatch*()`；只有编写框架适配层或底层扩展时才需要直接使用响应式工具。
+当根 schema 需要整体替换或增量派生时，可以通过 form 实例更新，也可以把 `createSchemas` 返回的 schema source 交给 `createForm`：
 
-## 工具、类型与适配层入口
+```ts
+form.setSchemas(nextSchemas)
 
-| 类别            | 导出                                                                                                                                                                                                                                                                                                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema 判断     | `isFieldSchema`、`isGroupSchema`、`isDependencySchema`、`isDynamicSchema`                                                                                                                                                                                                                                                                                |
-| ViewSchema 判断 | `isSchemxViewFieldSchema`、`isViewGroupSchema`、`isViewDynamicSchema`                                                                                                                                                                                                                                                                                    |
-| 路径工具        | `getByPath`、`setByPath`、`collectObjectPathsByLeaf`                                                                                                                                                                                                                                                                                                     |
-| 核心类型        | `Values`、`NamePath`、`FieldValue`、`SetValueAction`、`SetValuesAction`、`SchemxField`、`SchemxViewSchema`、`SchemxViewDynamicItem`、`SchemxViewDynamicSchema`、`SchemxInstance`、`SchemxFormApi`、`SchemxSchemaConfig`、`SchemxSchemaConfigDefinition`、`SchemxConfigDefinition`、`SchemxFieldRulesMap`、`StandardSchemaV1`                             |
-| 动态数组类型    | `SchemxDynamicField`、`SchemxDynamicArrayPath`、`SchemxDynamicNamePath`、`SchemxDynamicItemSchema`、`SchemxDynamicItemGroup`、`SchemxDynamicItemDependency`、`SchemxDynamicItemDependencyRendererContext`、`SchemxDynamicDependencies`、`FieldArrayItemValue`、`FieldArrayChange`、`FieldArrayPath`                                                      |
-| 适配层扩展类型  | `SchemxCoreBaseComponentProps`、`SchemxBaseComponentProps`、`SchemxComponentPropsDefinition`、`SchemxComponentProps`、`SchemxRendererPropsMap`、`SchemxFormItemProps`、`SchemxRendererKey`、`SchemxRendererDefinition`、`SchemxFieldDependenciesDefinition`（Renderer Props、字段展示配置和动态依赖的声明合并扩展点；Vue 布局类型由 `@schemx/vue` 提供） |
-| 校验类型        | `ValidationRule`、`ValidationResult`、`ValidationError`、`ValidationAdapterV1`、`ValidationAdapter`、`ValidationAdapterRegistration`、`ValidationAdapterOption`、`AsyncValidatorRule`、`AsyncValidatorDescriptor`                                                                                                                                        |
-| 状态适配        | `getFormAdapter`、`createFormStateAdapter`、`getFormCreationConfig`，以及 `FormAdapter`、`SnapshotSource`、`FieldSnapshotSource`、`FieldStateSnapshot`、`FormStateAdapter`、`FormCreationSnapshot` 类型。                                                                                                                                                |
+form.updateSchemas((current) => [
+  ...current,
+  { name: "remark", label: "备注", componentType: "textarea" },
+])
 
-所有公开 API 和类型统一从 `@schemx/core` 根入口导入，包括状态适配与创建快照；包不开放代码子入口。Vue 组件的 Props、布局和图标类型见 [Vue 文档](../vue/README.md)。
+const schemas = createSchemas([{ name: "name", label: "姓名", componentType: "input" }])
+
+const form = createForm({ schemas })
+
+schemas.update((current) => [
+  ...current,
+  { name: "email", label: "邮箱", componentType: "input" },
+])
+```
+
+## API 速查
+
+### createForm(options)
+
+| 选项                  | 说明                                                    |
+| --------------------- | ------------------------------------------------------- |
+| `schemas`             | 初始 schema 列表或 `createSchemas` 返回的 schema source |
+| `initialValues`       | 初始值，也是 `reset()` 的还原基准                       |
+| `modelValue`          | 外部受控值，用于创建实例时与初始快照合并                |
+| `rendererRegistry`    | 渲染器注册表                                            |
+| `defaultRendererType` | 字段未指定或查找不到 renderer 时使用的默认类型          |
+| `validatorRegistry`   | 字符串规则注册表                                        |
+| `validationTrigger`   | 默认校验触发时机，支持 `change` / `blur` / `submit`     |
+| `readonly`            | 全局只读默认值                                          |
+| `disabled`            | 全局禁用默认值                                          |
+| `onFinish`            | `submit()` 校验通过回调                                 |
+| `onFinishFailed`      | `submit()` 校验失败回调                                 |
+| `onValuesChange`      | 字段值变化回调                                          |
+| `onFieldsChange`      | 字段路径变化回调                                        |
+| `lifecycleHooks`      | node 生命周期观察钩子                                   |
+
+### SchemxInstance
+
+| 分类       | 方法                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| 值         | `getFieldValue`、`getFieldsValue`、`setFieldValue`、`setFieldsValue`                              |
+| 快照       | `getFieldSnapshot`、`getFieldsSnapshot`                                                           |
+| 初始值     | `getInitialValue`、`getInitialValues`、`setInitialValues`                                         |
+| touched    | `isFieldTouched`、`setFieldTouched`、`getTouchedFields`                                           |
+| pending    | `setFieldPending`、`isFieldPending`、`getPendingFields`                                           |
+| 校验       | `registerRules`、`unregisterRules`、`validateField`、`validate`、`getFieldError`、`setFieldError` |
+| 提交与重置 | `submit`、`reset`、`resetFields`                                                                  |
+| 响应式     | `effect`、`batch`                                                                                 |
+| schema     | `setSchemas`、`updateSchemas`                                                                     |
+| 默认配置   | `updateDefaultProps`                                                                              |
+| view       | `getViewSchemas`、`subscribeViewSchemas`、`getViewRevision`、`waitForDependencies`                |
+| renderer   | `getRenderer`、`registerRenderer`、`hasRenderer`                                                  |
+| validator  | `getValidator`、`registerValidator`、`hasValidator`                                               |
+| 生命周期   | `destroy`                                                                                         |
+
+## 核心概念
+
+### 运行时结构
+
+```text
+raw schemas
+  -> compileToDescriptors
+  -> commitChildren
+  -> RuntimeReconciler
+  -> RuntimeFiberManager
+  -> ViewSchemas
+```
+
+- `compileToDescriptors` 将 raw schema 标准化为内部 descriptor。
+- `RuntimeReconciler` 负责复用、创建和卸载 runtime fiber。
+- `RuntimeFiberManager` 负责字段模型、校验 effect、dependency effect 和生命周期资源。
+- `ViewSchemas` 是给框架适配层渲染的公开投影。
+
+### 模块边界
+
+```text
+src/
+├── createForm.ts       # 表单实例装配入口
+├── descriptor/         # schema 编译
+├── node/              # runtime fiber / reconciler / scope
+├── field/              # 字段模型、字段注册、动态依赖 effect
+├── store/              # 值、初始值、touched、pending 状态
+├── validator/          # 规则注册与校验状态
+├── view/               # ViewSchemas 构建与订阅
+├── reactivity/         # signal、effect、batch
+├── registry/           # renderer / rule registry
+├── scheduler/          # 异步任务调度
+├── lifecycle/          # lifecycle bus
+├── types/              # 公开类型
+└── utils/              # 路径、diff、schema 等工具
+```
+
+框架适配层应优先通过 `SchemxInstance` 的公开 API 消费 core 能力，避免直接依赖 `descriptor/`、`node/`、`field/` 等内部模块。
+
+## 相关包
+
+- `@schemx/vue`：Vue 3 适配层。
+- `@schemx/vant`：基于 Vant 的 renderer 适配包。
+- `@schemx/core`：当前包，框架无关表单引擎。

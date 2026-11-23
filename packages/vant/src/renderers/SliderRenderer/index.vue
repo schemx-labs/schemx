@@ -1,20 +1,20 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-slider-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      <span class="schemx-slider-renderer__readonly">
-        {{ getReadonlyDisplayValue(displayValue, props.readonlyPlaceholder) }}
-      </span>
-    </template>
+  <div :class="['schemx-renderer', 'schemx-slider-renderer', props.className]">
+    <SchemxCell
+      v-if="props.readonly"
+      :value="displayValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
     <Slider
+      v-else
       v-bind="sliderProps"
       :model-value="sliderValue"
       @update:model-value="handleChange"
     />
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -29,9 +29,7 @@
 
   import { Slider } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import { getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
 
   import type { SliderRendererProps, SliderValue } from "./types"
 
@@ -53,11 +51,14 @@
     readonly: false,
     readonlyPlaceholder: "-",
     disabled: false,
+    button: true,
   })
 
   const attrs = useAttrs()
 
   const sliderValue = defineModel<SliderValue>("value")
+
+  const placeholder = computed(() => props.placeholder || "请选择")
 
   const displayValue = computed(() => {
     return Array.isArray(sliderValue.value)
@@ -66,31 +67,9 @@
   })
 
   const sliderProps = computed(() => {
-    const rendererProps = props
+    const { value, className, formItemProps, ...rest } = props
 
-    const {
-      value: _value,
-      onChange: _onChange,
-      className: _className,
-      readonly: _readonly,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      placeholder: _placeholder,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      className: _attrsClassName,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      placeholder: _attrsPlaceholder,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest }
+    return { ...attrs, ...rest }
   })
 
   /**

@@ -1,10 +1,17 @@
-import { defineConfig } from "vite-plus"
-import { workspaceSource } from "vite-plugin-workspace-source"
+import { defineConfig } from "vitest/config"
+import vue from "@vitejs/plugin-vue"
+import vueJsx from "@vitejs/plugin-vue-jsx"
+import { resolve } from "path"
 
 export default defineConfig({
-  plugins: [workspaceSource({ projectRoot: __dirname })],
+  plugins: [vue() as any, vueJsx() as any],
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
+    },
+  },
   test: {
-    environment: "node",
+    environment: "happy-dom",
     include: ["src/**/*.{test,spec}.{js,ts,jsx,tsx}"],
     globals: true,
   },

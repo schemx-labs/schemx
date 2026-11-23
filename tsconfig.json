@@ -4,7 +4,6 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/vue" },
-    { "path": "./packages/vant" },
-    { "path": "./packages/element-plus" }
+    { "path": "./packages/vant" }
   ]
 }

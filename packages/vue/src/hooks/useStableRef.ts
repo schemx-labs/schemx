@@ -21,7 +21,7 @@
 
 import { type ShallowRef, shallowRef, watchEffect } from "vue"
 
-import { isShallowEqual } from "../utils"
+import { isShallowEqual } from "../utils/equal"
 
 /**
  * 创建一个引用稳定的 shallowRef。
@@ -29,7 +29,7 @@ import { isShallowEqual } from "../utils"
  * 在 watchEffect 中执行工厂函数，自动追踪响应式依赖。
  * 仅当新旧值浅比较不相等时才替换 `.value`，保持引用稳定。
  *
- * @typeParam TValue - 需要保持引用稳定的对象类型
+ * @typeParam T - 对象类型
  *
  * @param factory - 返回目标对象的工厂函数，在 watchEffect 内执行
  *
@@ -46,10 +46,10 @@ import { isShallowEqual } from "../utils"
  * h(Component, props.value)
  * ```
  */
-export function useStableRef<TValue extends Record<string, any>>(
-  factory: () => TValue
-): Readonly<ShallowRef<TValue>> {
-  const stableRef = shallowRef({} as TValue) as ShallowRef<TValue>
+export function useStableRef<T extends Record<string, any>>(
+  factory: () => T
+): Readonly<ShallowRef<T>> {
+  const stableRef = shallowRef({} as T) as ShallowRef<T>
 
   watchEffect(() => {
     const next = factory()

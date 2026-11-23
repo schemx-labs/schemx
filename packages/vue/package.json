@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@schemx/vue",
-  "version": "2.0.0",
+  "version": "0.1.21",
   "description": "基于 JSON Schema 配置的 Vue 3 动态表单引擎（UI 无关核心）",
   "keywords": [
     "schemx",
@@ -53,31 +53,21 @@
     "@schemx/core": "workspace:*",
     "classnames": "^2.5.1",
     "csstype": "^3.2.3",
-    "es-toolkit": "catalog:",
-    "scroll-into-view-if-needed": "^3.1.0"
+    "dayjs": "^1.11.19",
+    "es-toolkit": "catalog:"
   },
   "scripts": {
-    "build": "pnpm run build:deps && pnpm run build:only",
-    "build:analyze": "pnpm run build --mode analyze",
-    "test": "vp test run",
+    "build": "vite build",
+    "build:analyze": "ANALYZE=true vite build",
+    "test": "vitest run",
     "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\" --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,vue,js,jsx,json,css,scss}\"",
-    "type-check:tests": "workspace-source sync --project . && vue-tsc -p tsconfig.type-tests.json --noEmit",
-    "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit && pnpm run type-check:tests",
-    "check": "node ../../scripts/workflow.ts check packages/vue",
-    "prepublishOnly": "pnpm run build",
-    "pack-local": "node ../../scripts/workflow.ts pack-local packages/vue",
-    "type-check:build": "vue-tsc -p tsconfig.build.json --noEmit",
-    "build:deps": "pnpm --filter \"@schemx/vue^...\" run build:only",
-    "build:only": "pnpm run type-check:build && vp build"
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "pnpm run build"
   },
   "license": "MIT",
   "devDependencies": {
     "@vue/test-utils": "^2.4.6",
     "vue": "catalog:",
-    "vue-tsc": "^3.3.9",
     "zod": "^4.3.6"
   }
 }

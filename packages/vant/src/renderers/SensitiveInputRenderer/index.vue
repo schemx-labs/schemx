@@ -1,38 +1,5 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-sensitive-input', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ displayValue }}
-      <button
-        v-if="canReveal"
-        type="button"
-        class="schemx-sensitive-input__toggle"
-        data-testid="sensitive-toggle"
-        :aria-label="props.revealText"
-        @click.stop="toggleReveal"
-      >
-        <Icon v-if="props.revealIcon" :name="props.revealIcon" />
-        <span>{{ props.revealText }}</span>
-      </button>
-    </template>
-
-    <template v-if="!showInput">
-      {{ displayValue }}
-      <button
-        v-if="canReveal"
-        type="button"
-        class="schemx-sensitive-input__toggle"
-        data-testid="sensitive-toggle"
-        :aria-label="props.revealText"
-        @click.stop="toggleReveal"
-      >
-        <Icon v-if="props.revealIcon" :name="props.revealIcon" />
-        <span>{{ props.revealText }}</span>
-      </button>
-    </template>
+  <div :class="['schemx-sensitive-input', props.className]">
     <SchemxInput
       v-if="showInput"
       ref="inputRef"
@@ -47,7 +14,7 @@
           type="button"
           class="schemx-sensitive-input__toggle"
           data-testid="sensitive-toggle"
-          :aria-label="props.hideText"
+          :aria-label="hideAriaLabel"
           @click.stop="toggleReveal"
         >
           <Icon v-if="props.hideIcon" :name="props.hideIcon" />
@@ -55,7 +22,32 @@
         </button>
       </template>
     </SchemxInput>
-  </Wrapper>
+
+    <SchemxCell
+      v-else
+      :value="displayValue"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :is-link="false"
+      :align="props.align"
+    >
+      <template #suffix>
+        <button
+          v-if="canReveal"
+          type="button"
+          class="schemx-sensitive-input__toggle"
+          data-testid="sensitive-toggle"
+          :aria-label="showAriaLabel"
+          @click.stop="toggleReveal"
+        >
+          <Icon v-if="props.revealIcon" :name="props.revealIcon" />
+          <span>{{ props.revealText }}</span>
+        </button>
+      </template>
+    </SchemxCell>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -63,12 +55,11 @@
 
   import { Icon } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import SchemxInput from "@/components/Input"
+  import { isEmptyDisplayValue } from "@/utils"
 
-  import SchemxInput from "../../components/Input"
-  import { isEmptyDisplayValue } from "../../utils"
-
-  import { defaultMaskFormatter } from "./helper"
+  import { defaultMaskFormatter } from "./types"
 
   import type { SensitiveInputRendererProps } from "./types"
 
@@ -85,14 +76,16 @@
     formatter: undefined,
     maskFormatter: defaultMaskFormatter,
     defaultRevealed: false,
+    revealed: undefined,
+    onRevealChange: undefined,
     revealable: true,
-    revealText: "",
-    hideText: "",
+    revealText: "显示",
+    hideText: "隐藏",
     revealIcon: "eye-o",
     hideIcon: "closed-eye",
     focusOnReveal: true,
     hideOnBlur: false,
-    revealWhenReadonly: true,
+    revealWhenReadonly: false,
     placeholder: "",
     readonlyPlaceholder: "-",
     disabled: false,
@@ -103,59 +96,49 @@
 
   const emit = defineEmits<{
     "update:value": [value: string]
+    "update:revealed": [revealed: boolean]
     change: [value: string]
     "reveal-change": [revealed: boolean]
     blur: [event: FocusEvent]
   }>()
 
   const inputRef = ref<InstanceType<typeof SchemxInput> | null>(null)
-
-  const revealed = ref(props.defaultRevealed)
+  const innerRevealed = ref(props.defaultRevealed)
 
   const rawValue = computed(() => String(props.value ?? ""))
-
-  const isEmpty = computed(() => isEmptyDisplayValue(rawValue.value))
-
+  const isRevealed = computed(() => props.revealed ?? innerRevealed.value)
   const canReveal = computed(() => {
-    if (isEmpty.value || !props.revealable || props.disabled) return false
+    if (!props.revealable || props.disabled) return false
     if (props.readonly && !props.revealWhenReadonly) return false
 
-    return true
+    return !isEmptyDisplayValue(rawValue.value)
   })
 
-  const formattedValue = computed(
-    () => props.formatter?.(rawValue.value.trim().replace(/\s/g, "")) ?? rawValue.value
-  )
+  const formattedValue = computed(() => {
+    if (isEmptyDisplayValue(rawValue.value)) return ""
 
-  const maskedValue = computed(() =>
-    props.maskFormatter(rawValue.value.trim().replace(/\s/g, ""), {
+    return props.formatter ? props.formatter(rawValue.value) : rawValue.value
+  })
+
+  const maskedValue = computed(() => {
+    if (isEmptyDisplayValue(rawValue.value)) return ""
+
+    return props.maskFormatter(rawValue.value, {
       placeholder: props.placeholder,
       readonlyPlaceholder: props.readonlyPlaceholder,
     })
+  })
+
+  const displayValue = computed(() =>
+    isRevealed.value && props.readonly ? formattedValue.value : maskedValue.value
   )
 
-  const displayValue = computed(() => {
-    if (props.readonly && revealed.value) {
-      return formattedValue.value
-    }
-
-    return maskedValue.value
-  })
-
-  const showInput = computed(() => {
-    if (props.readonly || props.disabled) return false
-
-    return !props.revealable || isEmpty.value || revealed.value
-  })
+  const showInput = computed(() => isRevealed.value && !props.readonly && !props.disabled)
 
   const inputProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
-      onBlur: _onBlur,
-      className: _className,
       revealed: _revealed,
       onRevealChange: _onRevealChange,
       defaultRevealed: _defaultRevealed,
@@ -168,25 +151,29 @@
       hideOnBlur: _hideOnBlur,
       revealWhenReadonly: _revealWhenReadonly,
       maskFormatter: _maskFormatter,
-      formItemProps: _formItemProps,
       ...rest
-    } = rendererProps
+    } = props
 
     return rest
   })
 
-  const setRevealed = (next: boolean) => {
-    if (revealed.value === next) return
+  const showAriaLabel = computed(() => props.revealText || "显示完整内容")
+  const hideAriaLabel = computed(() => props.hideText || "隐藏完整内容")
 
-    revealed.value = next
+  const setRevealed = (next: boolean) => {
+    if (props.revealed === undefined) {
+      innerRevealed.value = next
+    }
+
+    props.onRevealChange?.(next)
+    emit("update:revealed", next)
     emit("reveal-change", next)
   }
 
   const toggleReveal = () => {
     if (!canReveal.value) return
 
-    const next = !revealed.value
-
+    const next = !isRevealed.value
     setRevealed(next)
 
     if (next && props.focusOnReveal && !props.readonly) {
@@ -195,12 +182,6 @@
   }
 
   const handleInputChange = (value: string) => {
-    // 空值状态会直接显示输入框。首次输入后需要保持展开，
-    // 避免 value 从空变为非空时立即切回脱敏展示态。
-    if (props.revealable && !isEmptyDisplayValue(value)) {
-      setRevealed(true)
-    }
-
     props.onChange?.(value)
     emit("update:value", value)
     emit("change", value)
@@ -232,7 +213,7 @@
     gap: 4px;
     border: 0;
     padding: 0;
-    color: var(--schemx-color-primary-text);
+    color: var(--schemx-sensitive-input-action-color, #1989fa);
     font: inherit;
     line-height: inherit;
     background: transparent;
@@ -241,7 +222,7 @@
 
   .schemx-sensitive-input__toggle:focus-visible {
     border-radius: 4px;
-    outline: 2px solid var(--schemx-color-focus-ring);
+    outline: 2px solid var(--schemx-sensitive-input-focus-color, #1989fa);
     outline-offset: 2px;
   }
 </style>

@@ -5,47 +5,35 @@
  *
  * @module utils/__tests__/path
  */
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
-import {
-  collectObjectPathsByLeaf,
-  deleteInWithStructuralSharing,
-  getByPath,
-  setByPath,
-} from ".."
+import { collectObjectPathsByLeaf, getByPath, setByPath } from "../path"
 
-// 验证 getByPath 获取嵌套路径值、空路径返回整体、不存在路径返回 undefined
 describe("getByPath", () => {
   it("有效嵌套路径返回对应值", () => {
     const obj = { user: { address: { city: "Beijing" } } }
-
     expect(getByPath(obj, "user.address.city")).toBe("Beijing")
   })
 
   it("空字符串路径返回整个对象", () => {
     const obj = { a: 1 }
-
-    expect(getByPath(obj, "" as never)).toBe(obj)
+    expect(getByPath(obj, "")).toBe(obj)
   })
 
   it("空数组路径返回整个对象", () => {
     const obj = { a: 1 }
-
-    expect(getByPath(obj, [] as never)).toBe(obj)
+    expect(getByPath(obj, [])).toBe(obj)
   })
 
   it("不存在的路径返回 undefined", () => {
     const obj = { a: 1 }
-
-    expect(getByPath(obj, "b.c" as never)).toBeUndefined()
+    expect(getByPath(obj, "b.c")).toBeUndefined()
   })
 })
 
-// 验证 setByPath 设置嵌套路径值、null/undefined 对象不抛异常
 describe("setByPath", () => {
   it("有效路径设置嵌套值", () => {
     const obj: Record<string, any> = { user: {} }
-
     setByPath(obj, "user.name", "John")
     expect(obj.user.name).toBe("John")
   })
@@ -59,44 +47,10 @@ describe("setByPath", () => {
   })
 })
 
-// 验证 deleteInWithStructuralSharing 删除嵌套属性、保留数组空位并复用未变化引用
-describe("deleteInWithStructuralSharing", () => {
-  it("删除嵌套属性并保留其他路径", () => {
-    const source = { user: { name: "Ada", age: 36 } }
-
-    const result = deleteInWithStructuralSharing(source, [
-      "user",
-      "name",
-    ]) as typeof source
-
-    expect(result).toEqual({ user: { age: 36 } })
-    expect(result.user).not.toBe(source.user)
-  })
-
-  it("删除数组索引时保留空位", () => {
-    const source = { users: ["Ada", "Grace"] }
-
-    const result = deleteInWithStructuralSharing(source, ["users", "0"]) as typeof source
-
-    expect(result.users).toHaveLength(2)
-    expect(0 in result.users).toBe(false)
-    expect(result.users[1]).toBe("Grace")
-  })
-
-  it("路径不存在时复用原引用", () => {
-    const source = { user: { name: "Ada" } }
-
-    expect(deleteInWithStructuralSharing(source, ["user", "email"])).toBe(source)
-  })
-})
-
-// 验证 collectObjectPathsByLeaf 仅返回叶子节点路径，含数组索引
 describe("collectObjectPathsByLeaf", () => {
   it("仅返回叶子节点路径", () => {
     const obj = { name: "a", address: { city: "BJ", zip: "100000" } }
-
     const paths = collectObjectPathsByLeaf(obj)
-
     expect(paths).toContain("name")
     expect(paths).toContain("address.city")
     expect(paths).toContain("address.zip")
@@ -105,9 +59,7 @@ describe("collectObjectPathsByLeaf", () => {
 
   it("数组叶子节点", () => {
     const obj = { tags: [1, 2] }
-
     const paths = collectObjectPathsByLeaf(obj)
-
     expect(paths).toContain("tags[0]")
     expect(paths).toContain("tags[1]")
     expect(paths).not.toContain("tags")

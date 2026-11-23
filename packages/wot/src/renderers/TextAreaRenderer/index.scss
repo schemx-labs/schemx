@@ -1,0 +1,11 @@
+.schemx-textarea-renderer {
+  padding: 0;
+
+  .schemx-input__body {
+    flex: 1;
+  }
+
+  .schemx-input__word-limit {
+    --wot-input-count-color: #999999;
+  }
+}

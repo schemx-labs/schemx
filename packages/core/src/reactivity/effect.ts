@@ -1,72 +1,98 @@
-import { effect, untracked } from "@preact/signals-core"
+/**
+ * 框架无关的 reactive effect 门面。
+ *
+ * createForm 和 ReactiveMap 都通过这里创建 effect，不直接 import
+ * @preact/signals-core。
+ *
+ * @module core/reactivity/effect
+ */
+
+import { effect } from "@preact/signals-core"
+import { debounce } from "es-toolkit"
+
+import type { DebounceOptions } from "es-toolkit"
 
 /**
- * Signal effect 释放函数。
+ * reactive effect 的释放函数。
  */
 export type SignalEffectDispose = () => void
-
-/**
- * Signal effect 配置。
- */
-export interface SignalEffectOptions {
-  /**
-   * 是否只执行一次。
-   *
-   * @remarks
-   * `@preact/signals-core` 的 effect 创建时会立即执行，
-   * 因此 once 表示执行首次 effect 后立即释放。
-   */
-  once?: boolean
-}
 
 /**
  * 创建 reactive effect，但不暴露具体 reactivity 后端。
  *
  * @param fn - effect 回调，执行期间读取的 signal 会被追踪。
- * @param options - reactive effect 的配置。
  *
  * @returns 释放该 effect 的函数。
- *
- * @example
- * ```ts
- * const dispose = createSignalEffect(() => {
- *   console.log(count.value)
- * })
- *
- * dispose()
- * ```
  */
-export function createSignalEffect(
-  fn: () => void,
-  options: SignalEffectOptions = {}
-): SignalEffectDispose {
-  const dispose = effect(fn)
-
-  if (options.once) {
-    dispose()
-  }
-
-  return dispose
+export function createSignalEffect(fn: () => void): SignalEffectDispose {
+  return effect(fn)
 }
 
 /**
- * 在不追踪 signal 依赖的上下文中执行函数。
+ * debounce reactive effect 的配置。
+ */
+export interface DebouncedSignalEffectOptions {
+  /**
+   * 是否立即执行首次副作用。
+   *
+   * 后续 signal 变化仍会在 debounce 等待窗口结束后执行。
+   *
+   * @default false
+   */
+  immediate?: boolean
+
+  /**
+   * 后续变更触发 debounce 副作用的时机。
+   *
+   * @default ["trailing"]
+   */
+  edges?: DebounceOptions["edges"]
+}
+
+/**
+ * 创建带 debounce 的 reactive effect。
  *
- * @typeParam TValue - 函数返回值类型。
+ * `collect` 会在 effect 中同步执行，以便追踪其中读取的 signal；
+ * `run` 则在等待窗口结束后接收最新一次收集结果并执行。
  *
- * @param fn - 需要执行的函数。
+ * @typeParam T - `collect` 返回且传递给 `run` 的数据类型。
  *
- * @returns 函数执行结果。
+ * @param collect - 同步读取 signal 并返回副作用所需数据的函数。
+ * @param run - debounce 后执行的副作用函数。
+ * @param wait - debounce 等待时间，单位为毫秒。默认为 16ms。
+ * @param options - debounce reactive effect 的配置。
+ *
+ * @returns 释放 effect 并取消待执行 debounce 回调的函数。
  *
  * @remarks
- * 在 callback 等非依赖源逻辑中读取 signal 时，应使用该方法避免
- * 将额外的 signal 意外注册为当前 effect 的依赖。
- *
- * @example
- * ```ts
- * const snapshot = runSignalUntracked(() => source.value)
- * ```
+ * 不要将 `collect` 内的 signal 读取移动到 `run` 中。异步执行时已经离开
+ * effect 的依赖收集上下文，后续 signal 变化将无法重新触发该 effect。
  */
-export function runSignalUntracked<TValue>(fn: () => TValue): TValue {
-  return untracked(fn)
+export function createDebouncedSignalEffect<T>(
+  collect: () => T,
+  run: (value: T) => void,
+  wait = 16,
+  options: DebouncedSignalEffectOptions = {}
+): SignalEffectDispose {
+  const debouncedRun = debounce(run, wait, { edges: options.edges })
+  let initialized = false
+
+  const disposeEffect = createSignalEffect(() => {
+    const value = collect()
+
+    if (!initialized && options.immediate) {
+      initialized = true
+      run(value)
+
+      return
+    }
+
+    initialized = true
+    debouncedRun(value)
+  })
+
+  return () => {
+    disposeEffect()
+    debouncedRun.cancel()
+  }
 }

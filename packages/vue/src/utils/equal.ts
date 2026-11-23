@@ -16,17 +16,15 @@
  * @returns 两个对象浅相等时返回 true
  *
  * @example
- * isShallowEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // => true
- * isShallowEqual({ a: 1 }, { a: 1, b: 2 })        // => false
+ * shallowEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // => true
+ * shallowEqual({ a: 1 }, { a: 1, b: 2 })        // => false
  */
 export const isShallowEqual = (
   a: Record<string, any>,
   b: Record<string, any>
 ): boolean => {
   const keysA = Object.keys(a)
-
   const keysB = Object.keys(b)
-
   if (keysA.length !== keysB.length) return false
 
   return keysA.every((key) => a[key] === b[key])

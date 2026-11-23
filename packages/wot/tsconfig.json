@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "rootDir": "./src",
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist",
+    "outDir": "./dist"
+  },
+  "references": [{ "path": "../core" }, { "path": "../vue" }],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/__tests__",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ]
+}

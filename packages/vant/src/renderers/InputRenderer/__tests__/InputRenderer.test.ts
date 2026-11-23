@@ -3,28 +3,18 @@
 import { h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import InputRenderer from "../index.vue"
 
 describe("InputRenderer 容器聚焦", () => {
-  it("默认状态引用底层 SchemxInput 组件", () => {
+  it("非 view 状态引用底层 SchemxInput 组件", () => {
     const wrapper = mount(InputRenderer, {
       props: {
         value: "可编辑内容",
       },
     })
 
-    const rendererWrapper = wrapper.findComponent({ name: "SchemxWrapper" })
-
-    expect(rendererWrapper.exists()).toBe(true)
-    expect(rendererWrapper.classes()).toEqual(
-      expect.arrayContaining([
-        "schemx-wrapper",
-        "schemx-renderer",
-        "schemx-input-renderer",
-      ])
-    )
     expect(wrapper.findComponent({ name: "SchemxInput" }).exists()).toBe(true)
     expect(wrapper.find("input").exists()).toBe(true)
 
@@ -46,7 +36,7 @@ describe("InputRenderer 容器聚焦", () => {
 
     expect(wrapper.find("input").exists()).toBe(false)
     expect(wrapper.find("textarea").exists()).toBe(false)
-    expect(wrapper.findComponent({ name: "SchemxWrapper" }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
     expect(wrapper.find(".van-field__clear").exists()).toBe(false)
     expect(wrapper.find(".van-field__word-limit").exists()).toBe(false)
 

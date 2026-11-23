@@ -3,7 +3,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => {
   const component = (name: string, props: string[], emits: string[] = []) =>
@@ -18,7 +18,7 @@ vi.mock("vant", () => {
             {
               onClick: (event: MouseEvent) => emit("click", event),
             },
-            slots.value?.() ?? slots.default?.() ?? String((props as any).value ?? "")
+            slots.default?.() ?? String((props as any).value ?? "")
           )
       },
     })
@@ -27,7 +27,7 @@ vi.mock("vant", () => {
     Cascader: component("Cascader", ["modelValue", "options", "fieldNames"]),
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "valueClass"],
+      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
       ["click"]
     ),
     Popup: component("Popup", ["show"], ["update:show"]),
@@ -42,7 +42,6 @@ describe("CascaderRenderer", () => {
       props: {
         readonly: true,
         value: ["gd", "gz"],
-        contentAlign: "center",
         options: [
           {
             label: "广东",
@@ -53,9 +52,13 @@ describe("CascaderRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
-    expect(cell.text()).toContain("广东 - 广州")
+    expect(cell.get(".schemx-cell__value").text()).toBe("广东 - 广州")
+    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
+
+    await cell.vm.$emit("click")
+
     expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()

@@ -1,8 +1,0 @@
-{
-  "extends": ["../../tsconfig.base.json", "./tsconfig.workspace-source.json"],
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
-  "exclude": ["node_modules", "dist", "build"]
-}

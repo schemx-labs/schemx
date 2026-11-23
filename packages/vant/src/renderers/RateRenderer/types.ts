@@ -16,7 +16,6 @@ export type RateValue = RateProps["modelValue"]
  * 定义评分组件的所有可配置属性。
  */
 export interface RateRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */

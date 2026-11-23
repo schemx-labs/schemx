@@ -1,33 +1,24 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-rate-renderer', className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
+  <div
+    :class="[
+      'schemx-renderer',
+      'schemx-rate-renderer',
+      className,
+      {
+        'schemx-rate-renderer__readonly': props.readonly,
+        'schemx-rate-renderer__disabled': props.disabled,
+      },
+    ]"
   >
-    <template #readonly>
-      <Rate
-        v-if="hasValue"
-        v-bind="rateProps"
-        :model-value="rateValue"
-        :count="count"
-        :allow-half="allowHalf"
-        :disabled="props.disabled"
-        :readonly="true"
-      />
-      <span v-else class="schemx-rate-renderer__readonly">
-        {{ props.readonlyPlaceholder }}
-      </span>
-    </template>
     <Rate
       v-bind="rateProps"
       :model-value="rateValue"
       :count="count"
       :allow-half="allowHalf"
       :disabled="props.disabled"
-      :readonly="props.readonly"
       @update:model-value="handleChange"
     />
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,8 +32,6 @@
   import { computed, useAttrs } from "vue"
 
   import { Rate } from "vant"
-
-  import { Wrapper } from "@schemx/vue"
 
   import type { RateRendererProps, RateValue } from "./types"
 
@@ -68,38 +57,16 @@
 
   const rateValue = defineModel<RateValue>("value")
 
-  /** 是否有评分值（0 视为未评分） */
-  const hasValue = computed(() => {
-    const v = rateValue.value ?? props.value
-
-    return v !== undefined && v !== null && v !== 0
-  })
-
   const rateProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
       className: _className,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      placeholder: _placeholder,
       formItemProps: _formItemProps,
       ...rest
-    } = rendererProps
+    } = props
 
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      className: _attrsClassName,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      placeholder: _attrsPlaceholder,
-      align: _attrsAlign,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest }
+    return { ...attrs, rest }
   })
 
   const handleChange = (value: RateValue): void => {

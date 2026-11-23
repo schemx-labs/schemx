@@ -15,7 +15,6 @@
  * @param attrs - Vue 组件的 attrs 对象
  * @param key - 属性名
  * @param defaultValue - 默认值
- * @typeParam TProps - attrs 对象类型
  *
  * @returns 属性值或默认值
  *
@@ -23,24 +22,16 @@
  * getFieldProps(attrs, "align", "right")
  * getFieldProps(attrs, "rightIcon", "arrow")
  */
-export function getFieldProps<TProps extends Record<string, unknown>>(
-  attrs: TProps | undefined,
-  key: keyof TProps,
-  defaultValue: TProps[typeof key] = undefined as TProps[typeof key]
-): TProps[typeof key] {
-  if (!attrs) return defaultValue
-
+export function getFieldProps<T extends Record<string, any>>(
+  attrs: T,
+  key: keyof T,
+  defaultValue: T[typeof key] = undefined as T[typeof key]
+): T[typeof key] {
   return attrs?.[key] ?? defaultValue
 }
 
 /**
  * 判断值是否应按空值展示。
- *
- * @example
- * ```ts
- * isEmptyDisplayValue([]) // => true
- * isEmptyDisplayValue(0)  // => false
- * ```
  */
 export function isEmptyDisplayValue(value: unknown): boolean {
   return (
@@ -55,19 +46,11 @@ export function isEmptyDisplayValue(value: unknown): boolean {
  * 获取只读态展示值。
  *
  * 只在值为空时回退到 readonlyPlaceholder，保留 0、false 等有效值。
- *
- * @typeParam TValue - 待展示的值类型。
- *
- * @example
- * ```ts
- * getReadonlyDisplayValue(undefined, "未填写") // => "未填写"
- * getReadonlyDisplayValue(0, "未填写")         // => 0
- * ```
  */
-export function getReadonlyDisplayValue<TValue>(
-  value: TValue,
+export function getReadonlyDisplayValue<T>(
+  value: T,
   readonlyPlaceholder = "-"
-): TValue | string {
+): T | string {
   return isEmptyDisplayValue(value) ? readonlyPlaceholder : value
 }
 
@@ -77,12 +60,6 @@ export type RendererMode = "editable" | "disabled" | "readonly"
  * 解析渲染器当前呈现模式。
  *
  * disabled/readonly 仍会阻止交互。
- *
- * @example
- * ```ts
- * resolveRendererMode({ readonly: true }) // => "readonly"
- * resolveRendererMode({ disabled: true, readonly: true }) // => "disabled"
- * ```
  */
 export function resolveRendererMode(options: {
   disabled?: boolean
@@ -96,12 +73,6 @@ export function resolveRendererMode(options: {
 
 /**
  * 判断当前状态是否允许用户交互。
- *
- * @example
- * ```ts
- * isRendererInteractive("editable") // => true
- * isRendererInteractive("disabled") // => false
- * ```
  */
 export function isRendererInteractive(mode: RendererMode): boolean {
   return mode === "editable"
@@ -109,20 +80,14 @@ export function isRendererInteractive(mode: RendererMode): boolean {
 
 /**
  * 树形查找结果
- *
- * @typeParam TNode - 树节点类型。
- * @typeParam TValue - 节点值类型。
  */
-export interface FindTreeItemResult<
-  TNode extends Record<string, unknown> = Record<string, unknown>,
-  TValue = unknown,
-> {
+export interface FindTreeItemResult {
   /** 匹配节点 */
-  node: TNode | null
+  node: Record<string, any> | null
   /** 从根到匹配节点的 label 路径 */
   labels: string[]
   /** 从根到匹配节点的 value 路径 */
-  values: TValue[]
+  values: any[]
 }
 
 /**
@@ -130,8 +95,6 @@ export interface FindTreeItemResult<
  *
  * 支持自定义字段名映射，适用于 Cascader、Picker 等树形选择组件。
  *
- * @typeParam TNode - 树节点类型。
- * @typeParam TValue - 待查找的节点值类型。
  * @param tree - 树形数据数组
  * @param targetValue - 要查找的目标值
  * @param options - 字段名配置
@@ -139,54 +102,48 @@ export interface FindTreeItemResult<
  * @param options.valueKey - value 字段名，默认 `"value"`
  * @param options.childrenKey - children 字段名，默认 `"children"`
  *
- * @returns `{ node, labels, values }`：匹配节点、label 路径和 value 路径
+ * @returns 查找结果，包含匹配节点、label 路径和 value 路径
  *
  * @example
- * const result = findTreeItem(tree, "guangzhou", {
+ * const result = findTreeItem(options, "guangzhou", {
  *   labelKey: "text",
  *   valueKey: "value",
  *   childrenKey: "children",
  * })
- * const { node, labels, values } = result
- * // node => { text: "广州", value: "guangzhou" }
- * // labels => ["广东", "广州"]
- * // values => ["guangdong", "guangzhou"]
+ * // result.labels => ["广东", "广州"]
+ * // result.values => ["guangdong", "guangzhou"]
  */
-export function findTreeItem<TNode extends Record<string, unknown>, TValue>(
-  tree: TNode[],
-  targetValue: TValue,
+export function findTreeItem(
+  tree: any[],
+  targetValue: any,
   options: {
     labelKey?: string
     valueKey?: string
     childrenKey?: string
   } = {}
-): FindTreeItemResult<TNode, TValue> {
+): FindTreeItemResult {
   const { labelKey = "label", valueKey = "value", childrenKey = "children" } = options
-
-  const result: FindTreeItemResult<TNode, TValue> = { node: null, labels: [], values: [] }
+  const result: FindTreeItemResult = { node: null, labels: [], values: [] }
 
   if (!Array.isArray(tree) || targetValue === undefined || targetValue === null) {
     return result
   }
 
   const search = (
-    nodes: TNode[],
+    nodes: any[],
     labels: string[],
-    values: TValue[]
-  ): FindTreeItemResult<TNode, TValue> | null => {
+    values: any[]
+  ): FindTreeItemResult | null => {
     for (const node of nodes) {
-      const currentLabels = [...labels, String(node[labelKey])]
-
-      const currentValues = [...values, node[valueKey] as TValue]
+      const currentLabels = [...labels, node[labelKey]]
+      const currentValues = [...values, node[valueKey]]
 
       if (node[valueKey] === targetValue) {
         return { node, labels: currentLabels, values: currentValues }
       }
 
-      const children = node[childrenKey]
-
-      if (Array.isArray(children) && children.length > 0) {
-        const found = search(children as TNode[], currentLabels, currentValues)
+      if (Array.isArray(node[childrenKey]) && node[childrenKey].length > 0) {
+        const found = search(node[childrenKey], currentLabels, currentValues)
 
         if (found) return found
       }
@@ -220,9 +177,7 @@ export function getFileName(url: string | undefined | null): string {
 
   try {
     const cleanUrl = url.split("?")[0].split("#")[0]
-
     const parts = cleanUrl.split("/")
-
     const fileName = parts[parts.length - 1]
 
     return fileName || String(Date.now())

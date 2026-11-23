@@ -6,19 +6,17 @@
  * @module types/namePathType
  */
 
-/**
- * 基础路径类型，支持字符串、数字、布尔值及其数组组合。
- */
+/** 基础路径类型，支持字符串、数字、布尔值及其数组组合 */
 type BaseNamePath = string | number | boolean | (string | number | boolean)[]
 
 /**
  * 深层路径类型推导。
  *
- * 根据 TValues 类型递归推导所有合法的字段访问路径，
+ * 根据 Store 类型递归推导所有合法的字段访问路径，
  * 支持嵌套对象、数组索引，最大递归深度为 5 层。
  *
- * @typeParam TValues - 表单数据类型
- * @typeParam TParentPath - 父级路径元组，由递归自动生成，无需手动传入
+ * @typeParam Store - 表单数据类型
+ * @typeParam ParentNamePath - 父级路径元组，由递归自动生成，无需手动传入
  *
  * @example
  * ```ts
@@ -41,43 +39,47 @@ type BaseNamePath = string | number | boolean | (string | number | boolean)[]
  * - 函数类型的属性会被排除
  */
 export type DeepNamePathArray<
-  TValues = any,
-  TParentPath extends any[] = [],
-> = TParentPath["length"] extends 5
+  Store = any,
+  ParentNamePath extends any[] = [],
+> = ParentNamePath["length"] extends 5
   ? never
-  : // 判断 TValues 是否为基础类型
-    true extends (TValues extends BaseNamePath ? true : false)
-    ? TParentPath["length"] extends 0
-      ? TValues | BaseNamePath // 顶层直接返回 BaseNamePath
-      : TValues extends any[]
-        ? [...TParentPath, number] // 数组类型拼接数字索引
+  : // 判断 Store 是否为基础类型
+    true extends (Store extends BaseNamePath ? true : false)
+    ? ParentNamePath["length"] extends 0
+      ? Store | BaseNamePath // 顶层直接返回 BaseNamePath
+      : Store extends any[]
+        ? [...ParentNamePath, number] // 数组类型拼接数字索引
         : never
-    : TValues extends any[] // 判断 TValues 是否为数组
+    : Store extends any[] // 判断 Store 是否为数组
       ? // 数组路径：如 { a: { b: string }[] }
-        // 推导出：[a] | [a, number] | [a, number, b]
-        | [...TParentPath, number]
-        | DeepNamePathArray<TValues[number], [...TParentPath, number]>
-      : keyof TValues extends never // unknown 类型兜底
-        ? TValues
+          // 推导出：[a] | [a, number] | [a, number, b]
+          | [...ParentNamePath, number]
+          | DeepNamePathArray<Store[number], [...ParentNamePath, number]>
+      : keyof Store extends never // unknown 类型兜底
+        ? Store
         : {
-            // 遍历 TValues 的每个属性
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-            [TKey in keyof TValues]: TValues[TKey] extends Function
+            // 遍历 Store 的每个属性
+            // eslint-disable-next-line @typescript-eslint/ban-types
+            [FieldKey in keyof Store]: Store[FieldKey] extends Function
               ? never // 排除函数类型属性
-              : | (TParentPath["length"] extends 0 ? TKey : never) // 顶层允许单独使用 key
-                | [...TParentPath, TKey] // 拼接父级路径
-                | DeepNamePathArray<Required<TValues>[TKey], [...TParentPath, TKey]> // 递归子属性
-          }[keyof TValues]
+              :
+                  | (ParentNamePath["length"] extends 0 ? FieldKey : never) // 顶层允许单独使用 key
+                  | [...ParentNamePath, FieldKey] // 拼接父级路径
+                  | DeepNamePathArray<
+                      Required<Store>[FieldKey],
+                      [...ParentNamePath, FieldKey]
+                    > // 递归子属性
+          }[keyof Store]
 
 /**
  * 点号分隔的深层路径字符串类型推导。
  *
- * 根据 TValues 类型递归推导所有合法的点号分隔字段路径字符串，
+ * 根据 Store 类型递归推导所有合法的点号分隔字段路径字符串，
  * 支持嵌套对象、数组索引，最大递归深度为 5 层。
  *
- * @typeParam TValues - 表单数据类型
- * @typeParam TPrefix - 当前路径前缀，由递归自动生成，无需手动传入
- * @typeParam TDepth - 递归深度计数元组，由递归自动生成，无需手动传入
+ * @typeParam Store - 表单数据类型
+ * @typeParam Prefix - 当前路径前缀，由递归自动生成，无需手动传入
+ * @typeParam Depth - 递归深度计数元组，由递归自动生成，无需手动传入
  *
  * @example
  * ```ts
@@ -100,69 +102,66 @@ export type DeepNamePathArray<
  * - 函数类型的属性会被排除
  */
 export type DeepNamePath<
-  TValues = any,
-  TPrefix extends string = "",
-  TDepth extends any[] = [],
-> = TDepth["length"] extends 5
+  Store = any,
+  Prefix extends string = "",
+  Depth extends any[] = [],
+> = Depth["length"] extends 5
   ? never
-  : TValues extends any[]
+  : Store extends any[]
     ? // 数组路径：拼接数字索引并递归元素类型
-      | (TPrefix extends "" ? `${number}` : `${TPrefix}.${number}`)
-      | DeepNamePath<
-          TValues[number],
-          TPrefix extends "" ? `${number}` : `${TPrefix}.${number}`,
-          [...TDepth, 1]
-        >
-    : TValues extends object
+        | (Prefix extends "" ? `${number}` : `${Prefix}.${number}`)
+        | DeepNamePath<
+            Store[number],
+            Prefix extends "" ? `${number}` : `${Prefix}.${number}`,
+            [...Depth, 1]
+          >
+    : Store extends object
       ? {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-          [TKey in keyof TValues & string]: TValues[TKey] extends Function
+          // eslint-disable-next-line @typescript-eslint/ban-types
+          [K in keyof Store & string]: Store[K] extends Function
             ? never // 排除函数类型属性
             : // 当前 key 路径
-              | (TPrefix extends "" ? TKey : `${TPrefix}.${TKey}`)
-              // 递归子属性
-              | DeepNamePath<
-                  Required<TValues>[TKey],
-                  TPrefix extends "" ? TKey : `${TPrefix}.${TKey}`,
-                  [...TDepth, 1]
-                >
-        }[keyof TValues & string]
+                | (Prefix extends "" ? K : `${Prefix}.${K}`)
+                // 递归子属性
+                | DeepNamePath<
+                    Required<Store>[K],
+                    Prefix extends "" ? K : `${Prefix}.${K}`,
+                    [...Depth, 1]
+                  >
+        }[keyof Store & string]
       : never
 
 /**
  * 从当前层类型中提取字符串路径片段对应的值类型。
  */
-type StringPathSegmentValue<
-  TValues,
-  TKey extends string,
-> = TKey extends keyof NonNullable<TValues>
-  ? NonNullable<TValues>[TKey]
-  : NonNullable<TValues> extends readonly (infer TItem)[]
-    ? TKey extends `${number}`
-      ? TItem
+type StringPathSegmentValue<T, K extends string> = K extends keyof NonNullable<T>
+  ? NonNullable<T>[K]
+  : NonNullable<T> extends readonly (infer Item)[]
+    ? K extends `${number}`
+      ? Item
       : unknown
     : unknown
 
 /**
  * 递归解析点号分隔字符串路径，内部使用，公共类型见 PathValueByString。
  */
-type StringPathValueInner<TValues, TPath extends string> = string extends TPath
+type StringPathValueInner<T, P extends string> = string extends P
   ? unknown
-  : TPath extends `${infer TKey}.${infer TRest}`
-    ? StringPathValueInner<StringPathSegmentValue<TValues, TKey>, TRest>
-    : StringPathSegmentValue<TValues, TPath>
+  : P extends `${infer K}.${infer R}`
+    ? StringPathValueInner<StringPathSegmentValue<T, K>, R>
+    : StringPathSegmentValue<T, P>
 
 /**
  * 递归解析数组路径，内部使用，公共类型见 PathValueByArray。
  */
-type ArrayPathValueInner<TValues, TPath extends (string | number)[]> = TPath extends [
-  infer TKey extends string | number,
-  ...infer TRest extends (string | number)[],
+type ArrayPathValueInner<T, P extends (string | number)[]> = P extends [
+  infer K extends string | number,
+  ...infer R extends (string | number)[],
 ]
-  ? TKey extends keyof NonNullable<TValues>
-    ? TRest extends []
-      ? NonNullable<TValues>[TKey]
-      : ArrayPathValueInner<NonNullable<TValues>[TKey], TRest>
+  ? K extends keyof NonNullable<T>
+    ? R extends []
+      ? NonNullable<T>[K]
+      : ArrayPathValueInner<NonNullable<T>[K], R>
     : unknown
   : unknown
 
@@ -172,8 +171,8 @@ type ArrayPathValueInner<TValues, TPath extends (string | number)[]> = TPath ext
  * 路径访问在运行时可能得到 `undefined`，例如字段尚未初始化、
  * 中间对象不存在、数组索引不存在等，因此结果始终包含 `undefined`。
  *
- * @typeParam TValues - 对象类型
- * @typeParam TPath - 点号分隔字符串路径
+ * @typeParam T - 对象类型
+ * @typeParam P - 点号分隔字符串路径
  *
  * @example
  * ```ts
@@ -186,8 +185,9 @@ type ArrayPathValueInner<TValues, TPath extends (string | number)[]> = TPath ext
  * type B = PathValueByString<FormData, "tags.0">    // string | undefined
  * ```
  */
-export type PathValueByString<TValues, TPath extends string> =
-  StringPathValueInner<TValues, TPath> | undefined
+export type PathValueByString<T, P extends string> =
+  | StringPathValueInner<T, P>
+  | undefined
 
 /**
  * 按数组路径从对象类型中提取值类型。
@@ -195,8 +195,8 @@ export type PathValueByString<TValues, TPath extends string> =
  * 路径访问在运行时可能得到 `undefined`，例如字段尚未初始化、
  * 中间对象不存在、数组索引不存在等，因此结果始终包含 `undefined`。
  *
- * @typeParam TValues - 对象类型
- * @typeParam TPath - 数组路径，元素为字符串 key 或数字索引
+ * @typeParam T - 对象类型
+ * @typeParam P - 数组路径，元素为字符串 key 或数字索引
  *
  * @example
  * ```ts
@@ -209,8 +209,9 @@ export type PathValueByString<TValues, TPath extends string> =
  * type B = PathValueByArray<FormData, ["tags", number]> // string | undefined
  * ```
  */
-export type PathValueByArray<TValues, TPath extends (string | number)[]> =
-  ArrayPathValueInner<TValues, TPath> | undefined
+export type PathValueByArray<T, P extends (string | number)[]> =
+  | ArrayPathValueInner<T, P>
+  | undefined
 
 /**
  * 按路径从对象类型中提取值类型。
@@ -218,8 +219,8 @@ export type PathValueByArray<TValues, TPath extends (string | number)[]> =
  * 这是统一入口：当路径是点号分隔字符串时分发到 PathValueByString，
  * 当路径是数组时分发到 PathValueByArray。
  *
- * @typeParam TValues - 对象类型
- * @typeParam TPath - 路径，可以是 `(string | number)[]` 或点号分隔字符串
+ * @typeParam T - 对象类型
+ * @typeParam P - 路径，可以是 `(string | number)[]` 或点号分隔字符串
  *
  * @example
  * ```ts
@@ -233,11 +234,8 @@ export type PathValueByArray<TValues, TPath extends (string | number)[]> =
  * type C = PathValue<FormData, ["tags", number]> // string | undefined
  * ```
  */
-export type PathValue<
-  TValues,
-  TPath extends (string | number)[] | string,
-> = TPath extends string
-  ? PathValueByString<TValues, TPath>
-  : TPath extends (string | number)[]
-    ? PathValueByArray<TValues, TPath>
+export type PathValue<T, P extends (string | number)[] | string> = P extends string
+  ? PathValueByString<T, P>
+  : P extends (string | number)[]
+    ? PathValueByArray<T, P>
     : unknown

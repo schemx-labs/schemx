@@ -92,14 +92,11 @@ export const resolveSlot = (
 ): ((...args: any[]) => any) | undefined => {
   if (slots[name]) return slots[name]
 
-  // 原始名称未命中时，尝试对应的另一种命名格式。
-  let alt: string | undefined
-
-  if (isCamelCase(name)) {
-    alt = camelToKebab(name)
-  } else if (isKebabCase(name)) {
-    alt = kebabToCamel(name)
-  }
+  const alt = isCamelCase(name)
+    ? camelToKebab(name)
+    : isKebabCase(name)
+      ? kebabToCamel(name)
+      : undefined
 
   if (alt && slots[alt]) return slots[alt]
 
@@ -130,9 +127,7 @@ export const extractChildSlots = (
   allSlots: Record<string, any>
 ): Record<string, any> => {
   const result: Record<string, any> = {}
-
   const camelPrefix = normalizeToCamel(String(fieldName)) + ":"
-
   const kebabPrefix = normalizeToKebab(String(fieldName)) + ":"
 
   for (const [key, value] of Object.entries(allSlots)) {

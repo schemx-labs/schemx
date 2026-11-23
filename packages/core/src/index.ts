@@ -1,88 +1,28 @@
 /**
  * core 模块统一导出
  *
- * 聚合表单运行时、Registry 和校验相关的核心公开 API。
- * Validator 实现仅供 Core 内部运行模块与 facade 使用，不从根入口导出。
+ * 聚合 Validator、RendererRegistryType、ValidatorsRegistryType 等核心模块的公开 API。
  *
  * @module core
  */
 
-export { createPresetRuleRegistry, createRendererRegistry } from "./registry"
+export {
+  createValidator,
+  type Validator,
+  type ValidateResult,
+  type ValidateError,
+  type FieldError,
+} from "./validator"
 
-export type {
-  PresetRuleRegistry,
-  RendererRegistry,
-  PresetRuleFactoryContext,
-  PresetRuleFactory,
-  PresetRuleEntry,
-  PresetRuleMap,
-  PresetRuleRegistryChange,
-  PresetRuleRegistryListener,
-  RegistryOptions,
-  RendererDescriptor,
-  RendererDictionaryDescriptor,
-  RendererEntry,
-  RendererMap,
-  RendererPropsTransformer,
-  RendererRegistration,
-  RendererTransformContext,
+export {
+  createRendererRegistry,
+  type RendererRegistryType,
+  type RegistryOptions,
+  type RendererMap,
 } from "./registry"
 
-export {
-  createForm,
-  type CreateFormOptions,
-  type FormCallbackOptions,
-  type FormLifecycleOptions,
-  type FormPerformanceOptions,
-  type FormRegistryOptions,
-  type FormSchemaOptions,
-  type ResolvedCreateFormOptions,
-} from "./createForm"
-
-export {
-  createFormStateAdapter,
-  type FieldSnapshotSource,
-  type FieldStateSnapshot,
-  type FormStateAdapter,
-  type SnapshotSource,
-} from "./adapter/formStateAdapter"
-
-export { getFormAdapter } from "./adapter/formAdapter"
-export type { FormAdapter } from "./adapter/formAdapter"
-
-export { isSchemxDictionary, normalizeSchemxDictionary } from "./dictionary"
-
-export type {
-  DictionaryKeyMap,
-  FieldDictionaryChannel,
-  FieldDictionaryFailureReason,
-  FieldDictionaryOptionsAction,
-  FieldDictionaryResult,
-  FieldDictionarySnapshot,
-  FieldDictionaryStatus,
-  SchemxDictionary,
-  SchemxDictionaryInput,
-} from "./dictionary"
-
-export { getFormCreationConfig, type FormCreationSnapshot } from "./adapter"
-
-export type {
-  SchedulerDiagnostics,
-  SchedulerOptions,
-  SchedulerTaskPriority,
-} from "./scheduler"
-
-export {
-  mergeConfig,
-  resolveSchemxConfig,
-  type MergedSchemxConfig,
-  type MergeConfigOptions,
-  type SchemxConfigSnapshot,
-  defaultSchemxConfig,
-  type SchemxConfig,
-  type SchemxConfigDefinition,
-} from "./config"
-
+export { createForm, type CreateFormOptions } from "./createForm"
+export { createForm as createFormInstance } from "./createForm"
 export {
   createSchemas,
   isSchemxSchemas,
@@ -91,85 +31,29 @@ export {
   type SchemxSchemasListener,
 } from "./createSchemas"
 
-export type { NodeId } from "./node"
+export {
+  createLifecycle,
+  createLifecycleBus,
+  type LifecycleBus,
+  type LifecycleHooks,
+  type LifecycleListener,
+} from "./lifecycle"
 
 export type {
   SchemxViewDebugMeta,
-  SchemxViewDynamicItem,
-  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
 } from "./view"
 
-export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "./view"
+export { createField, type SchemxFieldInstance } from "./createField"
 
-export type { FormConfig, ResolvedFormConfig } from "./config"
-
-export type {
-  RequiredOptions,
-  RequiredConfig,
-  DefinedFieldValue,
-  PresetRuleDefinition,
-  PresetRuleName,
-  FieldRule,
-  FieldRules,
-  Values,
-  Dynamic,
-  NamePath,
-  FieldValue,
-  SetValueAction,
-  SetValuesAction,
-  DeepReadonly,
-  CSSProperties,
-  ValidationTrigger,
-  StandardSchemaV1,
-  AsyncValidatorRule,
-  AsyncValidatorDescriptor,
-  SchemxInstance,
-  SchemxFormApi,
-  SchemxInstanceDefinition,
-  SchemxFieldRulesMap,
-  SchemxSchemaConfig,
-  SchemxSchemaConfigDefinition,
-  SchemxRendererKey,
-  SchemxRendererDefinition,
-  SchemxFieldDefinition,
-  SchemxGroupFieldDefinition,
-  SchemxBaseComponentProps,
-  SchemxCoreBaseComponentProps,
-  SchemxComponentPropsDefinition,
-  SchemxComponentProps,
-  SchemxRendererPropsMap,
-  SchemxBase,
-  SchemxGroupField,
-  SchemxBaseField,
-  SchemxExactBaseField,
-  SchemxDependencyField,
-  SchemxDynamicDefinition,
-  SchemxDynamicField,
-  SchemxDynamicArrayPath,
-  SchemxDynamicNamePath,
-  SchemxDynamicItemGroup,
-  SchemxDynamicItemSchema,
-  SchemxDynamicItemDependency,
-  SchemxDynamicItemDependencyRendererContext,
-  SchemxField,
-  SchemxFormItemProps,
-  SchemxFieldDependencies,
-  SchemxFieldDependenciesDefinition,
-  SchemxGroupDependencies,
-  SchemxDependencyDependencies,
-  SchemxDynamicDependencies,
-  SchemxContainerDependencies,
-  SchemxConditionFn,
-  FieldArrayItemValue,
-  FieldArrayChange,
-  FieldArrayPath,
-  ValidationAdapterV1,
-} from "./types"
-export type { FieldState, StoreState } from "./store"
-export type { ReadonlyState } from "./reactivity"
+export {
+  createEffect,
+  type CleanupFn,
+  type EffectCallback,
+  type CreateEffectReturn,
+} from "./createEffect"
 
 export {
   createWatch,
@@ -184,59 +68,57 @@ export {
 } from "./createWatch"
 
 export {
-  createSignalEffect,
-  runSignalUntracked,
-  createSignalWatch,
-  createDebouncedSignalWatch,
-  type SignalEffectOptions,
-  type SignalEffectDispose,
-  type SignalWatchOptions,
-  type DebouncedSignalWatchOptions,
-  type DebouncedSignalWatchControls,
-} from "./reactivity"
+  createValidatorsRegistry,
+  type ValidatorsRegistryType,
+  type ValidatorsRegistryOptions,
+  type ValidatorsFactory,
+  type ValidatorsEntry,
+  type ValidatorsEntryMap,
+} from "./registry"
 
 export {
-  isFieldSchema,
+  isBaseSchema,
   isGroupSchema,
   isDependencySchema,
-  isDynamicSchema,
+  isBaseResolvedSchema,
+  isGroupResolvedSchema,
   getByPath,
   setByPath,
   collectObjectPathsByLeaf,
-  createFieldKey,
 } from "./utils"
 
 export type {
-  ValidationRuleContext,
-  ValidationRuleIssue,
-  ValidationRuleResult,
-  ValidationRule,
-  AdapterRule,
-  ValidationAdapterRule,
-  ValidationAdapterID,
-  ValidationAdapter,
-  ValidationAdapterRegistration,
-  ValidationAdapterOption,
-  FieldValidationError,
-  FormValidationError,
-  ValidationError,
-  ValidationSuccess,
-  ValidationFailure,
-  ValidationCancelled,
-  ValidationResult,
-} from "./validator"
-
-export {
-  createValidationSuccess,
-  createValidationFailure,
-  createValidationCancelled,
-} from "./validator"
-
-export {
-  createSchemx,
-  type SchemxApi,
-  type SchemxConfigureOptions,
-  type CreateSchemxOptions,
-} from "./createSchemx"
-
-export type { NodeSnapshot, NodeLifecycleHooks } from "./node/snapshot"
+  Values,
+  Dynamic,
+  NamePath,
+  FieldValue,
+  DeepReadonly,
+  CSSProperties,
+  ValidationTrigger,
+  StandardSchemaV1,
+  SchemxInstance,
+  SchemxProps,
+  SchemxGlobalContext,
+  SchemxRuleDefinition,
+  SchemxRuleDefinitionKey,
+  SchemxRuleBuiltinKey,
+  SchemxRules,
+  SchemxRendererKey,
+  SchemxRendererDefinition,
+  SchemxFieldDefinition,
+  SchemxGroupFieldDefinition,
+  SchemxBaseComponentProps,
+  SchemxComponentProps,
+  SchemxBase,
+  SchemxGroupField,
+  SchemxBaseField,
+  SchemxResolvedField,
+  SchemxDependencyField,
+  SchemxField,
+  SchemxFormItemProps,
+  SchemxDependencies,
+  SchemxConditionFn,
+  SchemxDependenciesStaticProps,
+  SchemxDictionary,
+  SchemxWithDictionary,
+} from "./types"

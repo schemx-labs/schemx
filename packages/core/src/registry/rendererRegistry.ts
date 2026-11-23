@@ -29,22 +29,19 @@
  * }
  * registry.registerAll(renderers)
  *
- * // 获取渲染器（纯查询，未注册返回 undefined）
- * const exact = registry.get('input')
- * const missing = registry.get('unknown') // => undefined
- *
- * // 解析渲染器（未注册时回退到默认类型）
- * const fallback = registry.resolve('unknown') // => 默认的 'text'
+ * // 获取渲染器
+ * const inputRenderer = registry.getRenderer('input')
+ * const fallback = registry.getRenderer('unknown') // 返回默认的 'text'
  *
  * // 检查是否存在
- * registry.has('input') // => true
+ * registry.hasRenderer('input') // => true
  *
  * // 获取所有类型
- * registry.keys() // => ['input', 'select', 'text', 'number', 'date']
+ * registry.getTypes() // => ['input', 'select', 'text', 'number', 'date']
  *
- * // 设置回退渲染器
- * registry.setFallback('input')
- * registry.getFallback() // => 'input'
+ * // 设置默认渲染器
+ * registry.setDefault('input')
+ * registry.getDefault() // => 'input'
  *
  * // 取消注册
  * registry.unregister('date')
@@ -66,401 +63,134 @@
  * ```
  */
 
-import { resolveDictionaryTarget } from "../dictionary/target"
-import { createSignal } from "../reactivity"
-
-import type { RegistryOptions } from "./index"
-import type { RendererDictionaryTarget } from "../dictionary/fieldConfig"
-import type { DictionaryKeyMap } from "../dictionary/types"
-import type {
-  SchemxComponentProps,
-  SchemxInstance,
-  SchemxRendererKey,
-  Values,
-} from "../types"
-import type { SchemxViewFieldSchema } from "../view"
-
-/** 阻止 fallbackType 反向推断 Registry 的表单值泛型。 */
-type RendererRegistryNoInfer<TValues> = [TValues][TValues extends unknown ? 0 : never]
+import type { SchemxRendererKey } from "../types"
 
 /**
- * Renderer Props 转换器执行时可读取的当前表单上下文。
- *
- * @typeParam TValues - 表单值对象类型。
+ * 渲染器注册选项。
  */
-export interface RendererTransformContext<TValues extends Values = Values> {
-  /** 当前字段的最终 ViewSchema。 */
-  readonly schema: SchemxViewFieldSchema<TValues>
-  /** 当前表单实例。 */
-  readonly form: SchemxInstance<TValues>
+export interface RegistryOptions {
+  /** 是否覆盖已存在的渲染器 */
+  override?: boolean
 }
 
 /**
- * Renderer Props 转换器。
+ * 渲染器组件映射类型。
  *
- * 转换器必须同步返回最终传给 Renderer 的 Props；返回值不会再与输入 Props 合并。
- *
- * @typeParam TValues - 表单值对象类型。
- * @typeParam TKey - Renderer 类型标识。
- * @param props - 按当前 Renderer 类型推导的只读 Props。
- * @param context - 当前字段的 ViewSchema 与 Form 实例。
- * @returns 最终传给 Renderer 组件的 Props。
- *
- * @example
- * ```ts
- * const transformProps: RendererPropsTransformer = (props, { schema }) => ({
- *   ...props,
- *   placeholder: schema.placeholder,
- * })
- * ```
+ * key 为渲染器类型字符串，value 为对应的框架组件。
  */
-export type RendererPropsTransformer<
-  TValues extends Values = Values,
-  TKey extends string = SchemxRendererKey<TValues>,
-> = (
-  props: Readonly<SchemxComponentProps<TValues, TKey>>,
-  context: RendererTransformContext<TValues>
-) => Record<string, unknown>
-
-/**
- * Renderer 为字段字典提供的默认配置。
- * @typeParam TTarget - 接收字典选项的数组属性名。
- */
-export interface RendererDictionaryDescriptor<TTarget extends string = string> {
-  /** 接收选项数组的默认 Renderer 属性。 */
-  readonly targetKey: TTarget
-  /** 未配置 formatter 时使用的默认选项字段映射。 */
-  readonly keys?: DictionaryKeyMap
-}
-
-/**
- * Renderer 注册描述，可提供 Props 转换器与字典默认配置。
- *
- * @typeParam TRenderer - UI 框架 Renderer 组件类型。
- * @typeParam TValues - 表单值对象类型。
- * @typeParam TKey - Renderer 类型标识。
- */
-export interface RendererDescriptor<
-  TRenderer = unknown,
-  TValues extends Values = Values,
-  TKey extends string = SchemxRendererKey<TValues>,
-> {
-  /** 实际渲染的 UI 组件。 */
-  component: TRenderer
-  /** 返回最终传给组件的 Props。 */
-  transformProps?: RendererPropsTransformer<TValues, TKey>
-  /**
-   * 字段字典的默认配置；true 使用 options 作为默认目标。
-   */
-  dictionary?:
-    | RendererDictionaryDescriptor<RendererDictionaryTarget<TValues, TKey>>
-    | ("options" extends RendererDictionaryTarget<TValues, TKey> ? true : never)
-}
-
-/**
- * 带 dictionary 的输入交由描述对象重载校验，组件可直接注册。
- * @typeParam TRenderer - Renderer 注册输入。
- * @internal
- */
-export type RendererComponentOnly<TRenderer> = TRenderer extends {
-  component: unknown
-  dictionary: unknown
-}
-  ? never
-  : TRenderer
-
-/**
- * Renderer 注册输入：直接传组件或传入带 Props 转换器的描述对象。
- *
- * @typeParam TRenderer - UI 框架 Renderer 组件类型。
- * @typeParam TValues - 表单值对象类型。
- * @typeParam TKey - Renderer 类型标识。
- */
-export type RendererRegistration<
-  TRenderer = unknown,
-  TValues extends Values = Values,
-  TKey extends string = SchemxRendererKey<TValues>,
-> = TRenderer | RendererDescriptor<TRenderer, TValues, TKey>
-
-/**
- * Registry 中规范化后的 Renderer 条目。
- *
- * @typeParam TRenderer - UI 框架 Renderer 组件类型。
- * @typeParam TValues - 表单值对象类型。
- * @typeParam TKey - Renderer 类型标识。
- */
-export interface RendererEntry<
-  TRenderer = unknown,
-  TValues extends Values = Values,
-  TKey extends string = SchemxRendererKey<TValues>,
-> {
-  /** 实际渲染的 UI 组件。 */
-  readonly component: TRenderer
-  /** 返回最终传给组件的 Props；直接注册组件时为空。 */
-  readonly transformProps?: RendererPropsTransformer<TValues, TKey>
-  /** 规范化后的字段字典默认配置。 */
-  readonly dictionary?: RendererDictionaryDescriptor
-}
-
-/**
- * 渲染器映射类型，值可以是组件或带 Props 转换器的描述对象。
- *
- * key 为渲染器类型字符串，value 为对应的 Renderer 注册输入。
- *
- * @typeParam TValues - 表单值对象类型。
- */
-export type RendererMap<TValues extends Values = Values> = {
-  [TKey in SchemxRendererKey<TValues>]?: RendererRegistration<unknown, TValues, TKey>
-}
+export type RendererMap<T extends SchemxRendererKey, R = unknown> = Record<T, R>
 
 /**
  * 渲染器注册中心。
  *
  * 纯粹的 Map 存储。
  *
- * @remarks
- * 当 {@link RendererRegistry.resolve} 找不到指定类型时，会回退到构造函数或
- * {@link RendererRegistry.setFallback} 设置的回退类型；未设置时不会回退。
+ * @example
+ * ```typescript
+ * const renderer = new RendererRegistryType()
  *
- * @typeParam TValues - 表单值对象类型。
+ * // 注册组件
+ * renderer.register('input', InputRenderer)
+ *
+ * // 批量注册
+ * renderer.registerAll({ text: TextRenderer, number: NumberRenderer })
+ * ```
+ *
+ * @remarks
+ * 当 getRenderer 找不到指定类型时，会自动回退到默认渲染器类型（默认为 'text'）。
  */
-class RendererRegistryImpl<TValues extends Values = Values> {
-  /**
-   * 渲染器存储。
-   */
-  private renderers: Map<SchemxRendererKey<TValues>, RendererEntry<unknown, TValues>>
+export class RendererRegistry<
+  T extends SchemxRendererKey = SchemxRendererKey,
+  R = unknown,
+> {
+  /** 渲染器存储 */
+  private renderers: Map<T, R>
 
-  /** 让消费 Renderer 配置的字段跟随注册表更新。 */
-  private readonly revision = createSignal(0)
-
-  /**
-   * 未找到匹配渲染器时使用的回退类型。
-   */
-  private fallbackType?: SchemxRendererKey<TValues>
+  /** 默认渲染器类型 */
+  private defaultType?: T
 
   /**
    * 创建 Registry 实例。
    *
-   * @param fallbackType - 回退渲染器类型，未找到指定类型时回退使用
+   * @param defaultType - 默认渲染器类型，未找到指定类型时回退使用
    */
-  constructor(fallbackType?: SchemxRendererKey<TValues>) {
+  constructor(defaultType?: T) {
     this.renderers = new Map()
-    this.fallbackType = fallbackType
+    this.defaultType = defaultType
   }
 
   /**
-   * 注册带 Props 转换器或字典默认配置的 Renderer。
+   * 注册渲染器。
    *
-   * 默认覆盖同名项；可通过 `options.override` 禁止覆盖。
+   * 默认会覆盖已存在的同名渲染器，可通过 `options.override` 控制。
    *
-   * @typeParam TKey - 当前 Renderer key 类型。
-   * @param type - Renderer 类型标识。
-   * @param renderer - 组件与其可选的注册配置。
-   * @param options - 同名项的覆盖策略。
-   *
-   * @example
-   * ```ts
-   * registry.register("input", {
-   *   component: InputRenderer,
-   *   transformProps: (props) => ({ ...props, disabled: true }),
-   * })
-   * ```
-   */
-  register<TKey extends SchemxRendererKey<TValues>>(
-    type: TKey,
-    renderer: RendererDescriptor<unknown, TValues, TKey>,
-    options?: RegistryOptions
-  ): void
-
-  /**
-   * 注册组件本身作为 Renderer。
-   *
-   * 默认覆盖同名项；可通过 `options.override` 禁止覆盖。
-   *
-   * @param type - Renderer 类型标识。
-   * @param renderer - 要注册的 UI 组件。
-   * @param options - 同名项的覆盖策略。
+   * @param type - 渲染器类型标识
+   * @param renderer - 组件
+   * @param options - 注册选项
    *
    * @example
-   * ```ts
-   * registry.register("input", InputRenderer)
+   * ```typescript
+   * renderer.register('text', TextRenderer)
+   * renderer.register('text', NewTextRenderer, { override: true })
    * ```
    */
-  register<TRenderer>(
-    type: SchemxRendererKey<TValues>,
-    renderer: TRenderer & RendererComponentOnly<TRenderer>,
-    options?: RegistryOptions
-  ): void
-
-  register(
-    type: SchemxRendererKey<TValues>,
-    renderer: unknown,
-    options?: RegistryOptions
-  ): void {
+  register(type: T, renderer: R, options?: RegistryOptions): void {
     if (this.renderers.has(type) && options?.override === false) {
-      console.warn(`[schemx] 渲染器 "${type}" 已存在，跳过注册`)
+      console.warn(
+        `[RendererRegistryType] RendererRegistry "${type}" already exists, skipping registration`
+      )
 
       return
     }
 
-    this.renderers.set(
-      type,
-      normalizeRenderer<unknown, TValues, SchemxRendererKey<TValues>>(
-        renderer as RendererRegistration<unknown, TValues, SchemxRendererKey<TValues>>
-      )
-    )
-    this.revision.value = this.revision.peek() + 1
+    this.renderers.set(type, renderer)
   }
 
   /**
-   * 批量注册带 Props 转换器或字典默认配置的 Renderer。
+   * 批量注册渲染器。
    *
-   * 同名项会被覆盖。
+   * 遍历映射对象逐个注册，已存在的同名渲染器会被直接覆盖。
    *
-   * @param renderers - Renderer 类型到描述对象的映射。
-   *
-   * @example
-   * ```ts
-   * registry.registerAll({
-   *   input: {
-   *     component: InputRenderer,
-   *     transformProps: (props) => ({ ...props, disabled: true }),
-   *   },
-   * })
-   * ```
-   */
-  registerAll(renderers: {
-    [TKey in SchemxRendererKey<TValues>]?: RendererDescriptor<unknown, TValues, TKey>
-  }): void
-
-  /**
-   * 批量注册组件或 Renderer 描述对象。
-   *
-   * 同名项会被覆盖。
-   *
-   * @param renderers - Renderer 类型到组件或描述对象的映射。
-   *
-   * @example
-   * ```ts
-   * registry.registerAll({
-   *   input: InputRenderer,
-   *   custom: {
-   *     component: CustomRenderer,
-   *     transformProps: (props) => ({ ...props, disabled: true }),
-   *   },
-   * })
-   * ```
-   */
-  registerAll<TRenderers extends RendererMap<TValues>>(
-    renderers: TRenderers & {
-      [TKey in keyof TRenderers]: TKey extends SchemxRendererKey<TValues>
-        ? | RendererComponentOnly<TRenderers[TKey]>
-          | RendererDescriptor<unknown, TValues, TKey>
-        : TRenderers[TKey]
-    }
-  ): void
-
-  registerAll(renderers: Record<string, unknown>): void {
-    // 完成整批校验后一次性发布注册结果。
-    const entries = Object.entries(renderers).map(
-      ([type, renderer]) =>
-        [
-          type as SchemxRendererKey<TValues>,
-          normalizeRenderer<unknown, TValues, SchemxRendererKey<TValues>>(
-            renderer as RendererRegistration<unknown, TValues, SchemxRendererKey<TValues>>
-          ),
-        ] as const
-    )
-
-    for (const [type, entry] of entries) {
-      this.renderers.set(type, entry)
-    }
-
-    if (entries.length > 0) {
-      this.revision.value = this.revision.peek() + 1
-    }
-  }
-
-  /**
-   * 纯查询：获取指定类型的渲染器组件。
-   *
-   * 未找到时返回 `undefined`，不触发回退、不发出警告。
-   *
-   * @param type - 渲染器类型标识
-   * @returns 对应的组件，未找到时返回 undefined
+   * @param renderers - 类型到组件的映射对象
    *
    * @example
    * ```typescript
-   * const renderer = renderer.get('text')
-   * const missing = renderer.get('unknown') // => undefined
+   * renderer.registerAll({
+   *   text: TextRenderer,
+   *   number: NumberRenderer,
+   *   date: DateRenderer,
+   * })
    * ```
    */
-  get(type: SchemxRendererKey<TValues>): unknown {
-    return this.renderers.get(type)?.component
+  registerAll(renderers: RendererMap<T, R>): void {
+    Object.entries(renderers).forEach(([type, renderer]) => {
+      this.renderers.set(type as T, renderer as R)
+    })
   }
 
   /**
-   * 纯查询：获取指定类型的规范化 Renderer 条目。
+   * 获取指定类型的渲染器组件。
    *
-   * 未找到时返回 `undefined`，不触发回退、不发出警告。
-   *
-   * @typeParam TKey - 查询的 Renderer key 类型。
-   * @param type - 渲染器类型标识
-   * @returns Renderer 组件、可选的 Props 转换器与字典默认配置。
-   *
-   * @example
-   * ```ts
-   * const entry = registry.getEntry("input")
-   * ```
-   */
-  getEntry<TKey extends SchemxRendererKey<TValues>>(
-    type: TKey
-  ): RendererEntry<unknown, TValues, TKey> | undefined {
-    // 让观察该条目的字段感知注册、替换与移除。
-    void this.revision.value
-
-    return this.renderers.get(type) as RendererEntry<unknown, TValues, TKey> | undefined
-  }
-
-  /**
-   * 解析渲染器：获取指定类型的渲染器组件，未找到时回退到回退类型。
-   *
-   * 回退类型也不存在则返回 `undefined`，并在未命中时发出警告。
+   * 未找到时自动回退到默认类型，默认类型也不存在则返回 undefined。
    *
    * @param type - 渲染器类型标识
-   * @returns 对应的组件，未找到且无回退时返回 undefined
+   * @returns 对应的组件，未找到且无默认时返回 undefined
    *
    * @example
    * ```typescript
-   * const renderer = renderer.resolve('text')
-   * const fallback = renderer.resolve('unknown') // => 回退渲染器
+   * const renderer = renderer.getRenderer('text')
+   * const fallback = renderer.getRenderer('unknown') // => 默认渲染器
    * ```
    */
-  resolve(type: SchemxRendererKey<TValues>): unknown {
-    return this.resolveEntry(type)?.component
-  }
-
-  /**
-   * 解析 Renderer 条目：未命中时回退到回退类型。
-   * 未命中时会发出警告；没有可用回退项时返回 `undefined`。
-   *
-   * @param type - 渲染器类型标识
-   * @returns 对应的 Renderer 条目，未找到且无回退时返回 undefined
-   *
-   * @example
-   * ```ts
-   * const entry = registry.resolveEntry("input")
-   * ```
-   */
-  resolveEntry(
-    type: SchemxRendererKey<TValues>
-  ): RendererEntry<unknown, TValues> | undefined {
+  getRenderer(type: T): R | undefined {
     let renderer = this.renderers.get(type)
 
     if (!renderer) {
-      console.warn(`[schemx] 未找到渲染器 "${type}"，回退到 "${this.fallbackType}"`)
+      console.warn(
+        `[RendererRegistryType] RendererRegistry "${type}" not found, falling back to default "${this.defaultType}"`
+      )
 
-      if (this.fallbackType) renderer = this.renderers.get(this.fallbackType)
+      if (this.defaultType) renderer = this.renderers.get(this.defaultType)
     }
 
     return renderer
@@ -474,19 +204,19 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    *
    * @example
    * ```typescript
-   * renderer.has('text')   // => true
-   * renderer.has('custom') // => false
+   * renderer.hasRenderer('text')   // => true
+   * renderer.hasRenderer('custom') // => false
    * ```
    */
-  has(type: SchemxRendererKey<TValues>): boolean {
+  hasRenderer(type: T): boolean {
     return this.renderers.has(type)
   }
 
   /**
    * 移除渲染器
    *
-   * 如果移除的是当前回退类型，会从剩余渲染器中智能选取新回退类型。
-   * 若无剩余渲染器，回退类型保持原值，但无法解析出组件。
+   * 如果移除的是当前默认类型，会从剩余渲染器中智能选取新默认类型。
+   * 若无剩余渲染器则默认类型设为空字符串。
    *
    * @param type - 渲染器类型标识
    * @returns 是否成功移除
@@ -497,23 +227,20 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * renderer.unregister('nonexistent') // => false
    * ```
    */
-  unregister(type: SchemxRendererKey<TValues>): boolean {
-    const isFallback = type === this.fallbackType
-
+  unregister(type: T): boolean {
+    const isDefault = type === this.defaultType
     const deleted = this.renderers.delete(type)
 
-    if (isFallback && deleted) {
+    if (isDefault && deleted) {
       const firstKey = this.renderers.keys().next().value
 
       if (firstKey) {
-        console.warn(`[schemx] 回退渲染器已移除，已自动重置为 "${String(firstKey)}"`)
+        console.warn(
+          `[RendererRegistryType] Default renderer was removed, Please reset the default renderer.`
+        )
 
-        this.fallbackType = firstKey
+        this.defaultType = firstKey
       }
-    }
-
-    if (deleted) {
-      this.revision.value = this.revision.peek() + 1
     }
 
     return deleted
@@ -526,53 +253,55 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    *
    * @example
    * ```typescript
-   * renderer.keys() // => ['text', 'number', 'date']
+   * renderer.getTypes() // => ['text', 'number', 'date']
    * ```
    */
-  keys(): SchemxRendererKey<TValues>[] {
+  getTypes(): T[] {
     return Array.from(this.renderers.keys())
   }
 
   /**
-   * 设置回退渲染器类型
+   * 设置默认渲染器类型
    *
-   * 当 {@link RendererRegistry.resolve} 找不到指定类型时，会回退到该类型。
+   * 当 getRenderer 找不到指定类型时，会回退到默认类型。
    * 设置的类型必须已注册，否则操作无效。
    *
    * @param type - 渲染器类型标识
    *
    * @example
    * ```typescript
-   * renderer.setFallback('number')
-   * renderer.getFallback() // => 'number'
+   * renderer.setDefault('number')
+   * renderer.getDefault() // => 'number'
    * ```
    */
-  setFallback(type: SchemxRendererKey<TValues>): void {
+  setDefault(type: T): void {
     if (!this.renderers.has(type)) {
-      console.warn(`[schemx] 无法将未注册的渲染器 "${type}" 设为回退渲染器`)
+      console.warn(
+        `[RendererRegistryType] Cannot set default to "${type}": renderer not registered`
+      )
 
       return
     }
 
-    this.fallbackType = type
+    this.defaultType = type
   }
 
   /**
-   * 获取当前回退渲染器类型
+   * 获取当前默认渲染器类型
    *
-   * @returns 回退类型标识
+   * @returns 默认类型标识
    *
    * @example
    * ```typescript
-   * renderer.getFallback() // => 'text'
+   * renderer.getDefault() // => 'text'
    * ```
    */
-  getFallback(): SchemxRendererKey<TValues> | undefined {
-    return this.fallbackType
+  getDefault(): T | undefined {
+    return this.defaultType
   }
 
   /**
-   * 清除所有已注册的渲染器和回退类型。
+   * 清除所有已注册的渲染器并重置默认类型为 'text'。
    *
    * @example
    * ```typescript
@@ -581,14 +310,7 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * ```
    */
   clear(): void {
-    const hadEntries = this.renderers.size > 0
-
     this.renderers.clear()
-    this.fallbackType = undefined
-
-    if (hadEntries) {
-      this.revision.value = this.revision.peek() + 1
-    }
   }
 
   /**
@@ -607,95 +329,25 @@ class RendererRegistryImpl<TValues extends Values = Values> {
 }
 
 /**
- * 由 {@link createRendererRegistry} 创建的 Renderer 注册表公开 API。
- *
- * @example
- * ```ts
- * const registry: RendererRegistry = createRendererRegistry("input")
- * ```
+ * RendererRegistryType 的实例类型
  */
-export type RendererRegistry<TValues extends Values = Values> = Pick<
-  RendererRegistryImpl<TValues>,
-  keyof RendererRegistryImpl<TValues>
->
+export type RendererRegistryType<
+  T extends SchemxRendererKey = SchemxRendererKey,
+  R = unknown,
+> = RendererRegistry<T, R>
 
 /**
- * 创建独立的渲染器注册中心实例。
+ * 创建局部渲染器注册中心实例（仅内部使用）。
  *
- * @param fallbackType - 回退渲染器类型
+ * @param defaultType - 默认渲染器类型
  * @returns 新的 Registry 实例
  *
  * @remarks
- * 调用方可以通过 `fallbackType` 配置未命中时使用的回退类型。
- *
- * @typeParam TValues - 表单值对象类型。
- *
- * @example
- * ```ts
- * const registry = createRendererRegistry("input")
- * registry.register("input", InputRenderer)
- * ```
+ * 用于组件内部创建独立的注册中心实例，
+ * 不建议外部直接使用，除非有特殊需求。
  */
-export function createRendererRegistry<TValues extends Values = Values>(
-  fallbackType?: SchemxRendererKey<RendererRegistryNoInfer<TValues>>
-): RendererRegistry<TValues> {
-  return new RendererRegistryImpl<TValues>(fallbackType)
-}
-
-/**
- * 判断注册输入是否为带附加配置的描述对象。
- *
- * @param renderer - Renderer 注册输入。
- * @returns 是否为 Renderer 描述对象。
- */
-function isRendererDescriptor<TRenderer, TValues extends Values, TKey extends string>(
-  renderer: RendererRegistration<TRenderer, TValues, TKey>
-): renderer is RendererDescriptor<TRenderer, TValues, TKey> {
-  if (typeof renderer !== "object" || renderer === null) {
-    return false
-  }
-
-  const candidate = renderer as Record<string, unknown>
-
-  return (
-    "component" in candidate &&
-    (typeof candidate.transformProps === "function" ||
-      Object.hasOwn(candidate, "dictionary"))
-  )
-}
-
-/**
- * 将组件或描述对象规范化为 Registry 内部条目。
- *
- * @param renderer - Renderer 注册输入。
- * @returns 规范化后的 Renderer 条目。
- */
-function normalizeRenderer<TRenderer, TValues extends Values, TKey extends string>(
-  renderer: RendererRegistration<TRenderer, TValues, TKey>
-): RendererEntry<TRenderer, TValues, TKey> {
-  if (isRendererDescriptor(renderer)) {
-    const { component, transformProps, dictionary } = renderer
-
-    if (dictionary === undefined) {
-      return { component, transformProps }
-    }
-
-    if (dictionary !== true && (dictionary === null || typeof dictionary !== "object")) {
-      throw new TypeError("[schemx] Renderer dictionary 必须为 true 或字典默认配置对象。")
-    }
-
-    return {
-      component,
-      transformProps,
-      dictionary:
-        dictionary === true
-          ? { targetKey: resolveDictionaryTarget(undefined) }
-          : {
-              targetKey: resolveDictionaryTarget(dictionary.targetKey),
-              keys: dictionary.keys,
-            },
-    }
-  }
-
-  return { component: renderer as TRenderer }
+export function createRendererRegistry<T extends SchemxRendererKey, R = unknown>(
+  defaultType?: T
+): RendererRegistryType<T, R> {
+  return new RendererRegistry<T, R>(defaultType)
 }

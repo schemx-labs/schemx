@@ -1,0 +1,19 @@
+.schemx-picker-popup-renderer {
+}
+
+.schemx-picker-renderer {
+  .schemx-cell {
+    padding-inline: 0;
+
+    &::after {
+      display: none;
+    }
+  }
+}
+
+.schemx-picker-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--wot-color-placeholder, #c8c9cc);
+  font-size: 14px;
+}

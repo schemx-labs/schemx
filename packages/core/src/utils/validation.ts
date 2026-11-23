@@ -1,14 +1,14 @@
 /**
  * 校验触发工具
  *
- * 提供校验触发时机的归一化和匹配判断功能。
+ * 提供校验触发时机的合并、归一化和匹配判断功能。
  *
  * @module utils/validation
  */
 
-import { defaultSchemxConfig } from "../config"
+import { defaultConfig } from "../defaultConfig"
 
-import type { SchemxBaseField, ValidationTrigger } from "../types"
+import type { ValidationTrigger } from "../types"
 
 /**
  * 校验触发时机配置。
@@ -23,13 +23,62 @@ export type TriggerConfig = ValidationTrigger | ValidationTrigger[]
 export type NormalizedTrigger = "blur" | "change" | "submit"
 
 /**
+ * 判断触发时机配置是否有效。
+ *
+ * undefined 和空数组视为无效，其余值（包括单个字符串、非空数组）视为有效。
+ *
+ * @param v - 触发时机配置
+ *
+ * @returns 配置有效时返回 true
+ */
+function isValidTrigger(v: TriggerConfig | undefined): v is TriggerConfig {
+  if (v === undefined) return false
+
+  if (Array.isArray(v) && v.length === 0) return false
+
+  return true
+}
+
+/**
+ * 合并校验触发时机配置。
+ *
+ * 按优先级从高到低取值：列级配置 > 表单上下文配置 > 默认值。
+ * 跳过 undefined 和空数组，确保空数组不会意外覆盖后续配置。
+ *
+ * @param columnTrigger - 列级配置的触发时机
+ * @param contextTrigger - 表单上下文配置的触发时机
+ * @param defaultTrigger - 兜底默认值
+ *
+ * @returns 最终生效的触发时机
+ *
+ * @example
+ * ```ts
+ * mergeTrigger("onBlur", "onChange", "onSubmit")       // => "onBlur"
+ * mergeTrigger(undefined, "onChange", "onSubmit")       // => "onChange"
+ * mergeTrigger([], "onChange", "onSubmit")              // => "onChange"
+ * mergeTrigger(undefined, undefined, "onSubmit")        // => "onSubmit"
+ * ```
+ */
+export function mergeTrigger(
+  columnTrigger: TriggerConfig | undefined,
+  contextTrigger: TriggerConfig | undefined,
+  defaultTrigger: TriggerConfig
+): TriggerConfig {
+  if (isValidTrigger(columnTrigger)) return columnTrigger
+
+  if (isValidTrigger(contextTrigger)) return contextTrigger
+
+  return defaultTrigger
+}
+
+/**
  * 归一化触发类型字符串。
  *
  * 将带 `on` 前缀的格式统一为短格式：
  * `"onBlur"` → `"blur"`、`"onChange"` → `"change"`、`"onSubmit"` → `"submit"`。
- * 不认识的值回退到默认配置的触发时机。
  *
  * @param t - 原始触发类型
+ *
  * @returns 归一化后的触发类型
  */
 function normalizeTrigger(t: ValidationTrigger): NormalizedTrigger {
@@ -42,7 +91,7 @@ function normalizeTrigger(t: ValidationTrigger): NormalizedTrigger {
     submit: "submit",
   }
 
-  return map[t] || defaultSchemxConfig.validationTrigger
+  return map[t] || defaultConfig.validationTrigger
 }
 
 /**
@@ -71,20 +120,4 @@ export function shouldValidateOn(
   const triggers = Array.isArray(trigger) ? trigger : [trigger]
 
   return triggers.some((t) => normalizeTrigger(t) === event)
-}
-
-/**
- * 字段交互和校验共同使用的有效呈现状态。
- */
-type FieldInteractionState = Pick<SchemxBaseField, "visible" | "readonly" | "disabled">
-
-/**
- * 判断字段是否允许交互和参与有效校验。
- * @param context - 当前字段的可见、只读和禁用状态。
- * @example const active = isFieldInteractive({ visible: true, readonly: false, disabled: false })
- */
-export function isFieldInteractive(context: FieldInteractionState): boolean {
-  return (
-    context.visible !== false && context.readonly !== true && context.disabled !== true
-  )
 }

@@ -17,23 +17,22 @@ export type CalendarFormattedValue = string | string[]
  * 定义日历选择组件的所有可配置属性。
  */
 export interface CalendarRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
     Partial<Omit<CalendarProps, "show" | "onUpdate:show">> {
-  /** 当前值，支持字符串、字符串数组、Date 或 Date 数组 */
+  /** 当前值，支持字符串、字符串数组或 Date 对象 */
   value?: CalendarValue
   /** 确认回调，用户点击确定按钮时触发 */
   onConfirm?: (value: CalendarFormattedValue) => void
   /** 值变化回调，选中日期时触发 */
   onChange?: (value: CalendarFormattedValue) => void
-  /** 失焦回调，弹窗关闭时触发（用于 blur 校验） */
-  onBlur?: (value: CalendarFormattedValue) => void
   /** 自定义 CSS 类名 */
   className?: string
   /** 弹层 CSS 类名 */
   popupClassName?: string
+  /** 详情展示模式 */
+  view?: boolean
   /** 是否只读 */
   readonly?: boolean
   /** 只读时的占位文本 */

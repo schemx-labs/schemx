@@ -7,19 +7,9 @@
  */
 
 export {
-  createAbortableTaskRunner,
-  type AbortableTaskRunner,
-  type AbortableTaskRunnerOptions,
-} from "./abortableTaskRunner"
+  createAsyncComputation,
+  type AsyncComputation,
+  type AsyncComputationOptions,
+} from "./asyncComputation"
 
-export {
-  createScheduler,
-  type Scheduler,
-  type SchedulerDiagnostics,
-  type SchedulerOptions,
-  type ScheduledTask,
-  type SchedulerTaskPriority,
-  yieldToHost,
-} from "./scheduler"
-
-export type { CancellableTask } from "./scheduler"
+export { createScheduler, type Scheduler, type ScheduledTask } from "./scheduler"

@@ -22,43 +22,42 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--schemx-color-border-subtle);
+      border-bottom: 1px solid var(--van-border-color, #ebedf0);
 
       .schemx-select-picker-title {
-        padding: var(--schemx-space-md);
+        padding: var(--schemx-padding-md);
         text-align: center;
-        color: var(--schemx-color-text-primary);
-        font-family: var(--schemx-font-family);
-        font-size: var(--schemx-font-size-lg);
-        font-weight: var(--schemx-font-weight-medium);
-        line-height: var(--schemx-line-height-lg);
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 24px;
       }
     }
 
     .schemx-select-picker-options {
       flex: 1;
+      // min-height: calc(100% - 195px);
       overflow-y: auto;
-      padding: var(--schemx-space-xs) var(--schemx-space-md);
+      padding: var(--schemx-padding-xs) var(--schemx-padding-md);
       -webkit-overflow-scrolling: touch;
     }
 
     .schemx-select-picker-footer {
       flex-shrink: 0;
-      border-top: 1px solid var(--schemx-color-border-subtle);
-      padding: var(--schemx-space-sm) var(--schemx-space-md) var(--schemx-space-md);
+      border-top: 1px solid var(--van-border-color, #ebedf0);
+      padding: var(--schemx-padding-sm) var(--schemx-padding-md) var(--schemx-padding-md);
 
       .van-button {
         --van-button-default-height: 40px;
 
-        border-radius: var(--schemx-radius-md);
+        border-radius: var(--schemx-border-radius-md);
       }
     }
 
     .schemx-select-picker-empty {
       padding: 40px 0;
       text-align: center;
-      color: var(--schemx-color-text-secondary);
-      font-size: var(--schemx-font-size-base);
+      color: var(--van-text-color-3, #c8c9cc);
+      font-size: 14px;
     }
 
     .van-checkbox-group {
@@ -76,7 +75,7 @@
       .van-icon-success {
         display: flex;
         align-items: center;
-        border: 2px solid var(--schemx-color-border-default);
+        border: 2px solid #e5e6eb;
       }
 
       .van-checkbox__icon--checked {

@@ -67,6 +67,8 @@
 
   import type { SchemxInputProps, TextAreaAutosize } from "./types"
 
+  import "./index.scss"
+
   defineOptions({
     name: "SchemxInput",
     inheritAttrs: false,
@@ -159,7 +161,6 @@
   const computedInputmode = computed(() => {
     if (props.inputmode) return props.inputmode
     const { type } = props
-
     if (type === "number") return "decimal"
     if (type === "digit") return "numeric"
 
@@ -175,7 +176,6 @@
 
     // Convert minRows/maxRows to minHeight/maxHeight (estimated 22px per row)
     const { minRows, maxRows, minHeight, maxHeight } = props.autosize as TextAreaAutosize
-
     const result: { minHeight?: number; maxHeight?: number } = {}
 
     if (minHeight !== undefined) {
@@ -198,7 +198,6 @@
     // 对于 number/digit 类型，使用内置的格式化
     if (props.type === "number" || props.type === "digit") {
       const isNumber = props.type === "number"
-
       return (value: string) => formatNumber(value, isNumber, isNumber)
     }
 
@@ -227,12 +226,8 @@
   /** 失焦事件 */
   const handleBlur = (event: FocusEvent): void => {
     // 数字类型在 blur 时处理 min/max
-    if (
-      (props.type === "number" || props.type === "digit") &&
-      internalValue.value !== ""
-    ) {
+    if ((props.type === "number" || props.type === "digit") && internalValue.value !== "") {
       const { min, max } = props
-
       const numValue = parseFloat(internalValue.value)
 
       if (!isNaN(numValue)) {
@@ -243,7 +238,6 @@
 
         if (numValue !== clampedValue) {
           const stringValue = String(clampedValue)
-
           internalValue.value = stringValue
           props.onChange?.(stringValue)
           emit("update:value", stringValue)
@@ -316,16 +310,18 @@
   /** 聚焦方法 */
   const focus = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
-      HTMLInputElement | HTMLTextAreaElement | null
-
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | null
     input?.focus?.()
   }
 
   /** 失焦方法 */
   const blur = (): void => {
     const input = fieldRef.value?.$el?.querySelector?.("input, textarea") as
-      HTMLInputElement | HTMLTextAreaElement | null
-
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | null
     input?.blur?.()
   }
 
@@ -343,30 +339,9 @@
     () => props.value,
     (newVal) => {
       const stringVal = String(newVal ?? "")
-
       if (stringVal !== internalValue.value) {
         internalValue.value = stringVal
       }
     }
   )
 </script>
-<style lang="scss">
-  .schemx-input {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    font-size: var(--schemx-font-size-base);
-
-    .van-field {
-      padding: 0px;
-
-      .van-field__right-icon {
-        padding: 0;
-      }
-
-      .van-field__body > input {
-        text-align: inherit;
-      }
-    }
-  }
-</style>

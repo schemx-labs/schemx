@@ -1,17 +1,27 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-textarea-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(textAreaValue, props.readonlyPlaceholder) }}
-    </template>
+  <div :class="['schemx-renderer', 'schemx-textarea-renderer', props.className]">
+    <SchemxCell
+      v-if="props.readonly"
+      :value="textAreaValue"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
     <SchemxInput
+      v-else
       ref="inputRef"
       v-model:value="textAreaValue"
-      v-bind="inputProps"
-      :align="contentAlign"
+      type="textarea"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :align="props.align"
+      :rows="computedRows"
+      :autosize="computedAutosize"
+      :maxlength="props.maxlength"
+      :show-word-limit="props.showWordLimit && !props.readonly && !props.disabled"
       @change="props.onChange"
       @blur="props.onBlur"
       @focus="props.onFocus"
@@ -29,7 +39,7 @@
         <slot name="extra" />
       </template>
     </SchemxInput>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -42,10 +52,8 @@
    */
   import { computed, ref, useSlots } from "vue"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import SchemxInput from "../../components/Input"
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import SchemxInput from "@/components/Input"
 
   import type { TextAreaAutosize, TextAreaRendererProps } from "./types"
 
@@ -80,7 +88,8 @@
   /** 兼容 autoSize 和 autosize */
   const computedAutosize = computed<boolean | TextAreaAutosize>(() => {
     return (props.autoSize ?? props.autosize ?? { minRows: 2, maxRows: 6 }) as
-      boolean | TextAreaAutosize
+      | boolean
+      | TextAreaAutosize
   })
 
   /** 计算行数 */
@@ -97,38 +106,6 @@
 
     return 2
   })
-
-  const inputProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      onChange: _onChange,
-      onBlur: _onBlur,
-      onFocus: _onFocus,
-      className: _className,
-      rows: _rows,
-      autosize: _autosize,
-      autoSize: _autoSize,
-      showWordLimit: _showWordLimit,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    return {
-      ...rest,
-      type: "textarea" as const,
-      rows: computedRows.value,
-      autosize: computedAutosize.value,
-      showWordLimit: props.showWordLimit && !props.readonly && !props.disabled,
-    }
-  })
-
-  const contentAlign = computed(
-    () =>
-      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
-      getFieldProps(props, "align", "right")
-  ) as any
 
   defineExpose({
     focus: () => inputRef.value?.focus?.(),

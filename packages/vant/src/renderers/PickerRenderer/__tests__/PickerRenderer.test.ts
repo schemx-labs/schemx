@@ -3,7 +3,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => {
   const component = (name: string, props: string[], emits: string[] = []) =>
@@ -18,7 +18,7 @@ vi.mock("vant", () => {
             {
               onClick: (event: MouseEvent) => emit("click", event),
             },
-            slots.value?.() ?? slots.default?.() ?? String((props as any).value ?? "")
+            slots.default?.() ?? String((props as any).value ?? "")
           )
       },
     })
@@ -26,7 +26,7 @@ vi.mock("vant", () => {
   return {
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "valueClass"],
+      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
       ["click"]
     ),
     Picker: component("Picker", ["modelValue", "columns", "columnsFieldNames"]),
@@ -42,15 +42,18 @@ describe("PickerRenderer", () => {
       props: {
         readonly: true,
         value: "gz",
-        contentAlign: "center",
         options: [{ text: "广州", value: "gz" }],
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
     expect(cell.exists()).toBe(true)
-    expect(cell.text()).toContain("广州")
+    expect(cell.get(".schemx-cell__value").text()).toBe("广州")
+    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
+
+    await cell.vm.$emit("click")
+
     expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()

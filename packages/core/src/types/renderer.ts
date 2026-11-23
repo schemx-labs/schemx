@@ -7,9 +7,9 @@
  * @module types/renderer
  */
 
-// 有意保留声明合并能力，以支持渲染器专属的扩展接口。
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 
-import { Values } from "./index"
+import { Values } from "./form"
 
 /**
  * 渲染器 Props 映射扩展接口。
@@ -36,25 +36,21 @@ import { Values } from "./index"
  * `SchemxBase` 的 `componentProps` 也会根据 `componentType` 自动关联对应的 Props 类型。
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface SchemxRendererDefinition<TValues extends Values> {}
+export interface SchemxRendererDefinition<T extends Values> {}
 
 /**
  * 渲染器注册 key 类型
  *
- * 由指定表单值类型对应 {@link SchemxRendererDefinition} 的键自动推导，
+ * 由 {@link SchemxRendererDefinition} 的键自动推导，
  * 用户通过声明合并扩展 `SchemxRendererDefinition` 后，此类型会自动包含所有已注册的渲染器类型字符串。
  * 当 SchemxRendererDefinition 为空时，退化为 `string`。
- *
- * @typeParam TValues - 用于解析 Renderer 声明合并的表单值类型。
  *
  * @example
  * ```ts
  * // 扩展 SchemxRendererDefinition 后自动可用
- * const type: SchemxRendererKey<MyFormValues> = 'my-input'
+ * const type: SchemxRendererKey = 'my-input'
  * ```
  */
-export type SchemxRendererKey<TValues extends Values = Values> = [
-  Extract<keyof SchemxRendererDefinition<TValues>, string>,
-] extends [never]
+export type SchemxRendererKey = [keyof SchemxRendererDefinition<Values>] extends [never]
   ? string
-  : Extract<keyof SchemxRendererDefinition<TValues>, string>
+  : keyof SchemxRendererDefinition<Values>

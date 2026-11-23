@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it } from "vitest"
 
 import TextAreaRenderer from "../index.vue"
 
 describe("TextAreaRenderer", () => {
-  it("默认状态引用底层 SchemxInput 组件", () => {
+  it("非 view 状态引用底层 SchemxInput 组件", () => {
     const wrapper = mount(TextAreaRenderer, {
       props: {
         value: "多行内容",
@@ -30,7 +30,7 @@ describe("TextAreaRenderer", () => {
     })
 
     expect(wrapper.findComponent({ name: "SchemxInput" }).exists()).toBe(false)
-    expect(wrapper.findComponent({ name: "SchemxWrapper" }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: "SchemxCell" }).exists()).toBe(true)
     expect(wrapper.find("textarea").exists()).toBe(false)
 
     wrapper.unmount()

@@ -1,25 +1,14 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-date-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-    </template>
-
-    <Cell
-      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
-      :clickable="!props.disabled"
-      is-link
+  <div :class="['schemx-renderer', 'schemx-date-renderer', props.className]">
+    <SchemxCell
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+      :content-align="align"
+      :value="fieldValue"
       @click="handleClick"
-    >
-      <template #value>
-        <span :style="`text-align: ${align}`">
-          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
-        </span>
-      </template>
-    </Cell>
+    />
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -27,7 +16,6 @@
       :class="classNames('schemx-date-popup-renderer', props.popupClassName)"
       v-bind="popupProps"
       safe-area-inset-bottom
-      @close="handleClose"
     >
       <DatePicker
         :model-value="modelValue"
@@ -36,7 +24,7 @@
         @cancel="handleCancel"
       />
     </Popup>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -50,17 +38,13 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Cell, DatePicker, type FieldTextAlign, Popup } from "vant"
+  import { DatePicker, type FieldTextAlign, Popup } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import {
-    getFieldProps,
-    getReadonlyDisplayValue,
-    isEmptyDisplayValue,
-  } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { getFieldProps } from "@/utils"
 
   import type { DateRendererProps, DateValue } from "./types"
 
@@ -99,48 +83,23 @@
   const title = computed(() => props.title || placeholder.value)
 
   const datePickerProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
-      onBlur: _onBlur,
       onConfirm: _onConfirm,
       onClose: _onClose,
       format: _format,
       className: _className,
       popupClassName: _popupClassName,
       readonlyPlaceholder: _readonlyPlaceholder,
-      readonly: _readonly,
-      disabled: _disabled,
-      placeholder: _placeholder,
       contentAlign: _contentAlign,
       formItemProps: _formItemProps,
       popupProps: _popupProps,
       title: _title,
       ...rest
-    } = rendererProps
+    } = props
 
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      onBlur: _attrsOnBlur,
-      onConfirm: _attrsOnConfirm,
-      onClose: _attrsOnClose,
-      format: _attrsFormat,
-      className: _attrsClassName,
-      popupClassName: _attrsPopupClassName,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      disabled: _attrsDisabled,
-      placeholder: _attrsPlaceholder,
-      contentAlign: _attrsContentAlign,
-      formItemProps: _attrsFormItemProps,
-      popupProps: _attrsPopupProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest, title: title.value }
+    return { ...attrs, ...rest, title: title.value }
   })
 
   const popupProps = computed(() => ({
@@ -172,7 +131,7 @@
       dateValue = dayjs(value)
     }
 
-    const formatStr = typeof props.format === "function" ? props.format() : props.format
+    const formatStr = typeof props.format === "string" ? props.format : "YYYY-MM-DD"
 
     return dateValue.format(formatStr)
   }
@@ -183,7 +142,6 @@
 
   const modelValue = computed(() => {
     const value = getValue(dateValue.value) || new Date().toISOString()
-
     const dateParts = dayjs(value).format("YYYY-MM-DD").split("-")
 
     return dateParts
@@ -191,7 +149,6 @@
 
   const handleConfirm = ({ selectedValues }: { selectedValues: string[] }): void => {
     const formattedValue = getValue(selectedValues)
-
     dateValue.value = formattedValue
     props.onConfirm?.(formattedValue)
     props.onChange?.(formattedValue)
@@ -200,12 +157,6 @@
 
   const handleCancel = (): void => {
     showPicker.value = false
-  }
-
-  /** 弹窗关闭（确认/取消/遮罩）统一出口，触发 blur 校验 */
-  const handleClose = (): void => {
-    props.onBlur?.(modelValue.value)
-    props.onClose?.()
   }
 
   const handleClick = (): void => {

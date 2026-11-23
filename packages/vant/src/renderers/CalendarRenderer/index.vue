@@ -1,34 +1,22 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-calendar-renderer', props.className]"
-    :readonly="isReadonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(modelValue, props.readonlyPlaceholder) }}
-    </template>
-
-    <Cell
-      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(modelValue) }"
-      :clickable="!props.disabled"
-      is-link
+  <div :class="['schemx-renderer', 'schemx-calendar-renderer', props.className]">
+    <SchemxCell
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="isReadonly"
+      :disabled="props.disabled"
+      :value="modelValue"
+      :content-align="align"
       @click="handleClick"
-    >
-      <template #value>
-        <span :style="`text-align: ${align}`">
-          {{ getReadonlyDisplayValue(modelValue, placeholder) }}
-        </span>
-      </template>
-    </Cell>
+    />
 
     <Calendar
       v-if="!isReadonly && !props.disabled"
       v-bind="calendarProps"
       v-model:show="showCalendar"
       @confirm="handleConfirm"
-      @close="handleClose"
     />
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,18 +29,14 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Calendar, Cell } from "vant"
+  import { Calendar } from "vant"
   import type { FieldTextAlign } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import dayjs from "dayjs"
 
-  import {
-    getFieldProps,
-    getReadonlyDisplayValue,
-    isEmptyDisplayValue,
-  } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { getFieldProps } from "@/utils"
 
   import type { CalendarRendererProps, CalendarValue } from "./types"
 
@@ -85,7 +69,6 @@
   const showCalendar = ref(false)
 
   const minSelectableDate = new Date(1970, 0, 1)
-
   const maxSelectableDate = dayjs().add(10, "year").toDate()
 
   const placeholder = computed(() => props?.placeholder || "请选择")
@@ -95,53 +78,28 @@
   )
 
   const title = computed(() => props.title || placeholder.value)
-
-  const isReadonly = computed(() => props.readonly)
+  const isReadonly = computed(() => props.readonly || Boolean(props.view))
 
   // 剔除 Schemx 契约字段，避免内部事件和表单元信息透传给 Vant 组件。
   const calendarProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
-      onBlur: _onBlur,
       onConfirm: _onConfirm,
       className: _className,
       popupClassName: _popupClassName,
       format: _format,
       separator: _separator,
       contentAlign: _contentAlign,
-      readonly: _readonly,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      disabled: _disabled,
-      placeholder: _placeholder,
+      type: _type,
       formItemProps: _formItemProps,
       minDate = minSelectableDate,
       maxDate = maxSelectableDate,
       ...rest
-    } = rendererProps
-
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      onBlur: _attrsOnBlur,
-      onConfirm: _attrsOnConfirm,
-      className: _attrsClassName,
-      popupClassName: _attrsPopupClassName,
-      format: _attrsFormat,
-      separator: _attrsSeparator,
-      contentAlign: _attrsContentAlign,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      disabled: _attrsDisabled,
-      placeholder: _attrsPlaceholder,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
+    } = props
 
     return {
-      ...attrsRest,
+      ...attrs,
       ...rest,
       class: classNames("schemx-calendar-popup-renderer", props.popupClassName),
       minDate,
@@ -176,7 +134,7 @@
   const handleConfirm = (date: Date | Date[]): void => {
     if (isReadonly.value || props.disabled) return
 
-    const value = getValue(date)
+    const value = getValue(date as any)
 
     calendarValue.value = date
     props.onConfirm?.(value)
@@ -187,10 +145,5 @@
   const handleClick = (): void => {
     if (isReadonly.value || props.disabled) return
     showCalendar.value = true
-  }
-
-  /** 弹窗关闭（确认/遮罩）统一出口，触发 blur 校验 */
-  const handleClose = (): void => {
-    props.onBlur?.(getValue(calendarValue.value))
   }
 </script>

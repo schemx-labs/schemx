@@ -1,6 +1,21 @@
 {
-  "extends": ["../../tsconfig.base.json", "./tsconfig.workspace-source.json"],
-  "compilerOptions": {},
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@schemx/core": ["../core/src/index.ts"],
+      "@schemx/core/*": ["../core/src/*"]
+    },
+    "rootDir": "./src",
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist",
+    "outDir": "./dist"
+  },
+  "references": [{ "path": "../core" }],
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "build"]
+  "exclude": ["node_modules", "dist", "src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
 }

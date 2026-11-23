@@ -69,14 +69,10 @@ dist/
 build/
 out/
 docs/*
-!docs/design-tokens.md
-!docs/core-major-refactor-plan.md
-!docs/group-state-extension-design.md
-!docs/release-version-selection-design.md
-!docs/schema-type-inference.md
-!docs/store-refactor-plan.md
+!docs/
+!docs/runtime-refactor-execution-plan.md
+!docs/runtime-refactor-migration-guide.md
 unpackage/
-.packs
 
 # Compiled binary addons
 build/Release
@@ -84,9 +80,7 @@ build/Release
 # Output of 'npm pack'
 *.tgz
 
-**/tsconfig.workspace-source.json
 **/tsconfig.tsbuildinfo
-*.timestamp*.mjs
 
 # ===================================
 # 环境和配置
@@ -96,10 +90,6 @@ build/Release
 .env
 .env*
 !.env.example
-!packages/core/.env
-!packages/vue/.env
-!packages/vant/.env
-!packages/element-plus/.env
 .env.local
 .env.*.local
 
@@ -119,9 +109,7 @@ content/
 # ===================================
 
 # VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
+.vscode/
 
 # Cursor
 .cursorrules
@@ -166,14 +154,10 @@ Desktop.ini
 /specs
 .specify
 .superpowers
-.workbuddy
 
 .kiro
 .tasks
 ./*.md
-
-.agents
-AGENTS.md
 
 # ===================================
 # 其他
@@ -191,8 +175,5 @@ bower_components
 # Typescript v1 declaration files
 # typings/
 
-.turbo
-
-.release
-*/release-notes.md
-.vitest/
+*test*.ts
+*test*.js

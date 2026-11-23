@@ -1,5 +1,5 @@
 <template>
-  <div class="selector" :class="{ 'selector-disabled': props.disabled }">
+  <div class="selector">
     <div
       v-for="item in options"
       :key="item[valueKey]"
@@ -45,9 +45,7 @@
   }>()
 
   const labelKey = computed(() => props.fieldNames?.label || "label")
-
   const valueKey = computed(() => props.fieldNames?.value || "value")
-
   const disabledKey = computed(() => props.fieldNames?.disabled || "disabled")
 
   const selectedValues = computed(() => {

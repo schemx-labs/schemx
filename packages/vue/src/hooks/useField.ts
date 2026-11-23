@@ -1,249 +1,170 @@
 /**
- * 按消费端提供的当前路径组合字段命令和 Vue 状态。
+ * useField - 字段控制 Hook
+ *
+ * 基于 core 层的 {@link createField} 实现，
+ * 通过 subscribe 回调将 Signal 变化桥接到 Vue 响应式系统。
+ *
  * @module hooks/useField
+ *
+ * @remarks
+ * core 层的 createField 封装了所有框架无关的字段操作逻辑，
+ * useField 只负责：
+ * 1. 从 Vue context 中获取 form 实例
+ * 2. 创建 shallowRef 容器
+ * 3. 通过 subscribe 将 Signal 变化同步到 shallowRef
+ * 4. 包装 computed 只读状态
+ * 5. 管理 onUnmounted 生命周期清理
  */
 
-import { computed, unref } from "vue"
+import { computed, onUnmounted, shallowRef } from "vue"
 
-import { useVueFormRuntime } from "../bridge"
-import { readFormContextInstance } from "../context"
+import { createField } from "@schemx/core"
 
-import type { VueFormRuntime } from "../bridge"
-import type { FieldInstance, FieldPathSource } from "../types"
-import type { DeepReadonly, FieldValue, NamePath, Values } from "@schemx/core"
+import { FieldInstance } from "../types/field"
+
+import { useFormInstance } from "./useForm"
+
+import type { NamePath, SchemxInstance, Values } from "@schemx/core"
 
 /**
- * 组合路径字段工具；每次调用读取当前路径，不保存运行时节点身份。
- * @typeParam TValues - 表单值类型。
- * @typeParam TName - 路径来源允许的字段路径。
- * @param runtime - 调用方已经保留的共享 Vue Runtime。
- * @param name - 固定路径、路径 Ref 或获取当前路径的函数。
- * @returns 复用 Runtime 订阅的 Vue 状态和路径命令。
- * @example const field = createFieldHook(runtime, () => props.name)
+ * useField 针对 (form, name) 的缓存条目
+ *
+ * 通过引用计数确保同一 (form, name) 的多次 useField 调用
+ * 共享同一份 shallowRef 和 effect 桥接，避免重复订阅。
+ *
+ * @typeParam TValues - 表单值类型
  */
-export function createFieldHook<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
->(
-  runtime: VueFormRuntime<TValues>,
-  name: FieldPathSource<TName>
-): FieldInstance<TValues, TName> {
-  // Instance 已桥接路径读取，按需复用共享状态订阅。
-  const form = runtime.instance
+interface FieldHookCacheEntry<TValues extends Values = Values> {
+  /** 当前活跃的引用计数，归零时释放 dispose 并从缓存中移除 */
+  refCount: number
+  /** 共享的字段控制器实例（含 Vue Ref 包装） */
+  result: FieldInstance<TValues>
+  /** 取消 Signal effect 订阅并清理资源 */
+  dispose: () => void
+}
 
-  // 消费端拥有路径来源，Schema 改名不隐式改变固定路径。
-  const getName = (): TName => (typeof name === "function" ? name() : unref(name))
+/** 模块级缓存：form 实例 → 字段名 → 缓存条目 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fieldHookCache = new WeakMap<any, Map<string, FieldHookCacheEntry>>()
 
-  /**
-   * 读取当前路径的值，通过 Instance 建立 Vue 与 Core 依赖。
-   * @example const value = field.getValue()
-   */
-  const getValue: FieldInstance<TValues, TName>["getValue"] = () =>
-    form.getFieldValue(getName()) as DeepReadonly<FieldValue<TValues, TName>> | undefined
+/**
+ * 创建字段 hook 的响应式状态
+ *
+ * 从 createField 生成 FieldInstance，创建 shallowRef 容器
+ * 并通过 field.effect 将 Signal 变化桥接到 Vue 响应式系统。
+ */
+function createFieldHook<TValues extends Values = Values>(
+  form: SchemxInstance<TValues>,
+  name: NamePath<TValues>
+) {
+  const field = createField<TValues>(form, name)
 
-  /**
-   * 程序赋值不触发用户交互；updater 支持函数值。
-   * @param next - 当前路径的新字段值。
-   * @example field.setValue("Ada")
-   */
-  const setValue: FieldInstance<TValues, TName>["setValue"] = (next) => {
-    form.setFieldValue(getName(), () => next)
+  const fieldValue = shallowRef(field.getValue())
+  const fieldError = shallowRef(field.getError())
+  const fieldPending = shallowRef(field.isPending())
+
+  const dispose = field.effect(() => {
+    fieldValue.value = field.getValue()
+    fieldError.value = field.getError()
+
+    fieldPending.value = field.isPending()
+  })
+
+  const error = computed(() => fieldError.value)
+
+  const dirty = computed(() => {
+    void fieldValue.value
+
+    return field.isTouched()
+  })
+
+  const pending = computed(() => fieldPending.value)
+
+  const result = {
+    value: fieldValue,
+    error,
+    dirty,
+    pending,
+    ...field,
+    getValue: () => fieldValue.value,
   }
 
-  /**
-   * Vue 只读对象整体赋值时恢复 Core 的字段值类型。
-   * @param next - 从 value Ref 赋入的新值。
-   */
-  const writeValue = (next: FieldInstance<TValues, TName>["value"]["value"]): void => {
-    setValue(next as FieldValue<TValues, TName> | undefined)
-  }
-
-  /**
-   * 读取当前路径的初始值。
-   * @example const value = field.getInitialValue()
-   */
-  const getInitialValue = (): FieldValue<TValues, TName> | undefined =>
-    form.getInitialValue(getName())
-
-  /**
-   * 更新当前路径的重置基线。
-   * @param next - 新的初始值。
-   * @example field.setInitialValue("Ada")
-   */
-  const setInitialValue = (next: FieldValue<TValues, TName>): void => {
-    form.setInitialValue(getName(), () => next)
-  }
-
-  /**
-   * 读取整表响应式值。
-   * @example const values = field.getValues()
-   */
-  const getValues = (): TValues => form.getFieldsValue()
-
-  /**
-   * 读取调用时路径的快照，不追踪字段值变化。
-   * @example const value = field.getSnapshot()
-   */
-  const getSnapshot = (): FieldValue<TValues, TName> | undefined =>
-    form.getFieldSnapshot(getName())
-
-  /**
-   * 读取整表无依赖快照。
-   * @example const values = field.getSnapshots()
-   */
-  const getSnapshots = (): TValues => form.getFieldsSnapshot()
-
-  /**
-   * 读取当前路径的错误消息。
-   * @example const errors = field.getErrors()
-   */
-  const getErrors = (): readonly string[] => form.getFieldErrors(getName())
-
-  /**
-   * 替换当前路径的外部错误。
-   * @param messages - 新的错误消息列表。
-   * @example field.setErrors(["不能为空"])
-   */
-  const setErrors = (messages: readonly string[]): void =>
-    form.setFieldErrors(getName(), messages)
-
-  /**
-   * 清除当前路径的错误。
-   * @example field.clearErrors()
-   */
-  const clearErrors = (): void => form.clearFieldErrors(getName())
-
-  /**
-   * 设置当前路径的手动校验规则。
-   * @param rules - 覆盖原声明的字段规则。
-   * @example field.setRules({ required: true })
-   */
-  const setRules: FieldInstance<TValues, TName>["setRules"] = (rules) =>
-    form.setFieldRules(getName(), rules)
-
-  /**
-   * 移除当前路径的手动规则覆盖。
-   * @example field.removeRules()
-   */
-  const removeRules = (): void => form.removeFieldRules(getName())
-
-  /**
-   * 标记当前路径的交互状态。
-   * @param touched - 是否已触碰。
-   * @example field.setTouched(true)
-   */
-  const setTouched = (touched: boolean): void => form.setFieldTouched(getName(), touched)
-
-  /**
-   * 读取当前路径的触碰状态。
-   * @example const touched = field.isTouched()
-   */
-  const isTouched = (): boolean => form.isFieldTouched(getName())
-
-  /**
-   * 设置当前路径的 pending 状态。
-   * @param pending - 是否正在操作。
-   * @param message - 操作期间的提示。
-   * @example field.setPending(true, "上传中")
-   */
-  const setPending = (pending: boolean, message?: string | string[]): void =>
-    form.setFieldPending(getName(), pending, message)
-
-  /**
-   * 读取当前路径的 pending 状态。
-   * @example const pending = field.isPending()
-   */
-  const isPending = (): boolean => form.isFieldPending(getName())
-
-  /**
-   * 重置当前路径。
-   * @example field.reset()
-   */
-  const reset = (): void => form.resetField(getName())
-
-  /**
-   * 校验调用时的路径，由 Core 管理该次校验的取消。
-   * @example await field.validate()
-   */
-  const validate: FieldInstance<TValues, TName>["validate"] = () =>
-    form.validateField(getName())
-
-  /**
-   * 向当前路径提交用户修改。
-   * @param next - 用户提交的字段值。
-   * @example await field.change("Ada")
-   */
-  const change: FieldInstance<TValues, TName>["change"] = (next) =>
-    form.changeField(getName(), next)
-
-  /**
-   * 向当前路径提交失焦。
-   * @example await field.blur()
-   */
-  const blur: FieldInstance<TValues, TName>["blur"] = () => form.blurField(getName())
-
-  // Core effect 生命周期继续归 Form 所有。
-  const effect = form.effect
-
-  // Vue computed 跟踪路径来源及共享的字段状态，不增加 Core 订阅。
-  const value = computed({ get: getValue, set: writeValue })
-
-  const errors = computed(getErrors)
-
-  const dirty = computed(isTouched)
-
-  const pending = computed(isPending)
-
-  // 只读 name getter 每次解析消费端路径，其余方法保持稳定引用。
-  return Object.defineProperty(
-    {
-      change,
-      blur,
-      setValue,
-      getInitialValue,
-      setInitialValue,
-      getValues,
-      getSnapshot,
-      getSnapshots,
-      getErrors,
-      setErrors,
-      clearErrors,
-      setRules,
-      removeRules,
-      setTouched,
-      isTouched,
-      setPending,
-      isPending,
-      reset,
-      validate,
-      effect,
-      value,
-      errors,
-      dirty,
-      pending,
-      getValue,
-    },
-    "name",
-    { enumerable: true, get: getName }
-  ) as FieldInstance<TValues, TName>
+  return { result, dispose }
 }
 
 /**
- * 从当前 Form 上下文获取路径字段工具。
- * @typeParam TValues - 表单值类型。
- * @typeParam TName - 路径来源允许的字段路径。
- * @param name - 固定路径、路径 Ref 或当前路径 getter。
- * @returns Vue 状态与当前路径的操作方法。
- * @example const field = useField(() => props.name)
+ * 获取单个字段的控制能力
+ *
+ * 通过 core 层 createField 提供字段操作方法，
+ * 通过 subscribe 回调桥接 Signal 变化到 Vue shallowRef。
+ *
+ * @param name - 字段名（支持嵌套路径，如 'user.address.city'）
+ * @returns 字段状态和操作方法
+ *
+ * @example
+ * ```typescript
+ * const field = useField('username')
+ *
+ * // 响应式值（在 computed/watchEffect/template 中自动追踪）
+ * field.getValue()
+ *
+ * // 响应式错误
+ * field.error.value   // string[] | undefined
+ *
+ * // 响应式脏状态
+ * field.dirty.value   // boolean
+ *
+ * // 响应式操作中状态
+ * field.pending.value  // boolean
+ *
+ * // 写入值
+ * field.setValue('new value')
+ *
+ * // 校验
+ * const result = await field.validate()
+ * ```
  */
-export function useField<
-  TValues extends Values = Values,
-  TName extends NamePath<TValues> = NamePath<TValues>,
->(name: FieldPathSource<TName>): FieldInstance<TValues, TName> {
-  // 当前 Vue scope 保留共享 Runtime，卸载后自动释放。
-  const runtime = useVueFormRuntime(readFormContextInstance<TValues>())
+export const useField = <TValues extends Values = Values>(
+  name: NamePath<TValues>
+): FieldInstance<TValues> => {
+  const form = useFormInstance<TValues>()
 
-  return createFieldHook(runtime, name)
+  const key = name
+
+  let formCache = fieldHookCache.get(form)
+
+  if (!formCache) {
+    formCache = new Map()
+    fieldHookCache.set(form, formCache)
+  }
+
+  const cachedEntry = formCache.get(key) as FieldHookCacheEntry<TValues> | undefined
+
+  let activeEntry: FieldHookCacheEntry<TValues>
+
+  if (cachedEntry) {
+    cachedEntry.refCount++
+    activeEntry = cachedEntry
+  } else {
+    const { result, dispose } = createFieldHook<TValues>(form, name)
+
+    activeEntry = {
+      refCount: 1,
+      result,
+      dispose,
+    }
+
+    formCache.set(key, activeEntry as any)
+  }
+
+  onUnmounted(() => {
+    if (--activeEntry.refCount <= 0) {
+      activeEntry.dispose()
+      formCache.delete(key)
+    }
+  })
+
+  return activeEntry.result
 }
 
 export default useField

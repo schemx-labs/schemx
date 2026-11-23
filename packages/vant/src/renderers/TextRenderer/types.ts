@@ -4,7 +4,7 @@
  * @module renderers/TextRenderer/types
  */
 
-import type { InputValue, SchemxInputProps } from "../../components/Input/types"
+import type { InputValue, SchemxInputProps } from "@/components/Input"
 
 export type TextValue = Extract<InputValue, string>
 

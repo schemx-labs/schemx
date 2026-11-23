@@ -3,7 +3,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => {
   const component = (name: string, props: string[], emits: string[] = []) =>
@@ -18,7 +18,7 @@ vi.mock("vant", () => {
             {
               onClick: (event: MouseEvent) => emit("click", event),
             },
-            slots.value?.() ?? slots.default?.() ?? String((props as any).value ?? "")
+            slots.default?.() ?? String((props as any).value ?? "")
           )
       },
     })
@@ -26,7 +26,7 @@ vi.mock("vant", () => {
   return {
     Cell: component(
       "Cell",
-      ["value", "placeholder", "isLink", "clickable", "valueClass"],
+      ["value", "placeholder", "isLink", "clickable", "disabled", "valueAlign"],
       ["click"]
     ),
     DatePicker: component("DatePicker", ["modelValue"]),
@@ -46,26 +46,14 @@ describe("DateRenderer", () => {
       },
     })
 
-    const cell = wrapper.findComponent({ name: "SchemxWrapper" })
+    const cell = wrapper.findComponent({ name: "SchemxCell" })
 
-    expect(cell.text()).toContain("2026/06/11")
+    expect(cell.get(".schemx-cell__value").text()).toBe("2026/06/11")
     expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
-    wrapper.unmount()
-  })
+    await cell.vm.$emit("click")
 
-  it("支持使用 format 函数返回日期格式", () => {
-    const wrapper = mount(DateRenderer, {
-      props: {
-        readonly: true,
-        value: "2026-06-11",
-        format: () => "DD/MM/YYYY",
-      },
-    })
-
-    expect(wrapper.findComponent({ name: "SchemxWrapper" }).text()).toContain(
-      "11/06/2026"
-    )
+    expect(wrapper.findComponent({ name: "Popup" }).exists()).toBe(false)
 
     wrapper.unmount()
   })

@@ -1,25 +1,13 @@
 <template>
-  <Wrapper
-    :class="['schemx-renderer', 'schemx-cascader-renderer', props.className]"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
-  >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-    </template>
-
-    <Cell
-      :class="{ 'schemx-cell--placeholder': isEmptyDisplayValue(fieldValue) }"
-      :clickable="!props.disabled"
-      is-link
+  <div :class="['schemx-renderer', 'schemx-cascader-renderer', props.className]">
+    <SchemxCell
+      :value="fieldValue"
+      :placeholder="placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
       @click="handleClick"
-    >
-      <template #value>
-        <span :style="`text-align: ${props.contentAlign}`">
-          {{ getReadonlyDisplayValue(fieldValue, placeholder) }}
-        </span>
-      </template>
-    </Cell>
+    />
 
     <Popup
       v-if="!props.readonly && !props.disabled"
@@ -35,7 +23,7 @@
         @close="handleClose"
       />
     </Popup>
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -49,14 +37,14 @@
    */
   import { computed, ref, useAttrs } from "vue"
 
-  import { Cascader, Cell, Popup } from "vant"
+  import { Cascader, Popup } from "vant"
   import type { PopupProps } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
   import classNames from "classnames"
   import { omitBy } from "es-toolkit"
 
-  import { findTreeItem, getReadonlyDisplayValue, isEmptyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { findTreeItem } from "@/utils"
 
   import type { CascaderFieldNames, CascaderRendererProps, CascaderValue } from "./types"
 
@@ -97,16 +85,12 @@
   const placeholder = computed(() => props.placeholder || "请选择")
 
   const fieldNames = computed<CascaderFieldNames>(() => props.fieldNames)
-
   const title = computed(() => props.title ?? placeholder.value)
 
   const cascaderProps = computed(() => {
-    const rendererProps = props
-
     const {
       value: _value,
       onChange: _onChange,
-      onBlur: _onBlur,
       onConfirm: _onConfirm,
       className: _className,
       readonlyPlaceholder: _readonlyPlaceholder,
@@ -115,34 +99,13 @@
       separator: _separator,
       contentAlign: _contentAlign,
       placeholder: _placeholder,
-      readonly: _readonly,
-      disabled: _disabled,
       formItemProps: _formItemProps,
       popupProps: _popupProps,
       title: _title,
       ...rest
-    } = rendererProps
+    } = props
 
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      onBlur: _attrsOnBlur,
-      onConfirm: _attrsOnConfirm,
-      className: _attrsClassName,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      showAllLevels: _attrsShowAllLevels,
-      emitPath: _attrsEmitPath,
-      separator: _attrsSeparator,
-      contentAlign: _attrsContentAlign,
-      placeholder: _attrsPlaceholder,
-      disabled: _attrsDisabled,
-      formItemProps: _attrsFormItemProps,
-      popupProps: _attrsPopupProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest, placeholder: placeholder.value, title: title.value }
+    return { ...attrs, ...rest, placeholder: placeholder.value, title: title.value }
   })
 
   /** 数据源：优先使用 props.options，回退到 attrs.columns */
@@ -212,9 +175,7 @@
     if (props.readonly || props.disabled) return
 
     const valueKey = fieldNames.value.value || "value"
-
     const valuePath = data.selectedOptions.map((i) => i[valueKey])
-
     const value = props.emitPath ? valuePath : [data.value]
 
     cascaderModel.value = value
@@ -225,6 +186,6 @@
 
   const handleClose = (): void => {
     showCascader.value = false
-    props.onBlur?.((cascaderValue.value ?? []) as CascaderValue)
+    // onClose 由 watch(showCascader) 统一触发，避免重复
   }
 </script>

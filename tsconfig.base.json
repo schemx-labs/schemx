@@ -12,9 +12,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@": ["./src"]
+      "@": ["./src"],
+      "@plugins/*": ["plugins/*/index.mjs"],
+      "@schemx/core/*": ["packages/core/src/*"],
+      "@schemx/core": ["packages/core/src"]
     }
   }
 }

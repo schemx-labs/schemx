@@ -1,11 +1,13 @@
 /**
- * Vant 默认渲染器注册。
+ * Vant 默认渲染器注册
  *
- * `config/defaultConfig` 将这份描述注册到适配包自己的 Registry，
- * 字段字典由 Core 根据 Schema 配置管理。
+ * 导入 @schemx/vue 的全局 rendererRegistry 实例，
+ * 将所有 Vant 渲染器注册进去。
  *
  * @module renderers/defaultRenderers
  */
+
+import { rendererRegistry } from "@schemx/vue"
 
 import {
   CalendarRenderer,
@@ -18,8 +20,8 @@ import {
   RadioRenderer,
   RateRenderer,
   SelectorRenderer,
-  SelectPickerRenderer,
   SensitiveInputRenderer,
+  SelectPickerRenderer,
   SliderRenderer,
   StepperRenderer,
   SwitchRenderer,
@@ -28,10 +30,7 @@ import {
   UploadRenderer,
 } from "../renderers"
 
-/**
- * 按 Schemx Renderer key 映射到组件的默认集合。
- */
-export const defaultRenderers = {
+rendererRegistry.registerAll({
   input: InputRenderer,
   text: TextRenderer,
   textarea: TextAreaRenderer,
@@ -50,4 +49,4 @@ export const defaultRenderers = {
   stepper: StepperRenderer,
   upload: UploadRenderer,
   cascader: CascaderRenderer,
-}
+})

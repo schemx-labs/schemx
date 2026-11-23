@@ -10,7 +10,7 @@
           @click="currentExample = example.id"
         >
           {{ example.name }}
-        </button>
+        </Button>
       </nav>
     </header>
 
@@ -23,11 +23,12 @@
 <script setup lang="ts">
   import { computed, markRaw, ref } from "vue"
 
-  import AutoColExample from "./AutoColExample.vue"
-  import CustomRendererForm from "./custom/CustomRendererForm.vue"
-  import ArrayValueUpdateForm from "./form/ArrayValueUpdateForm.vue"
-  import FormGroupsForm from "./form/FormGroupsForm.vue"
+  import BasicForm from "./basic/BasicForm.vue"
+  import DependencyForm from "./dependency/DependencyForm.vue"
+  import DynamicForm from "./dynamic/DynamicForm.vue"
   import SlotsForm from "./slots/SlotsForm.vue"
+  import SlotsFormJsx from "./slots/SlotsFormJsx.jsx"
+  import ValidationForm from "./validation/ValidationForm.vue"
 
   /**
    * 示例模块列表。
@@ -36,33 +37,22 @@
    * 减少不必要的性能开销。
    */
   const examples = [
-    { id: "auto-col", name: "自动列布局", component: markRaw(AutoColExample) },
-    {
-      id: "form-groups",
-      name: "基础 / 动态 / 联动 / 动态数组",
-      component: markRaw(FormGroupsForm),
-    },
-    {
-      id: "array-value-update",
-      name: "数组字段批量赋值",
-      component: markRaw(ArrayValueUpdateForm),
-    },
+    { id: "basic", name: "基础表单", component: markRaw(BasicForm) },
+    { id: "validation", name: "表单验证", component: markRaw(ValidationForm) },
+    { id: "dynamic", name: "动态表单", component: markRaw(DynamicForm) },
+    { id: "dependency", name: "字段联动", component: markRaw(DependencyForm) },
     { id: "slots", name: "插槽系统", component: markRaw(SlotsForm) },
-    {
-      id: "custom-renderer",
-      name: "自定义子渲染器",
-      component: markRaw(CustomRendererForm),
-    },
+    { id: "slots-jsx", name: "插槽系统（JSX）", component: markRaw(SlotsFormJsx) },
   ]
 
   /** 当前激活的 tab id */
-  const currentExample = ref("form-groups")
+  const currentExample = ref("basic")
 
-  /** 根据当前 tab id 查找对应的示例组件，默认回退到合并表单示例。 */
+  /** 根据当前 tab id 查找对应的示例组件，默认回退到 BasicForm */
   const currentComponent = computed(() => {
     const example = examples.find((e) => e.id === currentExample.value)
 
-    return example?.component || FormGroupsForm
+    return example?.component || BasicForm
   })
 </script>
 
@@ -84,9 +74,7 @@
   }
 
   .header {
-    background: rgba(255, 255, 255, 0.82);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
+    background: white;
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: sticky;
@@ -115,15 +103,6 @@
     font-size: 14px;
     color: #666;
     transition: all 0.2s;
-  }
-
-  .nav button:active {
-    transform: scale(0.97);
-  }
-
-  .nav button:focus-visible {
-    outline: 3px solid rgba(25, 137, 250, 0.32);
-    outline-offset: 2px;
   }
 
   .nav button:hover {
@@ -169,19 +148,5 @@
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .nav button {
-      transition: none;
-    }
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .header {
-      background: white;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-    }
   }
 </style>

@@ -4,23 +4,18 @@
   "name": "vant-demo",
   "version": "0.0.0",
   "scripts": {
-    "dev": "workspace-source sync --project . && vp dev --config vite.config.ts",
-    "type-check": "workspace-source sync --project . && vue-tsc -p tsconfig.json --noEmit",
-    "build": "workspace-source sync --project . && vp build --config vite.config.ts",
-    "check": "node ../../scripts/workflow.ts check examples/vant"
+    "dev": " npx vite --config vite.config.ts "
   },
   "dependencies": {
-    "@schemx/vant": "workspace:*",
+    "@schemx/vant": "0.1.11-alpha.20260616230724.c7d7626",
     "vant": "^4.9.24",
     "vue": "^3.5.38",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.9",
-    "@vitejs/plugin-vue-jsx": "^5.1.6",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vitejs/plugin-vue-jsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "vue-tsc": "^3.3.9"
+    "vite": "^5.0.0"
   }
 }

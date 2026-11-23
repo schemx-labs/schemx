@@ -15,7 +15,6 @@ export type DateValue = string | string[] | Date
  * 定义日期选择组件的所有可配置属性。
  */
 export interface DateRendererProps
-  /* @vue-ignore */
   extends
     Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value">,
     /* @vue-ignore */
@@ -23,13 +22,11 @@ export interface DateRendererProps
   /** 当前值，支持字符串、字符串数组或 Date 对象 */
   value?: DateValue
   /** 确认回调，用户点击确定按钮时触发 */
-  onConfirm?: (value: DateValue) => void
+  onConfirm?: (value: string) => void
   /** 值变化回调，选中日期时触发 */
-  onChange?: (value: DateValue) => void
-  /** 失焦回调，弹窗关闭时触发（用于 blur 校验） */
-  onBlur?: (value: DateValue) => void
+  onChange?: (value: string) => void
   /** 日期格式化字符串或格式化函数 */
-  format?: (() => string) | string
+  format?: string | ((value: any) => string)
   /** 自定义 CSS 类名 */
   className?: string
   /** 是否只读 */
@@ -67,8 +64,8 @@ export interface DateRendererProps
   /**
    * 关闭回调
    *
-   * Popup 关闭时触发，包括确认、取消或点击遮罩层；区别于 `onConfirm`，
-   * 后者只在用户确认选择时触发。
+   * 用户点击遮罩层或 Cascader 关闭按钮时触发，
+   * 区别于 onConfirm（仅在选择完成时触发）。
    */
   onClose?: () => void
 }

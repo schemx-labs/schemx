@@ -4,7 +4,7 @@
 import { defineComponent, h } from "vue"
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 vi.mock("vant", () => ({
   Rate: defineComponent({
@@ -13,16 +13,11 @@ vi.mock("vant", () => ({
       modelValue: Number,
       readonly: Boolean,
       disabled: Boolean,
-      color: String,
     },
     emits: ["update:modelValue"],
     setup(props, { emit }) {
       return () =>
-        h(
-          "button",
-          { onClick: () => emit("update:modelValue", 3) },
-          String(props.modelValue)
-        )
+        h("button", { onClick: () => emit("update:modelValue", 3) }, String(props.modelValue))
     },
   }),
 }))
@@ -32,7 +27,6 @@ import RateRenderer from "../index.vue"
 describe("RateRenderer", () => {
   it("readonly 状态渲染 Rate 且 handleChange 不触发 onChange", async () => {
     const onChange = vi.fn()
-
     const wrapper = mount(RateRenderer, {
       props: {
         readonly: true,
@@ -46,26 +40,6 @@ describe("RateRenderer", () => {
     expect(rate.exists()).toBe(true)
     await rate.vm.$emit("update:modelValue", 3)
     expect(onChange).not.toHaveBeenCalled()
-
-    wrapper.unmount()
-  })
-
-  it("只向 Rate 透传组件相关属性", () => {
-    const wrapper = mount(RateRenderer, {
-      props: {
-        value: 2,
-        color: "#ee0a24",
-        readonlyPlaceholder: "-",
-        formItemProps: { name: "score" } as any,
-      },
-    })
-
-    const rate = wrapper.findComponent({ name: "Rate" })
-
-    expect(rate.props("color")).toBe("#ee0a24")
-    expect(rate.attributes("readonly-placeholder")).toBeUndefined()
-    expect(rate.attributes("form-item-props")).toBeUndefined()
-    expect(rate.attributes("form-instance")).toBeUndefined()
 
     wrapper.unmount()
   })

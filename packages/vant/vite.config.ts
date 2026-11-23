@@ -1,66 +1,66 @@
-import { defineConfig } from "vite-plus"
+import { defineConfig } from "vite"
+import vue from "@vitejs/plugin-vue"
+import vueJsx from "@vitejs/plugin-vue-jsx"
+import dts from "vite-plugin-dts"
+import { visualizer } from "rollup-plugin-visualizer"
 import { resolve } from "path"
-import { workspaceSource } from "vite-plugin-workspace-source"
-import { createVitePlugins } from "./vite.plugins"
+import { injectStyleCss } from "@plugins/injectStyleCss"
 
-const externalPackages = [
-  "vue",
-  "vant",
-  "@schemx/core",
-  "@schemx/vue",
-  "classnames",
-  "dayjs",
-  "es-toolkit",
-]
+const useSource = process.env.VITE_USE_SOURCE === "true"
+const analyze = process.env.ANALYZE === "true"
 
-function createExternalMatcher(packages: string[]) {
-  return (id: string) => packages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
-}
-
-export default defineConfig(({ mode }) => {
-  const analyze = mode === "analyze"
-  const isExternal = createExternalMatcher(externalPackages)
-
-  return {
-    test: {
-      // Vitest v4 compatibility: preserve mock call history.
-      // Remove after tests no longer rely on calls from setup or earlier tests.
-      // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
-      // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
-      clearMocks: false,
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
+      ...(useSource
+        ? {
+            "@schemx/core": resolve(__dirname, "../core/src/index.ts"),
+            "@schemx/vue": resolve(__dirname, "../vue/src/index.ts"),
+          }
+        : {}),
     },
-    css: {
-      preprocessorOptions: {
-        // Vite 5 使用 Sass legacy API；静默其已知弃用提示。
-        scss: { silenceDeprecations: ["legacy-js-api"] },
+  },
+  plugins: [
+    vue(),
+    vueJsx(),
+    injectStyleCss(),
+    dts({
+      include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+      outDir: "dist",
+      tsconfigPath: "tsconfig.build.json",
+      rollupTypes: true,
+    }),
+    analyze &&
+      visualizer({
+        filename: resolve(__dirname, "dist/analyze.html"),
+        gzipSize: true,
+        brotliSize: true,
+        open: false,
+        template: "treemap",
+        title: "@schemx/vant bundle analysis",
+      }),
+  ].filter(Boolean),
+  build: {
+    lib: {
+      entry: resolve(__dirname, "src/index.ts"),
+      name: "schemxVant",
+      formats: ["es", "cjs"],
+      fileName: (format) => {
+        if (format === "es") return "index.mjs"
+        return "index.cjs"
       },
     },
-    plugins: [
-      workspaceSource({ projectRoot: __dirname }),
-      ...createVitePlugins({ analyze }),
-    ],
-    build: {
-      lib: {
-        entry: resolve(__dirname, "src/index.ts"),
-        cssFileName: "style",
-        name: "schemxVant",
-        formats: ["es", "cjs"],
-        fileName: (format) => {
-          if (format === "es") return "index.mjs"
-          return "index.cjs"
-        },
+    rollupOptions: {
+      external: ["vue", "vant", "classnames", "dayjs"],
+      output: {
+        exports: "named",
       },
-      rollupOptions: {
-        external: isExternal,
-        output: {
-          exports: "named",
-        },
-        treeshake: {
-          moduleSideEffects: "no-external",
-        },
+      treeshake: {
+        moduleSideEffects: "no-external",
       },
-      sourcemap: true,
-      minify: "terser",
     },
-  }
+    sourcemap: true,
+    minify: "terser",
+  },
 })

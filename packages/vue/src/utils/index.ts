@@ -4,21 +4,22 @@
  * @module utils
  */
 
-/**
- * 插槽工具
- */
+/** 动态属性解析 */
+export {
+  type DependencieEntry,
+  resolveDependencie,
+  batchResolveDependencie,
+} from "./dynamic"
+
+/** 校验触发工具 */
+export {
+  type TriggerConfig,
+  type NormalizedTrigger,
+  shouldValidateOn,
+  mergeTrigger,
+} from "./validation"
+
+/** 插槽工具 */
 export { resolveSlot, extractChildSlots } from "./slot"
 
-/**
- * 通用渲染辅助
- */
-export { getSectionPosition, normalizeId, normalizeNameKey } from "./helpers"
-
-/**
- * 布局间距工具。
- */
-export { normalizeSchemxGutter, type SchemxNormalizedGutter } from "./layout"
-
-export { presetRuleRegistry } from "./presetRuleProvider"
-export { rendererRegistry } from "./rendererProvider"
-export { isShallowEqual } from "./equal"
+export { diff } from "./diff"

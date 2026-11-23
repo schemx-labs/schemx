@@ -1,0 +1,12 @@
+.schemx-calendar-popup-renderer {
+}
+
+.schemx-calendar-renderer {
+  .wd-calendar {
+    --wot-calendar-popup-height: 60%;
+  }
+
+  .schemx-cell {
+    padding-inline: 0;
+  }
+}

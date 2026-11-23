@@ -4,7 +4,7 @@
  * @module components/Input/types
  */
 
-import type { FieldAutosizeConfig, FieldProps } from "vant"
+import type { FieldProps, FieldAutosizeConfig } from "vant"
 
 import type { SchemxBaseComponentProps } from "@schemx/vue"
 
@@ -34,10 +34,9 @@ export interface TextAreaAutosize {
  *
  * 定义输入组件的所有可配置属性。
  */
-export interface SchemxInputProps extends Omit<
-  SchemxBaseComponentProps,
-  "onChange" | "onBlur" | "value" | "onUpdate:value"
-> {
+export interface SchemxInputProps
+  extends
+    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value"> {
   /** 当前值 */
   value?: InputValue
   /** 值变化回调 */
@@ -100,21 +99,16 @@ export interface SchemxInputProps extends Omit<
   align?: "left" | "right" | "center"
 }
 
-/** @deprecated 请使用 {@link SchemxInputProps}。 */
+/** @deprecated 请使用 SchemxInputProps。 */
 export type InputRendererProps = SchemxInputProps
 
 /**
- * 按允许的字符格式化数字输入。
+ * 格式化数字输入
  *
  * @param value - 输入值
  * @param allowDot - 是否允许小数点
  * @param allowMinus - 是否允许负号
  * @returns 格式化后的值
- *
- * @example
- * ```ts
- * formatNumber("-12a.3", true, true) // => "-12.3"
- * ```
  */
 export function formatNumber(value: string, allowDot = true, allowMinus = true): string {
   if (allowDot) {
@@ -146,32 +140,22 @@ export function formatNumber(value: string, allowDot = true, allowMinus = true):
 }
 
 /**
- * 按 Unicode 码点统计字符串长度，避免把 emoji 代理对拆成两个字符。
+ * 获取字符串长度（考虑 emoji 等特殊字符）
  *
  * @param str - 字符串
- * @returns 字符串中的 Unicode 码点数。
- *
- * @example
- * ```ts
- * getStringLength("A😀") // => 2
- * ```
+ * @returns 字符串长度
  */
 export function getStringLength(str: string): number {
-  return str.length
+  return [...String(str)].length
 }
 
 /**
- * 按 Unicode 码点截取字符串，避免从代理对中间截断。
+ * 截取字符串
  *
  * @param str - 字符串
- * @param maxLength - 最大 Unicode 码点数。
+ * @param maxLength - 最大长度
  * @returns 截取后的字符串
- *
- * @example
- * ```ts
- * cutString("A😀B", 2) // => "A😀"
- * ```
  */
 export function cutString(str: string, maxLength: number): string {
-  return str.slice(0, maxLength)
+  return [...String(str)].slice(0, maxLength).join("")
 }

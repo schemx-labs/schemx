@@ -1,26 +1,21 @@
 /**
  * View 模块统一导出。
  *
- * 提供 ViewSchema 类型、computed ViewSchema 的创建/清理、
- * ViewSchemas 订阅和运行时 adapter 工具。
+ * 提供 ViewSchema 类型、构建、订阅和 adapter 工具。
  *
  * @module core/view
  */
-export { subscribeViewSchemas } from "./subscribeViewSchemas"
 
-export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "./helper"
+export { buildViewSchemas } from "./buildViewSchemas"
+
+export { subscribeViewSchemas } from "./subscribeViewSchemas"
 
 export type {
   SchemxViewDebugMeta,
-  SchemxViewDynamicItem,
-  SchemxViewDynamicSchema,
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
+  SchemxRendererKey as ViewRendererKey,
 } from "./types"
 
-export {
-  attachRootViewSchemas,
-  attachNodeViewSchemas,
-  detachNodeViewSchemas,
-} from "./viewProjection"
+export { createViewRevision, type ViewRevision } from "./viewRevision"

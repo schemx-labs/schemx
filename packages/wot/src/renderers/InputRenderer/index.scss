@@ -1,0 +1,68 @@
+.schemx-input {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-size: var(--wot-input-fs, var(--wot-fs-content, 14px));
+
+  &__body {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  &__wot-control {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  &__wot-input.wd-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+  }
+
+  &__control {
+    box-sizing: border-box;
+    min-width: 0;
+    color: var(--wot-input-color, var(--wot-color-title, #323233));
+    font-size: inherit;
+    font-family: inherit;
+    background-color: transparent;
+
+    &--left {
+      text-align: left;
+    }
+
+    &--center {
+      text-align: center;
+    }
+
+    &--right {
+      text-align: right;
+    }
+
+    &--disabled {
+      color: var(--wot-input-disabled-color, var(--wot-color-placeholder, #c8c9cc));
+      cursor: not-allowed;
+      opacity: 1;
+      -webkit-text-fill-color: var(
+        --wot-input-disabled-color,
+        var(--wot-color-placeholder, #c8c9cc)
+      );
+    }
+
+    &--readonly {
+      cursor: default;
+    }
+  }
+
+  &__button {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-left: var(--wot-size-side-padding, 8px);
+  }
+}

@@ -1,113 +1,123 @@
 /**
- * useForm - Schemx 表单实例的 Vue 生命周期适配。
+ * SchemxInstance - 表单实例核心类
  *
- * 负责创建由当前 Vue effect scope 持有的 SchemxInstance，并在 scope 销毁时
- * 自动释放实例。该模块不负责 provide/inject；表单上下文统一由
- * provideFormContext() 注册，避免外部传入 form 时跳过上下文注册。
+ * 组合 Store、Validator，提供统一的表单操作接口。
+ * 实现 SchemxInstance 接口，作为 useForm 的底层实现。
  *
  * @module hooks/useForm
- */
-import { getCurrentScope, onScopeDispose } from "vue"
-
-import { mergeConfig } from "@schemx/core"
-
-import { useVueFormRuntime } from "../bridge"
-import { createLegacyForm } from "../config"
-import { useConfigProviderContextRef } from "../context"
-
-import type { SchemxInstance } from "../types"
-import type {
-  CreateFormOptions,
-  CreateSchemxOptions,
-  SchemxApi,
-  Values,
-} from "@schemx/core"
-
-/**
- * Vue 表单创建选项，支持嵌套 Schema 默认值及 Core 实例级配置。
- *
- * @typeParam TValues - 表单值类型。
- */
-export type UseFormOptions<TValues extends Values = Values> = CreateFormOptions<TValues>
-
-/**
- * 创建由当前 Vue effect scope 持有的表单实例。
- *
- * useForm 只负责以下职责：
- * 1. 合并表单显式、组件树 Provider、App 安装和 Vue 层默认配置；
- * 2. 将配置通过单个参数交给 Core，同步创建 SchemxInstance；
- * 3. 在当前 effect scope 销毁时调用 instance.destroy()。
- *
- * useForm 不再自动调用 provide()。需要向后代组件暴露实例时，应由
- * <SchemxForm> 或其他 Provider 组件显式调用 provideFormContext({ form, schemaConfig })。
- * 这样无论实例是内部创建还是通过 props.form 外部传入，都能走同一条
- * 上下文注册路径，并保持清晰的实例所有权：谁创建，谁销毁。
- *
- * 该函数应在组件 setup() 或其他有效的 Vue effect scope 中同步调用。
- * 非 Vue 生命周期场景请直接使用 @schemx/core 的 createForm()，并自行销毁实例。
- *
- * @typeParam TValues - 表单值类型
- * @param options - 表单创建配置
- * @param creator - 可选的同步创建器；提供时不预填 Vue 默认值。
- * @returns 当前 scope 持有的 SchemxInstance
  *
  * @example
- * ```ts
+ * ```typescript
+ * import { useForm } from './useForm'
+ *
+ * // 在 Vue 组件中使用
  * const form = useForm({
- *   initialValues: {
- *     name: "",
- *     email: "",
- *   },
+ *   schemas: [...],
+ *   initialValues: { name: '', age: 0 },
+ *   onFinish: (values) => console.log(values),
+ * })
+ *
+ * // 或直接创建实例（非组件场景）
+ * const instance = createForm({ initialValues: { name: '' } })
+ * ```
+ */
+import { computed, inject, onUnmounted, provide } from "vue"
+
+import { createForm } from "@schemx/core"
+
+import { rendererRegistry as globalRendererRegistry } from "../utils/rendererProvider"
+import { validatorRegistry as globalRulesRegistry } from "../utils/rulesProvider"
+
+import type { CreateFormOptions, NamePath, SchemxInstance, Values } from "@schemx/core"
+
+/** SchemxInstance 在 Vue provide/inject 中的注入 key */
+export const SCHEMX_INSTANCE_KEY = Symbol("SCHEMX_INSTANCE")
+/** @deprecated 请使用 SCHEMX_INSTANCE_KEY。保留给旧测试和旧适配代码兼容。 */
+export const FORM_INSTANCE_KEY = SCHEMX_INSTANCE_KEY
+
+/**
+ * useForm 配置选项
+ *
+ * 扩展 core 层的 CreateFormOptions，增加 Vue 层特有的 request 配置。
+ *
+ * @typeParam TValues - 表单值类型
+ */
+export interface UseFormOptions<TValues extends Values> extends CreateFormOptions<
+  TValues,
+  NamePath<TValues>
+> {}
+
+/**
+ * 表单组合式函数
+ *
+ * 创建 SchemxInstance 并通过 Vue provide 注入到子组件树中，
+ * 组件卸载时自动销毁实例。
+ *
+ * @typeParam TValues - 表单值类型
+ *
+ * @param options - 表单配置选项
+ * @returns 表单实例（SchemxInstance 接口）
+ *
+ * @example
+ * ```typescript
+ * // 在 setup 中使用
+ * const form = useForm({
+ *   initialValues: { name: '', email: '' },
  *   onFinish: async (values) => {
  *     await api.submit(values)
  *   },
  * })
  *
- * form.setFieldValue("name", "Schemx")
- * ```
- *
- * @example
- * ```ts
- * // Provider 组件中统一注册上下文。
- * const form = props.form ?? useForm(options)
- * provideFormContext({ form, schemaConfig: {} })
+ * form.setFieldValue('name', 'John')
  * ```
  */
 export function useForm<TValues extends Values = Values>(
-  options: UseFormOptions<TValues> = {},
-  creator?: SchemxApi["createForm"]
+  options: UseFormOptions<TValues>
 ): SchemxInstance<TValues> {
-  const scope = getCurrentScope()
+  const { ...formOptions } = options
 
-  if (!scope?.active) {
-    throw new Error("[schemx] useForm() requires an active Vue scope.")
+  const mergedOptions: CreateFormOptions<TValues> = {
+    ...formOptions,
+    rendererRegistry: formOptions.rendererRegistry ?? globalRendererRegistry,
+    validatorRegistry: formOptions.validatorRegistry ?? globalRulesRegistry,
   }
 
-  // 创建器负责继承默认值；Vue 只将局部上下文作为本次选项传入。
-  const configuredOptions = mergeConfig<TValues>(
-    options,
-    (useConfigProviderContextRef()?.value as CreateSchemxOptions<TValues> | undefined) ??
-      {}
-  )
+  const instance = computed(() => createForm<TValues>(mergedOptions))
 
-  // 合并结果与实例选项统一通过第一个参数下传。
-  const instance = (creator ?? createLegacyForm)<TValues>({
-    ...options,
-    ...configuredOptions,
+  provide<SchemxInstance<TValues>>(SCHEMX_INSTANCE_KEY, instance.value)
+
+  onUnmounted(() => {
+    instance.value.destroy()
   })
 
-  if (!scope.active) {
-    instance.destroy()
+  return instance.value
+}
 
-    throw new Error("[schemx] useForm() scope was stopped during form creation.")
+/**
+ * 获取表单实例
+ *
+ * 在子组件中获取 useForm 创建的 SchemxInstance，
+ * 可用于读写字段值、校验、订阅等操作。
+ *
+ * @typeParam TValues - 表单值类型
+ * @returns 表单实例
+ *
+ * @throws Error 如果不在 schemx 提供的上下文中调用
+ *
+ * @example
+ * ```ts
+ * const form = useFormInstance()
+ * form.setFieldValue('name', 'hello')
+ * ```
+ */
+export function useFormInstance<
+  TValues extends Values = Values,
+>(): SchemxInstance<TValues> {
+  const instance = inject<SchemxInstance<TValues>>(SCHEMX_INSTANCE_KEY)
+
+  if (!instance) {
+    throw new Error("useFormInstance must be used within a Form")
   }
 
-  const form = useVueFormRuntime(instance).instance
-
-  // useForm 创建的实例归当前 effect scope 所有，因此由当前 scope 负责销毁。
-  onScopeDispose(() => {
-    form.destroy()
-  })
-
-  return form
+  return instance
 }

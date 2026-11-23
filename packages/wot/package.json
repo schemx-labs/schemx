@@ -1,0 +1,67 @@
+{
+  "type": "module",
+  "name": "@schemx/wot",
+  "version": "0.1.10",
+  "description": "基于 Wot UI 组件库的 schemx 渲染器适配包",
+  "keywords": [
+    "schemx",
+    "wot",
+    "wot-ui",
+    "vue",
+    "vue3",
+    "form",
+    "dynamic-form",
+    "json-schema"
+  ],
+  "homepage": "https://github.com/Jiohon/schemx/tree/main/packages/wot#readme",
+  "bugs": {
+    "url": "https://github.com/Jiohon/schemx/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jiohon/schemx.git",
+    "directory": "packages/wot"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@wot-ui/ui": "^2.0.8",
+    "vue": "^3.0.0"
+  },
+  "dependencies": {
+    "@schemx/core": "workspace:*",
+    "@schemx/vue": "workspace:*",
+    "classnames": "^2.5.1",
+    "dayjs": "^1.11.19",
+    "es-toolkit": "^1.47.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint \"src/**/*.{ts,tsx,vue,js,jsx}\"",
+    "prepublishOnly": "pnpm run build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@vue/test-utils": "^2.4.6",
+    "@wot-ui/ui": "^2.0.8",
+    "vue": "^3.4.0"
+  }
+}

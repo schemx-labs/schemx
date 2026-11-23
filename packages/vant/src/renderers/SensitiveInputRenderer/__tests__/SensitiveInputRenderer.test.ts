@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { mount } from "@vue/test-utils"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
 import SensitiveInputRenderer from "../index.vue"
 
@@ -22,7 +22,6 @@ describe("SensitiveInputRenderer", () => {
 
   it("展开后输入新值触发 onChange", async () => {
     const onChange = vi.fn()
-
     const wrapper = mount(SensitiveInputRenderer, {
       props: {
         value: "13812348899",

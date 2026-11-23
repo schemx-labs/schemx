@@ -1,22 +1,26 @@
 <template>
-  <Wrapper
+  <div
     :class="['schemx-renderer', 'schemx-switch-renderer', props.className]"
     :style="{ justifyContent: contentAlign }"
-    :readonly="props.readonly"
-    :disabled="props.disabled"
   >
-    <template #readonly>
-      {{ getReadonlyDisplayValue(fieldValue, props.readonlyPlaceholder) }}
-    </template>
+    <SchemxCell
+      v-if="props.readonly"
+      :value="fieldValue"
+      :placeholder="props.placeholder"
+      :readonly-placeholder="props.readonlyPlaceholder"
+      :readonly="props.readonly"
+      :disabled="props.disabled"
+    />
     <Switch
-      v-bind="switchProps"
+      v-else
       size="22px"
+      v-bind="attrs"
       :model-value="switchValue"
       :loading="switchLoading"
       :disabled="disabled"
       @update:model-value="handleChange"
     />
-  </Wrapper>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -32,9 +36,8 @@
 
   import { Switch } from "vant"
 
-  import { Wrapper } from "@schemx/vue"
-
-  import { getFieldProps, getReadonlyDisplayValue } from "../../utils"
+  import SchemxCell from "@/components/Cell/index.vue"
+  import { getFieldProps } from "@/utils"
 
   import type { SwitchRendererProps, SwitchValue } from "./types"
 
@@ -66,8 +69,10 @@
 
   const contentAlign = computed(
     () =>
-      getFieldProps(props?.formItemProps, "contentAlign", "right") ??
-      getFieldProps(attrs as Record<string, any>, "align", "right")
+      getFieldProps(attrs as Record<string, any>, "align", "right") as
+        | "left"
+        | "center"
+        | "right"
   )
 
   const fieldValue = computed(() => {
@@ -76,43 +81,8 @@
       : props.inactiveText
   })
 
-  const switchProps = computed(() => {
-    const rendererProps = props
-
-    const {
-      value: _value,
-      onChange: _onChange,
-      className: _className,
-      activeText: _activeText,
-      inactiveText: _inactiveText,
-      readonly: _readonly,
-      readonlyPlaceholder: _readonlyPlaceholder,
-      placeholder: _placeholder,
-      formItemProps: _formItemProps,
-      ...rest
-    } = rendererProps
-
-    const {
-      value: _attrsValue,
-      onChange: _attrsOnChange,
-      className: _attrsClassName,
-      activeText: _attrsActiveText,
-      inactiveText: _attrsInactiveText,
-      readonly: _attrsReadonly,
-      readonlyPlaceholder: _attrsReadonlyPlaceholder,
-      placeholder: _attrsPlaceholder,
-      align: _attrsAlign,
-      formItemProps: _attrsFormItemProps,
-      ...attrsRest
-    } = attrs
-
-    return { ...attrsRest, ...rest }
-  })
-
   /**
    * 处理开关值变化
-   *
-   * @param value - 用户选择的最新开关值。
    */
   const handleChange = async (value: SwitchValue): Promise<void> => {
     if (props.readonly || props.disabled) return

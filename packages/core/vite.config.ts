@@ -1,53 +1,61 @@
-import { defineConfig } from "vite-plus"
+import { defineConfig } from "vite"
+import vue from "@vitejs/plugin-vue"
+import vueJsx from "@vitejs/plugin-vue-jsx"
+import dts from "vite-plugin-dts"
+import { visualizer } from "rollup-plugin-visualizer"
 import { resolve } from "path"
-import { workspaceSource } from "vite-plugin-workspace-source"
-import { createVitePlugins } from "./vite.plugins"
 
-const externalPackages = ["es-toolkit", "@preact/signals-core", "async-validator"]
+const analyze = process.env.ANALYZE === "true"
 
-function isExternal(id: string) {
-  return externalPackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
-}
-
-export default defineConfig(({ mode }) => {
-  const analyze = mode === "analyze"
-
-  return {
-    test: {
-      // Vitest v4 compatibility: preserve mock call history.
-      // Remove after tests no longer rely on calls from setup or earlier tests.
-      // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
-      // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
-      clearMocks: false,
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
     },
-    plugins: [
-      workspaceSource({ projectRoot: __dirname }),
-      ...createVitePlugins({ analyze }),
-    ],
-    build: {
-      lib: {
-        entry: {
-          index: resolve(__dirname, "src/index.ts"),
+  },
+  plugins: [
+    vue(),
+    vueJsx(),
+    dts({
+      include: ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],
+      outDir: "dist",
+      rollupTypes: true,
+    }),
+    analyze &&
+      visualizer({
+        filename: resolve(__dirname, "dist/analyze.html"),
+        gzipSize: true,
+        brotliSize: true,
+        open: false,
+        template: "treemap",
+        title: "@schemx/core bundle analysis",
+      }),
+  ],
+  build: {
+    lib: {
+      entry: resolve(__dirname, "src/index.ts"),
+      name: "schemxCore",
+      formats: ["es", "cjs", "umd"],
+      fileName: (format) => {
+        if (format === "es") return "index.mjs"
+        if (format === "cjs") return "index.cjs"
+        return "index.umd.js"
+      },
+    },
+    rollupOptions: {
+      external: ["vue"],
+      output: {
+        globals: {
+          vue: "Vue",
         },
-        name: "schemxCore",
-        formats: ["es", "cjs"],
-        fileName: (format, entryName) => {
-          if (format === "es") return `${entryName}.mjs`
-          return `${entryName}.cjs`
+        exports: "named",
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name === "style.css") return "style.css"
+          return assetInfo.name || "asset"
         },
       },
-      rollupOptions: {
-        external: isExternal,
-        output: {
-          exports: "named",
-          assetFileNames: (assetInfo) => {
-            if (assetInfo.name === "style.css") return "style.css"
-            return assetInfo.name || "asset"
-          },
-        },
-      },
-      sourcemap: true,
-      minify: "terser",
     },
-  }
+    sourcemap: true,
+    minify: "terser",
+  },
 })

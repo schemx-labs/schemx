@@ -7,51 +7,40 @@
 /**
  * 组件样式
  */
-@import "../components/Field/index.css";
-@import "../components/Group/index.css";
+@import "../components/FormItem/index.css";
+@import "../components/FormGroup/index.css";
 
 /**
  * schemx 容器
  */
 .schemx {
   box-sizing: border-box;
-  font-family: var(--schemx-font-family);
-  font-size: var(--schemx-font-size-base);
-  font-weight: var(--schemx-font-weight-regular);
-  line-height: var(--schemx-line-height-base);
-  color: var(--schemx-color-text-primary);
+  padding-bottom: var(--schemx-form-padding-bottom);
 }
 
-/**
- * 表单内置操作区保持框架无关的原生 button 外观。
- */
-.schemx-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--schemx-space-sm);
-  padding: var(--schemx-space-md) 0;
+.schemx-schemas {
+  background-color: var(--schemx-background-color);
+  padding: var(--schemx-padding-md) var(--schemx-schemas-padding-inline);
+  border-radius: var(--schemx-border-radius-lg);
 }
 
 .schemx-schemas-title {
   display: flex;
   align-items: center;
+  padding-left: var(--schemx-padding-md);
+  padding-bottom: var(--schemx-padding-xs);
 }
 
 .schemx-schemas-title-icon {
-  margin-right: var(--schemx-space-xs);
+  margin-right: var(--schemx-padding-xs);
 }
 
 .schemx-schemas-title-label {
-  font-size: var(--schemx-font-size-base);
-  color: var(--schemx-color-text-primary);
+  font-size: var(--schemx-font-size-md);
+  color: var(--schemx-text-color);
 }
 
 .schemx-renderer-readonly {
-  color: var(--schemx-color-text-readonly);
+  color: var(--schemx-readonly-color);
   cursor: default;
-}
-
-.schemx .is-disabled {
-  color: var(--schemx-color-text-disabled);
 }

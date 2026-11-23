@@ -55,9 +55,7 @@ export interface SelectorProps {
  * 定义选择组组件的所有可配置属性。
  */
 export interface SelectorRendererProps
-  extends
-    SelectorProps,
-    Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value"> {
+  extends Omit<SchemxBaseComponentProps, "onChange" | "onBlur" | "value" | "onUpdate:value"> {
   /** 当前值 */
   value?: SelectValue
   /** 值变化回调 */
@@ -77,6 +75,8 @@ export interface SelectorRendererProps
   }
   /** 是否只读 */
   readonly?: boolean
+  /** 是否详情展示 */
+  view?: boolean
   /** 只读时的占位文本 */
   readonlyPlaceholder?: string
   /** 是否禁用 */

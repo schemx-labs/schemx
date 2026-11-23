@@ -1,32 +1,30 @@
 /**
- * createSignalEffect 单元测试与属性测试
+ * createEffect 单元测试与属性测试
  *
- * 覆盖 createSignalEffect 的所有正确性属性和边界情况：
+ * 覆盖 createEffect 的所有正确性属性和边界情况：
  * 创建后立即执行、依赖追踪、dispose 停止响应、dispose 幂等、
  * cleanup 机制、batch 协同。
  *
- * @module core/__tests__/createSignalEffect
+ * @module core/__tests__/createEffect
  */
 import { batch, signal } from "@preact/signals-core"
 import fc from "fast-check"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it, vi } from "vitest"
 
-import { createSignalEffect } from "../reactivity"
+import { createEffect } from "../createEffect"
 
-import type { SignalEffectDispose } from "../reactivity"
+import type { CreateEffectReturn } from "../createEffect"
 
-// 属性测试：通过 fast-check 验证 createSignalEffect 对信号依赖追踪、dispose 清理、batch 协同的正确性
-describe("createSignalEffect 属性测试", () => {
-  // 功能：create-effect-api；属性 1：创建后立即执行一次回调
-  // **验证：需求 1.1、1.4**
+describe("createEffect 属性测试", () => {
+  // Feature: create-effect-api, Property 1: 创建后立即执行一次回调
+  // **Validates: Requirements 1.1, 1.4**
   it("Property 1: 创建后立即执行一次回调并返回 dispose 函数", () => {
     fc.assert(
       fc.property(fc.integer(), (initial) => {
         const s = signal(initial)
-
         let callCount = 0
 
-        const dispose = createSignalEffect(() => {
+        const dispose = createEffect(() => {
           void s.value
           callCount++
         })
@@ -40,8 +38,8 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 2：依赖追踪与重新执行
-  // **验证：需求 1.2、1.3**
+  // Feature: create-effect-api, Property 2: 依赖追踪与重新执行
+  // **Validates: Requirements 1.2, 1.3**
   it("Property 2: 依赖追踪与重新执行", () => {
     fc.assert(
       fc.property(
@@ -49,12 +47,10 @@ describe("createSignalEffect 属性测试", () => {
         fc.integer().filter((v) => v !== 0),
         (initial, delta) => {
           const s = signal(initial)
-
           let callCount = 0
-
           let lastSeen: number | undefined
 
-          const dispose = createSignalEffect(() => {
+          const dispose = createEffect(() => {
             lastSeen = s.value
             callCount++
           })
@@ -73,16 +69,15 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 3：dispose 后停止响应
-  // **验证：需求 2.1**
+  // Feature: create-effect-api, Property 3: dispose 后停止响应
+  // **Validates: Requirements 2.1**
   it("Property 3: dispose 后停止响应", () => {
     fc.assert(
       fc.property(fc.integer(), fc.integer(), (initial, newVal) => {
         const s = signal(initial)
-
         let callCount = 0
 
-        const dispose = createSignalEffect(() => {
+        const dispose = createEffect(() => {
           void s.value
           callCount++
         })
@@ -97,16 +92,15 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 4：dispose 幂等性
-  // **验证：需求 2.2**
+  // Feature: create-effect-api, Property 4: dispose 幂等性
+  // **Validates: Requirements 2.2**
   it("Property 4: dispose 幂等性", () => {
     fc.assert(
       fc.property(fc.nat({ max: 10 }), (extraCalls) => {
         const s = signal(0)
-
         const cleanupFn = vi.fn()
 
-        const dispose = createSignalEffect(() => {
+        const dispose = createEffect(() => {
           void s.value
 
           return cleanupFn
@@ -125,8 +119,8 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 5：重新执行前调用 cleanup
-  // **验证：需求 3.1**
+  // Feature: create-effect-api, Property 5: 重新执行前调用 cleanup
+  // **Validates: Requirements 3.1**
   it("Property 5: 重新执行前调用 cleanup", () => {
     fc.assert(
       fc.property(
@@ -134,10 +128,9 @@ describe("createSignalEffect 属性测试", () => {
         fc.integer().filter((v) => v !== 0),
         (initial, delta) => {
           const s = signal(initial)
-
           const order: string[] = []
 
-          const dispose = createSignalEffect(() => {
+          const dispose = createEffect(() => {
             void s.value
             order.push("effect")
 
@@ -158,16 +151,15 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 6：dispose 时调用 cleanup
-  // **验证：需求 3.2**
+  // Feature: create-effect-api, Property 6: dispose 时调用 cleanup
+  // **Validates: Requirements 3.2**
   it("Property 6: dispose 时调用 cleanup", () => {
     fc.assert(
       fc.property(fc.integer(), (initial) => {
         const s = signal(initial)
-
         const cleanupFn = vi.fn()
 
-        const dispose = createSignalEffect(() => {
+        const dispose = createEffect(() => {
           void s.value
 
           return cleanupFn
@@ -182,8 +174,8 @@ describe("createSignalEffect 属性测试", () => {
     )
   })
 
-  // 功能：create-effect-api；属性 7：batch 合并触发且读取最新值
-  // **验证：需求 4.1、4.2**
+  // Feature: create-effect-api, Property 7: batch 合并触发且读取最新值
+  // **Validates: Requirements 4.1, 4.2**
   it("Property 7: batch 合并触发且读取最新值", () => {
     fc.assert(
       fc.property(
@@ -192,16 +184,12 @@ describe("createSignalEffect 属性测试", () => {
           .filter(([valA, valB]) => valA !== 0 || valB !== 0),
         ([valA, valB]) => {
           const a = signal(0)
-
           const b = signal(0)
-
           let callCount = 0
-
           let lastA: number | undefined
-
           let lastB: number | undefined
 
-          const dispose = createSignalEffect(() => {
+          const dispose = createEffect(() => {
             lastA = a.value
             lastB = b.value
             callCount++
@@ -226,14 +214,12 @@ describe("createSignalEffect 属性测试", () => {
   })
 })
 
-// 单元测试：验证 createSignalEffect 的边界情况，如无 cleanup 回调、undefined 返回值、batch 防抖等
-describe("createSignalEffect 单元测试", () => {
+describe("createEffect 单元测试", () => {
   it("回调不返回清理函数时正常工作", () => {
     const s = signal(0)
-
     let callCount = 0
 
-    const dispose = createSignalEffect(() => {
+    const dispose = createEffect(() => {
       void s.value
       callCount++
     })
@@ -248,16 +234,15 @@ describe("createSignalEffect 单元测试", () => {
   })
 
   it("回调返回 undefined 时不报错", () => {
-    const dispose = createSignalEffect(() => {
+    const dispose = createEffect(() => {
       return undefined
     })
 
     expect(() => dispose()).not.toThrow()
   })
 
-  it("SignalEffectDispose 类型可正确赋值", () => {
-    const dispose: SignalEffectDispose = createSignalEffect(() => {})
-
+  it("CreateEffectReturn 类型可正确赋值", () => {
+    const dispose: CreateEffectReturn = createEffect(() => {})
     expect(typeof dispose).toBe("function")
     dispose()
   })
@@ -265,10 +250,9 @@ describe("createSignalEffect 单元测试", () => {
   it("与 form.getFieldValue 等方法配合使用", () => {
     // 模拟 form 内部的 ReactiveMap 行为
     const nameSignal = signal("Alice")
-
     let captured: string | undefined
 
-    const dispose = createSignalEffect(() => {
+    const dispose = createEffect(() => {
       captured = nameSignal.value
     })
 
@@ -285,14 +269,11 @@ describe("createSignalEffect 单元测试", () => {
 
   it("batch 内更新不触发 effect 时不执行 cleanup", () => {
     const a = signal(0)
-
     const b = signal(0)
-
     const cleanupCalls: number[] = []
-
     let callCount = 0
 
-    const dispose = createSignalEffect(() => {
+    const dispose = createEffect(() => {
       void a.value
       callCount++
 
@@ -314,12 +295,10 @@ describe("createSignalEffect 单元测试", () => {
 
   it("batch 内写入相同值时不重新触发 effect", () => {
     const a = signal(0)
-
     const b = signal(0)
-
     let callCount = 0
 
-    const dispose = createSignalEffect(() => {
+    const dispose = createEffect(() => {
       void a.value
       void b.value
       callCount++

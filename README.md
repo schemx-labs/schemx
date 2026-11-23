@@ -1,338 +1,151 @@
-<p align="center">
-  <img src="./logo.png" alt="schemx logo" width="360" />
-</p>
+# schemx
 
-<p align="center">
-  A schema-driven dynamic form engine that centralizes field state, validation, dependencies, and dynamic structure while decoupling form business rules from concrete UI components.
-</p>
+Schema-driven, extensible form engine for modern web.
 
-<p align="center">
-  <a href="./README.md">English</a> · <a href="./README.zh-CN.md">中文</a>
-</p>
+`schemx` 是一套以 Schema 驱动的动态表单方案。它将表单状态、校验、字段依赖和 UI 渲染拆分为独立层级，既可以直接在 Vue 3 + Vant 项目中使用，也可以基于 headless core 接入其他 UI 框架。
 
-<p align="center">
-  <a href="#packages">Packages</a> · <a href="#quick-start">Quick Start</a> · <a href="#examples">Examples</a> · <a href="#local-development">Local Development</a> · <a href="#release-scripts">Release Scripts</a> · <a href="#generate-release-notes-by-package">Release Notes by Package</a>
-</p>
+## 特性
 
-schemx focuses on the parts of dynamic forms that are most likely to become difficult to manage: field state, validation, dependencies, runtime Schema updates, renderable view projections, and UI integration boundaries. Business code only describes the Schema; Core compiles it into a stable runtime structure, and upper-layer adapters render the ViewSchemas into concrete interfaces.
+- **Schema 驱动**：使用配置描述字段、分组、动态属性和条件子树。
+- **分层设计**：core、Vue 适配层和 Vant renderer 可以独立使用。
+- **动态表单优先**：支持字段联动、异步 dependency renderer 和运行时 schema 更新。
+- **类型友好**：根据表单值、字段路径和 `componentType` 推断对应类型。
+- **可扩展校验**：内置常用必填规则，并支持实现 Standard Schema 的校验库。
+- **可扩展渲染**：通过 renderer registry 注册业务组件或接入新的 UI 组件库。
 
-## Packages
+## 包说明
 
-| Package                                           | Responsibility                          | Use Case                                                             |
-| ------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------- |
-| [`@schemx/core`](./packages/core)                 | Framework-agnostic headless form engine | Build form runtimes, field dependencies, validation, and ViewSchemas |
-| [`@schemx/vue`](./packages/vue)                   | Vue 3 adapter                           | Render ViewSchemas as Vue component trees                            |
-| [`@schemx/vant`](./packages/vant)                 | Vant renderer adapter                   | Quickly build mobile dynamic forms with Vant 4                       |
-| [`@schemx/element-plus`](./packages/element-plus) | Element Plus renderer adapter           | Build dynamic forms with Element Plus                                |
+| 包                                | 说明                         | 适用场景                                        |
+| --------------------------------- | ---------------------------- | ----------------------------------------------- |
+| [`@schemx/core`](./packages/core) | 框架无关的 headless 表单引擎 | 自定义框架适配、状态管理、字段依赖和校验        |
+| [`@schemx/vue`](./packages/vue)   | Vue 3 表单适配层             | 使用 Vue 组件树渲染 Schema，接入自定义 renderer |
+| [`@schemx/vant`](./packages/vant) | 基于 Vant 的 renderer 集合   | 在 Vue 3 + Vant 项目中快速构建移动端表单        |
 
-## Quick Start
+## 快速开始
 
-Install dependencies according to the level of functionality your project needs:
+在 Vue 3 + Vant 项目中，推荐直接使用 `@schemx/vant`：
 
 ```bash
-# Use only the framework-agnostic form runtime
-pnpm add @schemx/core
-
-# Run the Zod Standard Schema example below
-pnpm add @schemx/core zod
-
-# Use built-in async-validator descriptors
-pnpm add @schemx/core
-
-# Add a custom Vue Renderer
-pnpm add @schemx/vue vue
-
-# Use the built-in Vant Renderer
 pnpm add @schemx/vant vant vue
-
-# Use the built-in Element Plus Renderer
-pnpm add @schemx/element-plus element-plus @element-plus/icons-vue vue
 ```
 
-See the documentation for each package for complete examples, style import instructions, and API details:
+```vue
+<script setup lang="ts">
+  import { ref } from "vue"
 
-- [`@schemx/core` guide](./packages/core/README.md)
-- [`@schemx/vue` guide](./packages/vue/README.md)
-- [`@schemx/vant` guide](./packages/vant/README.md)
-- [`@schemx/element-plus` guide](./packages/element-plus/README.md)
+  import Schemx from "@schemx/vant"
 
-Core validation uses the `required` field, a named rule Registry, and a flat result discriminated by the `valid` field:
+  import type { SchemxField } from "@schemx/vant"
 
-```ts
-import { createForm, createPresetRuleRegistry } from "@schemx/core"
-import { z } from "zod"
+  type LoginValues = {
+    username: string
+    password: string
+  }
 
-const registry = createPresetRuleRegistry()
-registry.register("email", z.string().email("Invalid email format"))
+  const formData = ref<LoginValues>({
+    username: "",
+    password: "",
+  })
 
-const form = createForm<{ email: string }>({
-  initialValues: { email: "" },
-  schemas: [
+  const schemas: SchemxField<LoginValues>[] = [
     {
-      name: "email",
-      label: "Email",
+      name: "username",
+      label: "用户名",
       componentType: "input",
-      required: { message: "Please enter your email" },
-      rules: ["email"],
+      rules: "required",
+      placeholder: "请输入用户名",
     },
-  ],
-  presetRuleRegistry: registry,
-})
-
-const result = await form.validate()
-if (!result.valid) console.log(result.errors)
-```
-
-## Architecture Boundaries
-
-```text
-raw schemas
-  -> @schemx/core
-  -> runtime Schema Node
-  -> validation / dependency / scheduler
-  -> ViewSchemas
-  -> @schemx/vue
-  -> renderer registry
-  -> @schemx/vant, @schemx/element-plus, or business renderers
-```
-
-`@schemx/core` does not depend on a specific UI framework or render the DOM. It maintains form rules, field state, and runtime Schema, then outputs ViewSchemas for the UI layer to consume.
-
-`@schemx/core` exposes UI integration APIs from its root entry. Use `createFormStateAdapter(form)` to consume stable snapshots and subscriptions for form values, touched fields, pending fields, loading, and individual field state; use `createRendererRegistry()` to register renderers. All packages expose APIs only through their root `index.ts`; Vue and UI packages also expose `style.css` as a stylesheet resource.
-
-`@schemx/vue` only adapts the form to a Vue component tree and does not bind to a specific component library. Business code can use `rendererRegistry` to connect its own inputs, selectors, upload components, or design-system components.
-
-`@schemx/vant` provides Vant 4 renderers for mobile forms; `@schemx/element-plus` provides Element Plus renderers for desktop forms. The adapter's Form, `createForm`, and `useForm` APIs use its default renderers and layout; importing the package does not change Core global configuration or Vue Registries. Vant and Element Plus each bind their APIs and Registries through an internal factory; UI consumers keep importing the ready-to-use APIs. Vue consumers can use `createSchemx` from `@schemx/vue` to maintain independent defaults with framework settings included. Each UI package calls that factory separately and binds its creator through `useForm(options, creator)`; UI configuration remains isolated between packages. Ordinary ConfigProvider and App options apply to all descendant UI forms. Row, Col, and scheduler objects replace lower-priority objects as a whole.
-
-`@schemx/core` includes async-validator descriptor support. The Vue, Vant, and Element Plus adapters install their required Schemx dependencies automatically; applications must install Vue and the chosen UI library as peer dependencies. If application code imports another Schemx package or its public stylesheet directly, declare that dependency explicitly as well.
-
-## When to Use
-
-- Form fields come from backend configuration, low-code configuration, or business Schemas.
-- Field visibility, disabled, readonly, required, or validation rules need to change dynamically based on other fields.
-- The form structure changes at runtime, such as conditional fields, multi-step questionnaires, or remote Schemas.
-- The same form capabilities need to be reused across multiple UI component libraries or application targets.
-- Form runtime capabilities need to be decoupled from UI component implementations.
-
-If you only have a few static fields and do not need field dependencies, dynamic Schemas, or cross-platform reuse, using the form capabilities built into your UI component library is usually simpler.
-
-## Choosing an Entry Point
-
-- Need only form runtime, validation, dependencies, and ViewSchemas: use `@schemx/core`.
-- Already have a Vue component library or business components and need to register your own renderers: install `@schemx/vue` and `vue`.
-- Using Vue 3 + Vant 4 and want built-in mobile renderers: install `@schemx/vant`, `vant`, and `vue`.
-- Using Vue 3 + Element Plus and want built-in desktop renderers: install `@schemx/element-plus`, `element-plus`, `@element-plus/icons-vue`, and `vue`.
-
-See the documentation for each package for detailed APIs and usage examples.
-
-## Container State and Dynamic Subtrees
-
-Group and Dependency can both act as containers with `visible`, `readonly`, `disabled`, and `dependencies`. Group declares `children`, while Dependency declares `to` and `renderer`; containers do not use `componentType`. Container state propagates recursively to all descendant fields: descendants are invisible when an ancestor is hidden, and descendants cannot override an ancestor's readonly or disabled state through their own configuration.
-
-```ts
-import type { SchemxField } from "@schemx/core"
-
-type ProfileValues = { editable: boolean; name: string }
-
-const schemas: SchemxField<ProfileValues>[] = [
-  { name: "editable", label: "Editable", componentType: "switch", initialValue: true },
-  {
-    key: "profile",
-    label: "Profile",
-    collapsible: true,
-    destroyOnCollapse: false,
-    dependencies: {
-      triggerFields: ["editable"],
-      readonly: (values) => !values.editable,
+    {
+      name: "password",
+      label: "密码",
+      componentType: "input",
+      rules: "required",
+      componentProps: {
+        type: "password",
+      },
     },
-    children: [{ name: "name", label: "Name", componentType: "input" }],
-  },
-]
+  ]
+
+  function handleFinish(values: Readonly<LoginValues>) {
+    console.log(values)
+  }
+</script>
+
+<template>
+  <Schemx v-model="formData" :schemas="schemas" @finish="handleFinish" />
+</template>
 ```
 
-Dependency's `to` only rebuilds the dynamic subtree; container `dependencies.triggerFields` only updates presentation state. They can observe the same field, but must be declared separately. Container dependencies support only `visible`, `readonly`, and `disabled`; side-effect-based `trigger` is not supported.
+`@schemx/vant` 会在导入时注册默认 Vant renderer。需要接入其他 UI 组件库时，可以使用 `@schemx/vue` 注册自定义 renderer；只需要状态、校验和依赖能力时，可以直接使用 `@schemx/core`。
 
-You can interact with Group and Dependency container state in the [Vant example project](./examples/vant) or the [Element Plus example project](./examples/element-plus).
-
-## Examples
-
-- [Vant Example](./examples/vant/README.md): covers built-in Renderers, validation, dependencies, dynamic Schemas, container state, and slots.
-- [Element Plus Example](./examples/element-plus): covers the Element Plus Renderer set and native form controls.
-
-## Local Development
-
-Local development requires Node.js `>=22.18.0` and pnpm `11.15.1`. The repository uses a pnpm workspace. Install dependencies first, then use the root command to interactively choose a package, plugin, or example to run or build:
+## 本地开发
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev:vant
 ```
 
-You can also bypass interactive selection and run a specific workspace directly:
+常用检查命令：
 
 ```bash
-pnpm --filter vant-demo dev
-pnpm --filter element-plus-demo dev
-```
-
-Source mappings are maintained in `workspace-source.config.ts`. Set `VITE_USE_SOURCE=true` in a project's environment or startup command to use workspace dependency source during development, tests, and type checks. Run `pnpm source:sync` after changing the flag to update the generated `tsconfig.workspace-source.json`; installation and dev scripts also synchronize it. Library builds always consume dependency artifacts and build their workspace dependencies first.
-
-| Command                   | Description                                                                                                                               |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                | Interactively select and start one target with a `dev` or `dev:h5` script; non-interactive environments must specify exactly one target.  |
-| `pnpm build`              | Interactively select targets to build; non-interactive environments build all targets by default.                                         |
-| `pnpm build:analyze`      | Run the same type checks as a regular build and generate a bundle analysis report.                                                        |
-| `pnpm test`               | Run tests for selected targets, then workflow script tests; non-interactive environments select all targets.                              |
-| `pnpm type-check`         | Check types for selected targets, then project scripts.                                                                                   |
-| `pnpm type-check:tests`   | Check types in selected targets' test code.                                                                                               |
-| `pnpm type-check:scripts` | Check types in project scripts.                                                                                                           |
-| `pnpm test:scripts`       | Run project script tests.                                                                                                                 |
-| `pnpm lint`               | Interactively select targets and run ESLint.                                                                                              |
-| `pnpm lint:fix`           | Interactively select targets and run ESLint fixes.                                                                                        |
-| `pnpm format`             | Interactively select and run Prettier formatting.                                                                                         |
-| `pnpm format:check`       | Interactively select and run Prettier format checks.                                                                                      |
-| `pnpm check`              | Check the whole repository: lint, formatting, types, tests, builds, and package artifacts; explicit targets include downstream consumers. |
-| `pnpm fix`                | Select targets and run lint fixes followed by formatting.                                                                                 |
-| `pnpm pack-local`         | Interactively select packable `packages` / `plugins` targets and generate tarballs.                                                       |
-| `pnpm check:packages`     | Check workspace package configuration and build output external boundaries.                                                               |
-| `pnpm preview`            | Start Vite Preview.                                                                                                                       |
-| `pnpm workflow <command>` | Run a workflow command with its arguments.                                                                                                |
-
-## Project Workflow
-
-Development, build, quality, and test commands at the repository root are all executed through `scripts/workflow.ts`, a single TypeScript entry run directly by Node (no build step). In a local terminal, Clack selects `packages`, `plugins`, and `examples` targets that define the relevant script for the task; `dev` uses single selection, while other batch tasks use multiple selection. In CI or pipeline environments, batch tasks run all matching targets by default, while `dev` must specify exactly one target. Each target directly executes its corresponding package script. See the [workflow guide](./scripts/README.md) for commands, environment variables, and recovery instructions.
-
-```bash
-pnpm dev
 pnpm build
-pnpm lint
 pnpm test
-pnpm fix
-pnpm check
-pnpm check:packages
+pnpm type-check
+pnpm lint
 ```
 
-Run `pnpm check` (equivalent to `pnpm check all`) for complete local quality verification before committing. It checks all source directories, types, tests, dependency-ordered builds, examples, package exports, and packed files. `pnpm check vue` also checks downstream packages and examples. Release verification reuses this pipeline and separately validates credentials, versions, Git state, and remote availability.
+## 发布脚本
 
-Finite batch operations stop at the first failure by default. Build tasks, workspace quality tasks, and `release check`, `release pack`, and `release verify` accept `--keep-going` to continue with the remaining targets and return the first failure code at the end. Cancellation always stops immediately:
+发布脚本统一通过 `pnpm release:*` 执行。涉及包目标的命令都支持 `all`、`core`、`vue`、`vant`：
+
+- `release:version:*` 和 `release:pack` 默认目标为 `all`。
+- `release:publish*` 不传目标时会进入交互选择；在 CI 或非交互环境中建议显式传入目标。
+
+正式发布只发布当前 `package.json` 中的版本，不会自动提升版本号。推荐流程：
 
 ```bash
-node scripts/workflow.ts lint all --keep-going
-node scripts/workflow.ts release pack all --keep-going
-node scripts/workflow.ts release verify /path/to/plan.json --keep-going
+pnpm release:version:patch vue
+git add packages/vue/package.json pnpm-lock.yaml
+git commit -m "chore(发布): 提升 vue 版本"
+pnpm release:publish vue
 ```
 
-`pnpm pack-local` also uses the same workflow to select multiple targets; it only handles locally packable `packages` and `plugins` targets. In CI, you can pass `all`, `packages/core`, or `plugins/<name>` after the command, or use `SCHEMX_WORKFLOW_TARGETS` to provide a comma-separated target list.
-
-All workflows share the same terminal feedback. Visual output goes to stderr; `release plan` writes the plan path to stdout for command substitution. Cancellation uses exit code `130`, while usage and argument validation errors use `2`. Enable non-interactive confirmation with `SCHEMX_UI_ASSUME_YES=true`.
-
-A light vertical guide connects the flow, with spacing between stages and distinct colors and symbols for headings, success, warnings, and errors. Batch tasks align their target, task, and duration columns; wrapped text retains the guide. Pending tasks show an in-place spinner in a TTY, replaced by the result on completion. Child-process output is shown only on failure by default, ordered as commands → other output → error conclusions. Set `WORKFLOW_LOG=live` to append logs above the loading indicator, which stays visible while the task runs. Non-TTY output shows a static running status; `NO_COLOR` disables colors only.
-
-Release is an independent command domain that uses the `release:*` prefix.
-
-## Release Scripts
-
-Release scripts are all run through `pnpm release:*`. Commands involving package targets support `all`, `core`, `vue`, `vant`, and `element-plus`:
-
-- When `release:publish` receives no arguments, it sequentially selects the release channel, release target, and version baseline action; use the Space key to select multiple targets.
-- `release:pack` targets `all` by default.
-- Explicit arguments are recommended in CI or non-interactive environments.
-
-Stable releases use the `latest` channel. When `patch`, `minor`, `major`, or `x.y.z` is selected, the script freezes a plan, runs pre-release checks, writes versions, and publishes to npm. It then synchronizes `pnpm-lock.yaml`, commits and pushes version changes for successfully published packages, and creates Git Tags and GitHub Releases.
-
-Version actions follow SemVer's `x.y.z` format:
-
-- `patch`: increment `z`, for example `1.2.3` -> `1.2.4`
-- `minor`: increment `y`, for example `1.2.3` -> `1.3.0`
-- `major`: increment `x`, for example `1.2.3` -> `2.0.0`
+预发布会临时生成 `0.1.x-alpha.<timestamp>.<sha>` 这类版本号，发布完成后恢复本地 `package.json`：
 
 ```bash
-pnpm release:publish latest vue patch
-pnpm release:publish latest vue x.y.z
+pnpm release:publish:alpha vue
 ```
 
-To publish the currently committed version, choose `current`:
+### 常用命令
 
-```bash
-pnpm release:publish latest vue current
-```
+| 命令 | 作用 | 使用 |
+| --- | --- | --- |
+| `pnpm release:check` | 执行完整发布前检查：安装一致性、测试、lint、构建和发布包内容检查。 | 发布前本地自检：`pnpm release:check` |
+| `pnpm release:pack [target]` | 生成本地 tarball，用于检查实际发布包内容。 | 全部包：`pnpm release:pack`；单包：`pnpm release:pack vant` |
+| `pnpm release:publish [target]` | 发布正式版到 npm，并创建 Git tag 和 GitHub Release。正式发布前需要先执行 `release:version:*` 并提交版本变更。 | 交互选择：`pnpm release:publish`；单包：`pnpm release:publish vue` |
+| `pnpm release:publish:dev [target]` | 发布 `dev` 预发布版本，适合日常联调验证。 | `pnpm release:publish:dev core` |
+| `pnpm release:publish:alpha [target]` | 发布 `alpha` 预发布版本，适合内部预览。 | `pnpm release:publish:alpha vue` |
+| `pnpm release:publish:beta [target]` | 发布 `beta` 预发布版本，适合外部测试。 | `pnpm release:publish:beta vant` |
+| `pnpm release:publish:rc [target]` | 发布 `rc` 预发布版本，适合正式发布前候选验证。 | `pnpm release:publish:rc all` |
+| `pnpm release:publish:next [target]` | 发布 `next` 预发布版本，适合下一版本线验证。 | `pnpm release:publish:next all` |
+| `pnpm release:version:patch [target]` | 提升 patch 版本，并同步 `pnpm-lock.yaml`。 | 全部包：`pnpm release:version:patch`；单包：`pnpm release:version:patch vue` |
+| `pnpm release:version:minor [target]` | 提升 minor 版本，并同步 `pnpm-lock.yaml`。 | `pnpm release:version:minor core` |
+| `pnpm release:version:major [target]` | 提升 major 版本，并同步 `pnpm-lock.yaml`。 | `pnpm release:version:major all` |
+| `pnpm release:test` | 运行发布脚本自身的测试，不发布、不改版本。 | 修改发布脚本后执行：`pnpm release:test` |
 
-An exact version (replace `x.y.z` in the example with the target version) is allowed only for a single-package target. Use `current` to publish the currently committed stable version if it has not been published yet. Versions already present on npm cannot be republished. Resume interrupted releases from their frozen plan as described in the [workflow guide](./scripts/README.md).
+### 发布通道
 
-Prereleases require an explicit `patch`, `minor`, `major`, or `x.y.z` version baseline. `alpha`, `beta`, `rc`, and `next` generate sortable versions such as `0.1.0-beta.0`; the local `package.json` is restored after publishing:
+| 类型 | 用途 |
+| --- | --- |
+| `dev` | 日常开发测试，不稳定 |
+| `alpha` | 内部预览，API 可能还会变 |
+| `beta` | 外部测试，功能基本完整 |
+| `rc` | release candidate，候选正式版 |
+| `stable` | 正式版 |
 
-```bash
-# Publishes the first public Beta for 1.0.0; subsequent releases increment to 1.0.0-beta.1 automatically.
-pnpm release:publish beta vue 1.0.0
-```
+## 相关文档
 
-### Custom GitHub Release Notes
-
-All channels except `dev` create Git Tags and GitHub Releases; `alpha`, `beta`, `rc`, and `next` mark the Release as a prerelease. By default, notes are generated from Conventional Commits between the package's previous Tag and the target commit. For curated notes, place `release-notes.md` in the package root or generate it with an Agent. Both methods affect only GitHub Release notes, not the version commit message.
-
-```bash
-# Use a package-level Markdown file, such as packages/core/release-notes.md.
-pnpm release:publish latest core current
-
-# Call an executable generator; the generator outputs Markdown to stdout.
-SCHEMX_RELEASE_NOTES_GENERATOR=/path/to/release-notes-generator \
-  pnpm release:publish latest core current
-```
-
-The generator receives the following arguments: `--repository`, `--package`, `--version`, `--tag`, `--previous-tag`, and `--commit-range`. It can use these to call an Agent/LLM and obtain package-level changes with `git diff <commit-range> -- packages/<package>`. A Skill cannot be executed directly by Bash; the generator should be implemented by an Agent CLI or automation service with the corresponding Skill.
-
-If `SCHEMX_RELEASE_NOTES_FILE` is set, it overrides the package-level default path and is intended only for temporary single-package releases. For multi-package releases, each package reads its own `packages/<package>/release-notes.md`; if the file does not exist, notes are generated from that package's own previous tag.
-
-### Generate Release Notes by Package
-
-The `release-notes-generator` Skill can generate release notes through a structured data → validation → rendering workflow. It analyzes Git Diff, public APIs, TypeScript types, and user impact, and handles evidence collection, validation, and Markdown rendering. Repository release scripts read the generated notes.
-
-#### Daily Usage
-
-Normally, you do not need to run `release:notes:*` commands or create JSON manually. Simply describe the release intent to an Agent with the `release-notes-generator` Skill.
-
-Preview release notes for all currently affected packages:
-
-```text
-Use release-notes-generator to analyze the current HEAD and preview Release Notes for all affected packages.
-```
-
-Previewing does not write to files. The Agent automatically collects each package's Tags, Diff, public API, types, and dependency impact, determines which packages have user-visible changes, and displays each package's summary, Breaking Changes, and Markdown preview.
-
-After reviewing the content, explicitly request that it be written:
-
-```text
-Confirm writing Release Notes for all affected packages and generate version archives.
-```
-
-The Skill automatically performs the following operations:
-
-1. Collects Git evidence for each affected release package;
-2. Generates and reviews independent Release Data for each package;
-3. Validates evidence, classification, and Breaking Change migration notes;
-4. Updates `packages/<package>/release-notes.md` for each package;
-5. Generates the version archive at `docs/releases/<package>/<version>.md`.
-
-The existing `pnpm release:publish` command reads package-level `release-notes.md` files directly when creating GitHub Releases, so you can continue with the existing release workflow after generating the notes.
-
-The Skill includes deterministic scripts, release policies, data Schemas, and Markdown templates for evidence collection, data validation, and Markdown rendering. These are not part of the repository's daily commands; invoke the Skill to generate notes, then publish with `pnpm release:publish`.
-
-### Common Commands
-
-| Command                                                    | Description                                                                                                                                                       | Usage                                                                                                                                     |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm release:check [channel] [target] [version-action]`   | Freeze a plan and check the worktree, credentials, registry, dependencies, lint, formatting, types, tests, build, and package contents without release writes.    | Local pre-release check: `pnpm release:check`                                                                                             |
-| `pnpm release:pack [target]`                               | Generate local tarballs to inspect the actual published-package contents.                                                                                         | All packages: `pnpm release:pack`; single package: `pnpm release:pack vant`                                                               |
-| `pnpm release:publish [channel] [target] [version-action]` | Publish to a specified channel. All channels support `patch`, `minor`, `major`, or `x.y.z`; `current` is limited to `latest`. Targets can be `all` or `core,vue`. | Interactive: `pnpm release:publish`; stable: `pnpm release:publish latest vue patch`; public Beta: `pnpm release:publish beta core 1.0.0` |
-| `pnpm release:dry-run <channel> <target> <version-action>` | Calculate and display a frozen release plan without running quality checks, writing versions, publishing to npm, creating Git Tags, or creating GitHub Releases.  | `pnpm release:dry-run beta core 1.0.0`                                                                                                    |
-
-### Release Channels
-
-| Type     | Purpose                                            |
-| -------- | -------------------------------------------------- |
-| `latest` | Stable release                                     |
-| `dev`    | Daily development testing; unstable                |
-| `alpha`  | Internal preview; the API may change               |
-| `beta`   | External testing; functionality is mostly complete |
-| `rc`     | Release candidate                                  |
-| `next`   | Preview of the next version                        |
+- [core 使用说明](./packages/core)
+- [Vue 适配层说明](./packages/vue)
+- [Vant renderer 说明](./packages/vant)
+- [Vant 示例项目](./examples/vant)

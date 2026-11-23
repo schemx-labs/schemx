@@ -5,47 +5,37 @@
  */
 
 export {
-  isFieldSchema,
+  isBaseResolvedSchema,
+  isGroupResolvedSchema,
+  isDependencyResolvedSchema,
+  isBaseSchema,
   isGroupSchema,
   isDependencySchema,
-  isDynamicSchema,
-  isValidSchema,
-  getSchemaKind,
+  findSchema,
 } from "./schema"
 
-export {
-  getByPath,
-  setByPath,
-  collectObjectPathsByLeaf,
-  normalizeNamePath,
-  toNamePathSegments,
-  toStructuralPathSegments,
-  setInWithStructuralSharing,
-  deleteInWithStructuralSharing,
-  isDescendantFieldPath,
-  areSameOrOverlappingFieldPaths,
-  areOverlappingFieldPaths,
-  createFieldKey,
-  type FieldKey,
-  areNamePathListsEqual,
-  isFieldArrayDescendantAffected,
-  isFieldArrayDescendantOutOfRange,
-} from "./path"
+export { normalizeSchemas } from "./normalize"
 
-export { withLock } from "./async"
+export { getByPath, setByPath, collectObjectPathsByLeaf, normalizeNamePath } from "./path"
+
+export { withLock, waitAll } from "./async"
 
 export { diff } from "./diff"
+
+export { createStrictSingleton } from "./single"
+
+export {
+  resolveDynamicProp,
+  resolveDynamicProps,
+  resolveDynamicPropBatch,
+  type DynamicProp,
+  type DynamicPropEntry,
+  type DynamicPropEntries,
+} from "./dynamic"
 
 export {
   type TriggerConfig,
   type NormalizedTrigger,
   shouldValidateOn,
-  isFieldInteractive,
+  mergeTrigger,
 } from "./validation"
-
-export {
-  type DebounceEdge,
-  type DebouncedFnOptions,
-  type DebouncedFnControls,
-  createDebouncedFn,
-} from "./createDebouncedFn"
