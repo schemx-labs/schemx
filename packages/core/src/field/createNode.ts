@@ -74,6 +74,8 @@ export function createFieldNode<TValues extends Values>(
     viewSchemas: null,
     validationEffectScope: null,
     dependenciesEffectScope: null,
+    dictionary: createSignal(null),
+    dictionaryConfigPending: createSignal(false),
   }
 
   const inheritedPresentationState = createComputed(() => {

@@ -4,9 +4,11 @@
  * @module core/compiler/helper
  */
 
+import { normalizeSchemxDictionary } from "../dictionary/types"
 import { isDependencySchema, isGroupSchema, NormalizedTrigger } from "../utils"
 
 import type { SchemaCompilerOptions } from "./types"
+import type { SchemxDictionaryInput } from "../dictionary/types"
 import type {
   FieldRuntimeDiagnostics,
   FieldValidationState,
@@ -110,6 +112,13 @@ export function compileFieldSchema<TValues extends Values>(
     ...componentProps,
   } as SchemxComponentProps<TValues>
 
+  if (Object.hasOwn(mergedComponentProps, "dict")) {
+    throw new TypeError("[schemx] componentProps.dict 已移除，请将 dict 移至字段顶层。")
+  }
+
+  // 编译阶段先校验静态配置，避免无效 Schema 进入节点资源协调。
+  normalizeSchemxDictionary(rest.dict as SchemxDictionaryInput<TValues> | undefined)
+
   const mergedReadonly = rest.readonly
 
   const mergedPlaceholder = getPlaceholder<TValues>(schema, rendererComponentProps)
@@ -127,13 +136,16 @@ export function compileFieldSchema<TValues extends Values>(
     validationTrigger: normalizeTrigger(validationTrigger ?? "blur"),
   } as SchemxBaseField<TValues>
 
+  // 字典是节点资源配置，展示 Props 只保留字段元数据。
+  const { dict: _dict, ...formItemProps } = normalizedSchema
+
   normalizedSchema.componentProps = {
     ...mergedComponentProps,
     readonly: mergedReadonly,
     readonlyPlaceholder: mergedReadonlyPlaceholder,
     disabled: rest.disabled,
     placeholder: mergedPlaceholder,
-    formItemProps: { ...normalizedSchema },
+    formItemProps,
   } as SchemxComponentProps<TValues>
 
   return normalizedSchema

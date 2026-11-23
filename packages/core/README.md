@@ -105,6 +105,58 @@ const form = createForm({
 
 ViewSchema 在节点投影阶段一次生成最终 Props，只包含纯数据，不携带表单实例。同步读取和订阅复用同一投影，不再有额外的公开视图绑定层；未变化节点仍保持引用稳定性。需要调用表单 API 时，由框架层通过自身上下文提供实例（Vue 见 `useFormContextValue()`）。Compiler 的配置编译保持与 Form 实例独立。
 
+## 字段字典 API
+
+在普通字段顶层配置 `dict` 即可加载远程选项。Renderer 照常通过 `registerAll()` 注册。已声明的 Renderer Props 决定可用的数组属性和选项类型，表单值类型决定回调参数和依赖路径。
+
+```ts
+const schemas: SchemxField<{ province: string; city: string }>[] = [
+  {
+    name: "city",
+    label: "城市",
+    componentType: "select",
+    dict: {
+      api: async (values, _form, signal) => {
+        const rows = await fetchCities(values.province, signal)
+        return rows.map((row) => ({ label: row.name, value: row.code }))
+      },
+      dependsOn: ["province"],
+      shouldFetch: (values) => Boolean(values.province),
+      resetOnDepsChange: true,
+    },
+  },
+]
+```
+
+`dict: (values) => options` 是 API 简写。完整配置支持以下行为：
+
+| 配置                                   | 行为                                                                                                                                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `targetKey`                            | 注入选项的数组属性。运行时依次使用字段配置、Renderer 默认目标和 `options`。组件使用 `columns` 等属性时可显式指定。                                                                                       |
+| `api`、`formatter`、`keys`             | API 默认直接返回选项数组。可用 formatter 转换原始响应，或用 keys 映射后端数组的 `labelKey`、`valueKey`、`childrenKey`、`disabledKey`。同时声明时 formatter 优先。内联 formatter 的响应类型为 `unknown`。 |
+| `immediate`                            | 默认在节点挂载后的 post 阶段加载，隐藏字段和 SSR 节点也适用。设为 false 跳过首次请求，依赖变化仍会请求。                                                                                                 |
+| `dependsOn`、`shouldFetch`             | 依赖变化时取消旧请求并刷新。shouldFetch 返回 false 时跳过 API 并清空选项。                                                                                                                               |
+| `resetOnDepsChange`                    | 依赖变化时清空节点当前路径的值，适用于省份与城市联动。                                                                                                                                                   |
+| `retryCount`、`retryInterval`          | 默认不重试，配置额外尝试次数后，默认每次间隔 1000 毫秒。                                                                                                                                                 |
+| `onDepsChange`、`onSuccess`、`onError` | 分别在依赖变化、写入最终选项、请求最终失败时通知。回调收到 Core 表单实例。                                                                                                                               |
+
+`dependencies.dict` 可按 triggerFields 同步或异步返回新配置。返回 false 明确关闭字典，返回 undefined 或 null 回退到静态配置。字典开启时覆盖组件的目标属性和 loading，关闭后恢复基础 Props。依赖和请求配置不会进入渲染视图。
+
+Renderer 可以通过 `registerAll({ select: { component: SelectRenderer, dictionary: true } })` 声明默认目标 `options`，也可以用 `dictionary: { targetKey, keys }` 配置默认目标和字段映射。字典由字段的 `dict` 启用，字段的 `dict.targetKey` 和 `dict.keys` 优先。字段使用 `formatter` 时直接消费转换结果。
+
+TypeScript 从 Renderer Props 推导字段字典。Renderer 只声明 `columns` 时，在有类型约束的 Schema 上显式指定 `dict.targetKey: "columns"`。如果 `options` 和 `columns` 的选项类型不同，字段可以显式选用任一属性，Renderer 的默认目标需要兼容 `options` 的元素类型。
+
+| API                                 | 作用                                                               |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `getFieldDict(name)`                | 读取选项、状态、加载标记、错误和版本。缺省或关闭时返回 undefined。 |
+| `getFieldDictOptions(name)`         | 仅读取当前列表，缺省或关闭时返回稳定的空数组。                     |
+| `loadFieldDict(name)`               | 按需加载，复用成功结果或正在进行的请求。                           |
+| `refreshFieldDict(name)`            | 重新请求并覆盖当前选项，合并在途请求。                             |
+| `cancelFieldDict(name)`             | 取消请求，保留当前选项。                                           |
+| `setFieldDictOptions(name, action)` | 用数组或 updater 修改当前选项。后续刷新会覆盖本地修改。            |
+
+配置替换、关闭、节点卸载和表单销毁会释放旧资源。多个字段可并行加载，活动请求纳入 `waitForDependencies()`。旧写法的替换方式见 [迁移指南](./MIGRATION.md#5-字典配置迁至字段顶层)。
+
 ## 框架适配：直接消费 Core 原生状态
 
 `getFormAdapter(form)` 提供稳定的原生只读状态入口。values、touched、pending、config 和字段状态直接返回 Core 已有对象；loading 与 disposed 仅提供现有 Signal 的只读访问；ViewSchema 沿用原有视图读取和防抖订阅。获取入口或读取值不会提前建立订阅，也不创建框架容器、第二份状态或监听器分发层。

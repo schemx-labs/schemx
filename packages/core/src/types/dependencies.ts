@@ -17,6 +17,7 @@ import type {
   SchemxRendererKey,
   Values,
 } from "./index"
+import type { FieldDictionaryConfig } from "../dictionary/fieldConfig"
 
 /**
  * 条件函数类型
@@ -126,6 +127,7 @@ export interface SchemxFieldDependencies<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TKey extends string = SchemxRendererKey<TValues>,
+  TFormValues extends Values = TValues,
 >
   extends
     SchemxContainerDependencies<TValues>,
@@ -140,6 +142,15 @@ export interface SchemxFieldDependencies<
   componentProps?: SchemxConditionFn<
     TValues,
     NonNullable<SchemxBase<TValues, TName, TKey>["componentProps"]>
+  >
+
+  /**
+   * 动态替换字段字典。false 关闭，undefined 或 null 回退至静态配置。
+   * 回调读取完整表单值，动态行的 triggerFields 仍使用相对路径。
+   */
+  dict?: SchemxConditionFn<
+    TFormValues,
+    FieldDictionaryConfig<TFormValues, TKey> | null | undefined
   >
 
   /**

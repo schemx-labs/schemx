@@ -6,6 +6,7 @@
  * @module core/field/resources
  */
 
+import { mountFieldDictionary } from "../dictionary"
 import { areNamePathListsEqual, createFieldKey } from "../utils"
 
 import { createFieldDependenciesEffect, createValidationEffect } from "./index"
@@ -36,6 +37,7 @@ export function mountFieldResources<TValues extends Values>(
   context.store.registerFieldPath(node.name.peek())
   applyFieldInitialValue(node, context)
   recreateFieldEffects(node, context)
+  mountFieldDictionary(node, context)
 }
 
 /**
@@ -80,6 +82,13 @@ export function updateFieldResources<TValues extends Values>(
       nextDependencies.triggerFields.length === 0
     ) {
       node.dependencyOverrides.value = {}
+    }
+
+    // 新依赖配置移除了动态 dict 时立即恢复静态字典。
+    if (previousDependencies?.dict && !nextDependencies?.dict) {
+      const { dict: _dict, ...overrides } = node.dependencyOverrides.peek()
+
+      node.dependencyOverrides.value = overrides
     }
 
     recreateDependenciesEffect(node, context)

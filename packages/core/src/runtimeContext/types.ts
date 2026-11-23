@@ -8,6 +8,7 @@
  */
 
 import type { DynamicRowState, NodeId, NodeManager } from "../node"
+import type { RendererDictionaryDescriptor } from "../registry"
 import type { Scheduler } from "../scheduler"
 import type { Store } from "../store"
 import type {
@@ -15,6 +16,7 @@ import type {
   SchemxFieldRulesMap,
   SchemxFormApi,
   SchemxInstance,
+  SchemxRendererKey,
   Values,
 } from "../types"
 import type { Validator } from "../validator"
@@ -126,6 +128,10 @@ export interface FormRuntimeContext<TValues extends Values = Values> {
    * @example const form = context.getInstance()
    */
   getInstance(): SchemxInstance<TValues>
+  /** 读取指定 Renderer 的字典默认配置。 */
+  getRendererDictionary?(
+    type: SchemxRendererKey<TValues>
+  ): RendererDictionaryDescriptor | undefined
   /**
    * 是否启用 Runtime diagnostics。
    */

@@ -77,3 +77,25 @@ void dynamicSchema
 void invalidRelativeDependency
 void invalidNestedDynamic
 form.destroy()
+
+// 字典读取完整表单快照，字段名仍使用当前行的相对路径。
+const rowDictionary: SchemxDynamicItemSchema<User, FormValues> = {
+  name: "idCard",
+  label: "证件类型",
+  componentType: "select",
+  dict: {
+    dependsOn: ["settings.country"],
+    api: (values) => {
+      // @ts-expect-error 行字段不在表单根上。
+      void values.idCard
+
+      return [values.settings.country]
+    },
+  },
+  dependencies: {
+    triggerFields: ["idCard"],
+    dict: (values) => (values.settings.country === "CN" ? undefined : false),
+  },
+}
+
+void rowDictionary

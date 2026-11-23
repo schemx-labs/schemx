@@ -1,5 +1,5 @@
-import type { RendererRegistry } from "../registry"
-import type { SchemxInstance, Values } from "../types"
+import type { RegistryOptions, RendererRegistry } from "../registry"
+import type { SchemxInstance, SchemxRendererKey, Values } from "../types"
 
 /**
  * Renderer 注册表的公开操作。
@@ -26,9 +26,9 @@ export function createFormRenderer<TValues extends Values>(
 
   // unknown 已包含描述符，注册操作统一委托 Registry。
   const registerRenderer: SchemxInstance<TValues>["registerRenderer"] = (
-    type,
-    renderer,
-    registryOptions
+    type: SchemxRendererKey<TValues>,
+    renderer: unknown,
+    registryOptions?: RegistryOptions
   ) => {
     rendererRegistry.register(type, renderer, registryOptions)
   }

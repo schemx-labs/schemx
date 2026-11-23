@@ -22,6 +22,7 @@ import type {
   ValidationTrigger,
   Values,
 } from "./index"
+import type { FieldDictionaryConfig } from "../dictionary/fieldConfig"
 
 /**
  * 自定义 Schema 基础字段扩展接口
@@ -53,12 +54,15 @@ export interface SchemxFieldDefinition<TValues extends Values = Values> {}
  * 描述单个表单字段的完整配置，包括组件类型、校验规则、动态属性等。
  *
  * @typeParam  TValues - 表单值类型
- * @typeParam  TKey - 组件类型键，用于收窄 componentProps 类型
+ * @typeParam TName - 字段路径。
+ * @typeParam TKey - 组件类型键，用于收窄组件配置。
+ * @typeParam TFormValues - 完整表单值；动态行可使用相对字段路径。
  */
 export interface SchemxBase<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
   TKey extends string = SchemxRendererKey<TValues>,
+  TFormValues extends Values = TValues,
 > extends SchemxFieldDefinition<TValues> {
   /**
    * 唯一标识字段配置的键，供框架层使用，业务方无需设置
@@ -101,7 +105,7 @@ export interface SchemxBase<
    * 声明 {@link SchemxFieldDependencies.triggerFields | triggerFields} 和各属性的条件函数，
    * 当任一触发字段变化时执行已配置的条件函数，覆盖对应的静态默认值。
    */
-  dependencies?: SchemxFieldDependencies<TValues, TName, TKey>
+  dependencies?: SchemxFieldDependencies<TValues, TName, TKey, TFormValues>
 
   /**
    * 传递给渲染组件的属性（静态默认值）
@@ -109,6 +113,11 @@ export interface SchemxBase<
    * 类型根据 `componentType` 自动收窄为对应组件的 Props 类型。
    */
   componentProps?: SchemxComponentProps<TValues, TKey>
+
+  /**
+   * 字段的远程选项来源；false 显式关闭字典。
+   */
+  dict?: FieldDictionaryConfig<TFormValues, TKey>
 
   /**
    * 在当前 schema 被删除时保留字段值，默认值 true
@@ -220,18 +229,21 @@ export interface SchemxBase<
  *
  * @typeParam TValues - 表单值类型。
  * @typeParam TName - 当前字段路径类型。
+ * @typeParam TFormValues - 字典回调收到的完整表单值。
  * @internal
  */
 export type SchemxBaseFieldByName<
   TValues extends Values,
   TName extends NamePath<TValues>,
+  TFormValues extends Values = TValues,
 > = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
-  ? SchemxBase<TValues, TName, string>
+  ? SchemxBase<TValues, TName, string, TFormValues>
   : {
       [TKey in Extract<keyof SchemxRendererDefinition<TValues>, string>]: SchemxBase<
         TValues,
         TName,
-        TKey
+        TKey,
+        TFormValues
       >
     }[Extract<keyof SchemxRendererDefinition<TValues>, string>]
 
@@ -239,9 +251,14 @@ export type SchemxBaseFieldByName<
  * 精确基础字段类型。
  *
  * 同时关联字段名、字段值与 Renderer Props，适用于单字段配置和类型校验。
+ * @typeParam TValues - 字段路径所在的值作用域。
+ * @typeParam TFormValues - 完整表单值。
  */
-export type SchemxExactBaseField<TValues extends Values = Values> = {
-  [TName in NamePath<TValues>]: SchemxBaseFieldByName<TValues, TName>
+export type SchemxExactBaseField<
+  TValues extends Values = Values,
+  TFormValues extends Values = TValues,
+> = {
+  [TName in NamePath<TValues>]: SchemxBaseFieldByName<TValues, TName, TFormValues>
 }[NamePath<TValues>]
 
 /**

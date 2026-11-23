@@ -49,7 +49,7 @@ describe("getSchemaKind", () => {
   })
 
   it("children 优先于其他结构属性识别为 Group", () => {
-    expect(getSchemaKind({ ...baseField, children: [] })).toBe("group")
+    expect(getSchemaKind({ ...baseField, dict: undefined, children: [] })).toBe("group")
     expect(getSchemaKind({ ...dependencyField, label: "依赖分组", children: [] })).toBe(
       "group"
     )

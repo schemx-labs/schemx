@@ -32,6 +32,7 @@ import type { Values } from "../types"
  */
 export const FIELD_DEPENDENCY_OVERRIDE_KEYS = [
   "componentProps",
+  "dict",
   "placeholder",
   "required",
   "readonly",
@@ -111,6 +112,15 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
     return
   }
 
+  // 只有动态计算字典的字段需要推迟启动请求。
+  const hasDynamicDictionary = dependencies.dict != null
+
+  if (hasDynamicDictionary) {
+    scope.add(() => {
+      node.dictionaryConfigPending.value = false
+    })
+  }
+
   createDependencySchedulerEffect<
     TValues,
     FieldDependencyOverrides<TValues> & Record<string, unknown>
@@ -126,6 +136,16 @@ export function createFieldDependenciesEffect<TValues extends Values = Values>(
         createGuardedFormApi(context.formApi, signal),
         `字段 "${String(node.name.value)}"`
       ),
+    onStart: hasDynamicDictionary
+      ? () => {
+          node.dictionaryConfigPending.value = true
+        }
+      : undefined,
+    onSettled: hasDynamicDictionary
+      ? () => {
+          node.dictionaryConfigPending.value = false
+        }
+      : undefined,
     onSuccess: (dependencyOverrides) => {
       node.dependencyOverrides.value = dependencyOverrides
       updateFieldDiagnostics(node, {

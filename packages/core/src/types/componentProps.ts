@@ -7,7 +7,9 @@
  */
 
 import type {
+  NamePath,
   SchemxBase,
+  SchemxFieldDependencies,
   SchemxRendererDefinition,
   SchemxRendererKey,
   Values,
@@ -15,9 +17,22 @@ import type {
 
 /** Field 组件的展示 Props；由 Vue 等 UI 适配层消费。 */
 export type SchemxFormItemProps<TValues extends Values = Values> = Omit<
-  SchemxBase<TValues>,
-  "componentProps"
->
+  SchemxBase<TValues, NamePath<TValues>, string>,
+  "componentProps" | "dict" | "componentType" | "dependencies"
+> & {
+  /**
+   * Renderer key 保留原有约束，避免公共 Props 的默认泛型递归依赖注册表。
+   */
+  componentType: SchemxRendererKey<TValues>
+  /**
+   * 动态 Props 同样保留已注册 Renderer 的约束。
+   */
+  dependencies?: SchemxFieldDependencies<
+    TValues,
+    NamePath<TValues>,
+    SchemxRendererKey<TValues>
+  >
+}
 
 /**
  * Core 自身使用的轻量 Renderer 公共 Props。
@@ -77,11 +92,13 @@ export interface SchemxComponentPropsDefinition<TValues extends Values = Values>
 export type SchemxComponentProps<
   TValues extends Values = Values,
   TKey extends string = SchemxRendererKey<TValues>,
-> = [Extract<keyof SchemxRendererDefinition<TValues>, string>] extends [never]
+> = { dict?: never } & ([
+  Extract<keyof SchemxRendererDefinition<TValues>, string>,
+] extends [never]
   ? SchemxBaseComponentProps<TValues>
   : TKey extends keyof SchemxRendererDefinition<TValues>
     ? SchemxBaseComponentProps<TValues> & SchemxRendererDefinition<TValues>[TKey]
-    : SchemxBaseComponentProps<TValues>
+    : SchemxBaseComponentProps<TValues>)
 
 /**
  * 按 Renderer 类型配置的静态默认 Props。

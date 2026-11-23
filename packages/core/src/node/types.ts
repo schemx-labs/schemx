@@ -9,6 +9,7 @@
  */
 
 import type { DependencyRendererEffect } from "../dependencies"
+import type { FieldDictionaryChannel } from "../dictionary/types"
 import type { ComputedSignal, Signal } from "../reactivity"
 import type {
   FieldRules,
@@ -123,6 +124,7 @@ export type PresentationDependencyOverrides = Partial<PresentationState>
  */
 export type FieldDependencyOverrideKey =
   | "componentProps"
+  | "dict"
   | "placeholder"
   | "readonlyPlaceholder"
   | "required"
@@ -412,6 +414,18 @@ export interface FieldNode<TValues extends Values = Values> extends BaseNode<TVa
    * 仅管理字段 dependencies effect 的独立资源作用域。
    */
   dependenciesEffectScope: Scope | null
+
+  /**
+   * 字段字典运行态；未配置或关闭字典时为 null。
+   *
+   * 生命周期与节点一致：字段改名、数组行移动后自动跟随，卸载时释放。
+   */
+  readonly dictionary: Signal<FieldDictionaryChannel | null>
+
+  /**
+   * 动态 dict 正在求值，首次自动加载需等待该轮配置生效。
+   */
+  readonly dictionaryConfigPending: Signal<boolean>
 }
 
 /**

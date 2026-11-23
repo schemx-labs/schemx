@@ -11,6 +11,7 @@ import { setFormStateAdapterContext } from "./adapter/formStateAdapter/context"
 import { createSchemaCompiler } from "./compiler"
 import { createFormConfig } from "./config"
 import { createSchemas, isSchemxSchemas } from "./createSchemas"
+import { createFormDictionary } from "./form/dictionary"
 import { createFormObserver } from "./form/observer"
 import { createFormRenderer } from "./form/renderer"
 import { createFormSchemas } from "./form/schemas"
@@ -223,6 +224,8 @@ export function createFormWithSnapshot<TValues extends Values>(
         return configuration.getConfig().debug
       },
       getInstance,
+      getRendererDictionary: (type) =>
+        effectiveConfig.rendererRegistry.getEntry(type)?.dictionary,
       fieldRules: options.fieldRules ?? {},
       store,
       validator: validation.validator,
@@ -267,11 +270,15 @@ export function createFormWithSnapshot<TValues extends Values>(
       configuration,
     })
 
+    // 字典方法按路径解析字段节点，不持有字段身份。
+    const dictionary = createFormDictionary<TValues>({ nodeManager, isDisposed })
+
     // 实例仅组合各域明确提供的公开 API。
     const instance: SchemxInstance<TValues> = {
       ...storeDomain.api,
       ...validation.api,
       ...schemasDomain.api,
+      ...dictionary,
       ...renderer,
       ...validation.rulesApi,
       effect,

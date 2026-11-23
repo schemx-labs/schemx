@@ -10,12 +10,13 @@ export { type RegistryOptions } from "./types"
 
 export {
   createRendererRegistry,
-  type RendererRegistry,
   type RendererDescriptor,
+  type RendererDictionaryDescriptor,
   type RendererEntry,
   type RendererMap,
   type RendererPropsTransformer,
   type RendererRegistration,
+  type RendererRegistry,
   type RendererTransformContext,
 } from "./rendererRegistry"
 

@@ -56,7 +56,23 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
 
       const diagnostics = node.diagnostics?.value
 
-      const { dependencies: _dependencies, ...viewBaseSchema } = compiledSchema
+      const {
+        dependencies: _dependencies,
+        dict: _dict,
+        ...viewBaseSchema
+      } = compiledSchema
+
+      // 直接读取字段节点自己的字典资源。
+      const dictionary = node.dictionary.value
+
+      // 字典快照中的选项和加载态覆盖当前展示 Props。
+      const componentProps = dictionary
+        ? {
+            ...resolvedSchema.componentProps,
+            [dictionary.targetKey]: dictionary.options(),
+            loading: dictionary.isLoading(),
+          }
+        : resolvedSchema.componentProps
 
       // 依赖诊断仅在存在记录时附加，保留未执行依赖时的字段形状。
       const dependencyDiagnostics =
@@ -73,6 +89,7 @@ export function attachNodeViewSchemas<TValues extends Values = Values>(
         {
           ...viewBaseSchema,
           ...resolvedSchema,
+          componentProps,
           nodeId: node.id,
           ...(debug
             ? {

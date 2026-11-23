@@ -66,7 +66,12 @@
  * ```
  */
 
+import { resolveDictionaryTarget } from "../dictionary/target"
+import { createSignal } from "../reactivity"
+
 import type { RegistryOptions } from "./index"
+import type { RendererDictionaryTarget } from "../dictionary/fieldConfig"
+import type { DictionaryKeyMap } from "../dictionary/types"
 import type {
   SchemxComponentProps,
   SchemxInstance,
@@ -118,7 +123,18 @@ export type RendererPropsTransformer<
 ) => Record<string, unknown>
 
 /**
- * 带 Props 转换器的 Renderer 注册描述。
+ * Renderer 为字段字典提供的默认配置。
+ * @typeParam TTarget - 接收字典选项的数组属性名。
+ */
+export interface RendererDictionaryDescriptor<TTarget extends string = string> {
+  /** 接收选项数组的默认 Renderer 属性。 */
+  readonly targetKey: TTarget
+  /** 未配置 formatter 时使用的默认选项字段映射。 */
+  readonly keys?: DictionaryKeyMap
+}
+
+/**
+ * Renderer 注册描述，可提供 Props 转换器与字典默认配置。
  *
  * @typeParam TRenderer - UI 框架 Renderer 组件类型。
  * @typeParam TValues - 表单值对象类型。
@@ -132,8 +148,26 @@ export interface RendererDescriptor<
   /** 实际渲染的 UI 组件。 */
   component: TRenderer
   /** 返回最终传给组件的 Props。 */
-  transformProps: RendererPropsTransformer<TValues, TKey>
+  transformProps?: RendererPropsTransformer<TValues, TKey>
+  /**
+   * 字段字典的默认配置；true 使用 options 作为默认目标。
+   */
+  dictionary?:
+    | RendererDictionaryDescriptor<RendererDictionaryTarget<TValues, TKey>>
+    | ("options" extends RendererDictionaryTarget<TValues, TKey> ? true : never)
 }
+
+/**
+ * 带 dictionary 的输入交由描述对象重载校验，组件可直接注册。
+ * @typeParam TRenderer - Renderer 注册输入。
+ * @internal
+ */
+export type RendererComponentOnly<TRenderer> = TRenderer extends {
+  component: unknown
+  dictionary: unknown
+}
+  ? never
+  : TRenderer
 
 /**
  * Renderer 注册输入：直接传组件或传入带 Props 转换器的描述对象。
@@ -164,6 +198,8 @@ export interface RendererEntry<
   readonly component: TRenderer
   /** 返回最终传给组件的 Props；直接注册组件时为空。 */
   readonly transformProps?: RendererPropsTransformer<TValues, TKey>
+  /** 规范化后的字段字典默认配置。 */
+  readonly dictionary?: RendererDictionaryDescriptor
 }
 
 /**
@@ -194,6 +230,9 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    */
   private renderers: Map<SchemxRendererKey<TValues>, RendererEntry<unknown, TValues>>
 
+  /** 让消费 Renderer 配置的字段跟随注册表更新。 */
+  private readonly revision = createSignal(0)
+
   /**
    * 未找到匹配渲染器时使用的回退类型。
    */
@@ -210,13 +249,13 @@ class RendererRegistryImpl<TValues extends Values = Values> {
   }
 
   /**
-   * 注册带 Props 转换器的 Renderer。
+   * 注册带 Props 转换器或字典默认配置的 Renderer。
    *
    * 默认覆盖同名项；可通过 `options.override` 禁止覆盖。
    *
    * @typeParam TKey - 当前 Renderer key 类型。
    * @param type - Renderer 类型标识。
-   * @param renderer - 组件与同步 Props 转换器。
+   * @param renderer - 组件与其可选的注册配置。
    * @param options - 同名项的覆盖策略。
    *
    * @example
@@ -247,9 +286,9 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * registry.register("input", InputRenderer)
    * ```
    */
-  register(
+  register<TRenderer>(
     type: SchemxRendererKey<TValues>,
-    renderer: unknown,
+    renderer: TRenderer & RendererComponentOnly<TRenderer>,
     options?: RegistryOptions
   ): void
 
@@ -270,10 +309,11 @@ class RendererRegistryImpl<TValues extends Values = Values> {
         renderer as RendererRegistration<unknown, TValues, SchemxRendererKey<TValues>>
       )
     )
+    this.revision.value = this.revision.peek() + 1
   }
 
   /**
-   * 批量注册带 Props 转换器的 Renderer。
+   * 批量注册带 Props 转换器或字典默认配置的 Renderer。
    *
    * 同名项会被覆盖。
    *
@@ -311,17 +351,34 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * })
    * ```
    */
-  registerAll(renderers: RendererMap<TValues>): void
+  registerAll<TRenderers extends RendererMap<TValues>>(
+    renderers: TRenderers & {
+      [TKey in keyof TRenderers]: TKey extends SchemxRendererKey<TValues>
+        ? | RendererComponentOnly<TRenderers[TKey]>
+          | RendererDescriptor<unknown, TValues, TKey>
+        : TRenderers[TKey]
+    }
+  ): void
 
   registerAll(renderers: Record<string, unknown>): void {
-    Object.entries(renderers).forEach(([type, renderer]) => {
-      this.renderers.set(
-        type as SchemxRendererKey<TValues>,
-        normalizeRenderer<unknown, TValues, SchemxRendererKey<TValues>>(
-          renderer as RendererRegistration<unknown, TValues, SchemxRendererKey<TValues>>
-        )
-      )
-    })
+    // 完成整批校验后一次性发布注册结果。
+    const entries = Object.entries(renderers).map(
+      ([type, renderer]) =>
+        [
+          type as SchemxRendererKey<TValues>,
+          normalizeRenderer<unknown, TValues, SchemxRendererKey<TValues>>(
+            renderer as RendererRegistration<unknown, TValues, SchemxRendererKey<TValues>>
+          ),
+        ] as const
+    )
+
+    for (const [type, entry] of entries) {
+      this.renderers.set(type, entry)
+    }
+
+    if (entries.length > 0) {
+      this.revision.value = this.revision.peek() + 1
+    }
   }
 
   /**
@@ -349,7 +406,7 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    *
    * @typeParam TKey - 查询的 Renderer key 类型。
    * @param type - 渲染器类型标识
-   * @returns Renderer 组件及可选的 Props 转换器
+   * @returns Renderer 组件、可选的 Props 转换器与字典默认配置。
    *
    * @example
    * ```ts
@@ -359,6 +416,9 @@ class RendererRegistryImpl<TValues extends Values = Values> {
   getEntry<TKey extends SchemxRendererKey<TValues>>(
     type: TKey
   ): RendererEntry<unknown, TValues, TKey> | undefined {
+    // 让观察该条目的字段感知注册、替换与移除。
+    void this.revision.value
+
     return this.renderers.get(type) as RendererEntry<unknown, TValues, TKey> | undefined
   }
 
@@ -452,6 +512,10 @@ class RendererRegistryImpl<TValues extends Values = Values> {
       }
     }
 
+    if (deleted) {
+      this.revision.value = this.revision.peek() + 1
+    }
+
     return deleted
   }
 
@@ -517,8 +581,14 @@ class RendererRegistryImpl<TValues extends Values = Values> {
    * ```
    */
   clear(): void {
+    const hadEntries = this.renderers.size > 0
+
     this.renderers.clear()
     this.fallbackType = undefined
+
+    if (hadEntries) {
+      this.revision.value = this.revision.peek() + 1
+    }
   }
 
   /**
@@ -573,7 +643,7 @@ export function createRendererRegistry<TValues extends Values = Values>(
 }
 
 /**
- * 判断注册输入是否为带 Props 转换器的描述对象。
+ * 判断注册输入是否为带附加配置的描述对象。
  *
  * @param renderer - Renderer 注册输入。
  * @returns 是否为 Renderer 描述对象。
@@ -587,7 +657,11 @@ function isRendererDescriptor<TRenderer, TValues extends Values, TKey extends st
 
   const candidate = renderer as Record<string, unknown>
 
-  return "component" in candidate && typeof candidate.transformProps === "function"
+  return (
+    "component" in candidate &&
+    (typeof candidate.transformProps === "function" ||
+      Object.hasOwn(candidate, "dictionary"))
+  )
 }
 
 /**
@@ -600,9 +674,26 @@ function normalizeRenderer<TRenderer, TValues extends Values, TKey extends strin
   renderer: RendererRegistration<TRenderer, TValues, TKey>
 ): RendererEntry<TRenderer, TValues, TKey> {
   if (isRendererDescriptor(renderer)) {
+    const { component, transformProps, dictionary } = renderer
+
+    if (dictionary === undefined) {
+      return { component, transformProps }
+    }
+
+    if (dictionary !== true && (dictionary === null || typeof dictionary !== "object")) {
+      throw new TypeError("[schemx] Renderer dictionary 必须为 true 或字典默认配置对象。")
+    }
+
     return {
-      component: renderer.component,
-      transformProps: renderer.transformProps,
+      component,
+      transformProps,
+      dictionary:
+        dictionary === true
+          ? { targetKey: resolveDictionaryTarget(undefined) }
+          : {
+              targetKey: resolveDictionaryTarget(dictionary.targetKey),
+              keys: dictionary.keys,
+            },
     }
   }
 

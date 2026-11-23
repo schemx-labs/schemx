@@ -70,11 +70,11 @@ export interface SchemxViewDebugMeta {
  * 字段 ViewSchema。
  *
  * 字段项保持 SchemxField 的扁平格式，动态依赖结果已经合并为静态值。
- * Omit 掉 "key" 和 "dependencies" 后由运行时节点重新注入运行时字段。
+ * 视图移除字典与依赖配置，再注入运行时字段。
  */
 export type SchemxViewFieldSchema<TValues extends Values = Values> = DistributiveOmit<
   SchemxBaseField<TValues>,
-  "key" | "dependencies"
+  "key" | "dependencies" | "dict"
 > & {
   /**
    * 运行时节点 key，形如 "field:name"

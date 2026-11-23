@@ -19,11 +19,17 @@ import type {
 } from "./index"
 import type { FormConfig } from "../config/createFormConfig"
 import type {
+  FieldDictionaryOptionsAction,
+  FieldDictionaryResult,
+  FieldDictionarySnapshot,
+} from "../dictionary/types"
+import type {
   PresetRuleEntry,
   RegistryOptions,
   RendererDescriptor,
   RendererEntry,
 } from "../registry"
+import type { RendererComponentOnly } from "../registry/rendererRegistry"
 import type { StorePending } from "../store"
 import type { ValidationResult } from "../validator"
 import type { SchemxViewSchema } from "../view"
@@ -682,7 +688,7 @@ export type SchemxInstance<TValues extends Values = Values> = {
    * 获取指定类型的规范化 Renderer 条目。
    *
    * 与 `getRenderer` 一样在未命中时使用 Registry fallback；除组件外，条目还包含
-   * 可选的 `transformProps`。
+   * 可选的 `transformProps` 与字典默认配置。
    *
    * @param type - 渲染器类型标识
    * @returns Renderer 条目，未找到时返回 undefined
@@ -711,9 +717,9 @@ export type SchemxInstance<TValues extends Values = Values> = {
       renderer: RendererDescriptor<unknown, TValues, TKey>,
       options?: RegistryOptions
     ): void
-    <TKey extends SchemxRendererKey<TValues>>(
+    <TKey extends SchemxRendererKey<TValues>, TRenderer = unknown>(
       type: TKey,
-      renderer: unknown,
+      renderer: TRenderer & RendererComponentOnly<TRenderer>,
       options?: RegistryOptions
     ): void
   }
@@ -833,6 +839,86 @@ export type SchemxInstance<TValues extends Values = Values> = {
    * @param names - 要移除规则的字段路径数组
    */
   removeFieldsRules(names: readonly NamePath<TValues>[]): void
+
+  /**
+   * 获取字段字典的当前选项与请求状态。
+   *
+   * 仅配置了有效 dict 的字段持有字典运行态；其余字段返回 undefined。
+   * 在 effect 中读取时追踪选项、状态与版本变化。
+   *
+   * @typeParam TName - 表单值中合法的字段路径。
+   * @param name - 字段路径。
+   * @returns 包含 options、status、loading、error、version 的快照。
+   * @example form.getFieldDict("city")?.status
+   */
+  getFieldDict<TName extends NamePath<TValues>>(
+    name: TName
+  ): FieldDictionarySnapshot | undefined
+
+  /**
+   * 按需加载字典，成功后复用当前选项，加载中等待当前请求。
+   *
+   * Core 默认在字段节点挂载后的 post 阶段自动加载，隐藏字段和 SSR 也遵循此规则。
+   * dict.immediate 为 false 时可用此方法主动加载。
+   *
+   * @typeParam TName - 表单值中合法的字段路径。
+   * @param name - 字段路径。
+   * @returns 可判别结果；字段未参与字典时返回 unregistered。
+   * @example await form.loadFieldDict("city")
+   */
+  loadFieldDict<TName extends NamePath<TValues>>(
+    name: TName
+  ): Promise<FieldDictionaryResult>
+
+  /**
+   * 重新请求字段字典，成功后整体覆盖当前选项及其本地修改。
+   *
+   * 同字段未完成请求合并为同一个 Promise；需要中止旧请求时先调用 cancelFieldDict。
+   * 失败时清空选项并记录错误。固定选项应在 dict.formatter 中合并。
+   *
+   * @typeParam TName - 表单值中合法的字段路径。
+   * @param name - 字段路径。
+   * @returns 可判别结果。
+   * @example await form.refreshFieldDict("city")
+   */
+  refreshFieldDict<TName extends NamePath<TValues>>(
+    name: TName
+  ): Promise<FieldDictionaryResult>
+
+  /**
+   * 中止字段字典的在途请求，保留当前选项，阻止过期响应写入。
+   *
+   * @param name - 字段路径。
+   * @example form.cancelFieldDict("city")
+   */
+  cancelFieldDict(name: NamePath<TValues>): void
+
+  /**
+   * 只读取字段当前的字典选项。
+   *
+   * @typeParam TName - 表单值中合法的字段路径。
+   * @param name - 字段路径。
+   * @returns 当前选项；未参与字典时返回稳定的空数组。
+   * @example form.getFieldDictOptions("city")
+   */
+  getFieldDictOptions<TName extends NamePath<TValues>>(name: TName): readonly unknown[]
+
+  /**
+   * 同步替换当前字典选项，支持 updater，不触发或中止请求。
+   *
+   * 后续请求成功时以远端结果为准，本地替换、追加、插入与排序不会跨刷新保留。
+   * 本地修改不递增请求版本号。
+   *
+   * @param name - 字段路径。
+   * @param action - 新列表或根据当前只读列表返回新列表的函数，不应修改输入。
+   * @returns 是否命中已参与字典的字段。
+   * @example form.setFieldDictOptions("city", [])
+   * @example form.setFieldDictOptions("city", (options) => [...options, { label: "绍兴", value: "SX" }])
+   */
+  setFieldDictOptions(
+    name: NamePath<TValues>,
+    action: FieldDictionaryOptionsAction
+  ): boolean
 
   /**
    * 销毁表单实例

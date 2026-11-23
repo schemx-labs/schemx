@@ -149,7 +149,7 @@ export type SchemxDynamicItemSchema<
   TItem extends Values,
   TValues extends Values = TItem,
 > =
-  | SchemxExactBaseField<TItem>
+  | SchemxExactBaseField<TItem, TValues>
   | SchemxDynamicItemGroup<TItem, TValues>
   | SchemxDynamicItemDependency<TItem, TValues>
 
@@ -296,6 +296,8 @@ export interface SchemxDynamicField<
    */
   key: string
 
+  /** 字典只允许配置在普通字段上。 */
+  dict?: never
   /**
    * 对应 values 中的数组路径。
    */

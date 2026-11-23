@@ -4,6 +4,9 @@
  * @module core/dependencies/resolveDependencyOverrides
  */
 
+import { normalizeSchemxDictionary } from "../dictionary/types"
+
+import type { SchemxDictionaryInput } from "../dictionary/types"
 import type { NamePath, SchemxConditionFn, SchemxFormApi, Values } from "../types"
 
 /**
@@ -69,6 +72,10 @@ export async function resolveDependencyOverrides<
           try {
             // 当前属性在本次快照下的解析结果。
             const value = await condition(values, formApi)
+
+            if (key === "dict" && value != null) {
+              normalizeSchemxDictionary(value as SchemxDictionaryInput<TValues>)
+            }
 
             return [key, value] as const
           } catch (error) {

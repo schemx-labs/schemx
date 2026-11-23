@@ -81,6 +81,8 @@ export function createFieldNode<TValues extends Values = Values>(
     viewSchemas: null,
     validationEffectScope: null,
     dependenciesEffectScope: null,
+    dictionary: createSignal(null),
+    dictionaryConfigPending: createSignal(false),
   }
 
   return node

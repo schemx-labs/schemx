@@ -20,6 +20,7 @@ export type {
   PresetRuleRegistryListener,
   RegistryOptions,
   RendererDescriptor,
+  RendererDictionaryDescriptor,
   RendererEntry,
   RendererMap,
   RendererPropsTransformer,
@@ -48,6 +49,20 @@ export {
 
 export { getFormAdapter } from "./adapter/formAdapter"
 export type { FormAdapter } from "./adapter/formAdapter"
+
+export { isSchemxDictionary, normalizeSchemxDictionary } from "./dictionary"
+
+export type {
+  DictionaryKeyMap,
+  FieldDictionaryChannel,
+  FieldDictionaryFailureReason,
+  FieldDictionaryOptionsAction,
+  FieldDictionaryResult,
+  FieldDictionarySnapshot,
+  FieldDictionaryStatus,
+  SchemxDictionary,
+  SchemxDictionaryInput,
+} from "./dictionary"
 
 export { getFormCreationConfig, type FormCreationSnapshot } from "./adapter"
 

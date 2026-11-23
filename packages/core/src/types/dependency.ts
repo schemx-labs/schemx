@@ -46,6 +46,8 @@ export interface SchemxDependencyField<
    * Raw Schema 不包含该字段，也不会被原地修改。
    */
   key?: string
+  /** 字典只允许配置在普通字段上。 */
+  dict?: never
   /**
    * 依赖的字段路径
    */

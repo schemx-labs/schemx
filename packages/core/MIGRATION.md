@@ -124,6 +124,32 @@ declare module "@schemx/core" {
 
 Vue 已提供值与事件的声明及运行时绑定，通常无需业务方重复声明。
 
+## 5. 字典配置迁至字段顶层
+
+把 `componentProps.dict` 或 `rendererProps[type].dict` 移到相应字段的 `dict`。多个字段可以引用同一份配置对象。
+
+需要随表单值启停或替换字典时，使用 `dependencies.dict`。返回 `false` 可关闭字典。
+
+Renderer 可直接注册组件，也可在注册描述的 `dictionary` 中提供 `targetKey` 和 `keys` 作为默认配置。单个字段可以在 `dict` 中覆盖这些默认值。
+
+```ts
+registry.registerAll({ select: SelectRenderer })
+
+const city: SchemxField<AddressValues> = {
+  name: "city",
+  label: "城市",
+  componentType: "select",
+  dict: {
+    api: (values) => fetchCities(values.province),
+    dependsOn: ["province"],
+  },
+}
+```
+
+组件依旧从 Props 接收选项和 loading。手动触发、刷新和设置选项分别使用 `form.loadFieldDict(name)`、`form.refreshFieldDict(name)` 和 `form.setFieldDictOptions(name, action)`。旧 Hook 和 HOC 已移除。字典回调收到 Core 实例，Vue 专属方法通过 Vue 层的 Form Context 使用。
+
+自定义 Renderer 的类型仍在 `SchemxRendererDefinition` 中登记普通 Props。移除 `defineRenderers`、`SchemaFor`、`RendererPropsFor` 或 `SchemxWithDictionary` 后，Schema 使用 `SchemxField<TValues>[]`。
+
 ## 发布前检查
 
 - 将这批移除随 2.0 主版本发布；不要以当前 1.x 版本号发布。
