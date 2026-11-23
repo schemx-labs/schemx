@@ -8,6 +8,31 @@ import { ElementPlusRow } from "../layout/defaultRow"
 import { DEFAULT_RENDERER_TYPES } from "../renderers"
 
 describe("@schemx/element-plus 根入口", () => {
+  test("默认 Registry 直接注册原始组件", () => {
+    expect(rendererRegistry.getEntry("radio")?.component).toBe(
+      elementPlusPackage.RadioRenderer
+    )
+  })
+  test("内置 Renderer 通过普通注册接收 Core 字典选项", async () => {
+    // 本包内置字段使用自己的 Registry 和原始组件。
+    const form = elementPlusPackage.createForm({
+      initialValues: { city: "" },
+      schemas: [
+        {
+          name: "city",
+          label: "城市",
+          componentType: "select",
+          dict: () => [{ label: "杭州", value: "HZ" }],
+        },
+      ],
+    })
+
+    await form.waitForDependencies()
+    expect(form.getViewSchemas()[0]).toMatchObject({
+      componentProps: { options: [{ label: "杭州", value: "HZ" }], loading: false },
+    })
+    form.destroy()
+  })
   test("透传 Vue API，并保留本包默认配置与 Registry", () => {
     expect(elementPlusPackage.createSchemx).toBe(vuePackage.createSchemx)
     expect(elementPlusPackage).not.toHaveProperty("getGlobalSchemxConfig")

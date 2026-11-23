@@ -1,7 +1,11 @@
+import { createRendererRegistry } from "@schemx/core"
+
 import SchemxForm, { useForm } from "../../index"
 
 import type {
   CreateFormOptions,
+  SchemxField,
+  SchemxFormItemProps,
   SchemxFormProps,
   SchemxRendererPropsMap,
 } from "../../index"
@@ -111,40 +115,36 @@ const removedRendererProps: SchemxRendererPropsMap<FormValues> = {
   },
 }
 
+// 字典从已声明的组件选项属性与表单值推导。
 const createFormOptions: CreateFormOptions<FormValues> = {
-  rendererProps: {
-    cascader: {
+  schemas: [
+    {
+      name: "city",
+      label: "城市",
+      componentType: "select",
       dict: {
         api(values) {
-          const province: string = values.province
+          // @ts-expect-error 字典回调保留 FormValues。
+          void values.unknownField
 
-          // @ts-expect-error CreateFormOptions 应保留 FormValues，不存在 unknownField。
-          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-          values.unknownField
-
-          return [{ label: province, value: province }]
+          return [{ label: values.province, value: values.province }]
         },
+        dependsOn: ["province"],
       },
     },
-  },
+  ],
 }
 
 const formProps: SchemxFormProps<FormValues> = {
-  rendererProps: {
-    radio: {
-      dict: {
-        api(values) {
-          const name: string = values.name
-
-          // @ts-expect-error SchemxFormProps 应保留 FormValues，不存在 unknownField。
-          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-          values.unknownField
-
-          return [{ label: name, value: name }]
-        },
-      },
+  schemas: [
+    {
+      name: "city",
+      label: "城市",
+      componentType: "select",
+      // values 来自本次表单。
+      dict: (values) => [{ label: values.name, value: values.name }],
     },
-  },
+  ],
 }
 
 void rendererProps
@@ -190,3 +190,115 @@ useForm<UiFormValues>({}, {})
 
 void uiPlugin
 void uiForm
+
+// 公共 Field Props 解开类型循环后仍保留组件 key 与动态组件 Props 约束。
+const fieldProps: SchemxFormItemProps<FormValues> = {
+  name: "city",
+  label: "城市",
+  componentType: "select",
+  dependencies: {
+    triggerFields: ["province"],
+    componentProps: () => ({ multiple: true }),
+  },
+}
+
+// @ts-expect-error 不能因公共 Props 推导而放宽为任意组件名。
+fieldProps.componentType = "unknownRenderer"
+
+void fieldProps
+
+// 使用普通 Props 声明测试精确的数组元素与受控属性排除。
+declare module "@schemx/core" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface SchemxRendererDefinition<TValues extends import("@schemx/core").Values> {
+    typedChoice: {
+      options?: readonly { id: number }[]
+      columns?: { text: string }[]
+      value?: string[]
+    }
+  }
+}
+
+// 已知目标可推导请求、动态字典和结果回调。
+const typedSchemas: SchemxField<FormValues>[] = [
+  {
+    name: "city",
+    label: "城市",
+    componentType: "typedChoice",
+    dict: {
+      targetKey: "columns",
+      api: (values) => [{ text: values.province }],
+      onSuccess: (options) => options[0].text.trim(),
+    },
+    dependencies: {
+      triggerFields: ["province"],
+      dict: (values) => (values.province ? { api: () => [{ id: 1 }] } : false),
+    },
+  },
+  {
+    name: "city",
+    label: "城市",
+    componentType: "typedChoice",
+    dict: {
+      api: () => ({ list: [{ id: 1 }] }),
+      formatter: (response) => {
+        // @ts-expect-error 接口原始响应需要先收窄。
+        void response.list
+
+        return [{ id: 1 }]
+      },
+    },
+  },
+]
+
+void typedSchemas
+
+type Choice = Extract<SchemxField<FormValues>, { componentType: "typedChoice" }>
+type Input = Extract<SchemxField<FormValues>, { componentType: "input" }>
+
+// @ts-expect-error 默认目标要求 id 为数字。
+const invalidOptions: Choice["dict"] = { api: () => [{ id: "wrong" }] }
+
+// @ts-expect-error value 是受控属性。
+const invalidTarget: Choice["dict"] = { targetKey: "value", api: () => [] }
+
+// @ts-expect-error 依赖字段必须来自 FormValues。
+const invalidPath: Choice["dict"] = { api: () => [], dependsOn: ["unknownField"] }
+
+// @ts-expect-error input 不声明合法数组目标。
+const invalidInputDict: Input["dict"] = { api: () => [] }
+
+// @ts-expect-error 字典已移至字段顶层。
+const legacyProps: Choice["componentProps"] = { dict: { api: () => [] } }
+
+// Renderer 默认目标必须接收字段省略 targetKey 时推导出的选项。
+const choiceRegistry = createRendererRegistry<FormValues>()
+
+choiceRegistry.registerAll({
+  typedChoice: { component: {}, dictionary: true },
+  input: {},
+})
+
+choiceRegistry.register("typedChoice", {
+  component: {},
+  dictionary: { targetKey: "options" },
+})
+
+// @ts-expect-error columns 与默认的 options 选项类型不同，应在字段上显式指定。
+choiceRegistry.register("typedChoice", {
+  component: {},
+  dictionary: { targetKey: "columns" },
+})
+
+// @ts-expect-error formatter 应返回该目标的数组元素。
+const invalidFormat: Choice["dict"] = {
+  api: () => [],
+  formatter: () => [{ id: "wrong" }],
+}
+
+void invalidOptions
+void invalidTarget
+void invalidPath
+void invalidInputDict
+void legacyProps
+void invalidFormat

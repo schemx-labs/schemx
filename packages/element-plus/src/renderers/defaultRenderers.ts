@@ -30,6 +30,7 @@ import {
   VirtualizedSelectRenderer,
 } from "../renderers"
 
+// 适配包运行时使用的原组件。
 export const defaultRenderers = {
   input: InputRenderer,
   inputNumber: InputNumberRenderer,

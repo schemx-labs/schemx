@@ -29,33 +29,33 @@ import type {
   VirtualizedSelectRendererProps,
 } from "../renderers"
 import type { Values } from "@schemx/core"
-import type { SchemxWithDictionary } from "@schemx/vue"
 import type { ButtonProps, ColProps, RowProps } from "element-plus"
 
 declare module "@schemx/core" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface SchemxRendererDefinition<TValues extends Values> {
     input: InputRendererProps
     inputNumber: InputNumberRendererProps
     switch: SwitchRendererProps
-    radio: SchemxWithDictionary<RadioRendererProps, TValues>
-    checkbox: SchemxWithDictionary<CheckboxRendererProps, TValues>
+    radio: RadioRendererProps
+    checkbox: CheckboxRendererProps
     datePicker: DatePickerRendererProps
-    cascader: SchemxWithDictionary<CascaderRendererProps, TValues>
+    cascader: CascaderRendererProps
     sensitiveInput: SensitiveInputRendererProps
     rate: RateRendererProps
     slider: SliderRendererProps
     upload: UploadRendererProps
-    autocomplete: SchemxWithDictionary<AutocompleteRendererProps, TValues>
+    autocomplete: AutocompleteRendererProps
     colorPicker: ColorPickerRendererProps
     datetimePicker: DateTimePickerRendererProps
     inputTag: InputTagRendererProps
     inputOtp: InputOtpRendererProps
-    mention: SchemxWithDictionary<MentionRendererProps, TValues>
-    select: SchemxWithDictionary<SelectRendererProps, TValues>
-    virtualizedSelect: SchemxWithDictionary<VirtualizedSelectRendererProps, TValues>
+    mention: MentionRendererProps
+    select: SelectRendererProps
+    virtualizedSelect: VirtualizedSelectRendererProps
     timePicker: TimePickerRendererProps
     timeSelect: TimeSelectRendererProps
-    treeSelect: SchemxWithDictionary<TreeSelectRendererProps, TValues>
+    treeSelect: TreeSelectRendererProps
   }
 }
 

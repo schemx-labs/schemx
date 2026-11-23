@@ -327,13 +327,13 @@
       label: "远程选择器",
       componentType: "select",
       required: true,
+      dict: {
+        api: async () => [
+          { label: "远程选项 A", value: "remote-a" },
+          { label: "远程选项 B", value: "remote-b" },
+        ],
+      },
       componentProps: {
-        dict: {
-          api: async () => [
-            { label: "远程选项 A", value: "remote-a" },
-            { label: "远程选项 B", value: "remote-b" },
-          ],
-        },
         loadingText: "加载中",
       },
     },

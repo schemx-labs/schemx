@@ -173,6 +173,8 @@ upload
 
 选项类 Renderer 使用对应 Element Plus 组件的 `options` 和 `props` 配置；以下 Renderer 另外支持 Schemx 的 `dict` 远程选项：`autocomplete`、`cascader`、`checkbox`、`mention`、`radio`、`select`、`treeSelect` 和 `virtualizedSelect`。Autocomplete 的 `props` 可映射建议项字段。`select`、`virtualizedSelect` 和 `treeSelect` 使用字符串、数字或布尔值作为单选值，多选值为数组。
 
+远程选项配置在字段顶层 `dict`。Core 从组件的 `options` Props 推导选项类型，将当前选项和 loading 投影给 Renderer。组件仍通过普通 Registry 注册。示例见 [Core 字段字典 API](../core/README.md#字段字典-api)。
+
 `datetimePicker` 基于 `ElDatePicker`，默认 `type` 为 `datetime`，也支持 `datetimerange`。`virtualizedSelect` 基于 Element Plus `ElSelectV2`，适合大量选项场景；选项值、字段映射和远程字典用法与 `select` 一致。
 
 `number`、`stepper`、`date`、`calendar`、`picker`、`selectPicker` 和 `selector` 不属于本适配包；其中 `number`/`stepper` 应迁移为 `inputNumber`，`date` 应迁移为 `datePicker`。
@@ -223,10 +225,10 @@ const avatarField: SchemxField<ProfileValues> = {
 
 字段可配置 `col: "auto"`，解除列的栅格宽度约束并自然换行；字段内部布局与控件宽度仍由 Renderer 自身样式和配置决定。也可通过 Form 的 `col="auto"` 设置字段默认值，或通过 `actionCol="auto"` 设置操作列。对象形式仍使用原有栅格规则；Group、Dynamic 外层和旧版 `layout` 仍只接受对象。
 
-仅 Search 为输入框、数字输入框、敏感输入框、自动补全、标签输入、提及、下拉选择（含虚拟列表和树选择）、级联、滑块及日期/时间选择 Renderer 提供 `--schemx-renderer-default-width`：默认 `220px`，日期时间单值为 `260px`，日期范围（含月、年范围）为 `320px`，时间范围为 `280px`，日期时间范围为 `440px`。日期/时间的加宽规则在显示输入控件时生效。颜色选择器、Switch、评分、单复选、验证码和上传保留自身尺寸。
+Form 和 Search 的自动列由 Renderer 撑开。输入框、自动补全、下拉选择、级联、滑块等输入类控件默认宽 `220px`。日期时间单值为 `260px`，日期范围（含月、年范围）为 `320px`，时间范围为 `280px`，日期时间范围为 `440px`。日期和时间的加宽规则在显示输入控件时生效。颜色选择器、Switch、评分、单复选、验证码和上传使用各自的尺寸。
 
-`col: "auto"` 中的输入类控件使用该变量参与列宽计算，再通过 `max-width: 100%` 适应窄容器；普通栅格列默认填满内容宽度。左侧标签和间距计入整列宽度，不包含在控件的默认宽度中。此规则仅作用于字段直接所属的自动列，嵌套栅格不受外层自动列影响。
+`col: "auto"` 中的输入类控件通过 `max-width: 100%` 适应窄容器。普通栅格列中的控件默认填满内容宽度。左侧标签和间距计入整列宽度，错误提示在已有列宽内换行。
 
-其他表单不设置 `--schemx-renderer-default-width`，未配置时输入类字段的自动列参与分配所在行的剩余空间，控件使用 `width: 100%` 填满字段。开关、验证码、上传和操作列等保留自身尺寸。消费端可在表单或字段 `className` 对应的样式中设置该变量，例如 `--schemx-renderer-default-width: 220px`。也可使用优先级更高的 `--schemx-renderer-width` 显式指定宽度，例如 `180px` 或 `100%`；该变量在普通栅格列中也会限制控件宽度上限。显式宽度只限制控件，输入类字段的自动列仍参与分配剩余空间。
+可在表单或字段样式中用 `--schemx-renderer-default-width` 覆盖自动列的控件默认宽度，例如 `240px`。单个 Renderer 可通过 `--schemx-renderer-width` 指定更高优先级的宽度，例如 `180px`。普通栅格列也会用 `--schemx-renderer-width` 限制控件的宽度上限。
 
 Search 根据已渲染条件的实际位置和高度折叠，自动列与栅格列混排同样生效；收起时保留第一行高度，全部可见字段保持挂载，容器尺寸变化后自动重新测量。完整规则见 [Vue 布局说明](../vue/README.md#row--col-布局)。
