@@ -8,8 +8,6 @@ import "./index"
 
 export type { SchemxVueTypeAugmentations } from "./definition"
 
-export * from "./dictionary"
-
 export * from "./form"
 
 export * from "./search"

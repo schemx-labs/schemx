@@ -220,6 +220,7 @@ export function createFieldSlotRenderers<TValues extends Values = Values>(
 
     const childSlots = extractChildSlots(normalizeNameKey(schemaRef.value.name), slots)
 
+    // Core 已将字典写入 ViewSchema，转换器可处理这份最终展示数据。
     const transformedProps = rendererEntry.transformProps
       ? rendererEntry.transformProps(componentProps.value, {
           schema: schemaRef.value,

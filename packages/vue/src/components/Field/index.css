@@ -188,6 +188,14 @@
   line-height: var(--schemx-field-error-line-height);
 }
 
+/* 自动列按字段内容定宽，错误文本在列内换行并保留所需高度。 */
+.schemx-col--auto > .schemx-field-wrapper > .schemx-field__error {
+  display: block;
+  width: auto;
+  contain: inline-size;
+  overflow-wrap: anywhere;
+}
+
 /*
  * 自定义 Error 插槽无内容时不保留错误间距。
  */

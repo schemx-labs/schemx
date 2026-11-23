@@ -48,4 +48,14 @@ describe("@schemx/vue 根入口", () => {
     expect(["validator", "Registry"].join("") in vuePackage).toBe(false)
     expect(["create", "Validators", "Registry"].join("") in vuePackage).toBe(false)
   })
+
+  test("字典兼容层：历史公共 API 保持零破坏导出", () => {
+    // dict 实现已下沉到 @schemx/core，以下历史 API 仍需从根入口可用。
+    expect(vuePackage.useDictionary).toEqual(expect.any(Function))
+    expect(vuePackage.WithRemoteOptions).toEqual(expect.any(Function))
+    expect(vuePackage.normalizeError).toEqual(expect.any(Function))
+    // Core 字典运行时与类型已通过 export * 透传。
+    expect(vuePackage.isSchemxDictionary).toEqual(expect.any(Function))
+    expect(vuePackage.normalizeSchemxDictionary).toEqual(expect.any(Function))
+  })
 })

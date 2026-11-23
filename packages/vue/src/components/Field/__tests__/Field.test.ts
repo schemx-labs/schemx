@@ -17,7 +17,6 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 import Field from ".."
 import { provideFormContextState, useFieldContext } from "../../../context"
-import { WithRemoteOptions } from "../../../hocs"
 
 import type { FormConfigContextValue } from "../../../context"
 import type {
@@ -180,8 +179,6 @@ const DictionaryRenderer = defineComponent({
     return () => h("div", { "data-testid": "dictionary-renderer" })
   },
 })
-
-const DictionaryRendererWithRemoteOptions = WithRemoteOptions(DictionaryRenderer)
 
 describe("Field 集成测试", () => {
   it("同 key 字段的路径 prop 更新后立即切换读写，不等待视图防抖", async () => {
@@ -612,54 +609,6 @@ describe("Field 集成测试", () => {
     form.destroy()
   })
 
-  it("Dictionary HOC 支持直接传入 api 函数", async () => {
-    const api = vi.fn().mockResolvedValue([])
-
-    const form = createForm({ initialValues: {} })
-
-    const wrapper = mountWithForm(DictionaryRendererWithRemoteOptions, {
-      props: {
-        fieldName: "city",
-        dict: api,
-      },
-      form,
-    })
-
-    await nextTick()
-
-    expect(api).toHaveBeenCalledWith({}, form)
-
-    wrapper.unmount()
-    form.destroy()
-  })
-
-  it("Dictionary HOC 脱离 Field 时仍可使用显式 fieldName", async () => {
-    const form = createForm({
-      initialValues: { province: "GD", city: "Guangzhou" },
-    })
-
-    const wrapper = mountWithForm(DictionaryRendererWithRemoteOptions, {
-      props: {
-        fieldName: "city",
-        dict: {
-          api: vi.fn().mockResolvedValue([]),
-          dependsOn: ["province"],
-          resetOnDepsChange: true,
-          immediate: false,
-        },
-      },
-      form,
-    })
-
-    form.setFieldValue("province", "ZJ")
-    await nextTick()
-
-    expect(form.getFieldValue("city")).toBeUndefined()
-
-    wrapper.unmount()
-    form.destroy()
-  })
-
   it("Dictionary Renderer 应在依赖字段变化时自动清空自身字段值", async () => {
     const form = createForm({
       initialValues: { province: "GD", city: "Guangzhou" },
@@ -668,19 +617,17 @@ describe("Field 集成测试", () => {
           name: "city",
           label: "城市",
           componentType: "dictionary" as any,
-          componentProps: {
-            dict: {
-              api: vi.fn().mockResolvedValue([]),
-              dependsOn: ["province"],
-              resetOnDepsChange: true,
-              immediate: false,
-            },
-          } as any,
+          dict: {
+            api: vi.fn().mockResolvedValue([]),
+            dependsOn: ["province"],
+            resetOnDepsChange: true,
+            immediate: false,
+          },
         },
       ],
     })
 
-    form.registerRenderer("dictionary" as any, DictionaryRendererWithRemoteOptions)
+    form.registerRenderer("dictionary" as any, DictionaryRenderer)
 
     const wrapper = mountWithForm(Field, {
       props: { schema: form.getViewSchemas()[0] },
@@ -688,7 +635,7 @@ describe("Field 集成测试", () => {
       config: createFormContext(),
     })
 
-    await nextTick()
+    await form.waitForDependencies()
     form.setFieldValue("province", "ZJ")
     await nextTick()
 

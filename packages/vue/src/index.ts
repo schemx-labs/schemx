@@ -39,18 +39,26 @@ export {
   useWatchField,
   useWatchFields,
   useWatchAll,
-  useDictionary,
   useStableRef,
   useViewSchemas,
   useFormSelector,
 } from "./hooks"
-export type {
-  UseFormOptions,
-  VueSchemxInstance,
-  UseDictionaryReturn,
-  UseDictOptionsReturn,
-  UseFormSelectorOptions,
-} from "./hooks"
+export type { UseFormOptions, VueSchemxInstance, UseFormSelectorOptions } from "./hooks"
+
+/**
+ * 字典兼容层
+ *
+ * `dict` 实现已下沉到 `@schemx/core`，此处仅保留历史公共 API 以保持零破坏升级。
+ */
+export {
+  useDictionary,
+  WithRemoteOptions,
+  normalizeError,
+  type UseDictionaryReturn,
+  type UseDictOptionsReturn,
+  type SchemxWithDictionary,
+  type RemoteOptionsInjectedProps,
+} from "./compat"
 
 /**
  * Context
@@ -71,11 +79,6 @@ export {
   provideSchemxAppConfig,
 } from "./context"
 export type { FormConfigContextValue, FormContextValue } from "./context"
-
-/**
- * 高阶组件
- */
-export { WithRemoteOptions } from "./hocs"
 
 /**
  * 组件

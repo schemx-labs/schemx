@@ -146,7 +146,9 @@ const city: SchemxField<AddressValues> = {
 }
 ```
 
-组件依旧从 Props 接收选项和 loading。手动触发、刷新和设置选项分别使用 `form.loadFieldDict(name)`、`form.refreshFieldDict(name)` 和 `form.setFieldDictOptions(name, action)`。旧 Hook 和 HOC 已移除。字典回调收到 Core 实例，Vue 专属方法通过 Vue 层的 Form Context 使用。
+组件依旧从 Props 接收选项和 loading。手动触发、刷新和设置选项分别使用 `form.loadFieldDict(name)`、`form.refreshFieldDict(name)` 和 `form.setFieldDictOptions(name, action)`。字典回调收到 Core 实例，Vue 专属方法通过 Vue 层的 Form Context 使用。
+
+> 兼容说明：Vue 层的旧 Hook / HOC（`useDictionary`、`WithRemoteOptions`、`normalizeError`）及类型别名（`SchemxWithDictionary`、`UseDictionaryReturn` 等）仍在 `@schemx/vue` 根入口以 `@deprecated` 状态保留，保持 2.0 升级零破坏。它们不再演进，请新代码改用字段顶层的 `dict` 配置。
 
 自定义 Renderer 的类型仍在 `SchemxRendererDefinition` 中登记普通 Props。移除 `defineRenderers`、`SchemaFor`、`RendererPropsFor` 或 `SchemxWithDictionary` 后，Schema 使用 `SchemxField<TValues>[]`。
 

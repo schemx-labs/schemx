@@ -24,16 +24,6 @@ export { useField, createFieldHook } from "./useField"
 export { useWatch, useWatchField, useWatchFields, useWatchAll } from "./useWatch"
 
 /**
- * useDictionary - 字典选项加载
- */
-export {
-  useDictionary,
-  type UseDictionaryReturn,
-  type UseDictOptionsReturn,
-  normalizeError,
-} from "./useDictionary"
-
-/**
  * useStableRef - 引用稳定化的 shallowRef
  */
 export { useStableRef } from "./useStableRef"
