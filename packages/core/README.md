@@ -323,6 +323,8 @@ const profileGroup: SchemxField = {
 
 动态依赖字段通过 `to` 监听字段路径，并由 `renderer` 根据最新表单值返回一组 Schema。`renderer` 也可以是异步函数。
 
+在 `renderer` 或 `dependencies` 回调执行期间，通过第二个参数调用 `validate()` 或 `validateField()` 会立即收到 `dependency_validation_reentry` 校验失败。需要校验最终表单时，在回调外调用表单实例的校验方法，由 Core 等待依赖计算和子树提交完成。
+
 ```ts
 type AccountValues = {
   accountType: "personal" | "enterprise"
@@ -452,6 +454,10 @@ stop()
 原生 `ValidationRule` 的 `validate` 返回 `{ valid: true }` 或 `{ valid: false, issues }`。`ValidationResult` 使用 `valid` 作为判别字段：成功时包含 `values`，失败时包含字段或表单错误。
 
 异步校验在被更新的校验、规则替换、字段移除或表单销毁中止时，会返回 `valid: false`、`cancelled: true` 和空的 `errors`；这类结果不代表普通校验失败，`submit()` 也不会调用 `onFinishFailed`。
+
+- `submit()` 运行期间再次调用会共享同一个 Promise，包括在 `onLoadingChange(true)` 中同步调用。
+- 表单会提交首次挂载钩子发布的 Schema。若一版输入被拒绝，下次 `form.updateSchemas()` 从本表单最近成功提交的列表继续更新。
+- `onFieldsChange` 的第一个参数包含实际新增、删除或改变的叶子路径。只更新 `user.name` 时，其他 `user` 子路径不会被标为已变化。
 
 ```ts
 import { createPresetRuleRegistry, type ValidationRule } from "@schemx/core"

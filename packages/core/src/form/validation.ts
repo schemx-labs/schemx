@@ -7,8 +7,7 @@
  * @module core/form/validation
  */
 
-import { isFieldNode } from "../node"
-import { batchUpdates, runSignalUntracked } from "../reactivity"
+import { batchUpdates } from "../reactivity"
 import { isFieldInteractive, shouldValidateOn, withLock } from "../utils"
 import {
   createValidationCancelled,
@@ -21,10 +20,8 @@ import { createFormRules } from "./rules"
 import type { FormRulesApi } from "./rules"
 import type { FormCallbackOptions } from "../config"
 import type { FormConfigModel } from "../config/createFormConfig"
-import type { NodeManager } from "../node"
 import type { ReadonlySignal } from "../reactivity"
-import type { RuntimeValidationPort } from "../runtimeContext"
-import type { Scheduler } from "../scheduler"
+import type { RuntimeFieldAccess, RuntimeValidationPort } from "../runtime"
 import type { Store, StorePending } from "../store"
 import type {
   FieldValue,
@@ -82,11 +79,14 @@ export interface CreateFormValidationOptions<TValues extends Values> {
   /**
    * 提供字段身份、当前路径和有效配置。
    */
-  readonly nodeManager: NodeManager<TValues>
+  readonly fields: Pick<
+    RuntimeFieldAccess<TValues>,
+    "getFieldConfig" | "getFieldPathSignal"
+  >
   /**
    * 提供关键依赖空闲边界。
    */
-  readonly scheduler: Scheduler
+  readonly waitForRuntimeIdle: () => Promise<boolean>
 }
 
 /**
@@ -163,7 +163,7 @@ interface DependencyIdleState {
 /**
  * 创建由 Form 装配的字段和整表校验流程。
  * @typeParam TValues - 表单值类型。
- * @param options - 字段状态、配置模型、节点索引、调度器及业务回调。
+ * @param options - 字段状态、配置模型、运行时查询与等待接口和业务回调。
  * @returns 公开校验与规则操作、共享校验端口及幂等清理入口。
  * @example
  * const validation = createFormValidation(validationOptions)
@@ -177,8 +177,8 @@ export function createFormValidation<TValues extends Values>(
     store,
     configuration,
     onRuleError,
-    nodeManager,
-    scheduler,
+    fields,
+    waitForRuntimeIdle,
     isDisposed,
     loading,
     setLoading,
@@ -206,31 +206,15 @@ export function createFormValidation<TValues extends Values>(
     const rules = createFormRules({
       validator,
       configuration,
-      nodeManager,
+      fields,
       presetRuleRegistry: config.presetRuleRegistry,
     })
 
     // 交互和显式校验读取同一份当前元数据。
     const getFieldContext = rules.getFieldContext
 
-    /**
-     * 在公开操作开始时捕获目标节点的路径绑定，异步等待不再操作同址替换节点。
-     * @param name - 本次操作开始时的字段路径。
-     */
-    const getFieldPathSignal = (name: NamePath<TValues>): AbortSignal | undefined => {
-      if (isDisposed()) {
-        return undefined
-      }
-
-      return runSignalUntracked(() => {
-        // NodeId 确定本次操作的字段身份，controller 区分该节点的每次路径绑定。
-        const [nodeId] = nodeManager.getNodeIds(name)
-
-        const node = nodeId === undefined ? undefined : nodeManager.get(nodeId)
-
-        return isFieldNode(node) ? node.pathController.signal : undefined
-      })
-    }
+    // 在公开操作开始时捕获运行时路径绑定。
+    const { getFieldPathSignal } = fields
 
     /**
      * 等待依赖稳定；重置或节点路径失效时提前结束，不继续启动校验。
@@ -258,7 +242,7 @@ export function createFormValidation<TValues extends Values>(
 
       try {
         return await Promise.race([
-          scheduler.whenIdle().then((ready) => ({ ready, cancelled: false })),
+          waitForRuntimeIdle().then((ready) => ({ ready, cancelled: false })),
           cancellation.then(() => ({ ready: false, cancelled: true })),
         ])
       } finally {

@@ -1,6 +1,6 @@
 import type { SchemxSchemasInput } from "../createSchemas"
-import type { NodeLifecycleHooks } from "../node/snapshot"
 import type { PresetRuleRegistry, RendererRegistry } from "../registry"
+import type { NodeLifecycleHooks } from "../runtime/node/snapshot"
 import type { SchedulerOptions } from "../scheduler"
 import type {
   NamePath,
@@ -177,7 +177,7 @@ export interface FormCallbackOptions<
     latestSnapshot: Readonly<CallbackValues<TValues>> | CallbackValues<TValues>
   ) => void
   /**
-   * 字段路径变化后的回调。
+   * 叶子字段新增、移除或值变化后的回调，第二个参数为当前全部叶子路径。
    */
   onFieldsChange?: (changedFields: TName[], allFields: TName[]) => void
 }

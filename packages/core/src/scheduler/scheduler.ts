@@ -1,7 +1,7 @@
 /**
  * normal/post 两阶段 keyed 任务队列及统一异步完成边界。
  */
-import type { Scope } from "../node"
+import type { Scope } from "../scope"
 
 /**
  * 依赖计算先于校验注册；每次取任务都重新检查 normal 队列。

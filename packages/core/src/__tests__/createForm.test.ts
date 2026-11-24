@@ -14,12 +14,12 @@ import * as config from "../config"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import { createFormStateAdapter } from "../index"
-import { isFieldNode } from "../node"
 import {
   createPresetRuleRegistry,
   createRendererRegistry,
   type RendererPropsTransformer,
 } from "../registry"
+import { isFieldNode } from "../runtime/node"
 
 import type { StandardSchemaV1, ValidationTrigger } from "../types"
 import type { ValidationRuleContext, ValidationRuleResult } from "../validator"

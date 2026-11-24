@@ -6,6 +6,7 @@
 
 import type { ResolvedFormConfig } from "../../config"
 import type { ReadonlyState } from "../../reactivity"
+import type { SchemxViewSchema } from "../../runtime/view"
 import type { StorePending } from "../../store"
 import type {
   DeepReadonly,
@@ -14,7 +15,6 @@ import type {
   SchemxInstance,
   Values,
 } from "../../types"
-import type { SchemxViewSchema } from "../../view"
 
 /**
  * 可被 UI 框架消费的同步快照来源。

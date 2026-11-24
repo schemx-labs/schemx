@@ -12,8 +12,8 @@ import { batchUpdates, createSignal, runSignalUntracked } from "../reactivity"
 
 import { resolveDictionaryTarget } from "./target"
 
-import type { Scope } from "../node"
 import type { Scheduler } from "../scheduler"
+import type { Scope } from "../scope"
 import type { NamePath, SchemxInstance, Values } from "../types"
 import type {
   DictionaryKeyMap,

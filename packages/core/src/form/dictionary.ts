@@ -7,10 +7,8 @@
  * @module core/form/dictionary
  */
 
-import { isFieldNode } from "../node"
-
 import type { FieldDictionaryChannel, FieldDictionaryResult } from "../dictionary/types"
-import type { NodeManager } from "../node"
+import type { RuntimeFieldAccess } from "../runtime"
 import type { NamePath, SchemxInstance, Values } from "../types"
 
 /**
@@ -29,19 +27,19 @@ export type FormDictionaryApi<TValues extends Values = Values> = Pick<
 >
 
 /**
- * 字典实例方法需要的节点索引与生命周期。
+ * 字典实例方法需要的字段查询与生命周期。
  *
  * @typeParam TValues - 表单值类型。
  */
 interface FormDictionaryContext<TValues extends Values> {
   /**
-   * 活动节点索引。
+   * 读取当前字段的字典运行资源。
    */
-  nodeManager: NodeManager<TValues>
+  readonly fields: Pick<RuntimeFieldAccess<TValues>, "getFieldDictionaryChannels">
   /**
    * 表单是否已销毁。
    */
-  isDisposed: () => boolean
+  readonly isDisposed: () => boolean
 }
 
 /**
@@ -53,36 +51,15 @@ const EMPTY_OPTIONS: readonly unknown[] = Object.freeze([])
  * 创建按当前路径操作字典的实例方法。
  *
  * @typeParam TValues - 表单值类型。
- * @param context - 节点索引与表单终态。
+ * @param context - 字典查询与表单终态。
  * @returns 六个扁平的字典方法。
- * @example createFormDictionary({ nodeManager, isDisposed })
+ * @example createFormDictionary({ fields, isDisposed })
  */
 export function createFormDictionary<TValues extends Values>(
   context: FormDictionaryContext<TValues>
 ): FormDictionaryApi<TValues> {
-  /**
-   * 解析路径上的全部活动字段字典；同路径可能存在多个节点身份。
-   * @param name - 字段当前路径。
-   */
-  const channelsOf = (name: NamePath<TValues>): readonly FieldDictionaryChannel[] => {
-    // 当前路径命中的全部字典资源。
-    const channels: FieldDictionaryChannel[] = []
-
-    // id 是当前路径下的节点身份。
-    for (const id of context.nodeManager.getNodeIds(name)) {
-      // 当前活动节点。
-      const node = context.nodeManager.get(id)
-
-      // 资源引用可观察，允许同一节点运行中启停字典。
-      const channel = node && isFieldNode(node) ? node.dictionary.value : null
-
-      if (channel) {
-        channels.push(channel)
-      }
-    }
-
-    return channels
-  }
+  // 通过运行时查找路径当前关联的全部字典资源。
+  const { getFieldDictionaryChannels } = context.fields
 
   /**
    * 返回首个字典的请求；没有字典时返回 unregistered。
@@ -104,7 +81,7 @@ export function createFormDictionary<TValues extends Values>(
     run: (channel: FieldDictionaryChannel) => void
   ): boolean => {
     // 本次路径解析得到的字典资源。
-    const channels = channelsOf(name)
+    const channels = getFieldDictionaryChannels(name)
 
     channels.forEach(run)
 
@@ -116,14 +93,14 @@ export function createFormDictionary<TValues extends Values>(
    * @param name - 字段当前路径。
    */
   const getFieldDict: FormDictionaryApi<TValues>["getFieldDict"] = (name) =>
-    channelsOf(name)[0]?.snapshot()
+    getFieldDictionaryChannels(name)[0]?.snapshot()
 
   /**
    * 仅读取第一个字典的当前选项。
    * @param name - 字段当前路径。
    */
   const getFieldDictOptions: FormDictionaryApi<TValues>["getFieldDictOptions"] = (name) =>
-    channelsOf(name)[0]?.options() ?? EMPTY_OPTIONS
+    getFieldDictionaryChannels(name)[0]?.options() ?? EMPTY_OPTIONS
 
   /**
    * 按需加载路径上的字典，复用成功结果或在途请求。
@@ -135,7 +112,7 @@ export function createFormDictionary<TValues extends Values>(
     }
 
     // channel 是该路径下的字典运行态。
-    return firstPending(channelsOf(name).map((channel) => channel.load()))
+    return firstPending(getFieldDictionaryChannels(name).map((channel) => channel.load()))
   }
 
   /**
@@ -148,7 +125,9 @@ export function createFormDictionary<TValues extends Values>(
     }
 
     // channel 是该路径下的字典运行态。
-    return firstPending(channelsOf(name).map((channel) => channel.refresh()))
+    return firstPending(
+      getFieldDictionaryChannels(name).map((channel) => channel.refresh())
+    )
   }
 
   /**

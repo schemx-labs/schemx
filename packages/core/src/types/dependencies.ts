@@ -23,6 +23,8 @@ import type { FieldDictionaryConfig } from "../dictionary/fieldConfig"
  * 条件函数类型
  *
  * 接收当前表单值，返回属性的计算结果（支持同步和异步）。
+ * 求值期间通过传入的 form 调用 validate 或 validateField，会立即返回
+ * `dependency_validation_reentry`。需要最终校验时，在依赖完成后从表单实例调用。
  *
  * @typeParam TValues - 表单值类型
  * @typeParam TResult - 返回值类型

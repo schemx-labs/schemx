@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createScheduler } from ".."
-import { createScope } from "../../node"
+import { createScope } from "../../scope"
 
 // 验证 schedule 按 normal/post 队列顺序执行任务
 describe("schedule", () => {

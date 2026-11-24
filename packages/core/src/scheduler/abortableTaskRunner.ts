@@ -1,7 +1,7 @@
 /**
  * 最新结果优先的异步任务运行器，借用所属资源 Scope。
  */
-import type { Scope } from "../node"
+import type { Scope } from "../scope"
 import type { CancellableTask, Scheduler } from "./scheduler"
 
 /**

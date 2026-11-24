@@ -198,41 +198,54 @@ export function collectObjectPathsByLeaf<
   TValues extends Values = Values,
   TName extends NamePath<TValues> = NamePath<TValues>,
 >(obj: Partial<TValues>, prefix = ""): TName[] {
+  // 按原对象遍历顺序返回已有叶子路径。
   const paths: TName[] = []
 
+  visitObjectLeaves(obj, (path) => paths.push(path as TName), prefix)
+
+  return paths
+}
+
+/** 访问叶子时保留实际属性值，避免把序列化路径解析回对象。 */
+type ObjectLeafVisitor = (path: string, value: unknown) => void
+
+/**
+ * 遍历普通对象和数组中的叶子，路径格式与 collectObjectPathsByLeaf 一致。
+ * @param obj - 待遍历的对象。
+ * @param visit - 接收叶子路径和对应原始值。
+ * @param prefix - 递归时当前对象所属的路径，默认从根开始。
+ * @example visitObjectLeaves({ user: { name: "Ada" } }, (path, value) => console.log(path, value))
+ */
+export function visitObjectLeaves(
+  obj: Readonly<Record<string, unknown>>,
+  visit: ObjectLeafVisitor,
+  prefix = ""
+): void {
+  // key 为当前对象的自有可枚举属性。
   for (const key of Object.keys(obj)) {
+    // 当前属性的完整路径与值。
     const path = prefix ? `${prefix}.${key}` : key
 
     const value = obj[key]
 
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        paths.push(path as TName)
-        continue
-      }
-
+    if (Array.isArray(value) && value.length > 0) {
+      // item 和 index 分别为实际数组元素及其位置，沿用原有稀疏数组语义。
       value.forEach((item: unknown, index: number) => {
-        const itemPath = `${path}[${index}]` as TName
+        // 数组位置保留既有方括号格式。
+        const itemPath = `${path}[${index}]`
 
         if (isPlainObject(item) && Object.keys(item).length > 0) {
-          paths.push(...(collectObjectPathsByLeaf(item, itemPath as string) as TName[]))
+          visitObjectLeaves(item, visit, itemPath)
         } else {
-          paths.push(itemPath)
+          visit(itemPath, item)
         }
       })
-    } else if (isPlainObject(value)) {
-      if (Object.keys(value).length === 0) {
-        paths.push(path as TName)
-        continue
-      }
-
-      paths.push(...(collectObjectPathsByLeaf(value, path) as TName[]))
+    } else if (isPlainObject(value) && Object.keys(value).length > 0) {
+      visitObjectLeaves(value, visit, path)
     } else {
-      paths.push(path as TName)
+      visit(path, value)
     }
   }
-
-  return paths
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

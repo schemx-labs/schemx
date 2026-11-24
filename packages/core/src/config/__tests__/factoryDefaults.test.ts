@@ -4,9 +4,9 @@ import { createForm as createStandaloneForm } from "../../createForm"
 import { createSchemx } from "../../createSchemx"
 import { createRendererRegistry } from "../../registry"
 
+import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../runtime/view"
 import type { SchemxRendererPropsMap, Values } from "../../types"
 import type { AdapterRule, ValidationAdapter, ValidationRule } from "../../validator"
-import type { SchemxViewFieldSchema, SchemxViewSchema } from "../../view"
 
 function createTestAdapter<TInput>(
   id: string,

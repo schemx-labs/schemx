@@ -1,20 +1,155 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import * as adapterContext from "../adapter/formStateAdapter/context"
-import * as compilers from "../compiler"
 import { createFormConfig } from "../config/createFormConfig"
 import { createForm } from "../createForm"
 import { createSchemas } from "../createSchemas"
 import * as rules from "../form/rules"
-import * as nodes from "../node"
+import * as compilers from "../runtime/compiler"
+import * as nodes from "../runtime/node"
+import { isViewGroupSchema } from "../runtime/view"
 import * as schedulers from "../scheduler"
 import * as stores from "../store"
 import * as validators from "../validator"
-import { isViewGroupSchema } from "../view"
 
-import type { Values } from "../types"
+import type { SchemxDependencyField, SchemxField, Values } from "../types"
 
 describe("Form 的完整装配与资源清理", () => {
+  it.each([false, true])("处理首次挂载钩子发布的新 Schema（批次内：%s）", (batched) => {
+    // 首次挂载的字段和钩子内发布的下一版字段。
+    const first = { name: "first", label: "首个字段", componentType: "input" }
+
+    const second = { name: "second", label: "后续字段", componentType: "input" }
+
+    // 表单与挂载钩子共用的 Schema source。
+    const schemas = createSchemas([first])
+
+    // 挂载首个节点时发布后续版本。
+    const mounted = vi.fn().mockImplementationOnce(() => schemas.set([second]))
+
+    // 另一份表单提供公开的批量操作入口。
+    const host = createForm()
+
+    // 在普通挂载和外层批次内都要同步读取最新视图。
+    const mount = (): void => {
+      const form = createForm({ schemas, lifecycleHooks: { mounted } })
+
+      try {
+        expect(schemas.peek()).toEqual([second])
+        expect(form.getViewSchemas()).toMatchObject([{ name: "second" }])
+        expect(mounted).toHaveBeenCalledTimes(2)
+      } finally {
+        form.destroy()
+      }
+    }
+
+    try {
+      if (batched) {
+        host.batch(mount)
+      } else {
+        mount()
+      }
+    } finally {
+      host.destroy()
+    }
+  })
+
+  it("从成功版本恢复被拒绝的 Schema，并保留同批更新", () => {
+    // 初始已提交的字段和用于后续派生的字段。
+    const first = { name: "first", label: "首个字段", componentType: "input" }
+
+    const second = { name: "second", label: "后续字段", componentType: "input" }
+
+    const third = { name: "third", label: "第三个字段", componentType: "input" }
+
+    // 保存调用方最后输入的共享 source。
+    const schemas = createSchemas([first])
+
+    // 通过公开 API 提交 schema 的表单。
+    const form = createForm({ schemas })
+
+    try {
+      expect(() => form.setSchemas([second, { ...second }])).toThrow(
+        /Duplicate field name/
+      )
+      expect(schemas.peek()).toHaveLength(2)
+      expect(form.getViewSchemas()).toMatchObject([{ name: "first" }])
+
+      form.batch(() => {
+        // previous 为该表单上一次成功提交的列表。
+        form.updateSchemas((previous) => {
+          expect(previous).toEqual([first])
+
+          return [...previous, second]
+        })
+        // previous 为同批次已写入 source 的候选。
+        form.updateSchemas((previous) => [...previous, third])
+      })
+
+      expect(form.getViewSchemas()).toMatchObject([
+        { name: "first" },
+        { name: "second" },
+        { name: "third" },
+      ])
+    } finally {
+      form.destroy()
+    }
+  })
+
+  it("一个表单拒绝共享 source 的候选时，另一表单仍能提交", async () => {
+    // 两个表单可以使用相同的输入，但各自计算派生字段。
+    type SharedValues = { enabled: boolean; derived?: string; fresh?: string }
+
+    // 第一个表单动态生成同名字段，第二个表单允许该字段的静态候选。
+    const derived = {
+      name: "derived",
+      label: "派生字段",
+      componentType: "input",
+    } satisfies SchemxField<SharedValues>
+
+    const candidate = { ...derived, label: "静态字段" }
+
+    const dependency: SchemxDependencyField<SharedValues> = {
+      to: ["enabled"],
+      // enabled 决定该表单是否生成会造成冲突的字段。
+      renderer: ({ enabled }) => (enabled ? [derived] : []),
+    }
+
+    // 两个表单共享同一份原始输入。
+    const schemas = createSchemas<SharedValues>([dependency])
+
+    const first = createForm({ schemas, initialValues: { enabled: true } })
+
+    const second = createForm({ schemas, initialValues: { enabled: false } })
+
+    try {
+      await Promise.all([first.waitForDependencies(), second.waitForDependencies()])
+      expect(() => schemas.set([dependency, candidate])).toThrow(/Duplicate field name/)
+      expect(schemas.peek()).toEqual([dependency, candidate])
+      expect(first.getViewSchemas()).toMatchObject([
+        { name: "derived", label: "派生字段" },
+      ])
+      expect(second.getViewSchemas()).toMatchObject([
+        { name: "derived", label: "静态字段" },
+      ])
+
+      // previous 是发起更新的表单自己的最后一次成功输入。
+      first.updateSchemas((previous) => {
+        expect(previous).toEqual([dependency])
+
+        return [...previous, { name: "fresh", label: "新字段", componentType: "input" }]
+      })
+      expect(first.getViewSchemas()).toMatchObject([
+        { name: "derived" },
+        { name: "fresh" },
+      ])
+      expect(second.getViewSchemas()).toMatchObject([{ name: "fresh" }])
+    } finally {
+      first.destroy()
+      second.destroy()
+    }
+  })
+
   it("字段 initialValue 同时写入当前值和重置基线，公开视图不携带表单实例", () => {
     // 通过公开创建入口完成装配的表单。
     const form = createForm({

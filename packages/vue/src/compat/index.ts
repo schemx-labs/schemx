@@ -16,7 +16,4 @@ export {
   type SchemxWithDictionary,
 } from "./dictionary"
 
-export {
-  WithRemoteOptions,
-  type RemoteOptionsInjectedProps,
-} from "./withRemoteOptions"
+export { WithRemoteOptions, type RemoteOptionsInjectedProps } from "./withRemoteOptions"

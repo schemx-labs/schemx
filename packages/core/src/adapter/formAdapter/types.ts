@@ -1,8 +1,8 @@
 import type { ResolvedFormConfig } from "../../config"
 import type { ReadonlyState } from "../../reactivity"
+import type { SchemxViewSchema } from "../../runtime/view"
 import type { FieldState, StorePending } from "../../store"
 import type { NamePath, SchemxInstance, Values } from "../../types"
-import type { SchemxViewSchema } from "../../view"
 
 /**
  * Form 原生只读状态的统一入口；不管理框架容器、共享订阅或 owner。

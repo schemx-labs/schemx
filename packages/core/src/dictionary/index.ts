@@ -8,8 +8,6 @@
 
 export { createFieldDictionaryChannel } from "./createChannel"
 
-export { mountFieldDictionary } from "./resources"
-
 export { isSchemxDictionary, normalizeSchemxDictionary } from "./types"
 
 export type { FieldDictionaryChannelOptions } from "./createChannel"

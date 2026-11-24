@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
 import { createAbortableTaskRunner, createScheduler } from ".."
-import { createScope } from "../../node"
+import { createScope } from "../../scope"
 
 // 验证 createAbortableTaskRunner 的任务执行、中止、scope 清理、dispose 等行为
 describe("createAbortableTaskRunner", () => {

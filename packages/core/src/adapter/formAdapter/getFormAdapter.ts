@@ -3,9 +3,9 @@ import { getFormStateAdapterContext } from "../formStateAdapter/context"
 
 import type { FormAdapter } from "./types"
 import type { ReadonlySignal, ReadonlyState } from "../../reactivity"
+import type { SchemxViewSchema } from "../../runtime/view"
 import type { FieldState } from "../../store"
 import type { DeepReadonly, NamePath, SchemxInstance, Values } from "../../types"
-import type { SchemxViewSchema } from "../../view"
 import type { FormStateAdapterContext } from "../formStateAdapter/context"
 
 // 只缓存稳定入口，不缓存状态副本、订阅列表或框架容器。

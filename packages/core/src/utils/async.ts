@@ -20,18 +20,38 @@
  * lockedSubmit() // 复用上一次的 Promise
  * ```
  */
-export function withLock<TFunction extends (...args: any[]) => Promise<any>>(
-  fn: TFunction
-): TFunction {
-  let pending: Promise<any> | null = null
+export function withLock<TArgs extends unknown[], TResult>(
+  fn: (...args: TArgs) => Promise<TResult>
+): (...args: TArgs) => Promise<TResult> {
+  // 执行期间所有调用共享的完成句柄。
+  let pending: Promise<TResult> | undefined
 
-  return ((...args: any[]) => {
+  // args 为首次执行时传入的参数，并发调用只读取当前句柄。
+  return (...args) => {
     if (pending) return pending
 
-    pending = fn(...args).finally(() => {
-      pending = null
+    // 先登记完成句柄，再同步开始工作，以覆盖业务回调的同步重入。
+    let start = (): void => {}
+
+    // resolve 和 reject 交付本次原函数的结果。
+    const result = new Promise<TResult>((resolve, reject) => {
+      start = () => {
+        try {
+          resolve(fn(...args))
+        } catch (error) {
+          reject(error)
+        }
+      }
     })
 
-    return pending
-  }) as TFunction
+    // 共享结果在通知调用方前释放锁。
+    const shared = result.finally(() => {
+      pending = undefined
+    })
+
+    pending = shared
+    start()
+
+    return shared
+  }
 }

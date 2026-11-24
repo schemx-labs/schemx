@@ -91,7 +91,7 @@ export {
   type SchemxSchemasListener,
 } from "./createSchemas"
 
-export type { NodeId } from "./node"
+export type { NodeId } from "./runtime/node"
 
 export type {
   SchemxViewDebugMeta,
@@ -100,9 +100,13 @@ export type {
   SchemxViewFieldSchema,
   SchemxViewGroupSchema,
   SchemxViewSchema,
-} from "./view"
+} from "./runtime/view"
 
-export { isSchemxViewFieldSchema, isViewDynamicSchema, isViewGroupSchema } from "./view"
+export {
+  isSchemxViewFieldSchema,
+  isViewDynamicSchema,
+  isViewGroupSchema,
+} from "./runtime/view"
 
 export type { FormConfig, ResolvedFormConfig } from "./config"
 
@@ -239,4 +243,4 @@ export {
   type CreateSchemxOptions,
 } from "./createSchemx"
 
-export type { NodeSnapshot, NodeLifecycleHooks } from "./node/snapshot"
+export type { NodeSnapshot, NodeLifecycleHooks } from "./runtime/node/snapshot"

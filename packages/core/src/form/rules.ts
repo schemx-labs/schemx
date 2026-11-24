@@ -1,9 +1,8 @@
-import { isFieldNode } from "../node"
 import { isFieldInteractive } from "../utils/validation"
 
 import type { FormConfigModel } from "../config/createFormConfig"
-import type { NodeManager, ResolvedFieldSchema } from "../node"
 import type { PresetRuleRegistry } from "../registry"
+import type { RuntimeFieldAccess, RuntimeFieldConfig } from "../runtime"
 import type { NamePath, SchemxFormApi, SchemxInstance, Values } from "../types"
 import type { FieldValidationConfig, Validator } from "../validator"
 
@@ -36,9 +35,9 @@ export interface CreateFormRulesOptions<TValues extends Values> {
    */
   readonly configuration: FormConfigModel<TValues>
   /**
-   * 当前字段配置及稳定身份的索引。
+   * 读取字段的有效配置。
    */
-  readonly nodeManager: NodeManager<TValues>
+  readonly fields: Pick<RuntimeFieldAccess<TValues>, "getFieldConfig">
   /**
    * 当前 Form 使用的命名规则表。
    */
@@ -59,7 +58,7 @@ export interface FormRules<TValues extends Values> {
    * @param name - 当前字段路径。
    * @example const context = rules.getFieldContext("name")
    */
-  getFieldContext(name: NamePath<TValues>): Partial<ResolvedFieldSchema<TValues>>
+  getFieldContext(name: NamePath<TValues>): Partial<RuntimeFieldConfig<TValues>>
   /**
    * 在显式校验前刷新 Schema 字段元数据，手动字段保持原有配置。
    * @param name - 当前字段路径。
@@ -71,32 +70,14 @@ export interface FormRules<TValues extends Values> {
 /**
  * 创建规则覆盖、命名规则和校验元数据操作。
  * @typeParam TValues - 表单值类型。
- * @param options - 校验器、字段索引和规则表。
- * @example const rules = createFormRules({ validator, configuration, nodeManager, presetRuleRegistry })
+ * @param options - 校验器、字段查询和规则表。
+ * @example const rules = createFormRules({ validator, configuration, fields, presetRuleRegistry })
  */
 export function createFormRules<TValues extends Values>(
   options: CreateFormRulesOptions<TValues>
 ): FormRules<TValues> {
-  // 元数据始终按当前路径从同一节点索引读取。
-  const { validator, configuration, nodeManager, presetRuleRegistry } = options
-
-  /**
-   * 公开路径入口通过共享节点索引解析字段身份。
-   * @param name - 要读取 Schema 校验配置的当前路径。
-   */
-  const getSchemaContext = (
-    name: NamePath<TValues>
-  ): ResolvedFieldSchema<TValues> | undefined => {
-    // 运行时字段路径唯一；无 Schema 的路径继续走手动字段配置。
-    const [nodeId] = nodeManager.getNodeIds(name)
-
-    // 路径可能对应数组根或数组行，只有活动普通字段提供字段配置。
-    const node = nodeId === undefined ? undefined : nodeManager.get(nodeId)
-
-    return isFieldNode(node) && !node.disposed.value
-      ? node.resolvedSchema.value
-      : undefined
-  }
+  // 通过运行时读取当前路径的字段配置。
+  const { validator, configuration, fields, presetRuleRegistry } = options
 
   /**
    * 无 Schema 的手动字段使用同一份表单默认配置。
@@ -104,8 +85,8 @@ export function createFormRules<TValues extends Values>(
    */
   const getFieldContext = (
     name: NamePath<TValues>
-  ): Partial<ResolvedFieldSchema<TValues>> =>
-    getSchemaContext(name) ?? configuration.getConfig().schemaConfig
+  ): Partial<RuntimeFieldConfig<TValues>> =>
+    fields.getFieldConfig(name) ?? configuration.getConfig().schemaConfig
 
   /**
    * 为 Schema 校验与手动规则构造同一份元数据。
@@ -115,7 +96,7 @@ export function createFormRules<TValues extends Values>(
    */
   const createFieldValidationConfig = <TName extends NamePath<TValues>>(
     name: TName,
-    context: ResolvedFieldSchema<TValues> | undefined
+    context: RuntimeFieldConfig<TValues> | undefined
   ): FieldValidationConfig<TValues, TName> => ({
     name,
     label: context?.label ?? "",
@@ -130,7 +111,9 @@ export function createFormRules<TValues extends Values>(
 
   // 手动规则覆盖复用与显式校验相同的字段元数据解析。
   const setFieldRules: FormRulesApi<TValues>["setFieldRules"] = (name, rules) => {
-    validator.setFieldConfig(createFieldValidationConfig(name, getSchemaContext(name)))
+    validator.setFieldConfig(
+      createFieldValidationConfig(name, fields.getFieldConfig(name))
+    )
     validator.setManualFieldRules(name, rules)
   }
 
@@ -173,7 +156,7 @@ export function createFormRules<TValues extends Values>(
    * @param name - 要校验的当前字段路径。
    */
   const updateFieldConfig = (name: NamePath<TValues>): void => {
-    const context = getSchemaContext(name)
+    const context = fields.getFieldConfig(name)
 
     if (context) {
       validator.setFieldConfig(createFieldValidationConfig(name, context))

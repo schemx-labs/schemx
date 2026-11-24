@@ -54,6 +54,9 @@ export interface SchemxDependencyField<
   to: TNames
   /**
    * 动态列配置生成函数
+   *
+   * 执行期间通过传入的 form 调用 validate 或 validateField，会立即返回
+   * `dependency_validation_reentry`。需要最终校验时，在依赖完成后从表单实例调用。
    */
   renderer: (
     values: TValues,

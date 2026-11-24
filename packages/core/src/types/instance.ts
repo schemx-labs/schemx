@@ -30,9 +30,9 @@ import type {
   RendererEntry,
 } from "../registry"
 import type { RendererComponentOnly } from "../registry/rendererRegistry"
+import type { SchemxViewSchema } from "../runtime/view"
 import type { StorePending } from "../store"
 import type { ValidationResult } from "../validator"
-import type { SchemxViewSchema } from "../view"
 
 /**
  * 框架层为表单实例追加方法的声明合并入口。
@@ -599,7 +599,7 @@ export type SchemxInstance<TValues extends Values = Values> = {
   setSchemas: (schemas: SchemxField<TValues>[]) => void
 
   /**
-   * 基于当前 root schemas 派生下一版 schemas。
+   * 基于当前 root schemas 派生下一版 schemas。当前输入被本表单拒绝时，从最近成功提交的列表派生。
    *
    * @param updater - 接收当前 schemas 并返回下一版 schemas 的函数
    */

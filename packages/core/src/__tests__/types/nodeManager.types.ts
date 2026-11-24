@@ -1,6 +1,6 @@
-import { createNodeManager } from "../../node"
+import { createNodeManager } from "../../runtime/node"
 
-import type { NodePathUpdate } from "../../node"
+import type { NodePathUpdate } from "../../runtime/node"
 
 // 节点路径 API 保留表单值类型，不放宽为任意字符串。
 interface FormValues {

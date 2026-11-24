@@ -1,4 +1,7 @@
+import { isEqual } from "es-toolkit/compat"
+
 import { collectObjectPathsByLeaf, diff } from "../utils"
+import { visitObjectLeaves } from "../utils/path"
 
 import type { Store } from "../store"
 import type { NamePath, SchemxInstance, Values } from "../types"
@@ -24,6 +27,34 @@ export interface FormObserverCallbacks<
    * 叶子字段路径发生变化时触发。
    */
   onFieldsChange?: (changedFields: TName[], allFields: TName[]) => void
+}
+
+/**
+ * 收集可能变化的顶层分支中的叶子，同时保留实际存在的 undefined。
+ * @param snapshot - 要读取叶子的当前或上一轮快照。
+ * @param other - 用于判断顶层属性是否增删的另一份快照。
+ * @param changed - 现有 onValuesChange 使用的顶层差异。
+ */
+function collectChangedBranchLeaves<TValues extends Values>(
+  snapshot: TValues,
+  other: TValues,
+  changed: Partial<TValues>
+): Map<string, unknown> {
+  // 只展开有变化的顶层分支，避免遍历表单的其他子树。
+  const branches = Object.fromEntries(
+    // key 为快照的顶层属性。
+    Object.entries(snapshot).filter(
+      ([key]) => Object.hasOwn(changed, key) || !Object.hasOwn(other, key)
+    )
+  )
+
+  // 完整路径关联该快照中实际存在的叶子值。
+  const leaves = new Map<string, unknown>()
+
+  // path 为完整字段路径，value 为该快照中的实际叶子值。
+  visitObjectLeaves(branches, (path, value) => leaves.set(path, value))
+
+  return leaves
 }
 
 /**
@@ -70,17 +101,47 @@ export function createFormObserver<
     // 只向回调报告本轮发生变化的值。
     const changedValues = diff(latestSnapshot, prevSnapshot)
 
-    // 将对象差异转换为叶子字段路径。
-    const changedPaths = collectObjectPathsByLeaf<TValues, TName>(changedValues)
+    // 字段变化按叶子比较，值回调继续接收原有顶层变化片段。
+    const changedPaths: TName[] = []
+
+    if (callbacks.onFieldsChange) {
+      // 前后快照中的受影响叶子，查不到键表示路径不存在。
+      const previousLeaves = collectChangedBranchLeaves(
+        prevSnapshot,
+        latestSnapshot,
+        changedValues
+      )
+
+      const latestLeaves = collectChangedBranchLeaves(
+        latestSnapshot,
+        prevSnapshot,
+        changedValues
+      )
+
+      for (const [path, value] of latestLeaves) {
+        if (!previousLeaves.has(path) || !isEqual(previousLeaves.get(path), value)) {
+          changedPaths.push(path as TName)
+        }
+      }
+
+      for (const path of previousLeaves.keys()) {
+        if (!latestLeaves.has(path)) {
+          changedPaths.push(path as TName)
+        }
+      }
+    }
+
+    // 回调可再次写值，先记录本轮已交付的基准。
+    prevSnapshot = latestSnapshot
+    if (callbacks.onValuesChange && collectObjectPathsByLeaf(changedValues).length > 0) {
+      callbacks.onValuesChange(changedValues, latestSnapshot)
+    }
 
     if (changedPaths.length > 0) {
-      callbacks.onValuesChange?.(changedValues, latestSnapshot)
       callbacks.onFieldsChange?.(
         changedPaths,
         collectObjectPathsByLeaf<TValues, TName>(latestSnapshot)
       )
     }
-
-    prevSnapshot = latestSnapshot
   })
 }
